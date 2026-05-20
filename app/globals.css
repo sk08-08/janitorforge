@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -21,8 +21,8 @@
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.28 0.02 280);
-  --input: oklch(0.2 0.015 280);
+  --border: oklch(0.36 0.03 280);
+  --input: oklch(0.28 0.03 280);
   --ring: oklch(0.65 0.25 295);
   --chart-1: oklch(0.65 0.25 295);
   --chart-2: oklch(0.6 0.2 180);
@@ -63,8 +63,8 @@
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.28 0.02 280);
-  --input: oklch(0.2 0.015 280);
+  --border: oklch(0.36 0.03 280);
+  --input: oklch(0.28 0.03 280);
   --ring: oklch(0.65 0.25 295);
   --chart-1: oklch(0.65 0.25 295);
   --chart-2: oklch(0.6 0.2 180);
@@ -87,8 +87,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback', system-ui, sans-serif;
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  --font-sans: "Geist", "Geist Fallback", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
