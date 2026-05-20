@@ -100,25 +100,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
 
-        // Fetch bots
-        const { data: botsData, error: botsError } = await supabase
-          .from("bots")
-          .select("*");
-        if (botsError) throw botsError;
+        // Get current authenticated user; if not authenticated, do not fetch private data.
+        const {
+          data: { user },
+          error: userErr,
+        } = await supabase.auth.getUser();
 
-        // Fetch forms
-        const { data: formsData, error: formsError } = await supabase
-          .from("request_forms")
-          .select("*");
-        if (formsError) throw formsError;
-
-        // Fetch requests
-        const { data: requestsData, error: requestsError } = await supabase
-          .from("requests")
-          .select("*");
-        if (requestsError) throw requestsError;
+        if (userErr) throw userErr;
 
         if (!mounted) return;
+
+        if (!user) {
+          // Not signed in: don't fetch or expose any user-scoped lists.
+          setBots([]);
+          setForms([]);
+          setRequests([]);
+          return;
+        }
+
+        // Fetch only data belonging to the authenticated user
+        const [
+          { data: botsData, error: botsError },
+          { data: formsData, error: formsError },
+          { data: requestsData, error: requestsError },
+        ] = await Promise.all([
+          supabase.from("bots").select("*").eq("user_id", user.id),
+          supabase.from("request_forms").select("*").eq("user_id", user.id),
+          supabase.from("requests").select("*").eq("user_id", user.id),
+        ]);
+
+        if (botsError) throw botsError;
+        if (formsError) throw formsError;
+        if (requestsError) throw requestsError;
 
         // Map rows to app types
         if (Array.isArray(botsData) && botsData.length > 0) {
@@ -171,16 +184,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             })),
           );
         }
-
-        // If nothing was returned (empty DB), leave lists empty — components must show empty states.
       } catch (err: unknown) {
-        // If anything goes wrong (no env, network, or permissions), use sample data
+        // If anything goes wrong (no env, network, or permissions), log and leave store empty
         const msg =
           typeof err === "object" && err !== null && "message" in err
             ? (err as any).message
             : String(err);
         console.info("Supabase load failed:", msg);
-        // Leave store empty; components should render empty states when no data is available.
+        setBots([]);
+        setForms([]);
+        setRequests([]);
       }
     }
 

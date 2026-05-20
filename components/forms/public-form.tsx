@@ -167,10 +167,22 @@ function renderMarkdownForDescription(md?: string | null) {
       txt,
     )}</a>`;
   });
-  out = out.replace(/\*\*(.+?)\*\*(?!\*)/g, (_, content) => `<strong>${escapeHtml(content)}</strong>`);
-  out = out.replace(/__(.+?)__/g, (_, content) => `<strong>${escapeHtml(content)}</strong>`);
-  out = out.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, (_, content) => `<em>${escapeHtml(content)}</em>`);
-  out = out.replace(/_([^_]+?)_/g, (_, content) => `<em>${escapeHtml(content)}</em>`);
+  out = out.replace(
+    /\*\*(.+?)\*\*(?!\*)/g,
+    (_, content) => `<strong>${escapeHtml(content)}</strong>`,
+  );
+  out = out.replace(
+    /__(.+?)__/g,
+    (_, content) => `<strong>${escapeHtml(content)}</strong>`,
+  );
+  out = out.replace(
+    /(?<!\*)\*([^*]+?)\*(?!\*)/g,
+    (_, content) => `<em>${escapeHtml(content)}</em>`,
+  );
+  out = out.replace(
+    /_([^_]+?)_/g,
+    (_, content) => `<em>${escapeHtml(content)}</em>`,
+  );
   const lines = out.split(/\r?\n/);
   let result = "";
   let inList = false;
@@ -235,6 +247,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import type { FormField, FormSection } from "@/lib/types";
 
 interface PublicFormProps {
@@ -244,6 +258,7 @@ interface PublicFormProps {
     description?: string | null;
     isActive: boolean;
     sections: FormSection[];
+    userId?: string | null;
   };
 }
 
@@ -527,7 +542,11 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
           <summary className={`cursor-pointer p-4 ${alignClass}`}>
             <span
               dangerouslySetInnerHTML={{
-                __html: renderMarkdownInline(section.title) + (hasRequiredFields ? ' <span class="text-destructive">*</span>' : ''),
+                __html:
+                  renderMarkdownInline(section.title) +
+                  (hasRequiredFields
+                    ? ' <span class="text-destructive">*</span>'
+                    : ""),
               }}
             />
             {section.description && (
@@ -589,7 +608,11 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
         <CardTitle className={alignClass}>
           <span
             dangerouslySetInnerHTML={{
-              __html: renderMarkdownInline(section.title) + (hasRequiredFields ? ' <span class="text-destructive">*</span>' : ''),
+              __html:
+                renderMarkdownInline(section.title) +
+                (hasRequiredFields
+                  ? ' <span class="text-destructive">*</span>'
+                  : ""),
             }}
           />
         </CardTitle>
@@ -680,10 +703,40 @@ export default function PublicForm({ form }: PublicFormProps) {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-    console.log("Form submitted:", values);
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+
+    try {
+      const supabase = createClient();
+
+      const payload: any = {
+        form_id: form.id,
+        user_id: form.userId ?? null,
+        form_title: form.title,
+        responses: values,
+        submitter_name:
+          typeof values["name"] === "string" ? values["name"] : null,
+      };
+
+      const { data, error } = await supabase
+        .from("requests")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Failed to save request:", error);
+        toast.error("Failed to submit request. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      console.log("Request saved:", data);
+      setIsSubmitting(false);
+      setIsSubmitted(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to submit request. Please try again.");
+      setIsSubmitting(false);
+    }
   };
 
   if (!form || !form.isActive) {
@@ -712,7 +765,7 @@ export default function PublicForm({ form }: PublicFormProps) {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="container max-w-2xl py-8">
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/20">

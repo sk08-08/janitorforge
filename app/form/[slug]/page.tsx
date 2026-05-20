@@ -37,6 +37,7 @@ export default async function PublicFormPage({
       description: formData.description,
       isActive: !!formData.is_active,
       sections: (formData.sections || []) as FormSection[],
+      userId: formData.user_id,
     };
 
     return <PublicForm form={form} />;
