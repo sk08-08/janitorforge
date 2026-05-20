@@ -1,83 +1,90 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Hammer, Loader2 } from 'lucide-react'
-import { loginWithPin, registerUser } from '@/app/actions/auth'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Hammer, Loader2 } from "lucide-react";
+import { loginWithPin, registerUser } from "@/app/actions/auth";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-  
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
   // Login form
-  const [loginUsername, setLoginUsername] = useState('')
-  const [loginPin, setLoginPin] = useState('')
-  
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPin, setLoginPin] = useState("");
+
   // Register form
-  const [regUsername, setRegUsername] = useState('')
-  const [regPin, setRegPin] = useState('')
-  const [regPinConfirm, setRegPinConfirm] = useState('')
+  const [regUsername, setRegUsername] = useState("");
+  const [regPin, setRegPin] = useState("");
+  const [regPinConfirm, setRegPinConfirm] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setIsLoading(true)
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
-    const result = await loginWithPin(loginUsername, loginPin)
-    
+    const result = await loginWithPin(loginUsername, loginPin);
+
     if (result.success) {
-      router.push('/')
-      router.refresh()
+      router.push("/");
+      router.refresh();
     } else {
-      setError(result.error || 'Error al iniciar sesion')
+      setError(result.error || "Error al iniciar sesion");
     }
-    
-    setIsLoading(false)
-  }
+
+    setIsLoading(false);
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    setError("");
 
     if (regPin !== regPinConfirm) {
-      setError('Los PINs no coinciden')
-      return
+      setError("Los PINs no coinciden");
+      return;
     }
 
     if (regPin.length !== 4 || !/^\d+$/.test(regPin)) {
-      setError('El PIN debe ser de 4 digitos numericos')
-      return
+      setError("El PIN debe ser de 4 digitos numericos");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
-    const result = await registerUser(regUsername, regPin)
-    
+    const result = await registerUser(regUsername, regPin);
+
     if (result.success) {
       // Auto login after register
-      const loginResult = await loginWithPin(regUsername, regPin)
+      const loginResult = await loginWithPin(regUsername, regPin);
       if (loginResult.success) {
-        router.push('/')
-        router.refresh()
+        router.push("/");
+        router.refresh();
       }
     } else {
-      setError(result.error || 'Error al registrar')
+      setError(result.error || "Error al registrar");
     }
-    
-    setIsLoading(false)
-  }
+
+    setIsLoading(false);
+  };
 
   const handlePinInput = (value: string, setter: (v: string) => void) => {
     // Only allow digits, max 4
-    const cleaned = value.replace(/\D/g, '').slice(0, 4)
-    setter(cleaned)
-  }
+    const cleaned = value.replace(/\D/g, "").slice(0, 4);
+    setter(cleaned);
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -88,15 +95,17 @@ export default function LoginPage() {
             <Hammer className="h-8 w-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">JanitorForge</h1>
-          <p className="text-sm text-muted-foreground">Panel de creadores de bots</p>
+          <p className="text-sm text-muted-foreground">
+            Bot creators control panel
+          </p>
         </div>
 
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <Tabs defaultValue="login">
             <CardHeader className="pb-4">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Iniciar Sesion</TabsTrigger>
-                <TabsTrigger value="register">Registrarse</TabsTrigger>
+                <TabsTrigger value="login">Sign In</TabsTrigger>
+                <TabsTrigger value="register">Register</TabsTrigger>
               </TabsList>
             </CardHeader>
 
@@ -104,15 +113,15 @@ export default function LoginPage() {
               <form onSubmit={handleLogin}>
                 <CardContent className="space-y-4">
                   <CardDescription className="text-center">
-                    Ingresa tu usuario y PIN de 4 digitos
+                    Enter your username and 4-digit PIN
                   </CardDescription>
-                  
+
                   <div className="space-y-2">
-                    <Label htmlFor="login-username">Usuario</Label>
+                    <Label htmlFor="login-username">Username</Label>
                     <Input
                       id="login-username"
                       type="text"
-                      placeholder="tu_usuario"
+                      placeholder="username"
                       value={loginUsername}
                       onChange={(e) => setLoginUsername(e.target.value)}
                       autoComplete="username"
@@ -128,7 +137,9 @@ export default function LoginPage() {
                       inputMode="numeric"
                       placeholder="****"
                       value={loginPin}
-                      onChange={(e) => handlePinInput(e.target.value, setLoginPin)}
+                      onChange={(e) =>
+                        handlePinInput(e.target.value, setLoginPin)
+                      }
                       maxLength={4}
                       className="text-center text-2xl tracking-[0.5em]"
                       autoComplete="current-password"
@@ -137,23 +148,27 @@ export default function LoginPage() {
                   </div>
 
                   {error && (
-                    <p className="text-center text-sm text-destructive">{error}</p>
+                    <p className="text-center text-sm text-destructive">
+                      {error}
+                    </p>
                   )}
                 </CardContent>
 
-                <CardFooter>
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isLoading || !loginUsername || loginPin.length !== 4}
+                <CardFooter className="py-4">
+                  <Button
+                    type="submit"
+                    className="w-full cursor-pointer"
+                    disabled={
+                      isLoading || !loginUsername || loginPin.length !== 4
+                    }
                   >
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Entrando...
+                        Signing in...
                       </>
                     ) : (
-                      'Entrar'
+                      "Sign In"
                     )}
                   </Button>
                 </CardFooter>
@@ -164,15 +179,15 @@ export default function LoginPage() {
               <form onSubmit={handleRegister}>
                 <CardContent className="space-y-4">
                   <CardDescription className="text-center">
-                    Crea tu cuenta con un PIN de 4 digitos
+                    Create your account with a 4-digit PIN
                   </CardDescription>
-                  
+
                   <div className="space-y-2">
-                    <Label htmlFor="reg-username">Usuario</Label>
+                    <Label htmlFor="reg-username">Username</Label>
                     <Input
                       id="reg-username"
                       type="text"
-                      placeholder="tu_usuario"
+                      placeholder="username"
                       value={regUsername}
                       onChange={(e) => setRegUsername(e.target.value)}
                       autoComplete="username"
@@ -188,7 +203,9 @@ export default function LoginPage() {
                       inputMode="numeric"
                       placeholder="****"
                       value={regPin}
-                      onChange={(e) => handlePinInput(e.target.value, setRegPin)}
+                      onChange={(e) =>
+                        handlePinInput(e.target.value, setRegPin)
+                      }
                       maxLength={4}
                       className="text-center text-2xl tracking-[0.5em]"
                       autoComplete="new-password"
@@ -197,14 +214,16 @@ export default function LoginPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="reg-pin-confirm">Confirmar PIN</Label>
+                    <Label htmlFor="reg-pin-confirm">Confirm PIN</Label>
                     <Input
                       id="reg-pin-confirm"
                       type="password"
                       inputMode="numeric"
                       placeholder="****"
                       value={regPinConfirm}
-                      onChange={(e) => handlePinInput(e.target.value, setRegPinConfirm)}
+                      onChange={(e) =>
+                        handlePinInput(e.target.value, setRegPinConfirm)
+                      }
                       maxLength={4}
                       className="text-center text-2xl tracking-[0.5em]"
                       autoComplete="new-password"
@@ -213,23 +232,30 @@ export default function LoginPage() {
                   </div>
 
                   {error && (
-                    <p className="text-center text-sm text-destructive">{error}</p>
+                    <p className="text-center text-sm text-destructive">
+                      {error}
+                    </p>
                   )}
                 </CardContent>
 
-                <CardFooter>
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isLoading || !regUsername || regPin.length !== 4 || regPinConfirm.length !== 4}
+                <CardFooter className="py-4">
+                  <Button
+                    type="submit"
+                    className="w-full cursor-pointer"
+                    disabled={
+                      isLoading ||
+                      !regUsername ||
+                      regPin.length !== 4 ||
+                      regPinConfirm.length !== 4
+                    }
                   >
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Registrando...
+                        Registering...
                       </>
                     ) : (
-                      'Crear Cuenta'
+                      "Create Account"
                     )}
                   </Button>
                 </CardFooter>
@@ -237,11 +263,7 @@ export default function LoginPage() {
             </TabsContent>
           </Tabs>
         </Card>
-
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Usuario de prueba: <span className="font-mono">admin</span> / PIN: <span className="font-mono">1234</span>
-        </p>
       </div>
     </div>
-  )
+  );
 }
