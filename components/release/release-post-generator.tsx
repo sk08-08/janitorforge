@@ -3,93 +3,77 @@
 // Tool for generating formatted release announcements
 // ============================================================================
 
-"use client";
+'use client'
 
-import { useState, useMemo } from "react";
-import {
-  Megaphone,
-  Copy,
+import { useState, useMemo } from 'react'
+import { 
+  Megaphone, 
+  Copy, 
   Bot as BotIcon,
   Hash,
   Eye,
   Settings2,
   CheckCircle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { useStore } from "@/lib/store";
-import { generateReleasePost, countBotTokens } from "@/lib/bot-utils";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import type { Bot } from "@/lib/types";
+} from '@/components/ui/select'
+import { useStore } from '@/lib/store'
+import { generateReleasePost, countBotTokens } from '@/lib/bot-utils'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import type { Bot } from '@/lib/types'
 
 // ----------------------------------------------------------------------------
 // Platform Options
 // ----------------------------------------------------------------------------
 
-type Platform = "discord" | "reddit" | "general";
+type Platform = 'discord' | 'reddit' | 'general'
 
 const platforms: { id: Platform; label: string; description: string }[] = [
-  {
-    id: "discord",
-    label: "Discord",
-    description: "Markdown formatting for Discord",
-  },
-  { id: "reddit", label: "Reddit", description: "Reddit-style markdown" },
-  {
-    id: "general",
-    label: "General",
-    description: "Plain markdown for other platforms",
-  },
-];
+  { id: 'discord', label: 'Discord', description: 'Markdown formatting for Discord' },
+  { id: 'reddit', label: 'Reddit', description: 'Reddit-style markdown' },
+  { id: 'general', label: 'General', description: 'Plain markdown for other platforms' },
+]
 
 // ----------------------------------------------------------------------------
 // Bot Selector Card
 // ----------------------------------------------------------------------------
 
 interface BotSelectorProps {
-  bot: Bot;
-  isSelected: boolean;
-  onSelect: () => void;
+  bot: Bot
+  isSelected: boolean
+  onSelect: () => void
 }
 
 function BotSelectorCard({ bot, isSelected, onSelect }: BotSelectorProps) {
-  const tokenCount = useMemo(() => countBotTokens(bot), [bot]);
+  const tokenCount = useMemo(() => countBotTokens(bot), [bot])
 
   return (
-    <Card
+    <Card 
       className={cn(
-        "cursor-pointer transition-all hover:border-primary/50",
-        isSelected && "border-primary bg-primary/5 ring-1 ring-primary/20",
+        'cursor-pointer transition-all hover:border-primary/50',
+        isSelected && 'border-primary bg-primary/5 ring-1 ring-primary/20'
       )}
       onClick={onSelect}
     >
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-              isSelected ? "bg-primary text-primary-foreground" : "bg-muted",
-            )}
-          >
+          <div className={cn(
+            'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+            isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted'
+          )}>
             {isSelected ? (
               <CheckCircle className="h-5 w-5" />
             ) : (
@@ -99,15 +83,12 @@ function BotSelectorCard({ bot, isSelected, onSelect }: BotSelectorProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h4 className="font-medium truncate">{bot.name}</h4>
-              <Badge
-                variant={bot.rating === "SFW" ? "secondary" : "destructive"}
-                className="shrink-0"
-              >
+              <Badge variant={bot.rating === 'SFW' ? 'secondary' : 'destructive'} className="shrink-0">
                 {bot.rating}
               </Badge>
             </div>
             <p className="mt-1 text-sm text-muted-foreground line-clamp-1">
-              {bot.shortDescription || "No description"}
+              {bot.shortDescription || 'No description'}
             </p>
             <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -115,13 +96,13 @@ function BotSelectorCard({ bot, isSelected, onSelect }: BotSelectorProps) {
                 {tokenCount.toLocaleString()} tokens
               </span>
               <span>|</span>
-              <span>{bot.tags.slice(0, 2).join(", ")}</span>
+              <span>{bot.tags.slice(0, 2).join(', ')}</span>
             </div>
           </div>
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ----------------------------------------------------------------------------
@@ -129,51 +110,39 @@ function BotSelectorCard({ bot, isSelected, onSelect }: BotSelectorProps) {
 // ----------------------------------------------------------------------------
 
 interface PostPreviewProps {
-  content: string;
-  platform: Platform;
+  content: string
+  platform: Platform
 }
 
 function PostPreview({ content, platform }: PostPreviewProps) {
   // Simple markdown preview - convert basic markdown to styled elements
   const formattedContent = useMemo(() => {
-    let html = content;
-
+    let html = content
+    
     // Headers
-    html = html.replace(
-      /^# (.+)$/gm,
-      '<h1 class="text-2xl font-bold mb-2">$1</h1>',
-    );
-    html = html.replace(
-      /^## (.+)$/gm,
-      '<h2 class="text-xl font-semibold mb-2">$1</h2>',
-    );
-
+    html = html.replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold mb-2">$1</h1>')
+    html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-semibold mb-2">$1</h2>')
+    
     // Bold
-    html = html.replace(
-      /\*\*(.+?)\*\*/g,
-      '<strong class="font-semibold">$1</strong>',
-    );
-
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+    
     // Italic
-    html = html.replace(/\*(.+?)\*/g, '<em class="italic">$1</em>');
-
+    html = html.replace(/\*(.+?)\*/g, '<em class="italic">$1</em>')
+    
     // Code blocks
-    html = html.replace(
-      /```/g,
-      '<div class="border-t border-b border-border my-2 py-2">',
-    );
-
+    html = html.replace(/```/g, '<div class="border-t border-b border-border my-2 py-2">')
+    
     // Lists
-    html = html.replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>');
-
+    html = html.replace(/^- (.+)$/gm, '<li class="ml-4">$1</li>')
+    
     // Line breaks
-    html = html.replace(/\n/g, "<br />");
-
+    html = html.replace(/\n/g, '<br />')
+    
     // Hashtags
-    html = html.replace(/#(\w+)/g, '<span class="text-primary">#$1</span>');
-
-    return html;
-  }, [content]);
+    html = html.replace(/#(\w+)/g, '<span class="text-primary">#$1</span>')
+    
+    return html
+  }, [content])
 
   return (
     <Card className="h-full">
@@ -183,21 +152,19 @@ function PostPreview({ content, platform }: PostPreviewProps) {
             <Eye className="h-4 w-4" />
             Preview
           </CardTitle>
-          <Badge variant="outline">
-            {platforms.find((p) => p.id === platform)?.label}
-          </Badge>
+          <Badge variant="outline">{platforms.find(p => p.id === platform)?.label}</Badge>
         </div>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[400px] rounded-lg bg-muted/30 p-4">
-          <div
+          <div 
             className="prose prose-sm dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: formattedContent }}
           />
         </ScrollArea>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ----------------------------------------------------------------------------
@@ -205,8 +172,8 @@ function PostPreview({ content, platform }: PostPreviewProps) {
 // ----------------------------------------------------------------------------
 
 function EmptyState() {
-  const { setCurrentView } = useStore();
-
+  const { setCurrentView } = useStore()
+  
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
@@ -214,15 +181,17 @@ function EmptyState() {
       </div>
       <h3 className="mt-6 text-xl font-semibold">No bots to announce</h3>
       <p className="mt-2 max-w-sm text-muted-foreground">
-        Create some bots first, then come back here to generate release posts
-        for them.
+        Create some bots first, then come back here to generate release posts for them.
       </p>
-      <Button className="mt-6" onClick={() => setCurrentView("bots")}>
+      <Button 
+        className="mt-6" 
+        onClick={() => setCurrentView('bots')}
+      >
         <BotIcon className="mr-2 h-4 w-4" />
         Go to Bot Manager
       </Button>
     </div>
-  );
+  )
 }
 
 // ----------------------------------------------------------------------------
@@ -230,46 +199,42 @@ function EmptyState() {
 // ----------------------------------------------------------------------------
 
 export function ReleasePostGenerator() {
-  const { bots } = useStore();
-
+  const { bots } = useStore()
+  
   // State
-  const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
-  const [platform, setPlatform] = useState<Platform>("discord");
-  const [includeStats, setIncludeStats] = useState(true);
-  const [includePreview, setIncludePreview] = useState(true);
+  const [selectedBotId, setSelectedBotId] = useState<string | null>(null)
+  const [platform, setPlatform] = useState<Platform>('discord')
+  const [includeStats, setIncludeStats] = useState(true)
+  const [includePreview, setIncludePreview] = useState(true)
 
   // Get selected bot
-  const selectedBot = selectedBotId
-    ? bots.find((b) => b.id === selectedBotId)
-    : null;
+  const selectedBot = selectedBotId ? bots.find(b => b.id === selectedBotId) : null
 
   // Generate post content
   const postContent = useMemo(() => {
-    if (!selectedBot) return "";
+    if (!selectedBot) return ''
     return generateReleasePost(selectedBot, {
       platform,
       includeStats,
       includePreview,
-    });
-  }, [selectedBot, platform, includeStats, includePreview]);
+    })
+  }, [selectedBot, platform, includeStats, includePreview])
 
   // Copy to clipboard
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(postContent);
-      toast.success("Post copied to clipboard!");
+      await navigator.clipboard.writeText(postContent)
+      toast.success('Post copied to clipboard!')
     } catch {
-      toast.error("Failed to copy post");
+      toast.error('Failed to copy post')
     }
-  };
+  }
 
   if (bots.length === 0) {
     return (
-      <div className="p-8 lg:p-10">
+      <div className="p-6 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Release Post Generator
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight">Release Post Generator</h1>
           <p className="mt-1 text-muted-foreground">
             Generate beautifully formatted release announcements for your bots
           </p>
@@ -278,16 +243,14 @@ export function ReleasePostGenerator() {
           <EmptyState />
         </Card>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="p-8 lg:p-10">
+    <div className="p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Release Post Generator
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight">Release Post Generator</h1>
         <p className="mt-1 text-muted-foreground">
           Generate beautifully formatted release announcements for your bots
         </p>
@@ -332,10 +295,7 @@ export function ReleasePostGenerator() {
               {/* Platform */}
               <div className="space-y-2">
                 <Label>Platform</Label>
-                <Tabs
-                  value={platform}
-                  onValueChange={(v) => setPlatform(v as Platform)}
-                >
+                <Tabs value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
                   <TabsList className="grid w-full grid-cols-3">
                     {platforms.map((p) => (
                       <TabsTrigger key={p.id} value={p.id}>
@@ -345,7 +305,7 @@ export function ReleasePostGenerator() {
                   </TabsList>
                 </Tabs>
                 <p className="text-xs text-muted-foreground">
-                  {platforms.find((p) => p.id === platform)?.description}
+                  {platforms.find(p => p.id === platform)?.description}
                 </p>
               </div>
 
@@ -381,7 +341,11 @@ export function ReleasePostGenerator() {
           {selectedBot ? (
             <>
               <PostPreview content={postContent} platform={platform} />
-              <Button className="w-full" size="lg" onClick={handleCopy}>
+              <Button 
+                className="w-full" 
+                size="lg"
+                onClick={handleCopy}
+              >
                 <Copy className="mr-2 h-4 w-4" />
                 Copy to Clipboard
               </Button>
@@ -397,5 +361,5 @@ export function ReleasePostGenerator() {
         </div>
       </div>
     </div>
-  );
+  )
 }

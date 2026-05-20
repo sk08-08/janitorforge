@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS public.bots (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
-  chat_name TEXT,
   short_description TEXT NOT NULL,
   personality TEXT NOT NULL,
   first_message TEXT NOT NULL,

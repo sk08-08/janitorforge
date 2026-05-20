@@ -3,145 +3,108 @@
 // Advanced bot creation and editing form with validation
 // ============================================================================
 
-"use client";
+'use client'
 
-import { useState, useCallback } from "react";
-import { X, Plus, Upload, Download, Save, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Separator } from "@/components/ui/separator";
-import { TokenCounter, TokenSummary } from "./token-counter";
-import { cn } from "@/lib/utils";
-import type { BotFormData } from "@/lib/types";
-import {
-  exportCharacterCardPNG,
-  importCharacterCardPNG,
-  characterCardToBot,
-} from "@/lib/bot-utils";
-import { toast } from "sonner";
+import { useState, useCallback } from 'react'
+import { X, Plus, Upload, Download, Save, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Separator } from '@/components/ui/separator'
+import { TokenCounter, TokenSummary } from './token-counter'
+import { cn } from '@/lib/utils'
+import type { BotFormData } from '@/lib/types'
+import { 
+  exportCharacterCardPNG, 
+  importCharacterCardPNG, 
+  characterCardToBot 
+} from '@/lib/bot-utils'
+import { toast } from 'sonner'
 
 // ----------------------------------------------------------------------------
 // Bot Form Props
 // ----------------------------------------------------------------------------
 
 interface BotFormProps {
-  initialData?: Partial<BotFormData>;
-  onSubmit: (data: BotFormData) => void;
-  onCancel: () => void;
-  onDelete?: () => void;
-  isEditing?: boolean;
+  initialData?: Partial<BotFormData>
+  onSubmit: (data: BotFormData) => void
+  onCancel: () => void
+  onDelete?: () => void
+  isEditing?: boolean
 }
 
 // ----------------------------------------------------------------------------
 // Bot Form Component
 // ----------------------------------------------------------------------------
 
-export function BotForm({
-  initialData,
-  onSubmit,
-  onCancel,
+export function BotForm({ 
+  initialData, 
+  onSubmit, 
+  onCancel, 
   onDelete,
-  isEditing = false,
+  isEditing = false 
 }: BotFormProps) {
   // Form state
-  const [name, setName] = useState(initialData?.name || "");
-  const [chatName, setChatName] = useState(initialData?.chatName || "");
-  const [shortDescription, setShortDescription] = useState(
-    initialData?.shortDescription || "",
-  );
-  const [personality, setPersonality] = useState(
-    initialData?.personality || "",
-  );
-  const [firstMessage, setFirstMessage] = useState(
-    initialData?.firstMessage || "",
-  );
-  const [scenario, setScenario] = useState(initialData?.scenario || "");
-  const [exampleDialogues, setExampleDialogues] = useState(
-    initialData?.exampleDialogues || "",
-  );
-  const [tags, setTags] = useState<string[]>(initialData?.tags || []);
-  const [rating, setRating] = useState<"SFW" | "NSFW">(
-    initialData?.rating || "SFW",
-  );
-  const [tagInput, setTagInput] = useState("");
+  const [name, setName] = useState(initialData?.name || '')
+  const [shortDescription, setShortDescription] = useState(initialData?.shortDescription || '')
+  const [personality, setPersonality] = useState(initialData?.personality || '')
+  const [firstMessage, setFirstMessage] = useState(initialData?.firstMessage || '')
+  const [scenario, setScenario] = useState(initialData?.scenario || '')
+  const [exampleDialogues, setExampleDialogues] = useState(initialData?.exampleDialogues || '')
+  const [tags, setTags] = useState<string[]>(initialData?.tags || [])
+  const [rating, setRating] = useState<'SFW' | 'NSFW'>(initialData?.rating || 'SFW')
+  const [tagInput, setTagInput] = useState('')
 
   // Tag management
   const addTag = useCallback(() => {
-    const trimmedTag = tagInput.trim();
+    const trimmedTag = tagInput.trim()
     if (trimmedTag && !tags.includes(trimmedTag)) {
-      setTags([...tags, trimmedTag]);
-      setTagInput("");
+      setTags([...tags, trimmedTag])
+      setTagInput('')
     }
-  }, [tagInput, tags]);
+  }, [tagInput, tags])
 
-  const removeTag = useCallback(
-    (tagToRemove: string) => {
-      setTags(tags.filter((t) => t !== tagToRemove));
-    },
-    [tags],
-  );
+  const removeTag = useCallback((tagToRemove: string) => {
+    setTags(tags.filter(t => t !== tagToRemove))
+  }, [tags])
 
-  const handleTagKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        addTag();
-      }
-    },
-    [addTag],
-  );
+  const handleTagKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      addTag()
+    }
+  }, [addTag])
 
   // Form submission
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!name.trim()) {
+      toast.error('Bot name is required')
+      return
+    }
 
-      if (!name.trim()) {
-        toast.error("Bot name is required");
-        return;
-      }
-
-      onSubmit({
-        name: name.trim(),
-        chatName: chatName.trim() || undefined,
-        shortDescription: shortDescription.trim(),
-        personality,
-        firstMessage,
-        scenario,
-        exampleDialogues,
-        tags,
-        rating,
-      });
-    },
-    [
-      name,
-      shortDescription,
+    onSubmit({
+      name: name.trim(),
+      shortDescription: shortDescription.trim(),
       personality,
       firstMessage,
       scenario,
       exampleDialogues,
       tags,
       rating,
-      onSubmit,
-    ],
-  );
+    })
+  }, [name, shortDescription, personality, firstMessage, scenario, exampleDialogues, tags, rating, onSubmit])
 
   // Export character card
   const handleExport = useCallback(async () => {
     try {
       const blob = await exportCharacterCardPNG({
-        id: "export",
+        id: 'export',
         name,
         shortDescription,
         personality,
@@ -152,66 +115,54 @@ export function BotForm({
         rating,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${name.replace(/\s+/g, "_")}_card.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      toast.success("Character card exported successfully!");
+      })
+      
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${name.replace(/\s+/g, '_')}_card.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast.success('Character card exported successfully!')
     } catch {
-      toast.error("Failed to export character card");
+      toast.error('Failed to export character card')
     }
-  }, [
-    name,
-    shortDescription,
-    personality,
-    firstMessage,
-    scenario,
-    exampleDialogues,
-    tags,
-    rating,
-  ]);
+  }, [name, shortDescription, personality, firstMessage, scenario, exampleDialogues, tags, rating])
 
   // Import character card
-  const handleImport = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const handleImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-      try {
-        const cardData = await importCharacterCardPNG(file);
-        if (cardData) {
-          const botData = characterCardToBot(cardData);
-          setName(botData.name);
-          setShortDescription(botData.shortDescription);
-          setPersonality(botData.personality);
-          setFirstMessage(botData.firstMessage);
-          setScenario(botData.scenario);
-          setExampleDialogues(botData.exampleDialogues);
-          setTags(botData.tags);
-          setRating(botData.rating);
-          toast.success("Character card imported successfully!");
-        } else {
-          toast.error("Could not read character data from this file");
-        }
-      } catch {
-        toast.error("Failed to import character card");
+    try {
+      const cardData = await importCharacterCardPNG(file)
+      if (cardData) {
+        const botData = characterCardToBot(cardData)
+        setName(botData.name)
+        setShortDescription(botData.shortDescription)
+        setPersonality(botData.personality)
+        setFirstMessage(botData.firstMessage)
+        setScenario(botData.scenario)
+        setExampleDialogues(botData.exampleDialogues)
+        setTags(botData.tags)
+        setRating(botData.rating)
+        toast.success('Character card imported successfully!')
+      } else {
+        toast.error('Could not read character data from this file')
       }
-
-      // Reset input
-      e.target.value = "";
-    },
-    [],
-  );
+    } catch {
+      toast.error('Failed to import character card')
+    }
+    
+    // Reset input
+    e.target.value = ''
+  }, [])
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 p-4 lg:p-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {/* Header Actions */}
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -225,8 +176,7 @@ export function BotForm({
           type="button"
           variant="outline"
           size="sm"
-          className="cursor-pointer"
-          onClick={() => document.getElementById("import-card")?.click()}
+          onClick={() => document.getElementById('import-card')?.click()}
         >
           <Upload className="mr-2 h-4 w-4" />
           Import Card V2
@@ -235,7 +185,6 @@ export function BotForm({
           type="button"
           variant="outline"
           size="sm"
-          className="cursor-pointer"
           onClick={handleExport}
           disabled={!name.trim()}
         >
@@ -265,17 +214,6 @@ export function BotForm({
             />
           </div>
 
-          {/* Chat/Display Name */}
-          <div className="space-y-2">
-            <Label htmlFor="chat-name">Character Chat Name</Label>
-            <Input
-              id="chat-name"
-              value={chatName}
-              onChange={(e) => setChatName(e.target.value)}
-              placeholder="Optional display name used in chat"
-            />
-          </div>
-
           {/* Short Description */}
           <div className="space-y-2">
             <Label htmlFor="short-description">Short Description</Label>
@@ -292,20 +230,16 @@ export function BotForm({
             <Label>Content Rating</Label>
             <RadioGroup
               value={rating}
-              onValueChange={(v) => setRating(v as "SFW" | "NSFW")}
+              onValueChange={(v) => setRating(v as 'SFW' | 'NSFW')}
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="SFW" id="sfw" />
-                <Label htmlFor="sfw" className="cursor-pointer">
-                  SFW
-                </Label>
+                <Label htmlFor="sfw" className="cursor-pointer">SFW</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="NSFW" id="nsfw" />
-                <Label htmlFor="nsfw" className="cursor-pointer">
-                  NSFW
-                </Label>
+                <Label htmlFor="nsfw" className="cursor-pointer">NSFW</Label>
               </div>
             </RadioGroup>
           </div>
@@ -320,20 +254,15 @@ export function BotForm({
                 onKeyDown={handleTagKeyDown}
                 placeholder="Add a tag..."
               />
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={addTag}
-                className="cursor-pointer"
-              >
+              <Button type="button" variant="secondary" onClick={addTag}>
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-2">
                 {tags.map((tag) => (
-                  <Badge
-                    key={tag}
+                  <Badge 
+                    key={tag} 
                     variant="secondary"
                     className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => removeTag(tag)}
@@ -353,8 +282,7 @@ export function BotForm({
         <CardHeader>
           <CardTitle>Character Definition</CardTitle>
           <CardDescription>
-            Define your bot&apos;s personality and behavior. Use {"{{char}}"}{" "}
-            and {"{{user}}"} variables.
+            Define your bot&apos;s personality and behavior. Use {'{{char}}'} and {'{{user}}'} variables.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -370,7 +298,7 @@ export function BotForm({
               onChange={(e) => setPersonality(e.target.value)}
               placeholder="Describe {{char}}'s personality, traits, background..."
               rows={6}
-              className="font-mono text-sm max-h-56 overflow-auto resize-y"
+              className="font-mono text-sm"
             />
           </div>
 
@@ -388,7 +316,7 @@ export function BotForm({
               onChange={(e) => setFirstMessage(e.target.value)}
               placeholder="The opening message {{char}} sends to {{user}}..."
               rows={6}
-              className="font-mono text-sm max-h-56 overflow-auto resize-y"
+              className="font-mono text-sm"
             />
           </div>
 
@@ -406,7 +334,7 @@ export function BotForm({
               onChange={(e) => setScenario(e.target.value)}
               placeholder="The setting and circumstances of the roleplay..."
               rows={4}
-              className="font-mono text-sm max-h-48 overflow-auto resize-y"
+              className="font-mono text-sm"
             />
           </div>
 
@@ -416,10 +344,7 @@ export function BotForm({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="example-dialogues">Example Dialogues</Label>
-              <TokenCounter
-                text={exampleDialogues}
-                fieldName="Example Dialogues"
-              />
+              <TokenCounter text={exampleDialogues} fieldName="Example Dialogues" />
             </div>
             <Textarea
               id="example-dialogues"
@@ -427,7 +352,7 @@ export function BotForm({
               onChange={(e) => setExampleDialogues(e.target.value)}
               placeholder="{{user}}: Hello!\n{{char}}: *smiles* Hello there, {{user}}!"
               rows={8}
-              className="font-mono text-sm max-h-72 overflow-auto resize-y"
+              className="font-mono text-sm"
             />
           </div>
         </CardContent>
@@ -445,32 +370,22 @@ export function BotForm({
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
           {isEditing && onDelete && (
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={onDelete}
-              className="cursor-pointer"
-            >
+            <Button type="button" variant="destructive" onClick={onDelete}>
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Bot
             </Button>
           )}
         </div>
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            className="cursor-pointer"
-          >
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" className="cursor-pointer">
+          <Button type="submit">
             <Save className="mr-2 h-4 w-4" />
-            {isEditing ? "Save Changes" : "Create Bot"}
+            {isEditing ? 'Save Changes' : 'Create Bot'}
           </Button>
         </div>
       </div>
     </form>
-  );
+  )
 }
