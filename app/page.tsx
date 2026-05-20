@@ -3,63 +3,20 @@
 // Entry point that renders the dashboard with dynamic views
 // ============================================================================
 
-'use client'
-
-import { StoreProvider, useStore } from '@/lib/store'
-import { DashboardLayout } from '@/components/dashboard/layout'
-import { DashboardHome } from '@/components/dashboard/dashboard-home'
-import { BotManager } from '@/components/bots/bot-manager'
-import { FormManager } from '@/components/forms/form-manager'
-import { RequestsView } from '@/components/forms/requests-view'
-import { ReleasePostGenerator } from '@/components/release/release-post-generator'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { redirect } from 'next/navigation'
+import { getSession } from '@/app/actions/auth'
+import { ClientApp } from './client-app'
 
 // ----------------------------------------------------------------------------
-// View Router Component
-// Renders the appropriate view based on current navigation state
+// Page Component - Server side auth check
 // ----------------------------------------------------------------------------
 
-function ViewRouter() {
-  const { currentView } = useStore()
+export default async function Page() {
+  const session = await getSession()
 
-  switch (currentView) {
-    case 'dashboard':
-      return <DashboardHome />
-    case 'bots':
-      return <BotManager />
-    case 'forms':
-      return <FormManager />
-    case 'requests':
-      return <RequestsView />
-    case 'release-generator':
-      return <ReleasePostGenerator />
-    default:
-      return <DashboardHome />
+  if (!session) {
+    redirect('/login')
   }
-}
 
-// ----------------------------------------------------------------------------
-// Main Application Content
-// ----------------------------------------------------------------------------
-
-function AppContent() {
-  return (
-    <DashboardLayout>
-      <ViewRouter />
-    </DashboardLayout>
-  )
-}
-
-// ----------------------------------------------------------------------------
-// Page Component with Providers
-// ----------------------------------------------------------------------------
-
-export default function Page() {
-  return (
-    <TooltipProvider>
-      <StoreProvider>
-        <AppContent />
-      </StoreProvider>
-    </TooltipProvider>
-  )
+  return <ClientApp username={session.username} />
 }

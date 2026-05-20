@@ -108,7 +108,7 @@ function RecentBotCard({ name, description, rating, tags, updatedAt, onEdit }: R
         
         {/* Footer */}
         <div className="mt-4 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground" suppressHydrationWarning>
             <Clock className="h-3 w-3" />
             {formatDate(updatedAt)}
           </span>
