@@ -38,7 +38,7 @@ function EmptyState() {
         Share your forms with your community to start receiving bot requests.
       </p>
       <Button
-        className="mt-6 cursor-pointer"
+        className="mt-6"
         variant="outline"
         onClick={() => setCurrentView("forms")}
       >
