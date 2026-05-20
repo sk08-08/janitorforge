@@ -15,7 +15,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  LogOut,
+  User,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { logout } from '@/app/actions/auth'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
@@ -73,14 +77,22 @@ const navItems: NavItem[] = [
 
 interface DashboardLayoutProps {
   children: ReactNode
+  username: string
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const { currentView, setCurrentView, requests } = useStore()
   const [collapsed, setCollapsed] = useState(false)
+  const router = useRouter()
   
   // Count pending requests for badge
   const pendingCount = requests.filter(r => r.status === 'new').length
+
+  const handleLogout = async () => {
+    await logout()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <TooltipProvider>
@@ -158,8 +170,36 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             })}
           </nav>
 
-          {/* Collapse Toggle */}
-          <div className="border-t border-sidebar-border p-2">
+          {/* Collapse Toggle & User */}
+          <div className="border-t border-sidebar-border p-2 space-y-2">
+            {/* User Info */}
+            <div className={cn(
+              'flex items-center gap-2 px-2 py-1.5 rounded-md bg-sidebar-accent/50',
+              collapsed && 'justify-center'
+            )}>
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              {!collapsed && (
+                <span className="flex-1 text-sm font-medium truncate">{username}</span>
+              )}
+            </div>
+
+            {/* Logout */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10',
+                collapsed ? 'justify-center' : 'justify-start gap-2'
+              )}
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span>Cerrar Sesion</span>}
+            </Button>
+
+            {/* Collapse Toggle */}
             <Button
               variant="ghost"
               size="sm"

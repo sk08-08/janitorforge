@@ -62,6 +62,13 @@ interface RecentBotCardProps {
   onEdit: () => void
 }
 
+function formatDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function RecentBotCard({ name, description, rating, tags, updatedAt, onEdit }: RecentBotCardProps) {
   return (
     <Card className="group cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
@@ -101,9 +108,9 @@ function RecentBotCard({ name, description, rating, tags, updatedAt, onEdit }: R
         
         {/* Footer */}
         <div className="mt-4 flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground" suppressHydrationWarning>
             <Clock className="h-3 w-3" />
-            {updatedAt.toLocaleDateString()}
+            {formatDate(updatedAt)}
           </span>
           <Button 
             variant="ghost" 
