@@ -88,20 +88,32 @@ export async function validateFormSubmission(
     };
   }
 
-  // Load custom blocklist for this form and check matches (owner-independent)
+  // Load global and custom blocklists and check matches (owner-independent).
   try {
     const supabaseClient = await createClient();
-    const { data: customPatterns, error: cbError } = await supabaseClient
-      .from("custom_blocklists")
-      .select("pattern, is_regex")
-      .eq("form_id", formId);
 
-    if (
-      !cbError &&
-      Array.isArray(customPatterns) &&
-      customPatterns.length > 0
-    ) {
-      const blockedFields: Record<string, ContentFilterResult> = {};
+    const [
+      { data: globalPatterns, error: gError },
+      { data: customPatterns, error: cbError },
+    ] = await Promise.all([
+      supabaseClient
+        .from("global_blocklists")
+        .select("pattern, is_regex, severity"),
+      supabaseClient
+        .from("custom_blocklists")
+        .select("pattern, is_regex, severity")
+        .eq("form_id", formId),
+    ] as any);
+
+    const allPatterns: Array<any> = [];
+
+    if (!gError && Array.isArray(globalPatterns))
+      allPatterns.push(...globalPatterns);
+    if (!cbError && Array.isArray(customPatterns))
+      allPatterns.push(...customPatterns);
+
+    if (allPatterns.length > 0) {
+      const flaggedFields: Record<string, ContentFilterResult> = {};
 
       // Helper to escape regex when pattern is plain text
       const escapeRegex = (s: string) =>
@@ -117,7 +129,7 @@ export async function validateFormSubmission(
         }
 
         for (const strValue of valuesToCheck) {
-          for (const p of customPatterns as any[]) {
+          for (const p of allPatterns) {
             let matched = false;
 
             if (p.is_regex) {
@@ -133,11 +145,39 @@ export async function validateFormSubmission(
             }
 
             if (matched) {
-              blockedFields[fieldName] = {
+              const severity = (p.severity || "warning") as
+                | "warning"
+                | "dangerous";
+
+              // If any matched pattern is marked dangerous, escalate immediately
+              if (severity === "dangerous") {
+                const detail: Record<string, ContentFilterResult> = {};
+                detail[fieldName] = {
+                  isSafe: false,
+                  riskLevel: "dangerous",
+                  flags: [
+                    p.is_regex ? "blocklist_regex_match" : "blocklist_match",
+                  ],
+                  reason: `Matched blocklist pattern (dangerous): ${p.pattern}`,
+                } as ContentFilterResult;
+
+                return {
+                  isValid: false,
+                  isFlagged: true,
+                  riskLevel: "dangerous",
+                  reason: "Submission matched a dangerous blocklist pattern",
+                  flaggedFields: detail,
+                };
+              }
+
+              // Otherwise record as warning
+              flaggedFields[fieldName] = {
                 isSafe: false,
                 riskLevel: "warning",
-                flags: ["custom_blocklist_match"],
-                reason: `Matched custom blocklist pattern: ${p.pattern}`,
+                flags: [
+                  p.is_regex ? "blocklist_regex_match" : "blocklist_match",
+                ],
+                reason: `Matched blocklist pattern: ${p.pattern}`,
               } as ContentFilterResult;
 
               break;
@@ -146,19 +186,19 @@ export async function validateFormSubmission(
         }
       }
 
-      if (Object.keys(blockedFields).length > 0) {
+      if (Object.keys(flaggedFields).length > 0) {
         return {
           isValid: true,
           isFlagged: true,
           riskLevel: "warning",
-          reason: "Submission matched custom blocklist patterns",
-          flaggedFields: blockedFields,
+          reason: "Submission matched blocklist patterns",
+          flaggedFields: flaggedFields,
         };
       }
     }
   } catch (e) {
     // Non-fatal: if blocklist check fails, continue with standard filtering
-    console.warn("Custom blocklist check failed:", e);
+    console.warn("Blocklist check failed:", e);
   }
 
   // Filter form responses
@@ -451,6 +491,76 @@ export async function removeFromCustomBlocklist(
 
   if (error) {
     console.error("Failed to remove from blocklist:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Add a pattern to the global blocklist (site-wide)
+ */
+export async function addToGlobalBlocklist(
+  pattern: string,
+  isRegex: boolean = false,
+  severity: "warning" | "dangerous" = "warning",
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
+
+  if (!userId) return { success: false, error: "Unauthenticated" };
+
+  const payload = {
+    pattern,
+    is_regex: isRegex,
+    severity,
+    created_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from("global_blocklists").insert(payload);
+  if (error) {
+    console.error("Failed to add to global blocklist:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function getGlobalBlocklist(): Promise<{
+  success: boolean;
+  patterns?: any[];
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) return { success: false, error: "Unauthenticated" };
+
+  const { data, error } = await supabase
+    .from("global_blocklists")
+    .select("id, pattern, is_regex, severity, created_at");
+
+  if (error) {
+    console.error("Failed to fetch global blocklist:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, patterns: data || [] };
+}
+
+export async function removeFromGlobalBlocklist(
+  pattern: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) return { success: false, error: "Unauthenticated" };
+
+  const { error } = await supabase
+    .from("global_blocklists")
+    .delete()
+    .eq("pattern", pattern);
+
+  if (error) {
+    console.error("Failed to remove from global blocklist:", error);
     return { success: false, error: error.message };
   }
 

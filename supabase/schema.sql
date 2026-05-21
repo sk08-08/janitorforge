@@ -196,6 +196,16 @@ CREATE TABLE IF NOT EXISTS public.custom_blocklists (
   form_id UUID REFERENCES public.request_forms(id) ON DELETE CASCADE NOT NULL,
   pattern TEXT NOT NULL,
   is_regex BOOLEAN DEFAULT false NOT NULL,
+  severity TEXT CHECK (severity IN ('warning','dangerous')) DEFAULT 'warning',
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- Global blocklist table (site-level patterns with configurable severity)
+CREATE TABLE IF NOT EXISTS public.global_blocklists (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  pattern TEXT NOT NULL,
+  is_regex BOOLEAN DEFAULT false NOT NULL,
+  severity TEXT CHECK (severity IN ('warning','dangerous')) DEFAULT 'warning',
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
@@ -209,6 +219,7 @@ CREATE INDEX IF NOT EXISTS flagged_requests_reviewed_idx ON public.flagged_reque
 CREATE INDEX IF NOT EXISTS blocked_ips_form_id_idx ON public.blocked_ips(form_id);
 CREATE INDEX IF NOT EXISTS blocked_ips_ip_address_idx ON public.blocked_ips(ip_address);
 CREATE INDEX IF NOT EXISTS custom_blocklists_form_id_idx ON public.custom_blocklists(form_id);
+CREATE INDEX IF NOT EXISTS global_blocklists_pattern_idx ON public.global_blocklists(pattern);
 
 -- ============================================================================
 -- SECURITY RLS POLICIES
@@ -217,6 +228,7 @@ CREATE INDEX IF NOT EXISTS custom_blocklists_form_id_idx ON public.custom_blockl
 ALTER TABLE public.flagged_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.blocked_ips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_blocklists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.global_blocklists ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Anyone can insert flagged requests for active forms"
   ON public.flagged_requests FOR INSERT
@@ -271,6 +283,15 @@ CREATE POLICY "Users can manage their form blocklists"
       WHERE id = form_id AND user_id = auth.uid()
     )
   );
+
+-- Global blocklists: restrict management to authenticated users (site owners/admins)
+CREATE POLICY "Authenticated users can view global blocklists"
+  ON public.global_blocklists FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Authenticated users can insert global blocklists"
+  ON public.global_blocklists FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
 
 -- Public form lookup without exposing the forms table broadly
 CREATE OR REPLACE FUNCTION public.get_public_request_form(p_shareable_link text)

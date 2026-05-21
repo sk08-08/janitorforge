@@ -14,7 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Hammer, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import Image from "next/image";
 import { loginWithPin, registerUser } from "@/app/actions/auth";
 
 export default function LoginPage() {
@@ -92,7 +93,12 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-            <Hammer className="h-8 w-8 text-primary" />
+            <Image
+              src="/logo.png"
+              alt="JanitorForge Logo"
+              width={44}
+              height={44}
+            />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">JanitorForge</h1>
           <p className="text-sm text-muted-foreground">

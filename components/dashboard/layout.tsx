@@ -40,6 +40,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { useState } from "react";
+import Image from "next/image";
 import type { NavigationView } from "@/lib/types";
 
 // ----------------------------------------------------------------------------
@@ -142,7 +143,12 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
             )}
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 neon-glow-sm">
-              <Sparkles className="h-5 w-5 text-primary" />
+              <Image
+                src="/logo.png"
+                alt="JanitorForge Logo"
+                width={24}
+                height={24}
+              />
             </div>
             {!collapsed && (
               <div className="flex flex-col">
