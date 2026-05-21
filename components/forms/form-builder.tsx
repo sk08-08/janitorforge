@@ -98,18 +98,27 @@ function renderMarkdownPreview(md?: string | null) {
   const lines = out.split(/\r?\n/);
   let result = "";
   let inList = false;
+  let listType: "ul" | "ol" | null = null;
   for (const line of lines) {
-    const m = line.match(/^\s*[-*]\s+(.+)/);
-    if (m) {
-      if (!inList) {
+    const mUn = line.match(/^\s*[-*]\s+(.+)/);
+    const mOl = line.match(/^\s*(\d+)\.\s+(.+)/);
+    if (mUn || mOl) {
+      const thisType = mUn ? "ul" : "ol";
+      const content = mUn ? mUn[1] : mOl![2];
+      if (!inList || listType !== thisType) {
+        if (inList) {
+          result += listType === "ul" ? "</ul>" : "</ol>";
+        }
         inList = true;
-        result += "<ul>";
+        listType = thisType;
+        result += thisType === "ul" ? "<ul>" : "<ol>";
       }
-      result += `<li>${m[1]}</li>`;
+      result += `<li>${content}</li>`;
     } else {
       if (inList) {
+        result += listType === "ul" ? "</ul>" : "</ol>";
         inList = false;
-        result += "</ul>";
+        listType = null;
       }
       if (line.trim() === "") {
         result += "<br/>";
@@ -118,7 +127,16 @@ function renderMarkdownPreview(md?: string | null) {
       }
     }
   }
-  if (inList) result += "</ul>";
+  if (inList) result += listType === "ul" ? "</ul>" : "</ol>";
+  // Force inline styles on list containers to avoid global resets hiding markers
+  result = result.replace(
+    /<ul>/g,
+    '<ul style="list-style-type: disc; margin-left:1rem; padding-left:1.25rem">',
+  );
+  result = result.replace(
+    /<ol>/g,
+    '<ol style="list-style-type: decimal; margin-left:1rem; padding-left:1.25rem">',
+  );
   return result;
 }
 
@@ -244,6 +262,30 @@ function applyToggleWrap(
       newEnd: start + inner.length,
     };
   }
+  if (start === end) {
+    const openIndex = val.lastIndexOf(
+      before,
+      Math.max(0, start - before.length),
+    );
+    const closeIndex = val.indexOf(after || before, start);
+    if (
+      openIndex !== -1 &&
+      closeIndex !== -1 &&
+      openIndex < start &&
+      start <= closeIndex
+    ) {
+      const inner = val.substring(openIndex + before.length, closeIndex);
+      const newValue =
+        val.substring(0, openIndex) +
+        inner +
+        val.substring(closeIndex + after.length);
+      return {
+        newValue,
+        newStart: openIndex,
+        newEnd: openIndex + inner.length,
+      };
+    }
+  }
   // No selection: toggle entire value
   if (start === end) {
     if (val.startsWith(before) && val.endsWith(after)) {
@@ -304,7 +346,7 @@ const InlineMarkdownEditor = React.forwardRef(
         {!editing ? (
           <div
             id={id}
-            className="cursor-text"
+            className="cursor-text rendered-markdown"
             onClick={() => setEditing(true)}
             dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(value) }}
           />
@@ -452,71 +494,7 @@ function FieldEditor({ field, onUpdate, onDelete }: FieldEditorProps) {
             {/* Description */}
             <div className="space-y-1.5">
               <Label className="text-xs">Description (optional)</Label>
-              <div className="flex gap-1 mb-1">
-                <Button
-                  variant={
-                    isWrappedInElementById(
-                      `field-desc-${field.id}`,
-                      "- ",
-                      "",
-                      field.description || "",
-                    )
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  size="icon"
-                  onClick={() => {
-                    // ensure textarea exists (enter edit mode), then toggle
-                    try {
-                      (descRef as any).current?.enterEditing?.();
-                    } catch {}
-                    setTimeout(
-                      () =>
-                        toggleListInElementById(
-                          `field-desc-${field.id}`,
-                          "ul",
-                          field.description || "",
-                          (nv) => onUpdate({ ...field, description: nv }),
-                        ),
-                      60,
-                    );
-                  }}
-                  title="Bulleted list"
-                >
-                  <ListChecks className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={
-                    isWrappedInElementById(
-                      `field-desc-${field.id}`,
-                      "1.",
-                      "",
-                      field.description || "",
-                    )
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  size="icon"
-                  onClick={() => {
-                    try {
-                      (descRef as any).current?.enterEditing?.();
-                    } catch {}
-                    setTimeout(
-                      () =>
-                        toggleListInElementById(
-                          `field-desc-${field.id}`,
-                          "ol",
-                          field.description || "",
-                          (nv) => onUpdate({ ...field, description: nv }),
-                        ),
-                      60,
-                    );
-                  }}
-                  title="Numbered list"
-                >
-                  <CircleDot className="h-4 w-4" />
-                </Button>
-              </div>
+
               <InlineMarkdownEditor
                 ref={descRef}
                 id={`field-desc-${field.id}`}
@@ -744,44 +722,6 @@ function SectionEditor({
                 placeholder="Section Title"
                 className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
               />
-              <div className="flex gap-1 mt-2">
-                <Button
-                  variant={
-                    isWrappedInElementById(
-                      `section-title-${section.id}`,
-                      "**",
-                      "",
-                      section.title || "",
-                    )
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() => wrapSelectionInSection("title", "**", "**")}
-                  title="Bold"
-                >
-                  <Bold className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={
-                    isWrappedInElementById(
-                      `section-title-${section.id}`,
-                      "*",
-                      "",
-                      section.title || "",
-                    )
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() => wrapSelectionInSection("title", "*", "*")}
-                  title="Italic"
-                >
-                  <Italic className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
             <div>
               <InlineMarkdownEditor
@@ -793,100 +733,6 @@ function SectionEditor({
                 rows={2}
                 className="text-sm text-muted-foreground"
               />
-              <div className="flex gap-1 mt-2">
-                <Button
-                  variant={
-                    isWrappedInElementById(
-                      `section-desc-${section.id}`,
-                      "- ",
-                      "",
-                      section.description || "",
-                    )
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() => {
-                    try {
-                      (descRef as any).current?.enterEditing?.();
-                    } catch {}
-                    setTimeout(
-                      () =>
-                        toggleListInElementById(
-                          `section-desc-${section.id}`,
-                          "ul",
-                          section.description || "",
-                          (nv) => onUpdate({ ...section, description: nv }),
-                        ),
-                      60,
-                    );
-                  }}
-                  title="Bulleted list"
-                >
-                  <ListChecks className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={
-                    isWrappedInElementById(
-                      `section-desc-${section.id}`,
-                      "1.",
-                      "",
-                      section.description || "",
-                    )
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() => {
-                    try {
-                      (descRef as any).current?.enterEditing?.();
-                    } catch {}
-                    setTimeout(
-                      () =>
-                        toggleListInElementById(
-                          `section-desc-${section.id}`,
-                          "ol",
-                          section.description || "",
-                          (nv) => onUpdate({ ...section, description: nv }),
-                        ),
-                      60,
-                    );
-                  }}
-                  title="Numbered list"
-                >
-                  <CircleDot className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={
-                    isWrappedInElementById(
-                      `section-title-${section.id}`,
-                      "[",
-                      ")",
-                      section.title || "",
-                    )
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() => {
-                    if (typeof (openLinkModal as any) === "function") {
-                      (openLinkModal as any)((url: string) => {
-                        if (!sanitizeUrl(url)) {
-                          toast.error("Invalid or unsafe URL");
-                          return;
-                        }
-                        wrapSelectionInSection("description", "[", `](${url})`);
-                      });
-                    }
-                  }}
-                  title="Insert link"
-                >
-                  <LinkIcon className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
             {/* Section customization */}
             <div className="flex items-center gap-3 mt-2">
@@ -1010,6 +856,7 @@ export function FormBuilder({
   const [description, setDescription] = useState(
     initialForm?.description || "",
   );
+
   const [sections, setSections] = useState<FormSection[]>(
     initialForm?.sections || [
       {
@@ -1177,39 +1024,6 @@ export function FormBuilder({
                 placeholder="e.g., Bot Request Form"
                 className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
               />
-              <div className="flex gap-1 mt-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() => wrapSelectionInFormField("title", "**", "**")}
-                  title="Bold"
-                >
-                  <Bold className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() => wrapSelectionInFormField("title", "*", "*")}
-                  title="Italic"
-                >
-                  <Italic className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() =>
-                    openLinkModal((url: string) =>
-                      wrapSelectionInFormField("title", "[", `](${url})`),
-                    )
-                  }
-                  title="Insert link"
-                >
-                  <LinkIcon className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
           </div>
           <div className="space-y-2">
@@ -1223,69 +1037,6 @@ export function FormBuilder({
                 rows={4}
                 className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent w-full"
               />
-              <div className="flex gap-1 mt-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() =>
-                    wrapSelectionInFormField("description", "**", "**")
-                  }
-                  title="Bold"
-                >
-                  <Bold className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() =>
-                    wrapSelectionInFormField("description", "*", "*")
-                  }
-                  title="Italic"
-                >
-                  <Italic className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() =>
-                    setDescription((d) =>
-                      toggleListMarkersForText(d || "", "ul"),
-                    )
-                  }
-                  title="Bulleted list"
-                >
-                  <ListChecks className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() =>
-                    setDescription((d) =>
-                      toggleListMarkersForText(d || "", "ol"),
-                    )
-                  }
-                  title="Numbered list"
-                >
-                  <CircleDot className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="cursor-pointer"
-                  onClick={() =>
-                    openLinkModal((url: string) =>
-                      wrapSelectionInFormField("description", "[", `](${url})`),
-                    )
-                  }
-                  title="Insert link"
-                >
-                  <LinkIcon className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
           </div>
         </CardContent>

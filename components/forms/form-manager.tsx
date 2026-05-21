@@ -60,6 +60,63 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { RequestForm } from "@/lib/types";
 
+function escapeHtml(str: string) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderMarkdown(md?: string | null) {
+  if (!md) return "";
+  let out = escapeHtml(String(md));
+  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, txt, href) => {
+    const safe = String(href).trim();
+    if (/^\s*(javascript:|data:)/i.test(safe)) return escapeHtml(txt);
+    return `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(txt)}</a>`;
+  });
+  out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  out = out.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  out = out.replace(/_(.+?)_/g, "<em>$1</em>");
+  const lines = out.split(/\r?\n/);
+  let result = "";
+  let inList = false;
+  let listType: "ul" | "ol" | null = null;
+  for (const line of lines) {
+    const mUn = line.match(/^\s*[-*]\s+(.+)/);
+    const mOl = line.match(/^\s*(\d+)\.\s+(.+)/);
+    if (mUn || mOl) {
+      const thisType = mUn ? "ul" : "ol";
+      const content = mUn ? mUn[1] : mOl![2];
+      if (!inList || listType !== thisType) {
+        if (inList) {
+          result += listType === "ul" ? "</ul>" : "</ol>";
+        }
+        inList = true;
+        listType = thisType;
+        result += thisType === "ul" ? "<ul>" : "<ol>";
+      }
+      result += `<li>${content}</li>`;
+    } else {
+      if (inList) {
+        result += listType === "ul" ? "</ul>" : "</ol>";
+        inList = false;
+        listType = null;
+      }
+      if (line.trim() === "") {
+        result += "<br/>";
+      } else {
+        result += `<p>${line}</p>`;
+      }
+    }
+  }
+  if (inList) result += listType === "ul" ? "</ul>" : "</ol>";
+  return result;
+}
+
 // ----------------------------------------------------------------------------
 
 interface FormCardProps {
@@ -137,9 +194,14 @@ function FormCard({
           </DropdownMenu>
         </div>
         <CardTitle className="mt-3 text-lg">{form.title}</CardTitle>
-        <CardDescription className="line-clamp-2">
-          {form.description || "No description"}
-        </CardDescription>
+        <CardDescription
+          className="line-clamp-2 rendered-markdown"
+          dangerouslySetInnerHTML={{
+            __html: form.description
+              ? renderMarkdown(form.description)
+              : "No description",
+          }}
+        />
       </CardHeader>
       <CardContent>
         {/* Stats */}
@@ -392,8 +454,8 @@ export function FormManager() {
             </SheetTitle>
             <SheetDescription>
               {editingForm
-                ? "Update your form structure and settings"
-                : "Design a custom form to collect bot requests"}
+                ? "Update your form structure and settings (supports markdown in section titles and form description)"
+                : "Design a custom form to collect bot requests (supports markdown in section titles and form description)"}
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6">

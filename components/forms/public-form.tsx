@@ -94,6 +94,15 @@ function renderMarkdown(md?: string | null) {
     }
   }
   if (inList) result += listType === "ul" ? "</ul>" : "</ol>";
+  // Force inline styles on list containers to avoid global resets hiding markers
+  result = result.replace(
+    /<ul>/g,
+    '<ul style="list-style-type: disc; margin-left:1rem; padding-left:1.25rem">',
+  );
+  result = result.replace(
+    /<ol>/g,
+    '<ol style="list-style-type: decimal; margin-left:1rem; padding-left:1.25rem">',
+  );
   return result;
 }
 
@@ -135,90 +144,6 @@ function renderMarkdownInline(md?: string | null) {
   out = out.replace(/\*(.+?)\*/g, "<em>$1</em>");
   out = out.replace(/_(.+?)_/g, "<em>$1</em>");
   return out;
-}
-
-function renderMarkdownForDescription(md?: string | null) {
-  if (!md) return "";
-  const text = String(md);
-  const escapeAttr = (s: string) =>
-    String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/\"/g, "&quot;")
-      .replace(/'/g, "&#39;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  const sanitizeUrl = (u: string) => {
-    try {
-      const url = String(u).trim();
-      if (/^\s*(javascript:|data:)/i.test(url)) return "";
-      if (
-        /^(https?:)?\/\//i.test(url) ||
-        /^mailto:/i.test(url) ||
-        /^\//.test(url)
-      )
-        return url;
-      return "";
-    } catch {
-      return "";
-    }
-  };
-  let out = text;
-  // Process markdown first, then escape content
-  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, txt, href) => {
-    const safe = sanitizeUrl(href);
-    if (!safe) return escapeHtml(txt);
-    return `<a href="${escapeAttr(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
-      txt,
-    )}</a>`;
-  });
-  out = out.replace(
-    /\*\*(.+?)\*\*(?!\*)/g,
-    (_, content) => `<strong>${escapeHtml(content)}</strong>`,
-  );
-  out = out.replace(
-    /__(.+?)__/g,
-    (_, content) => `<strong>${escapeHtml(content)}</strong>`,
-  );
-  out = out.replace(
-    /(?<!\*)\*([^*]+?)\*(?!\*)/g,
-    (_, content) => `<em>${escapeHtml(content)}</em>`,
-  );
-  out = out.replace(
-    /_([^_]+?)_/g,
-    (_, content) => `<em>${escapeHtml(content)}</em>`,
-  );
-  const lines = out.split(/\r?\n/);
-  let result = "";
-  let inList = false;
-  let listType: "ul" | "ol" | null = null;
-  for (const line of lines) {
-    const mUn = line.match(/^\s*[-*]\s+(.+)/);
-    const mOl = line.match(/^\s*(\d+)\.\s+(.+)/);
-    if (mUn || mOl) {
-      const thisType = mUn ? "ul" : "ol";
-      const content = mUn ? mUn[1] : mOl![2];
-      if (!inList || listType !== thisType) {
-        if (inList) {
-          result += listType === "ul" ? "</ul>" : "</ol>";
-        }
-        inList = true;
-        listType = thisType;
-        result += thisType === "ul" ? "<ul>" : "<ol>";
-      }
-      result += `<li>${content}</li>`;
-    } else {
-      if (inList) {
-        result += listType === "ul" ? "</ul>" : "</ol>";
-        inList = false;
-        listType = null;
-      }
-      if (line.trim() !== "") {
-        result += line + "<br/>";
-      }
-    }
-  }
-  if (inList) result += listType === "ul" ? "</ul>" : "</ol>";
-  return result.trim();
 }
 
 import {
@@ -545,6 +470,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
         <details className="group">
           <summary className={`cursor-pointer p-4 ${alignClass}`}>
             <span
+              className="rendered-markdown"
               dangerouslySetInnerHTML={{
                 __html:
                   renderMarkdownInline(section.title) +
@@ -555,7 +481,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
             />
             {section.description && (
               <div
-                className="text-xs text-muted-foreground mt-1"
+                className="text-xs text-muted-foreground mt-1 rendered-markdown"
                 dangerouslySetInnerHTML={{
                   __html: renderMarkdown(section.description),
                 }}
@@ -567,7 +493,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
               <div key={field.id} className="space-y-2">
                 <Label className="flex items-center gap-1 flex-nowrap">
                   <span
-                    className="inline whitespace-nowrap"
+                    className="inline whitespace-nowrap rendered-markdown"
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdownInline(field.label),
                     }}
@@ -575,7 +501,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
                 </Label>
                 {field.description && (
                   <div
-                    className="text-xs text-muted-foreground text-left"
+                    className="text-xs text-muted-foreground text-left rendered-markdown"
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(field.description),
                     }}
@@ -896,7 +822,7 @@ export default function PublicForm({ form }: PublicFormProps) {
             <div
               className="mt-2 text-sm sm:text-base text-muted-foreground text-left"
               dangerouslySetInnerHTML={{
-                __html: renderMarkdownForDescription(String(form.description)),
+                __html: renderMarkdown(form.description),
               }}
             />
           )}
