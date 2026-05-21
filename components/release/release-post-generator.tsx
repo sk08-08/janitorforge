@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -46,6 +47,10 @@ import type { Bot } from "@/lib/types";
 // ----------------------------------------------------------------------------
 
 type Platform = "discord" | "reddit" | "general";
+type PostTone = "hype" | "professional" | "minimal";
+type PostLanguage = "en" | "es";
+type HashtagStyle = "inline" | "list" | "none";
+type EmojiLevel = "none" | "low" | "high";
 
 const platforms: { id: Platform; label: string; description: string }[] = [
   {
@@ -189,7 +194,7 @@ function PostPreview({ content, platform }: PostPreviewProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[400px] rounded-lg bg-muted/30 p-4">
+        <ScrollArea className="h-100 rounded-lg bg-muted/30 p-4">
           <div
             className="prose prose-sm dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: formattedContent }}
@@ -237,6 +242,14 @@ export function ReleasePostGenerator() {
   const [platform, setPlatform] = useState<Platform>("discord");
   const [includeStats, setIncludeStats] = useState(true);
   const [includePreview, setIncludePreview] = useState(true);
+  const [tone, setTone] = useState<PostTone>("hype");
+  const [language, setLanguage] = useState<PostLanguage>("es");
+  const [hashtagStyle, setHashtagStyle] = useState<HashtagStyle>("inline");
+  const [emojiLevel, setEmojiLevel] = useState<EmojiLevel>("low");
+  const [maxScenarioChars, setMaxScenarioChars] = useState("200");
+  const [includeCTA, setIncludeCTA] = useState(true);
+  const [ctaText, setCtaText] = useState("");
+  const [includeDate, setIncludeDate] = useState(true);
 
   // Get selected bot
   const selectedBot = selectedBotId
@@ -250,8 +263,29 @@ export function ReleasePostGenerator() {
       platform,
       includeStats,
       includePreview,
+      tone,
+      language,
+      hashtagStyle,
+      emojiLevel,
+      maxScenarioChars: Number(maxScenarioChars),
+      includeCTA,
+      ctaText,
+      includeDate,
     });
-  }, [selectedBot, platform, includeStats, includePreview]);
+  }, [
+    selectedBot,
+    platform,
+    includeStats,
+    includePreview,
+    tone,
+    language,
+    hashtagStyle,
+    emojiLevel,
+    maxScenarioChars,
+    includeCTA,
+    ctaText,
+    includeDate,
+  ]);
 
   // Copy to clipboard
   const handleCopy = async () => {
@@ -305,7 +339,7 @@ export function ReleasePostGenerator() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[300px] pr-4">
+              <ScrollArea className="h-75 pr-4">
                 <div className="space-y-2">
                   {bots.map((bot) => (
                     <BotSelectorCard
@@ -351,6 +385,95 @@ export function ReleasePostGenerator() {
 
               {/* Options */}
               <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Tone</Label>
+                    <Select
+                      value={tone}
+                      onValueChange={(v) => setTone(v as PostTone)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="hype">Hype</SelectItem>
+                        <SelectItem value="professional">
+                          Professional
+                        </SelectItem>
+                        <SelectItem value="minimal">Minimal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Language</Label>
+                    <Select
+                      value={language}
+                      onValueChange={(v) => setLanguage(v as PostLanguage)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="es">Español</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Hashtags</Label>
+                    <Select
+                      value={hashtagStyle}
+                      onValueChange={(v) => setHashtagStyle(v as HashtagStyle)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inline">Inline</SelectItem>
+                        <SelectItem value="list">List</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Emoji Level</Label>
+                    <Select
+                      value={emojiLevel}
+                      onValueChange={(v) => setEmojiLevel(v as EmojiLevel)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Scenario preview length</Label>
+                    <Select
+                      value={maxScenarioChars}
+                      onValueChange={setMaxScenarioChars}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="120">120 chars</SelectItem>
+                        <SelectItem value="200">200 chars</SelectItem>
+                        <SelectItem value="320">320 chars</SelectItem>
+                        <SelectItem value="500">500 chars</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <Label htmlFor="include-stats" className="cursor-pointer">
                     Include token stats
@@ -371,6 +494,44 @@ export function ReleasePostGenerator() {
                     onCheckedChange={setIncludePreview}
                   />
                 </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="include-date" className="cursor-pointer">
+                    Include creation date
+                  </Label>
+                  <Switch
+                    id="include-date"
+                    checked={includeDate}
+                    onCheckedChange={setIncludeDate}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="include-cta" className="cursor-pointer">
+                    Include CTA
+                  </Label>
+                  <Switch
+                    id="include-cta"
+                    checked={includeCTA}
+                    onCheckedChange={setIncludeCTA}
+                  />
+                </div>
+
+                {includeCTA && (
+                  <div className="space-y-2">
+                    <Label htmlFor="cta-text">CTA text (optional)</Label>
+                    <Input
+                      id="cta-text"
+                      value={ctaText}
+                      onChange={(e) => setCtaText(e.target.value)}
+                      placeholder={
+                        language === "es"
+                          ? "Ej: Escribeme feedback en comentarios"
+                          : "Ex: Drop your feedback in comments"
+                      }
+                    />
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -381,13 +542,17 @@ export function ReleasePostGenerator() {
           {selectedBot ? (
             <>
               <PostPreview content={postContent} platform={platform} />
-              <Button className="w-full" size="lg" onClick={handleCopy}>
+              <Button
+                className="w-full cursor-pointer mb-2"
+                size="lg"
+                onClick={handleCopy}
+              >
                 <Copy className="mr-2 h-4 w-4" />
                 Copy to Clipboard
               </Button>
             </>
           ) : (
-            <Card className="h-[500px] flex items-center justify-center">
+            <Card className="h-125 flex items-center justify-center">
               <div className="text-center text-muted-foreground">
                 <Megaphone className="h-12 w-12 mx-auto mb-4 opacity-30" />
                 <p>Select a bot to see the preview</p>

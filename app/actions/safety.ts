@@ -88,6 +88,79 @@ export async function validateFormSubmission(
     };
   }
 
+  // Load custom blocklist for this form and check matches (owner-independent)
+  try {
+    const supabaseClient = await createClient();
+    const { data: customPatterns, error: cbError } = await supabaseClient
+      .from("custom_blocklists")
+      .select("pattern, is_regex")
+      .eq("form_id", formId);
+
+    if (
+      !cbError &&
+      Array.isArray(customPatterns) &&
+      customPatterns.length > 0
+    ) {
+      const blockedFields: Record<string, ContentFilterResult> = {};
+
+      // Helper to escape regex when pattern is plain text
+      const escapeRegex = (s: string) =>
+        s.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+
+      for (const [fieldName, value] of Object.entries(responses)) {
+        const valuesToCheck: string[] = [];
+
+        if (typeof value === "string") {
+          valuesToCheck.push(value);
+        } else if (Array.isArray(value)) {
+          valuesToCheck.push(...value.filter((v) => typeof v === "string"));
+        }
+
+        for (const strValue of valuesToCheck) {
+          for (const p of customPatterns as any[]) {
+            let matched = false;
+
+            if (p.is_regex) {
+              try {
+                const re = new RegExp(p.pattern, "i");
+                if (re.test(strValue)) matched = true;
+              } catch (e) {
+                // invalid regex in DB - skip
+              }
+            } else {
+              const re = new RegExp(`\\b${escapeRegex(p.pattern)}\\b`, "i");
+              if (re.test(strValue)) matched = true;
+            }
+
+            if (matched) {
+              blockedFields[fieldName] = {
+                isSafe: false,
+                riskLevel: "warning",
+                flags: ["custom_blocklist_match"],
+                reason: `Matched custom blocklist pattern: ${p.pattern}`,
+              } as ContentFilterResult;
+
+              break;
+            }
+          }
+        }
+      }
+
+      if (Object.keys(blockedFields).length > 0) {
+        return {
+          isValid: true,
+          isFlagged: true,
+          riskLevel: "warning",
+          reason: "Submission matched custom blocklist patterns",
+          flaggedFields: blockedFields,
+        };
+      }
+    }
+  } catch (e) {
+    // Non-fatal: if blocklist check fails, continue with standard filtering
+    console.warn("Custom blocklist check failed:", e);
+  }
+
   // Filter form responses
   const filterResult = filterFormResponses(responses);
 

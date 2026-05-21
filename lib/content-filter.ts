@@ -12,25 +12,52 @@ export interface ContentFilterResult {
 }
 
 // Patterns for critical safety issues (suicide, self-harm, severe harassment)
-// ONLY includes specific phrases/patterns that indicate real danger
+// ONLY includes specific phrases/patterns that indicate real danger.
 const DANGEROUS_PATTERNS = [
+  // English - explicit self-harm / suicidal intent and encouragement
+  /\bkill yourself\b/i,
+  /\bgo kill yourself\b/i,
+  /\b(kill yourself|go kill yourself|go and kill yourself)\b/i,
+  /\bkys\b/i,
+  /\b(i want to die|i wanna die|i want to kill myself|want to kill myself|want to end my life|end my life|end it all)\b/i,
+  /\b(im going to kill myself|i'm going to kill myself|i am going to kill myself|i will kill myself|i'll kill myself)\b/i,
+  /\b(im gonna kill myself|i'm gonna kill myself|gonna kill myself)\b/i,
+  /\b(i wanna kill myself|i want to kill myself)\b/i,
+  /\b(hurt myself|harm myself|cut myself|cutting myself|cutting me)\b/i,
+  /\b(hang myself|hang myself)\b/i,
+  /\boverdose( myself)?\b/i,
+  /\bself[- ]harm\b/i,
+  /\bsuicide\b/i,
+  /\bsuicidal\b/i,
+
+  // English - severe harassment / threats toward others
+  /\b(i will kill you|i'll kill you|im going to kill you|i'm going to kill you|i will murder you)\b/i,
+  /\b(i will beat you|i'll beat you|im going to beat you|i'm going to beat you|i will hit you|i'll hit you)\b/i,
+  /\bi will (rape|assault|abuse) you\b/i,
+
+  // English - dehumanization / encouragement to die
+  /\b(you should die|you should kill yourself|you deserve to die|you don't deserve to live|you dont deserve to live|go die|drop dead|please die|die please)\b/i,
+  /\b(you're garbage|youre garbage|you're trash|youre trash)\b/i,
+
   // Suicide-related (Spanish)
-  /\b(suicidarse?|suicidio|me voy a matar|voy a matarme?|quiero morirme?|suicid)\b/gi,
-  /\bmatate?s?\b/gi, // "Mátate" - kill yourself
-  /\bdeberias? morirte?\b/gi, // "Deberías morir" - you should die
-  /\bmueredate?\b/gi, // "Muérete" - drop dead
+  /\b(suicidarse?|suicidio|me voy a matar|voy a matarme?|quiero morirme?|suicid)\b/i,
+  /\bmatate?s?\b/i, // "Mátate" - kill yourself
+  /\bdeberias? morirte?\b/i, // "Deberías morir" - you should die
+  /\bmueredate?\b/i, // "Muérete" - drop dead
 
   // Self-harm (Spanish)
-  /\b(cortarme?|cortarte?|automutilaci[óo]n|mutilaci[óo]n|hacerme?|daño)\b/gi,
-  /\bcortes? profundos?\b/gi,
+  /\b(cortarme?|cortarte?|automutilaci[óo]n|mutilaci[óo]n|hacerme?|daño)\b/i,
+  /\bcortes? profundos?\b/i,
+  /\bdeep cuts\b/i,
+  /\bdeep cut\b/i,
 
-  // Severe harassment/threats
-  /\b(te voy a violar|violarte|voy a abusarte|sexual abuse|rape)\b/gi,
-  /\b(te voy a matar|voy a matarte|voy a asesinarte)\b/gi,
-  /\b(te voy a pegar|voy a golpearte|agresión)\b/gi,
+  // Severe harassment/threats (Spanish)
+  /\b(te voy a violar|violarte|voy a abusarte|sexual abuse|rape)\b/i,
+  /\b(te voy a matar|voy a matarte|voy a asesinarte)\b/i,
+  /\b(te voy a pegar|voy a golpearte|agresión)\b/i,
 
-  // Extreme dehumanization
-  /\b(mereces? morir|no mereces? vivir|eres? basura|eres? menos que basura)\b/gi,
+  // Extreme dehumanization (Spanish)
+  /\b(mereces? morir|no mereces? vivir|eres? basura|eres? menos que basura)\b/i,
 ];
 
 // Spam/abuse patterns
@@ -57,9 +84,18 @@ export function checkDangerousPatterns(text: string): string[] {
   const flags: string[] = [];
 
   for (const pattern of DANGEROUS_PATTERNS) {
-    if (pattern.test(text)) {
-      flags.push("dangerous_content_detected");
-      break;
+    try {
+      // Ensure regex state is consistent if a global flag sneaks in
+      if ((pattern as RegExp).lastIndex !== undefined)
+        (pattern as RegExp).lastIndex = 0;
+
+      if (pattern.test(text)) {
+        flags.push("dangerous_content_detected");
+        break;
+      }
+    } catch (e) {
+      // If a pattern is malformed for any reason, skip it rather than crash
+      continue;
     }
   }
 

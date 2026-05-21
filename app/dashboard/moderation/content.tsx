@@ -129,7 +129,7 @@ export default function ModerationPageContent() {
         </Card>
       ) : forms.length === 0 ? (
         <Card>
-          <CardContent className="pt-6 text-center">
+          <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">No forms found</p>
           </CardContent>
         </Card>

@@ -15,12 +15,34 @@ export default async function PublicFormPage({
   const { slug } = (await Promise.resolve(params)) as { slug: string };
   try {
     const supabase = await createServerClient();
-    const { data: formData, error } = await supabase.rpc(
+    const slugValue = String(slug);
+    const { data: formData, error: rpcError } = await supabase.rpc(
       "get_public_request_form",
-      { p_shareable_link: String(slug) },
+      { p_shareable_link: slugValue },
     );
 
-    if (error || !formData || formData.length === 0) {
+    let row = formData?.[0] ?? null;
+
+    // Backward compatibility: if the RPC is not deployed yet, fall back to
+    // the direct table query used by older schema versions.
+    if (!row) {
+      const { data: legacyRow, error: legacyError } = await supabase
+        .from("request_forms")
+        .select("id, user_id, title, description, sections, is_active")
+        .eq("shareable_link", slugValue)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (!legacyError && legacyRow) {
+        row = legacyRow;
+      }
+    }
+
+    if (!row) {
+      if (rpcError) {
+        console.warn("Public form RPC lookup failed:", rpcError.message);
+      }
+
       return (
         <div className="min-h-screen bg-background flex items-start justify-center pt-12">
           <div className="container max-w-2xl py-8">
@@ -29,8 +51,6 @@ export default async function PublicFormPage({
         </div>
       );
     }
-
-    const row = formData[0];
 
     const form = {
       id: row.id,
