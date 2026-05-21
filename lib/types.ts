@@ -79,6 +79,7 @@ export interface RequestForm {
   sections: FormSection[];
   shareableLink: string;
   isActive: boolean;
+  securitySensitivity?: "low" | "medium" | "high" | "strict";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -187,4 +188,5 @@ export type NavigationView =
   | "bots"
   | "forms"
   | "requests"
+  | "moderation"
   | "release-generator";

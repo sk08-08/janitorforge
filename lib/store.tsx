@@ -83,13 +83,34 @@ const StoreContext = createContext<StoreState | null>(null);
 // ----------------------------------------------------------------------------
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  // Navigation state
-  const [currentView, setCurrentView] = useState<NavigationView>("dashboard");
+  // Navigation state - load from localStorage or default to dashboard
+  const [currentView, setCurrentViewState] =
+    useState<NavigationView>("dashboard");
+
+  // Wrapper to persist navigation to localStorage
+  const setCurrentView = useCallback((view: NavigationView) => {
+    setCurrentViewState(view);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("currentView", view);
+    }
+  }, []);
 
   // Data state (start empty; fetch from Supabase on mount)
   const [bots, setBots] = useState<Bot[]>([]);
   const [forms, setForms] = useState<RequestForm[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
+
+  // Load saved view from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedView = localStorage.getItem(
+        "currentView",
+      ) as NavigationView | null;
+      if (savedView) {
+        setCurrentViewState(savedView);
+      }
+    }
+  }, []);
 
   // Try to load real data from Supabase on client mount. Fall back to sample data on error.
   useEffect(() => {
@@ -310,7 +331,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const updateRequestStatus = useCallback(
-    (id: string, status: RequestStatus, notes?: string) => {
+    async (id: string, status: RequestStatus, notes?: string) => {
+      // Update UI immediately
       setRequests((prev) =>
         prev.map((req) =>
           req.id === id
@@ -323,12 +345,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             : req,
         ),
       );
+
+      // Update in Supabase in the background
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { error } = await supabase
+          .from("requests")
+          .update({
+            status,
+            notes: notes ?? null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Error updating request status:", error);
+        }
+      } catch (err) {
+        console.error("Failed to update request status in Supabase:", err);
+      }
     },
     [],
   );
 
-  const deleteRequest = useCallback((id: string) => {
+  const deleteRequest = useCallback(async (id: string) => {
+    // Remove from UI immediately
     setRequests((prev) => prev.filter((req) => req.id !== id));
+
+    // Delete from Supabase in the background
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { error } = await supabase.from("requests").delete().eq("id", id);
+
+      if (error) {
+        console.error("Error deleting request:", error);
+        // Optionally: reload requests on error
+      }
+    } catch (err) {
+      console.error("Failed to delete request from Supabase:", err);
+    }
   }, []);
 
   const getRequestsByFormId = useCallback(

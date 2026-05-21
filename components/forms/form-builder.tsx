@@ -636,7 +636,7 @@ function FieldEditor({ field, onUpdate, onDelete }: FieldEditorProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-destructive"
+            className="text-muted-foreground hover:text-destructive cursor-pointer"
             onClick={onDelete}
           >
             <Trash2 className="h-4 w-4" />
@@ -757,6 +757,7 @@ function SectionEditor({
                       : "ghost"
                   }
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() => wrapSelectionInSection("title", "**", "**")}
                   title="Bold"
                 >
@@ -774,37 +775,11 @@ function SectionEditor({
                       : "ghost"
                   }
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() => wrapSelectionInSection("title", "*", "*")}
                   title="Italic"
                 >
                   <Italic className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={
-                    isWrappedInElementById(
-                      `section-title-${section.id}`,
-                      "[",
-                      ")",
-                      section.title || "",
-                    )
-                      ? "secondary"
-                      : "ghost"
-                  }
-                  size="icon"
-                  onClick={() => {
-                    if (typeof (openLinkModal as any) === "function") {
-                      (openLinkModal as any)((url: string) => {
-                        if (!sanitizeUrl(url)) {
-                          toast.error("Invalid or unsafe URL");
-                          return;
-                        }
-                        wrapSelectionInSection("title", "[", `](${url})`);
-                      });
-                    }
-                  }}
-                  title="Insert link"
-                >
-                  <LinkIcon className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -831,6 +806,7 @@ function SectionEditor({
                       : "ghost"
                   }
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() => {
                     try {
                       (descRef as any).current?.enterEditing?.();
@@ -862,6 +838,7 @@ function SectionEditor({
                       : "ghost"
                   }
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() => {
                     try {
                       (descRef as any).current?.enterEditing?.();
@@ -893,6 +870,7 @@ function SectionEditor({
                       : "ghost"
                   }
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() => {
                     if (typeof (openLinkModal as any) === "function") {
                       (openLinkModal as any)((url: string) => {
@@ -1167,10 +1145,16 @@ export function FormBuilder({
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeLinkModal}>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={closeLinkModal}
+            >
               Cancel
             </Button>
-            <Button onClick={submitLinkModal}>Insert</Button>
+            <Button className="cursor-pointer" onClick={submitLinkModal}>
+              Insert
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1197,6 +1181,7 @@ export function FormBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() => wrapSelectionInFormField("title", "**", "**")}
                   title="Bold"
                 >
@@ -1205,6 +1190,7 @@ export function FormBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() => wrapSelectionInFormField("title", "*", "*")}
                   title="Italic"
                 >
@@ -1213,6 +1199,7 @@ export function FormBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() =>
                     openLinkModal((url: string) =>
                       wrapSelectionInFormField("title", "[", `](${url})`),
@@ -1240,6 +1227,7 @@ export function FormBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() =>
                     wrapSelectionInFormField("description", "**", "**")
                   }
@@ -1250,6 +1238,7 @@ export function FormBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() =>
                     wrapSelectionInFormField("description", "*", "*")
                   }
@@ -1260,6 +1249,7 @@ export function FormBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() =>
                     setDescription((d) =>
                       toggleListMarkersForText(d || "", "ul"),
@@ -1272,6 +1262,7 @@ export function FormBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() =>
                     setDescription((d) =>
                       toggleListMarkersForText(d || "", "ol"),
@@ -1284,6 +1275,7 @@ export function FormBuilder({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="cursor-pointer"
                   onClick={() =>
                     openLinkModal((url: string) =>
                       wrapSelectionInFormField("description", "[", `](${url})`),
@@ -1374,20 +1366,26 @@ export function ShareableLinkDisplay({
               {fullUrl}
             </code>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={copyLink}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => window.open(fullUrl, "_blank")}
-              disabled={!isActive}
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyLink}
+            className="cursor-pointer"
+          >
+            <Copy className="mr-2 h-4 w-4" />
+            Copy
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => window.open(fullUrl, "_blank")}
+            disabled={!isActive}
+            className="cursor-pointer"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
         </div>
         {!isActive && (
           <p className="mt-2 text-xs text-warning">

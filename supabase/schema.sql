@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS public.request_forms (
   sections JSONB DEFAULT '[]' NOT NULL,
   shareable_link TEXT UNIQUE NOT NULL,
   is_active BOOLEAN DEFAULT true NOT NULL,
+  security_sensitivity TEXT CHECK (security_sensitivity IN ('low', 'medium', 'high', 'strict')) DEFAULT 'medium',
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -167,6 +168,89 @@ CREATE POLICY "Users can update requests for their forms"
 CREATE POLICY "Users can delete requests for their forms"
   ON public.requests FOR DELETE
   USING (auth.uid() = user_id);
+
+-- ============================================================================
+-- SECURITY & MODERATION TABLES
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.flagged_requests (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  form_id UUID REFERENCES public.request_forms(id) ON DELETE CASCADE NOT NULL,
+  request_id UUID REFERENCES public.requests(id) ON DELETE CASCADE NOT NULL,
+  risk_level TEXT CHECK (risk_level IN ('warning', 'dangerous')) NOT NULL,
+  flagged_fields JSONB DEFAULT '{}' NOT NULL,
+  reason TEXT,
+  reviewed BOOLEAN DEFAULT false NOT NULL,
+  review_action TEXT CHECK (review_action IN ('approved', 'rejected')) DEFAULT NULL,
+  review_notes TEXT,
+  reviewed_at TIMESTAMPTZ DEFAULT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.blocked_ips (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  form_id UUID REFERENCES public.request_forms(id) ON DELETE CASCADE NOT NULL,
+  ip_address TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  blocked_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.custom_blocklists (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  form_id UUID REFERENCES public.request_forms(id) ON DELETE CASCADE NOT NULL,
+  pattern TEXT NOT NULL,
+  is_regex BOOLEAN DEFAULT false NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- ============================================================================
+-- SECURITY INDEXES
+-- ============================================================================
+
+CREATE INDEX IF NOT EXISTS flagged_requests_form_id_idx ON public.flagged_requests(form_id);
+CREATE INDEX IF NOT EXISTS flagged_requests_request_id_idx ON public.flagged_requests(request_id);
+CREATE INDEX IF NOT EXISTS flagged_requests_reviewed_idx ON public.flagged_requests(reviewed);
+CREATE INDEX IF NOT EXISTS blocked_ips_form_id_idx ON public.blocked_ips(form_id);
+CREATE INDEX IF NOT EXISTS blocked_ips_ip_address_idx ON public.blocked_ips(ip_address);
+CREATE INDEX IF NOT EXISTS custom_blocklists_form_id_idx ON public.custom_blocklists(form_id);
+
+-- ============================================================================
+-- SECURITY RLS POLICIES
+-- ============================================================================
+
+ALTER TABLE public.flagged_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.blocked_ips ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.custom_blocklists ENABLE ROW LEVEL SECURITY;
+
+-- Flagged requests policies
+CREATE POLICY "Users can view flagged requests for their forms"
+  ON public.flagged_requests FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.request_forms 
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  );
+
+-- Blocked IPs policies
+CREATE POLICY "Users can manage blocked IPs for their forms"
+  ON public.blocked_ips FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.request_forms 
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  );
+
+-- Custom blocklist policies
+CREATE POLICY "Users can manage their form blocklists"
+  ON public.custom_blocklists FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.request_forms 
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  );
 
 -- ============================================================================
 -- FUNCTIONS & TRIGGERS

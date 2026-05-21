@@ -17,6 +17,7 @@ import {
   Sparkles,
   LogOut,
   User,
+  Shield,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/app/actions/auth";
@@ -67,6 +68,12 @@ const navItems: NavItem[] = [
     label: "Requests",
     icon: Inbox,
     description: "Manage incoming requests",
+  },
+  {
+    id: "moderation",
+    label: "Moderation",
+    icon: Shield,
+    description: "Review flagged submissions",
   },
   {
     id: "release-generator",
@@ -143,9 +150,9 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                   key={item.id}
                   variant={isActive ? "secondary" : "ghost"}
                   className={cn(
-                    "w-full justify-start gap-3 transition-all",
+                    "w-full justify-start gap-3 transition-all cursor-pointer",
                     isActive &&
-                      "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm",
+                      "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
                     collapsed && "justify-center px-2",
                   )}
                   onClick={() => setCurrentView(item.id)}
@@ -211,7 +218,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
               variant="ghost"
               size="sm"
               className={cn(
-                "w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10",
+                "w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer",
                 collapsed ? "justify-center" : "justify-start gap-2",
               )}
               onClick={handleLogout}
@@ -224,7 +231,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-center"
+              className="w-full justify-center cursor-pointer"
               onClick={() => setCollapsed(!collapsed)}
             >
               {collapsed ? (

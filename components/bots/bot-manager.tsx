@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -172,7 +172,7 @@ function BotCard({ bot, viewMode, onEdit, onDelete, onExport }: BotCardProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -187,7 +187,10 @@ function BotCard({ bot, viewMode, onEdit, onDelete, onExport }: BotCardProps) {
                 Export Card V2
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onDelete} className="text-destructive">
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive cursor-pointer"
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
@@ -273,10 +276,13 @@ export function BotManager() {
   const externalEditBot = selectedBotId
     ? bots.find((b) => b.id === selectedBotId)
     : null;
-  if (externalEditBot && !editingBot && !isCreating) {
-    setEditingBot(externalEditBot);
-    setSelectedBotId(null);
-  }
+
+  useEffect(() => {
+    if (externalEditBot && !editingBot && !isCreating) {
+      setEditingBot(externalEditBot);
+      setSelectedBotId(null);
+    }
+  }, [externalEditBot, editingBot, isCreating, setSelectedBotId]);
 
   // Filter and search bots
   const filteredBots = useMemo(() => {

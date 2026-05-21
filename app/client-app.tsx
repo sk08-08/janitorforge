@@ -3,16 +3,17 @@
 // Client-side app wrapper with providers
 // ============================================================================
 
-'use client'
+"use client";
 
-import { StoreProvider, useStore } from '@/lib/store'
-import { DashboardLayout } from '@/components/dashboard/layout'
-import { DashboardHome } from '@/components/dashboard/dashboard-home'
-import { BotManager } from '@/components/bots/bot-manager'
-import { FormManager } from '@/components/forms/form-manager'
-import { RequestsView } from '@/components/forms/requests-view'
-import { ReleasePostGenerator } from '@/components/release/release-post-generator'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { StoreProvider, useStore } from "@/lib/store";
+import { DashboardLayout } from "@/components/dashboard/layout";
+import { DashboardHome } from "@/components/dashboard/dashboard-home";
+import { BotManager } from "@/components/bots/bot-manager";
+import { FormManager } from "@/components/forms/form-manager";
+import { RequestsView } from "@/components/forms/requests-view";
+import { ReleasePostGenerator } from "@/components/release/release-post-generator";
+import ModerationPageContent from "@/app/dashboard/moderation/content";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 // ----------------------------------------------------------------------------
 // View Router Component
@@ -20,21 +21,23 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 // ----------------------------------------------------------------------------
 
 function ViewRouter() {
-  const { currentView } = useStore()
+  const { currentView } = useStore();
 
   switch (currentView) {
-    case 'dashboard':
-      return <DashboardHome />
-    case 'bots':
-      return <BotManager />
-    case 'forms':
-      return <FormManager />
-    case 'requests':
-      return <RequestsView />
-    case 'release-generator':
-      return <ReleasePostGenerator />
+    case "dashboard":
+      return <DashboardHome />;
+    case "bots":
+      return <BotManager />;
+    case "forms":
+      return <FormManager />;
+    case "requests":
+      return <RequestsView />;
+    case "moderation":
+      return <ModerationPageContent />;
+    case "release-generator":
+      return <ReleasePostGenerator />;
     default:
-      return <DashboardHome />
+      return <DashboardHome />;
   }
 }
 
@@ -47,7 +50,7 @@ function AppContent({ username }: { username: string }) {
     <DashboardLayout username={username}>
       <ViewRouter />
     </DashboardLayout>
-  )
+  );
 }
 
 // ----------------------------------------------------------------------------
@@ -61,5 +64,5 @@ export function ClientApp({ username }: { username: string }) {
         <AppContent username={username} />
       </StoreProvider>
     </TooltipProvider>
-  )
+  );
 }

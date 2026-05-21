@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import {
+  validateFormSubmission,
+  recordFlaggedRequest,
+} from "@/app/actions/safety";
 // Lightweight markdown renderer for basic formatting (bold, italic, links, lists)
 function escapeHtml(str: string) {
   return String(str)
@@ -585,7 +589,9 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
                       ? []
                       : "")
                   }
-                  onChange={(value: any) => onChange(field.id, value)}
+                  onChange={(value: any) =>
+                    onChange(field.id, field.label, value)
+                  }
                   error={errors[field.id]}
                 />
                 {errors[field.id] && (
@@ -650,7 +656,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
                 values[field.id] ||
                 (field.type === "tags" || field.type === "checkbox" ? [] : "")
               }
-              onChange={(value: any) => onChange(field.id, value)}
+              onChange={(value: any) => onChange(field.id, field.label, value)}
               error={errors[field.id]}
             />
             {errors[field.id] && (
@@ -672,7 +678,11 @@ export default function PublicForm({ form }: PublicFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleChange = (fieldId: string, value: string | string[]) => {
+  const handleChange = (
+    fieldId: string,
+    label: string,
+    value: string | string[],
+  ) => {
     setValues((prev) => ({ ...prev, [fieldId]: value }));
     if (errors[fieldId]) {
       setErrors((prev) => {
@@ -707,11 +717,69 @@ export default function PublicForm({ form }: PublicFormProps) {
     try {
       const supabase = createClient();
 
+      // Build label mapping directly from form.sections
+      const labelMap: Record<string, string> = {};
+      let sections = form.sections;
+
+      // Handle case where sections might be a JSON string
+      if (typeof sections === "string") {
+        try {
+          sections = JSON.parse(sections);
+        } catch (e) {
+          console.error("Failed to parse sections:", e);
+          sections = [];
+        }
+      }
+
+      if (Array.isArray(sections)) {
+        sections.forEach((section: any) => {
+          if (Array.isArray(section.fields)) {
+            section.fields.forEach((field: any) => {
+              // Use field label if available, otherwise use section title, otherwise use field ID
+              const label = field.label || section.title || field.id;
+              labelMap[field.id] = label;
+            });
+          }
+        });
+      }
+
+      // Transform responses to use labels as keys instead of IDs
+      const responsesByLabel: Record<string, string | string[]> = {};
+      Object.entries(values).forEach(([fieldId, value]) => {
+        const label = labelMap[fieldId] || fieldId;
+        responsesByLabel[label] = value;
+      });
+
+      // ===== SECURITY CHECK: Validate content =====
+      const securityCheck = await validateFormSubmission(
+        form.id,
+        responsesByLabel,
+      );
+
+      if (!securityCheck.isValid) {
+        // Dangerous content - reject submission
+        if (securityCheck.riskLevel === "dangerous") {
+          toast.error(
+            "Your submission was rejected due to safety concerns. Please review your content and try again.",
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Rate limit exceeded
+        if (securityCheck.reason?.includes("Rate limit")) {
+          toast.error(securityCheck.reason);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      // ===== INSERT REQUEST INTO DATABASE =====
       const payload: any = {
         form_id: form.id,
         user_id: form.userId ?? null,
         form_title: form.title,
-        responses: values,
+        responses: responsesByLabel,
         submitter_name:
           typeof values["name"] === "string" ? values["name"] : null,
       };
@@ -727,6 +795,28 @@ export default function PublicForm({ form }: PublicFormProps) {
         toast.error("Failed to submit request. Please try again.");
         setIsSubmitting(false);
         return;
+      }
+
+      // ===== FLAG REQUEST IF NEEDED =====
+      if (securityCheck.isFlagged && data) {
+        const flagResult = await recordFlaggedRequest(
+          form.id,
+          data.id,
+          securityCheck.riskLevel as "warning" | "dangerous",
+          securityCheck.flaggedFields || {},
+          securityCheck.reason,
+        );
+
+        if (!flagResult.success) {
+          console.warn("Failed to record flagged request:", flagResult.error);
+        }
+
+        // Show warning but still confirm submission
+        if (securityCheck.riskLevel === "warning") {
+          toast.info(
+            "Your submission has been received and will be reviewed before being processed.",
+          );
+        }
       }
 
       console.log("Request saved:", data);
@@ -752,7 +842,7 @@ export default function PublicForm({ form }: PublicFormProps) {
               This form doesn't exist or is no longer accepting responses.
             </p>
             <Link href="/">
-              <Button variant="outline" className="mt-6">
+              <Button variant="outline" className="mt-6 cursor-pointer">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to JanitorForge
               </Button>
@@ -777,7 +867,7 @@ export default function PublicForm({ form }: PublicFormProps) {
               request soon.
             </p>
             <Link href="/">
-              <Button variant="outline" className="mt-6">
+              <Button variant="outline" className="mt-6 cursor-pointer">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to JanitorForge
               </Button>
@@ -819,13 +909,15 @@ export default function PublicForm({ form }: PublicFormProps) {
               section={section}
               values={values}
               errors={errors}
-              onChange={(id: string, v: any) => handleChange(id, v)}
+              onChange={(id: string, label: string, v: any) =>
+                handleChange(id, label, v)
+              }
             />
           ))}
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full cursor-pointer"
             size="lg"
             disabled={isSubmitting}
           >

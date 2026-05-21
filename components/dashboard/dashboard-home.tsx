@@ -104,7 +104,7 @@ function RecentBotCard({
   onEdit,
 }: RecentBotCardProps) {
   return (
-    <Card className="group cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+    <Card className="group transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -151,7 +151,7 @@ function RecentBotCard({
           <Button
             variant="ghost"
             size="sm"
-            className="opacity-0 transition-opacity group-hover:opacity-100"
+            className="opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
             onClick={onEdit}
           >
             Edit
@@ -268,7 +268,11 @@ export function DashboardHome() {
               Your most recently updated characters
             </p>
           </div>
-          <Button variant="outline" onClick={() => setCurrentView("bots")}>
+          <Button
+            variant="outline"
+            className="cursor-pointer"
+            onClick={() => setCurrentView("bots")}
+          >
             View All
           </Button>
         </div>

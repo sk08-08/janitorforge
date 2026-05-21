@@ -3,13 +3,14 @@
 // Visual request management with drag-and-drop columns
 // ============================================================================
 
-'use client'
+"use client";
 
-import { useState, useMemo } from 'react'
-import { 
-  MoreVertical, 
-  Trash2, 
-  ArrowRight, 
+import { useState, useMemo } from "react";
+import { useStore } from "@/lib/store";
+import {
+  MoreVertical,
+  Trash2,
+  ArrowRight,
   MessageSquare,
   Clock,
   User,
@@ -19,18 +20,24 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -38,91 +45,113 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from "@/components/ui/dialog";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
-import type { Request, RequestStatus } from '@/lib/types'
+} from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import type { Request, RequestStatus } from "@/lib/types";
 
 // ----------------------------------------------------------------------------
 // Column Configuration
 // ----------------------------------------------------------------------------
 
 interface ColumnConfig {
-  id: RequestStatus
-  title: string
-  icon: typeof Inbox
-  color: string
-  bgColor: string
+  id: RequestStatus;
+  title: string;
+  icon: typeof Inbox;
+  color: string;
+  bgColor: string;
 }
 
 const columns: ColumnConfig[] = [
-  { 
-    id: 'new', 
-    title: 'New', 
-    icon: Inbox, 
-    color: 'text-primary',
-    bgColor: 'bg-primary/10',
+  {
+    id: "new",
+    title: "New",
+    icon: Inbox,
+    color: "text-primary",
+    bgColor: "bg-primary/10",
   },
-  { 
-    id: 'accepted', 
-    title: 'In Progress', 
-    icon: Loader2, 
-    color: 'text-chart-2',
-    bgColor: 'bg-chart-2/10',
+  {
+    id: "accepted",
+    title: "In Progress",
+    icon: Loader2,
+    color: "text-chart-2",
+    bgColor: "bg-chart-2/10",
   },
-  { 
-    id: 'completed', 
-    title: 'Completed', 
-    icon: CheckCircle, 
-    color: 'text-success',
-    bgColor: 'bg-success/10',
+  {
+    id: "completed",
+    title: "Completed",
+    icon: CheckCircle,
+    color: "text-success",
+    bgColor: "bg-success/10",
   },
-  { 
-    id: 'rejected', 
-    title: 'Rejected', 
-    icon: XCircle, 
-    color: 'text-destructive',
-    bgColor: 'bg-destructive/10',
+  {
+    id: "rejected",
+    title: "Rejected",
+    icon: XCircle,
+    color: "text-destructive",
+    bgColor: "bg-destructive/10",
   },
-]
+];
 
 // ----------------------------------------------------------------------------
 // Request Card Component
 // ----------------------------------------------------------------------------
 
 interface RequestCardProps {
-  request: Request
-  onStatusChange: (status: RequestStatus, notes?: string) => void
-  onDelete: () => void
-  onViewDetails: () => void
+  request: Request;
+  onStatusChange: (status: RequestStatus, notes?: string) => void;
+  onDelete: () => void;
+  onViewDetails: () => void;
 }
 
-function RequestCard({ request, onStatusChange, onDelete, onViewDetails }: RequestCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  
+function RequestCard({
+  request,
+  onStatusChange,
+  onDelete,
+  onViewDetails,
+}: RequestCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   // Get primary response fields for preview
   const previewFields = useMemo(() => {
-    const entries = Object.entries(request.responses)
-    return entries.slice(0, 2)
-  }, [request.responses])
+    const entries = Object.entries(request.responses);
+    return entries.slice(0, 2);
+  }, [request.responses]);
 
   const getNextStatus = (): RequestStatus | null => {
     switch (request.status) {
-      case 'new': return 'accepted'
-      case 'accepted': return 'completed'
-      default: return null
+      case "new":
+        return "accepted";
+      case "accepted":
+        return "completed";
+      default:
+        return null;
     }
-  }
+  };
 
-  const nextStatus = getNextStatus()
+  const nextStatus = getNextStatus();
+
+  const handleDragStart = (e: any) => {
+    e.dataTransfer.setData("text/plain", request.id);
+    (e.currentTarget as HTMLDivElement).classList.add("opacity-60");
+  };
+
+  const handleDragEnd = (e: any) => {
+    (e.currentTarget as HTMLDivElement).classList.remove("opacity-60");
+  };
 
   return (
-    <Card className="transition-all hover:shadow-md">
+    <Card
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className="transition-all hover:shadow-md cursor-grab"
+    >
       <CardContent className="p-3">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -136,7 +165,11 @@ function RequestCard({ request, onStatusChange, onDelete, onViewDetails }: Reque
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 cursor-pointer"
+              >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -148,17 +181,21 @@ function RequestCard({ request, onStatusChange, onDelete, onViewDetails }: Reque
               {nextStatus && (
                 <DropdownMenuItem onClick={() => onStatusChange(nextStatus)}>
                   <ArrowRight className="mr-2 h-4 w-4" />
-                  Move to {columns.find(c => c.id === nextStatus)?.title}
+                  Move to {columns.find((c) => c.id === nextStatus)?.title}
                 </DropdownMenuItem>
               )}
-              {request.status !== 'rejected' && request.status !== 'completed' && (
-                <DropdownMenuItem onClick={() => onStatusChange('rejected')}>
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Reject
-                </DropdownMenuItem>
-              )}
+              {request.status !== "rejected" &&
+                request.status !== "completed" && (
+                  <DropdownMenuItem onClick={() => onStatusChange("rejected")}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Reject
+                  </DropdownMenuItem>
+                )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onDelete} className="text-destructive">
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive cursor-pointer"
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
@@ -168,11 +205,11 @@ function RequestCard({ request, onStatusChange, onDelete, onViewDetails }: Reque
 
         {/* Preview Fields */}
         <div className="mt-2 space-y-1">
-          {previewFields.map(([key, value]) => (
-            <div key={key} className="text-sm">
-              <span className="text-muted-foreground">{key}: </span>
+          {previewFields.map(([label, value]) => (
+            <div key={label} className="text-sm">
+              <span className="text-muted-foreground">{label}: </span>
               <span className="line-clamp-1">
-                {Array.isArray(value) ? value.join(', ') : value}
+                {Array.isArray(value) ? value.join(", ") : value}
               </span>
             </div>
           ))}
@@ -180,9 +217,13 @@ function RequestCard({ request, onStatusChange, onDelete, onViewDetails }: Reque
 
         {/* Expandable full details */}
         {Object.keys(request.responses).length > 2 && (
-          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+          <Collapsible onOpenChange={setIsExpanded}>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="mt-2 h-7 w-full text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2 h-7 w-full text-xs cursor-pointer"
+              >
                 {isExpanded ? (
                   <>
                     <ChevronUp className="mr-1 h-3 w-3" />
@@ -197,12 +238,16 @@ function RequestCard({ request, onStatusChange, onDelete, onViewDetails }: Reque
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 space-y-1">
-              {Object.entries(request.responses).slice(2).map(([key, value]) => (
-                <div key={key} className="text-sm">
-                  <span className="text-muted-foreground">{key}: </span>
-                  <span>{Array.isArray(value) ? value.join(', ') : value}</span>
-                </div>
-              ))}
+              {Object.entries(request.responses)
+                .slice(2)
+                .map(([label, value]) => (
+                  <div key={label} className="text-sm">
+                    <span className="text-muted-foreground">{label}: </span>
+                    <span>
+                      {Array.isArray(value) ? value.join(", ") : value}
+                    </span>
+                  </div>
+                ))}
             </CollapsibleContent>
           </Collapsible>
         )}
@@ -227,7 +272,7 @@ function RequestCard({ request, onStatusChange, onDelete, onViewDetails }: Reque
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ----------------------------------------------------------------------------
@@ -235,24 +280,51 @@ function RequestCard({ request, onStatusChange, onDelete, onViewDetails }: Reque
 // ----------------------------------------------------------------------------
 
 interface KanbanColumnProps {
-  config: ColumnConfig
-  requests: Request[]
-  onStatusChange: (requestId: string, status: RequestStatus, notes?: string) => void
-  onDelete: (requestId: string) => void
-  onViewDetails: (request: Request) => void
+  config: ColumnConfig;
+  requests: Request[];
+  onStatusChange: (
+    requestId: string,
+    status: RequestStatus,
+    notes?: string,
+  ) => void;
+  onDelete: (requestId: string) => void;
+  onViewDetails: (request: Request) => void;
 }
 
-function KanbanColumn({ config, requests, onStatusChange, onDelete, onViewDetails }: KanbanColumnProps) {
-  const Icon = config.icon
+function KanbanColumn({
+  config,
+  requests,
+  onStatusChange,
+  onDelete,
+  onViewDetails,
+}: KanbanColumnProps) {
+  const Icon = config.icon;
+
+  const handleDragOver = (e: any) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: any) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData("text/plain");
+    if (id) onStatusChange(id, config.id);
+  };
 
   return (
-    <div className="flex flex-col min-w-[300px] w-[300px]">
+    <div
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className="flex flex-col"
+      style={{ minWidth: 360, width: 360, resize: "both", overflow: "auto" }}
+    >
       {/* Column Header */}
-      <div className={cn(
-        'flex items-center gap-2 rounded-t-lg px-3 py-2',
-        config.bgColor
-      )}>
-        <Icon className={cn('h-4 w-4', config.color)} />
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-t-lg px-3 py-2",
+          config.bgColor,
+        )}
+      >
+        <Icon className={cn("h-4 w-4", config.color)} />
         <span className="font-medium">{config.title}</span>
         <Badge variant="secondary" className="ml-auto">
           {requests.length}
@@ -261,13 +333,15 @@ function KanbanColumn({ config, requests, onStatusChange, onDelete, onViewDetail
 
       {/* Column Content */}
       <ScrollArea className="flex-1 rounded-b-lg border border-t-0 bg-card/50">
-        <div className="space-y-2 p-2" style={{ minHeight: '400px' }}>
+        <div className="space-y-2 p-2" style={{ minHeight: "520px" }}>
           {requests.length > 0 ? (
             requests.map((request) => (
               <RequestCard
                 key={request.id}
                 request={request}
-                onStatusChange={(status, notes) => onStatusChange(request.id, status, notes)}
+                onStatusChange={(status, notes) =>
+                  onStatusChange(request.id, status, notes)
+                }
                 onDelete={() => onDelete(request.id)}
                 onViewDetails={() => onViewDetails(request)}
               />
@@ -280,7 +354,7 @@ function KanbanColumn({ config, requests, onStatusChange, onDelete, onViewDetail
         </div>
       </ScrollArea>
     </div>
-  )
+  );
 }
 
 // ----------------------------------------------------------------------------
@@ -288,19 +362,24 @@ function KanbanColumn({ config, requests, onStatusChange, onDelete, onViewDetail
 // ----------------------------------------------------------------------------
 
 interface RequestDetailsDialogProps {
-  request: Request | null
-  onClose: () => void
-  onStatusChange: (status: RequestStatus, notes?: string) => void
-  onDelete: () => void
+  request: Request | null;
+  onClose: () => void;
+  onStatusChange: (status: RequestStatus, notes?: string) => void;
+  onDelete: () => void;
 }
 
-function RequestDetailsDialog({ request, onClose, onStatusChange, onDelete }: RequestDetailsDialogProps) {
-  const [notes, setNotes] = useState(request?.notes || '')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+function RequestDetailsDialog({
+  request,
+  onClose,
+  onStatusChange,
+  onDelete,
+}: RequestDetailsDialogProps) {
+  const [notes, setNotes] = useState(request?.notes || "");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  if (!request) return null
+  if (!request) return null;
 
-  const currentColumn = columns.find(c => c.id === request.status)
+  const currentColumn = columns.find((c) => c.id === request.status);
 
   return (
     <>
@@ -316,7 +395,8 @@ function RequestDetailsDialog({ request, onClose, onStatusChange, onDelete }: Re
               )}
             </DialogTitle>
             <DialogDescription>
-              Submitted on {request.createdAt.toLocaleDateString()} via {request.formTitle}
+              Submitted on {request.createdAt.toLocaleDateString()} via{" "}
+              {request.formTitle}
             </DialogDescription>
           </DialogHeader>
 
@@ -324,11 +404,13 @@ function RequestDetailsDialog({ request, onClose, onStatusChange, onDelete }: Re
           <div className="space-y-4">
             <h4 className="font-medium">Responses</h4>
             <div className="space-y-3">
-              {Object.entries(request.responses).map(([key, value]) => (
-                <div key={key} className="rounded-lg border p-3">
-                  <p className="text-sm font-medium text-muted-foreground">{key}</p>
+              {Object.entries(request.responses).map(([label, value]) => (
+                <div key={label} className="rounded-lg border p-3">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {label}
+                  </p>
                   <p className="mt-1">
-                    {Array.isArray(value) ? value.join(', ') : value || '-'}
+                    {Array.isArray(value) ? value.join(", ") : value || "-"}
                   </p>
                 </div>
               ))}
@@ -348,31 +430,46 @@ function RequestDetailsDialog({ request, onClose, onStatusChange, onDelete }: Re
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <div className="flex gap-2">
-              {request.status === 'new' && (
+              {request.status === "new" && (
                 <>
-                  <Button onClick={() => onStatusChange('accepted', notes)}>
+                  <Button
+                    className="cursor-pointer"
+                    onClick={() => onStatusChange("accepted", notes)}
+                  >
                     Accept
                   </Button>
-                  <Button variant="outline" onClick={() => onStatusChange('rejected', notes)}>
+                  <Button
+                    variant="outline"
+                    className="cursor-pointer"
+                    onClick={() => onStatusChange("rejected", notes)}
+                  >
                     Reject
                   </Button>
                 </>
               )}
-              {request.status === 'accepted' && (
-                <Button onClick={() => onStatusChange('completed', notes)}>
+              {request.status === "accepted" && (
+                <Button
+                  className="cursor-pointer"
+                  onClick={() => onStatusChange("completed", notes)}
+                >
                   Mark Complete
                 </Button>
               )}
             </div>
             <div className="flex gap-2 ml-auto">
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
+                className="cursor-pointer"
                 onClick={() => setShowDeleteConfirm(true)}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
-              <Button variant="outline" onClick={onClose}>
+              <Button
+                variant="outline"
+                className="cursor-pointer"
+                onClick={onClose}
+              >
                 Close
               </Button>
             </div>
@@ -386,19 +483,25 @@ function RequestDetailsDialog({ request, onClose, onStatusChange, onDelete }: Re
           <DialogHeader>
             <DialogTitle>Delete Request</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this request? This action cannot be undone.
+              Are you sure you want to delete this request? This action cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
               onClick={() => {
-                onDelete()
-                setShowDeleteConfirm(false)
-                onClose()
+                onDelete();
+                setShowDeleteConfirm(false);
+                onClose();
               }}
             >
               Delete
@@ -407,7 +510,7 @@ function RequestDetailsDialog({ request, onClose, onStatusChange, onDelete }: Re
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }
 
 // ----------------------------------------------------------------------------
@@ -415,17 +518,25 @@ function RequestDetailsDialog({ request, onClose, onStatusChange, onDelete }: Re
 // ----------------------------------------------------------------------------
 
 interface KanbanBoardProps {
-  requests: Request[]
-  onStatusChange: (requestId: string, status: RequestStatus, notes?: string) => void
-  onDelete: (requestId: string) => void
+  requests: Request[];
+  onStatusChange: (
+    requestId: string,
+    status: RequestStatus,
+    notes?: string,
+  ) => void;
+  onDelete: (requestId: string) => void;
 }
 
 // ----------------------------------------------------------------------------
 // Kanban Board Component
 // ----------------------------------------------------------------------------
 
-export function KanbanBoard({ requests, onStatusChange, onDelete }: KanbanBoardProps) {
-  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null)
+export function KanbanBoard({
+  requests,
+  onStatusChange,
+  onDelete,
+}: KanbanBoardProps) {
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
 
   // Group requests by status
   const groupedRequests = useMemo(() => {
@@ -434,21 +545,21 @@ export function KanbanBoard({ requests, onStatusChange, onDelete }: KanbanBoardP
       accepted: [],
       completed: [],
       rejected: [],
-    }
-    
+    };
+
     requests.forEach((request) => {
-      grouped[request.status].push(request)
-    })
-    
+      grouped[request.status].push(request);
+    });
+
     // Sort each group by date (newest first)
     Object.keys(grouped).forEach((status) => {
       grouped[status as RequestStatus].sort(
-        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-      )
-    })
-    
-    return grouped
-  }, [requests])
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+      );
+    });
+
+    return grouped;
+  }, [requests]);
 
   return (
     <>
@@ -470,16 +581,16 @@ export function KanbanBoard({ requests, onStatusChange, onDelete }: KanbanBoardP
         onClose={() => setSelectedRequest(null)}
         onStatusChange={(status, notes) => {
           if (selectedRequest) {
-            onStatusChange(selectedRequest.id, status, notes)
-            setSelectedRequest(null)
+            onStatusChange(selectedRequest.id, status, notes);
+            setSelectedRequest(null);
           }
         }}
         onDelete={() => {
           if (selectedRequest) {
-            onDelete(selectedRequest.id)
+            onDelete(selectedRequest.id);
           }
         }}
       />
     </>
-  )
+  );
 }
