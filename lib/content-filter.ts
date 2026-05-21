@@ -30,6 +30,9 @@ const DANGEROUS_PATTERNS = [
   /\bsuicide\b/i,
   /\bsuicidal\b/i,
 
+  // English - insults
+  /\b(fuckass|faggot|nigger|bitch|retard|slut|cunt|fuck you|suck my dick|suck it|fuck u|go jump off a|cumdump|motherfucker|bastard|cuck|cuckqueen|scumbag|asshole|dickhead|bop|bih)\b/i,
+
   // English - severe harassment / threats toward others
   /\b(i will kill you|i'll kill you|im going to kill you|i'm going to kill you|i will murder you)\b/i,
   /\b(i will beat you|i'll beat you|im going to beat you|i'm going to beat you|i will hit you|i'll hit you)\b/i,
@@ -43,7 +46,7 @@ const DANGEROUS_PATTERNS = [
   /\b(suicidarse?|suicidio|me voy a matar|voy a matarme?|quiero morirme?|suicid)\b/i,
   /\bmatate?s?\b/i, // "Mátate" - kill yourself
   /\bdeberias? morirte?\b/i, // "Deberías morir" - you should die
-  /\bmueredate?\b/i, // "Muérete" - drop dead
+  /\bmuerete?\b/i, // "Muérete" - drop dead
 
   // Self-harm (Spanish)
   /\b(cortarme?|cortarte?|automutilaci[óo]n|mutilaci[óo]n|hacerme?|daño)\b/i,
