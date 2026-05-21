@@ -15,13 +15,12 @@ export default async function PublicFormPage({
   const { slug } = (await Promise.resolve(params)) as { slug: string };
   try {
     const supabase = await createServerClient();
-    const { data: formData, error } = await supabase
-      .from("request_forms")
-      .select("*")
-      .eq("shareable_link", String(slug))
-      .single();
+    const { data: formData, error } = await supabase.rpc(
+      "get_public_request_form",
+      { p_shareable_link: String(slug) },
+    );
 
-    if (error || !formData) {
+    if (error || !formData || formData.length === 0) {
       return (
         <div className="min-h-screen bg-background flex items-start justify-center pt-12">
           <div className="container max-w-2xl py-8">
@@ -31,13 +30,15 @@ export default async function PublicFormPage({
       );
     }
 
+    const row = formData[0];
+
     const form = {
-      id: formData.id,
-      title: formData.title,
-      description: formData.description,
-      isActive: !!formData.is_active,
-      sections: (formData.sections || []) as FormSection[],
-      userId: formData.user_id,
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      isActive: !!row.is_active,
+      sections: (row.sections || []) as FormSection[],
+      userId: row.user_id,
     };
 
     return <PublicForm form={form} />;

@@ -13,6 +13,47 @@ import {
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { ContentFilterResult } from "@/lib/content-filter";
 
+async function getAuthenticatedUserId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    throw error;
+  }
+
+  return user?.id ?? null;
+}
+
+async function assertOwnedForm(formId: string) {
+  const supabase = await createClient();
+  const userId = await getAuthenticatedUserId(supabase);
+
+  if (!userId) {
+    return { success: false, error: "Unauthenticated" as const };
+  }
+
+  const { data, error } = await supabase
+    .from("request_forms")
+    .select("id")
+    .eq("id", formId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return { success: false, error: error.message as const };
+  }
+
+  if (!data) {
+    return { success: false, error: "Forbidden" as const };
+  }
+
+  return { success: true as const, supabase, userId };
+}
+
 /**
  * Validate form submission for security issues
  * Returns: { isValid, isFlagged, reason, details }
@@ -116,7 +157,13 @@ export async function getFlaggedRequestsForForm(
   flaggedRequests?: any[];
   error?: string;
 }> {
-  const supabase = await createClient();
+  const ownedForm = await assertOwnedForm(formId);
+
+  if (!ownedForm.success) {
+    return { success: false, error: ownedForm.error };
+  }
+
+  const { supabase } = ownedForm;
 
   const { data, error } = await supabase
     .from("flagged_requests")
@@ -144,6 +191,27 @@ export async function markFlaggedAsReviewed(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
+  const { data: flaggedRequest, error: lookupError } = await supabase
+    .from("flagged_requests")
+    .select("form_id")
+    .eq("id", flaggedRequestId)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("Failed to load flagged request:", lookupError);
+    return { success: false, error: lookupError.message };
+  }
+
+  if (!flaggedRequest?.form_id) {
+    return { success: false, error: "Forbidden" };
+  }
+
+  const ownedForm = await assertOwnedForm(flaggedRequest.form_id);
+
+  if (!ownedForm.success) {
+    return { success: false, error: ownedForm.error };
+  }
+
   const { error } = await supabase
     .from("flagged_requests")
     .update({
@@ -170,7 +238,13 @@ export async function blockIpAddress(
   ipAddress: string,
   reason: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
+  const ownedForm = await assertOwnedForm(formId);
+
+  if (!ownedForm.success) {
+    return { success: false, error: ownedForm.error };
+  }
+
+  const { supabase } = ownedForm;
 
   const payload = {
     form_id: formId,
@@ -196,7 +270,13 @@ export async function isIpBlocked(
   formId: string,
   ipAddress: string,
 ): Promise<boolean> {
-  const supabase = await createClient();
+  const ownedForm = await assertOwnedForm(formId);
+
+  if (!ownedForm.success) {
+    return false;
+  }
+
+  const { supabase } = ownedForm;
 
   const { data, error } = await supabase
     .from("blocked_ips")
@@ -216,7 +296,13 @@ export async function addToCustomBlocklist(
   pattern: string,
   isRegex: boolean = false,
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
+  const ownedForm = await assertOwnedForm(formId);
+
+  if (!ownedForm.success) {
+    return { success: false, error: ownedForm.error };
+  }
+
+  const { supabase } = ownedForm;
 
   const payload = {
     form_id: formId,
@@ -243,7 +329,13 @@ export async function getCustomBlocklist(formId: string): Promise<{
   patterns?: any[];
   error?: string;
 }> {
-  const supabase = await createClient();
+  const ownedForm = await assertOwnedForm(formId);
+
+  if (!ownedForm.success) {
+    return { success: false, error: ownedForm.error };
+  }
+
+  const { supabase } = ownedForm;
 
   const { data, error } = await supabase
     .from("custom_blocklists")
@@ -265,7 +357,13 @@ export async function removeFromCustomBlocklist(
   formId: string,
   pattern: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
+  const ownedForm = await assertOwnedForm(formId);
+
+  if (!ownedForm.success) {
+    return { success: false, error: ownedForm.error };
+  }
+
+  const { supabase } = ownedForm;
 
   const { error } = await supabase
     .from("custom_blocklists")

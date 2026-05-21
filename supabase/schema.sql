@@ -131,10 +131,6 @@ CREATE POLICY "Users can view their own forms"
   ON public.request_forms FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE POLICY "Anyone can view active forms by shareable link"
-  ON public.request_forms FOR SELECT
-  USING (is_active = true);
-
 CREATE POLICY "Users can create their own forms"
   ON public.request_forms FOR INSERT
   WITH CHECK (auth.uid() = user_id);
@@ -222,12 +218,36 @@ ALTER TABLE public.flagged_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.blocked_ips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.custom_blocklists ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "Anyone can insert flagged requests for active forms"
+  ON public.flagged_requests FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.request_forms
+      WHERE id = form_id AND is_active = true
+    )
+  );
+
 -- Flagged requests policies
 CREATE POLICY "Users can view flagged requests for their forms"
   ON public.flagged_requests FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM public.request_forms 
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can review flagged requests for their forms"
+  ON public.flagged_requests FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.request_forms
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.request_forms
       WHERE id = form_id AND user_id = auth.uid()
     )
   );
@@ -251,6 +271,43 @@ CREATE POLICY "Users can manage their form blocklists"
       WHERE id = form_id AND user_id = auth.uid()
     )
   );
+
+-- Public form lookup without exposing the forms table broadly
+CREATE OR REPLACE FUNCTION public.get_public_request_form(p_shareable_link text)
+RETURNS TABLE (
+  id uuid,
+  user_id uuid,
+  title text,
+  description text,
+  sections jsonb,
+  is_active boolean,
+  shareable_link text,
+  security_sensitivity text,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    id,
+    user_id,
+    title,
+    description,
+    sections,
+    is_active,
+    shareable_link,
+    security_sensitivity,
+    created_at,
+    updated_at
+  FROM public.request_forms
+  WHERE shareable_link = p_shareable_link
+    AND is_active = true
+  LIMIT 1;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_public_request_form(text) TO anon, authenticated;
 
 -- ============================================================================
 -- FUNCTIONS & TRIGGERS

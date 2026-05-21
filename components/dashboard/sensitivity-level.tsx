@@ -120,10 +120,25 @@ export function SensitivityLevelSettings({
     const loadLevel = async () => {
       try {
         const supabase = await createClient();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) {
+          throw userError;
+        }
+
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase
           .from("request_forms")
           .select("security_sensitivity")
           .eq("id", formId)
+          .eq("user_id", user.id)
           .single();
 
         if (error) {
@@ -161,10 +176,25 @@ export function SensitivityLevelSettings({
     setSaving(true);
     try {
       const supabase = await createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        toast.error("You must be signed in to update this form");
+        return;
+      }
+
       const { error } = await supabase
         .from("request_forms")
         .update({ security_sensitivity: newLevel })
-        .eq("id", formId);
+        .eq("id", formId)
+        .eq("user_id", user.id);
 
       if (error) {
         console.warn("Failed to update DB but saved locally:", error);

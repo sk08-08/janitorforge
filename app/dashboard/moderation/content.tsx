@@ -39,9 +39,25 @@ export default function ModerationPageContent() {
     setLoading(true);
     try {
       const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        setForms([]);
+        setSelectedFormId(null);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("request_forms")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -49,20 +65,28 @@ export default function ModerationPageContent() {
         return;
       }
 
-      setForms(
-        data.map((form: any) => ({
-          ...form,
-          createdAt: new Date(form.created_at),
-          updatedAt: new Date(form.updated_at),
-        })),
-      );
+      const ownedForms = (data || []).map((form: any) => ({
+        ...form,
+        createdAt: new Date(form.created_at),
+        updatedAt: new Date(form.updated_at),
+      }));
 
-      // Auto-select first form if available
-      if (data.length > 0 && !selectedFormId) {
-        setSelectedFormId(data[0].id);
-      }
+      setForms(ownedForms);
+
+      setSelectedFormId((currentSelected) => {
+        if (
+          currentSelected &&
+          ownedForms.some((form) => form.id === currentSelected)
+        ) {
+          return currentSelected;
+        }
+
+        return ownedForms[0]?.id || null;
+      });
     } catch (error) {
       console.error("Error loading forms:", error);
+      setForms([]);
+      setSelectedFormId(null);
     } finally {
       setLoading(false);
     }
