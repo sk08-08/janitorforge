@@ -506,7 +506,7 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{stats.total}</div>
@@ -544,12 +544,12 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
 
       {/* Filter & Refresh & Bulk Actions */}
       <div className="flex flex-col gap-3">
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
           <Select
             value={filter}
             onValueChange={(value: any) => setFilter(value)}
           >
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -562,7 +562,7 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
           <Button
             variant="outline"
             size="icon"
-            className="cursor-pointer"
+            className="cursor-pointer w-full sm:w-auto"
             onClick={loadFlaggedRequests}
             disabled={loading}
           >
@@ -572,7 +572,7 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
           <Button
             variant="outline"
             size="sm"
-            className="cursor-pointer"
+            className="cursor-pointer w-full sm:w-auto"
             onClick={() => setShowSettings(!showSettings)}
           >
             {showSettings ? "Hide Settings" : "Show Settings"}

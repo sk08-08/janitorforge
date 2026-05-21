@@ -334,16 +334,21 @@ export function FormManager() {
   };
 
   return (
-    <div className="p-8 lg:p-10">
+    <div className="p-4 sm:p-6 md:p-8 lg:p-10">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Request Forms</h1>
-          <p className="mt-1 text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Request Forms
+          </h1>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">
             Design custom forms to collect bot requests from your community
           </p>
         </div>
-        <Button onClick={() => setIsCreating(true)} className="cursor-pointer">
+        <Button
+          onClick={() => setIsCreating(true)}
+          className="cursor-pointer w-full sm:w-auto"
+        >
           <Plus className="mr-2 h-4 w-4" />
           New Form
         </Button>
@@ -351,7 +356,7 @@ export function FormManager() {
 
       {/* Form List */}
       {forms.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {forms.map((form) => (
             <FormCard
               key={form.id}

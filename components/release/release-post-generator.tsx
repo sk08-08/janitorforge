@@ -265,12 +265,12 @@ export function ReleasePostGenerator() {
 
   if (bots.length === 0) {
     return (
-      <div className="p-8 lg:p-10">
+      <div className="p-4 sm:p-6 md:p-8 lg:p-10">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Release Post Generator
           </h1>
-          <p className="mt-1 text-muted-foreground">
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">
             Generate beautifully formatted release announcements for your bots
           </p>
         </div>
@@ -282,18 +282,18 @@ export function ReleasePostGenerator() {
   }
 
   return (
-    <div className="p-8 lg:p-10">
+    <div className="p-4 sm:p-6 md:p-8 lg:p-10">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
           Release Post Generator
         </h1>
-        <p className="mt-1 text-muted-foreground">
+        <p className="mt-1 text-sm sm:text-base text-muted-foreground">
           Generate beautifully formatted release announcements for your bots
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {/* Left Column - Bot Selection & Settings */}
         <div className="space-y-6">
           {/* Bot Selection */}

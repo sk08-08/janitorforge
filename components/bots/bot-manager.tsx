@@ -393,16 +393,21 @@ export function BotManager() {
   };
 
   return (
-    <div className="p-8 lg:p-10">
+    <div className="p-4 sm:p-6 md:p-8 lg:p-10">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Bot Manager</h1>
-          <p className="mt-1 text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Bot Manager
+          </h1>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">
             Create, edit, and manage your bot characters
           </p>
         </div>
-        <Button onClick={() => setIsCreating(true)} className="cursor-pointer">
+        <Button
+          onClick={() => setIsCreating(true)}
+          className="cursor-pointer w-full sm:w-auto"
+        >
           <Plus className="mr-2 h-4 w-4" />
           New Bot
         </Button>
@@ -410,21 +415,21 @@ export function BotManager() {
 
       {/* Filters */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-col sm:flex-row flex-1 items-start sm:items-center gap-3">
+          <div className="relative flex-1 w-full sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search bots..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 w-full"
             />
           </div>
           <Select
             value={filterRating}
             onValueChange={(v) => setFilterRating(v as FilterRating)}
           >
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-full sm:w-32">
               <Filter className="mr-2 h-4 w-4" />
               <SelectValue />
             </SelectTrigger>
@@ -435,12 +440,12 @@ export function BotManager() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
+        <div className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto">
           <Button
             variant={viewMode === "grid" ? "secondary" : "ghost"}
             size="sm"
             onClick={() => setViewMode("grid")}
-            className="cursor-pointer"
+            className="cursor-pointer flex-1 sm:flex-none"
           >
             <Grid3X3 className="h-4 w-4" />
           </Button>
@@ -448,7 +453,7 @@ export function BotManager() {
             variant={viewMode === "list" ? "secondary" : "ghost"}
             size="sm"
             onClick={() => setViewMode("list")}
-            className="cursor-pointer"
+            className="cursor-pointer flex-1 sm:flex-none"
           >
             <List className="h-4 w-4" />
           </Button>
@@ -460,7 +465,7 @@ export function BotManager() {
         <div
           className={cn(
             viewMode === "grid"
-              ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               : "space-y-3",
           )}
         >

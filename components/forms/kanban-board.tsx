@@ -314,8 +314,8 @@ function KanbanColumn({
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="flex flex-col"
-      style={{ minWidth: 360, width: 360, resize: "both", overflow: "auto" }}
+      className="flex flex-col min-w-full sm:min-w-80 flex-1 min-h-96"
+      style={{ width: "100%", minWidth: "auto" }}
     >
       {/* Column Header */}
       <div
@@ -333,7 +333,7 @@ function KanbanColumn({
 
       {/* Column Content */}
       <ScrollArea className="flex-1 rounded-b-lg border border-t-0 bg-card/50">
-        <div className="space-y-2 p-2" style={{ minHeight: "520px" }}>
+        <div className="space-y-2 p-2 min-h-80">
           {requests.length > 0 ? (
             requests.map((request) => (
               <RequestCard
@@ -563,7 +563,7 @@ export function KanbanBoard({
 
   return (
     <>
-      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
+      <div className="flex flex-col md:flex-row gap-4 overflow-x-auto pb-4 scrollbar-thin">
         {columns.map((column) => (
           <KanbanColumn
             key={column.id}

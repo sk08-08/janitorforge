@@ -85,12 +85,14 @@ export function RequestsView() {
   };
 
   return (
-    <div className="p-8 lg:p-10">
+    <div className="p-4 sm:p-6 md:p-8 lg:p-10">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Requests</h1>
-          <p className="mt-1 text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Requests
+          </h1>
+          <p className="mt-1 text-sm sm:text-base text-muted-foreground">
             Manage incoming bot requests with the Kanban board
           </p>
         </div>
@@ -98,7 +100,7 @@ export function RequestsView() {
         {/* Filter */}
         {forms.length > 0 && (
           <Select value={filterFormId} onValueChange={setFilterFormId}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-full sm:w-auto">
               <Filter className="mr-2 h-4 w-4" />
               <SelectValue placeholder="Filter by form" />
             </SelectTrigger>

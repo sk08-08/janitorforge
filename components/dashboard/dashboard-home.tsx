@@ -219,17 +219,19 @@ export function DashboardHome() {
     .slice(0, 4);
 
   return (
-    <div className="p-8 lg:p-10">
+    <div className="p-4 sm:p-6 md:p-8 lg:p-10">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-muted-foreground">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          Dashboard
+        </h1>
+        <p className="mt-1 text-sm sm:text-base text-muted-foreground">
           Welcome back! Here&apos;s an overview of your bot creator workspace.
         </p>
       </div>
 
       {/* Stats Grid */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Bots"
           value={stats.totalBots}
@@ -278,7 +280,7 @@ export function DashboardHome() {
         </div>
 
         {recentBots.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {recentBots.map((bot) => (
               <RecentBotCard
                 key={bot.id}

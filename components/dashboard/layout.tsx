@@ -18,11 +18,13 @@ import {
   LogOut,
   User,
   Shield,
+  Menu,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -30,6 +32,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useState } from "react";
 import type { NavigationView } from "@/lib/types";
 
@@ -95,7 +104,9 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const { currentView, setCurrentView, requests } = useStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   // Count pending requests for badge
   const pendingCount = requests.filter((r) => r.status === "new").length;
@@ -106,13 +117,20 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
     router.refresh();
   };
 
+  const handleNavClick = (view: NavigationView) => {
+    setCurrentView(view);
+    if (isMobile) {
+      setMobileMenuOpen(false);
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="flex h-screen overflow-hidden">
-        {/* Sidebar */}
+        {/* Desktop Sidebar */}
         <aside
           className={cn(
-            "flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
+            "hidden md:flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
             collapsed ? "w-16" : "w-64",
           )}
         >
@@ -155,7 +173,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                       "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
                     collapsed && "justify-center px-2",
                   )}
-                  onClick={() => setCurrentView(item.id)}
+                  onClick={() => handleNavClick(item.id)}
                 >
                   <div className="relative">
                     <Icon
@@ -247,8 +265,98 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-auto bg-background">
-          <div className="h-full">{children}</div>
+        <main className="flex-1 overflow-auto bg-background relative">
+          {/* Mobile Menu Button */}
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 left-4 z-40 md:hidden cursor-pointer"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+
+          {/* Mobile Sidebar Menu */}
+          {isMobile && (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetContent side="left" className="w-64 p-0">
+                <SheetHeader className="border-b border-sidebar-border p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 neon-glow-sm">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex flex-col">
+                      <SheetTitle>JanitorForge</SheetTitle>
+                      <SheetDescription>Bot Creator Toolkit</SheetDescription>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                {/* Mobile Navigation */}
+                <nav className="flex-1 space-y-1 p-2">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = currentView === item.id;
+                    const showBadge =
+                      item.id === "requests" && pendingCount > 0;
+
+                    return (
+                      <Button
+                        key={item.id}
+                        variant={isActive ? "secondary" : "ghost"}
+                        className={cn(
+                          "w-full justify-start gap-3 transition-all cursor-pointer",
+                          isActive &&
+                            "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
+                        )}
+                        onClick={() => handleNavClick(item.id)}
+                      >
+                        <div className="relative">
+                          <Icon
+                            className={cn(
+                              "h-5 w-5",
+                              isActive && "text-primary",
+                            )}
+                          />
+                          {showBadge && (
+                            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
+                              {pendingCount}
+                            </span>
+                          )}
+                        </div>
+                        <span className="flex-1 text-left">{item.label}</span>
+                      </Button>
+                    );
+                  })}
+                </nav>
+
+                {/* Mobile User & Logout */}
+                <div className="border-t border-sidebar-border p-2 space-y-2">
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-sidebar-accent/50">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="flex-1 text-sm font-medium truncate">
+                      {username}
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer justify-start gap-2"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Sign Out</span>
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
+
+          <div className="h-full pt-16 md:pt-0">{children}</div>
         </main>
       </div>
     </TooltipProvider>

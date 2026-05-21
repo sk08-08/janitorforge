@@ -879,22 +879,22 @@ export default function PublicForm({ form }: PublicFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-start justify-center pt-12">
-      <div className="container max-w-2xl py-8">
-        <div className="mb-8 text-center">
+    <div className="min-h-screen bg-background flex items-start justify-center pt-8 sm:pt-12">
+      <div className="container max-w-2xl py-4 sm:py-8 px-4 sm:px-6">
+        <div className="mb-6 sm:mb-8 text-center">
           <div className="mb-4 flex justify-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 neon-glow-sm">
               <Sparkles className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-2xl sm:text-3xl font-bold">
             <div
               dangerouslySetInnerHTML={{ __html: renderMarkdown(form.title) }}
             />
           </h1>
           {form.description && (
             <div
-              className="mt-2 text-muted-foreground text-left"
+              className="mt-2 text-sm sm:text-base text-muted-foreground text-left"
               dangerouslySetInnerHTML={{
                 __html: renderMarkdownForDescription(String(form.description)),
               }}
