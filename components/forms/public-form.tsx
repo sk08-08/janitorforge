@@ -183,6 +183,7 @@ import {
   getFormAppearanceClasses,
   getFormFieldFocusClasses,
 } from "@/lib/form-appearance";
+import { friendlySupabaseError } from "@/lib/error-utils";
 
 interface PublicFormProps {
   form: {
@@ -739,7 +740,12 @@ export default function PublicForm({ form }: PublicFormProps) {
 
       if (error) {
         console.error("Failed to save request:", error);
-        toast.error("Failed to submit request. Please try again.");
+        toast.error(
+          friendlySupabaseError(
+            error,
+            "Failed to submit request. Please try again.",
+          ),
+        );
         setIsSubmitting(false);
         return;
       }

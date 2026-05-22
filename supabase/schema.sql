@@ -144,6 +144,22 @@ CREATE POLICY "Users can delete their own forms"
   ON public.request_forms FOR DELETE
   USING (auth.uid() = user_id);
 
+CREATE OR REPLACE FUNCTION public.can_create_request_for_form(p_form_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.request_forms
+    WHERE id = p_form_id
+      AND is_active = true
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.can_create_request_for_form(uuid) TO anon, authenticated;
+
 -- Requests policies
 CREATE POLICY "Users can view requests for their forms"
   ON public.requests FOR SELECT
@@ -152,10 +168,7 @@ CREATE POLICY "Users can view requests for their forms"
 CREATE POLICY "Anyone can create requests for active forms"
   ON public.requests FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.request_forms 
-      WHERE id = form_id AND is_active = true
-    )
+    public.can_create_request_for_form(form_id)
   );
 
 CREATE POLICY "Users can update requests for their forms"
