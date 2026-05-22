@@ -28,7 +28,9 @@ export default async function PublicFormPage({
     if (!row) {
       const { data: legacyRow, error: legacyError } = await supabase
         .from("request_forms")
-        .select("id, user_id, title, description, sections, is_active")
+        .select(
+          "id, user_id, title, description, sections, appearance, is_active",
+        )
         .eq("shareable_link", slugValue)
         .eq("is_active", true)
         .maybeSingle();
@@ -58,6 +60,7 @@ export default async function PublicFormPage({
       description: row.description,
       isActive: !!row.is_active,
       sections: (row.sections || []) as FormSection[],
+      appearance: row.appearance || undefined,
       userId: row.user_id,
     };
 

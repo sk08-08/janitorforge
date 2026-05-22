@@ -60,6 +60,16 @@ export interface FormField {
   description?: string;
 }
 
+export type FormPreset = "clean" | "bold" | "editorial" | "minimal";
+export type FormAccent = "indigo" | "emerald" | "amber" | "rose" | "slate";
+export type FormDensity = "comfortable" | "compact";
+
+export interface FormAppearance {
+  preset: FormPreset;
+  accent: FormAccent;
+  density: FormDensity;
+}
+
 export interface FormSection {
   id: string;
   title: string;
@@ -77,6 +87,7 @@ export interface RequestForm {
   title: string;
   description: string;
   sections: FormSection[];
+  appearance?: FormAppearance;
   shareableLink: string;
   isActive: boolean;
   securitySensitivity?: "low" | "medium" | "high" | "strict";

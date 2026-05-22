@@ -86,6 +86,7 @@ CREATE TABLE public.request_forms (
   title text NOT NULL,
   description text NOT NULL DEFAULT ''::text,
   sections jsonb NOT NULL DEFAULT '[]'::jsonb,
+  appearance jsonb NOT NULL DEFAULT '{"preset":"clean","accent":"indigo","density":"comfortable"}'::jsonb,
   shareable_link text NOT NULL UNIQUE,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),

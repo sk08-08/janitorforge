@@ -182,6 +182,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               title: r.title,
               description: r.description || "",
               sections: r.sections || [],
+              appearance: r.appearance || undefined,
               shareableLink: r.shareable_link || "",
               isActive: !!r.is_active,
               createdAt: r.created_at ? new Date(r.created_at) : new Date(),

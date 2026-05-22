@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import type { RequestForm } from "@/lib/types";
 import { friendlySupabaseError, ensureShareableLink } from "@/lib/error-utils";
 import { v4 as uuidv4 } from "uuid";
+import { resolveFormAppearance } from "@/lib/form-appearance";
 
 export async function createFormAction(
   form: Omit<RequestForm, "id" | "createdAt" | "updatedAt">,
@@ -41,6 +42,7 @@ export async function createFormAction(
     title: form.title,
     description: form.description ?? "",
     sections: form.sections || [],
+    appearance: resolveFormAppearance(form.appearance ?? null),
     shareable_link: ensureShareableLink(form.shareableLink),
     is_active: !!form.isActive,
   };
@@ -55,6 +57,7 @@ export async function createFormAction(
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to create form"),
+      raw: error,
     };
   }
   return { success: true, form: inserted };
@@ -91,6 +94,8 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
   if (data.description !== undefined)
     payload.description = data.description ?? "";
   if (data.sections !== undefined) payload.sections = data.sections;
+  if (data.appearance !== undefined)
+    payload.appearance = resolveFormAppearance(data.appearance ?? null);
   if (data.shareableLink !== undefined)
     payload.shareable_link = ensureShareableLink(data.shareableLink as any);
   if (data.isActive !== undefined) payload.is_active = data.isActive;
@@ -105,6 +110,7 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to update form"),
+      raw: error,
     };
   }
   return { success: true, form: updated };
@@ -140,6 +146,7 @@ export async function deleteFormAction(id: string) {
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to delete form"),
+      raw: error,
     };
   }
   return { success: true };

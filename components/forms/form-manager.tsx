@@ -297,6 +297,7 @@ export function FormManager() {
       // Try to persist on server first
       const res = await createFormAction(formData as any);
       if (!res.success) {
+        console.error("createFormAction error:", (res as any).raw ?? res);
         toast.error(res.error || "Failed to create form");
         return;
       }
@@ -310,6 +311,7 @@ export function FormManager() {
         isActive: !!r.is_active,
         createdAt: r.created_at ? new Date(r.created_at) : new Date(),
         updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+        appearance: r.appearance || undefined,
       });
       setIsCreating(false);
       toast.success("Form created successfully!");
@@ -326,6 +328,7 @@ export function FormManager() {
       (async () => {
         const res = await updateFormAction(editingForm.id, formData as any);
         if (!res.success) {
+          console.error("updateFormAction error:", (res as any).raw ?? res);
           toast.error(res.error || "Failed to update form");
           return;
         }
@@ -339,6 +342,7 @@ export function FormManager() {
           isActive: !!r.is_active,
           createdAt: r.created_at ? new Date(r.created_at) : new Date(),
           updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+          appearance: r.appearance || undefined,
         });
         setEditingForm(null);
         toast.success("Form updated successfully!");
@@ -351,6 +355,7 @@ export function FormManager() {
       (async () => {
         const res = await deleteFormAction(deleteConfirmForm.id);
         if (!res.success) {
+          console.error("deleteFormAction error:", (res as any).raw ?? res);
           toast.error(res.error || "Failed to delete form");
           return;
         }
@@ -367,6 +372,10 @@ export function FormManager() {
         isActive: !form.isActive,
       } as Partial<RequestForm>);
       if (!res.success) {
+        console.error(
+          "updateFormAction (toggle) error:",
+          (res as any).raw ?? res,
+        );
         toast.error(res.error || "Failed to update form");
         return;
       }
@@ -380,6 +389,7 @@ export function FormManager() {
         isActive: !!r.is_active,
         createdAt: r.created_at ? new Date(r.created_at) : new Date(),
         updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+        appearance: r.appearance || undefined,
       });
       toast.success(form.isActive ? "Form deactivated" : "Form activated");
     })();

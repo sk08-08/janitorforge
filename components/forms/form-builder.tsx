@@ -35,6 +35,7 @@ import {
   Link as LinkIcon,
   ArrowUp,
   ArrowDown,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +72,14 @@ import type {
   FormFieldType,
   RequestForm,
 } from "@/lib/types";
+import {
+  defaultFormAppearance,
+  formAppearanceAccents,
+  formAppearanceDensityOptions,
+  formAppearancePresets,
+  getFormAppearanceClasses,
+  resolveFormAppearance,
+} from "@/lib/form-appearance";
 import { toast } from "sonner";
 
 // Lightweight markdown renderer for live preview in the builder
@@ -856,6 +865,9 @@ export function FormBuilder({
   const [description, setDescription] = useState(
     initialForm?.description || "",
   );
+  const [appearance, setAppearance] = useState(
+    resolveFormAppearance(initialForm?.appearance || defaultFormAppearance),
+  );
 
   const [sections, setSections] = useState<FormSection[]>(
     initialForm?.sections || [
@@ -967,9 +979,12 @@ export function FormBuilder({
       title: title.trim(),
       description: description.trim(),
       sections,
+      appearance,
       isActive,
     });
   };
+
+  const appearanceClasses = getFormAppearanceClasses(appearance);
 
   return (
     <div className="space-y-6 p-4 lg:p-6">
@@ -1006,7 +1021,7 @@ export function FormBuilder({
         </DialogContent>
       </Dialog>
       {/* Form Details */}
-      <Card>
+      <Card className={appearanceClasses.preset.shell}>
         <CardHeader>
           <CardTitle>Form Details</CardTitle>
           <CardDescription>
@@ -1037,6 +1052,97 @@ export function FormBuilder({
                 rows={4}
                 className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent w-full"
               />
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Preset</Label>
+              <Select
+                value={appearance.preset}
+                onValueChange={(value) =>
+                  setAppearance((prev) => ({ ...prev, preset: value as any }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a preset" />
+                </SelectTrigger>
+                <SelectContent>
+                  {formAppearancePresets.map((preset) => (
+                    <SelectItem key={preset.value} value={preset.value}>
+                      {preset.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Accent</Label>
+              <Select
+                value={appearance.accent}
+                onValueChange={(value) =>
+                  setAppearance((prev) => ({ ...prev, accent: value as any }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose an accent" />
+                </SelectTrigger>
+                <SelectContent>
+                  {formAppearanceAccents.map((accent) => (
+                    <SelectItem key={accent.value} value={accent.value}>
+                      {accent.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Density</Label>
+              <Select
+                value={appearance.density}
+                onValueChange={(value) =>
+                  setAppearance((prev) => ({ ...prev, density: value as any }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose density" />
+                </SelectTrigger>
+                <SelectContent>
+                  {formAppearanceDensityOptions.map((density) => (
+                    <SelectItem key={density.value} value={density.value}>
+                      {density.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div
+            className={cn(
+              "rounded-lg border p-4",
+              appearanceClasses.preset.shell,
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div className={appearanceClasses.heroIcon}>
+                <Sparkles
+                  className={cn("h-5 w-5", appearanceClasses.accent.text)}
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium">
+                  {appearanceClasses.resolved.preset} preset
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {appearanceClasses.resolved.accent} accent ·{" "}
+                  {appearanceClasses.resolved.density} density
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>

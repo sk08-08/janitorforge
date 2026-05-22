@@ -178,7 +178,11 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { FormField, FormSection } from "@/lib/types";
+import type { FormAppearance, FormField, FormSection } from "@/lib/types";
+import {
+  getFormAppearanceClasses,
+  getFormFieldFocusClasses,
+} from "@/lib/form-appearance";
 
 interface PublicFormProps {
   form: {
@@ -187,11 +191,16 @@ interface PublicFormProps {
     description?: string | null;
     isActive: boolean;
     sections: FormSection[];
+    appearance?: FormAppearance | null;
     userId?: string | null;
   };
 }
 
-function FieldRenderer({ field, value, onChange, error }: any) {
+function FieldRenderer({ field, value, onChange, error, appearance }: any) {
+  const resolvedAppearance = appearance ?? getFormAppearanceClasses(null);
+  const fieldFocus = getFormFieldFocusClasses(
+    resolvedAppearance.resolved.accent,
+  );
   const [tagInput, setTagInput] = useState("");
   const [otherActive, setOtherActive] = useState(false);
   const [otherValue, setOtherValue] = useState("");
@@ -230,7 +239,7 @@ function FieldRenderer({ field, value, onChange, error }: any) {
           value={value as string}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
-          className={cn(error && "border-destructive")}
+          className={cn(error && "border-destructive", fieldFocus)}
         />
       );
     case "textarea":
@@ -240,7 +249,7 @@ function FieldRenderer({ field, value, onChange, error }: any) {
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
           rows={4}
-          className={cn(error && "border-destructive")}
+          className={cn(error && "border-destructive", fieldFocus)}
         />
       );
     case "select": {
@@ -271,7 +280,9 @@ function FieldRenderer({ field, value, onChange, error }: any) {
               }
             }}
           >
-            <SelectTrigger className={cn(error && "border-destructive")}>
+            <SelectTrigger
+              className={cn(error && "border-destructive", fieldFocus)}
+            >
               <SelectValue placeholder="Select an option..." />
             </SelectTrigger>
             <SelectContent>
@@ -455,7 +466,13 @@ function FieldRenderer({ field, value, onChange, error }: any) {
   }
 }
 
-function SectionRenderer({ section, values, errors, onChange }: any) {
+function SectionRenderer({
+  section,
+  values,
+  errors,
+  onChange,
+  appearance,
+}: any) {
   const alignClass =
     section?.custom?.headerAlignment === "center"
       ? "text-center"
@@ -466,7 +483,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
 
   if (section?.custom?.collapsible) {
     return (
-      <Card>
+      <Card className={appearance.sectionCard}>
         <details className="group">
           <summary className={`cursor-pointer p-4 ${alignClass}`}>
             <span
@@ -488,9 +505,9 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
               />
             )}
           </summary>
-          <CardContent className="space-y-6">
+          <CardContent className={appearance.density.sectionContent}>
             {section.fields.map((field: any) => (
-              <div key={field.id} className="space-y-2">
+              <div key={field.id} className={appearance.density.fieldGroup}>
                 <Label className="flex items-center gap-1 flex-nowrap">
                   <span
                     className="inline whitespace-nowrap rendered-markdown"
@@ -519,6 +536,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
                     onChange(field.id, field.label, value)
                   }
                   error={errors[field.id]}
+                  appearance={appearance}
                 />
                 {errors[field.id] && (
                   <p className="text-xs text-destructive flex items-center gap-1">
@@ -535,7 +553,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
   }
 
   return (
-    <Card>
+    <Card className={appearance.sectionCard}>
       <CardHeader>
         <CardTitle className={alignClass}>
           <span
@@ -557,9 +575,9 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
           />
         )}
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className={appearance.density.sectionContent}>
         {section.fields.map((field: any) => (
-          <div key={field.id} className="space-y-2">
+          <div key={field.id} className={appearance.density.fieldGroup}>
             <Label className="flex items-center gap-1 flex-nowrap">
               <span
                 className="inline whitespace-nowrap"
@@ -584,6 +602,7 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
               }
               onChange={(value: any) => onChange(field.id, field.label, value)}
               error={errors[field.id]}
+              appearance={appearance}
             />
             {errors[field.id] && (
               <p className="text-xs text-destructive flex items-center gap-1">
@@ -599,6 +618,8 @@ function SectionRenderer({ section, values, errors, onChange }: any) {
 }
 
 export default function PublicForm({ form }: PublicFormProps) {
+  const appearance = getFormAppearanceClasses(form.appearance || null);
+  const isEditorial = appearance.resolved.preset === "editorial";
   const [values, setValues] = useState<Record<string, string | string[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -805,58 +826,102 @@ export default function PublicForm({ form }: PublicFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-start justify-center pt-8 sm:pt-12">
-      <div className="container max-w-2xl py-4 sm:py-8 px-4 sm:px-6">
-        <div className="mb-6 sm:mb-8 text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 neon-glow-sm">
-              <Sparkles className="h-6 w-6 text-primary" />
+    <div className={appearance.wrapper} style={appearance.wrapperStyle}>
+      <div className={cn("container px-4 sm:px-6", appearance.preset.layout)}>
+        {isEditorial ? (
+          <aside
+            className={cn("order-1 md:order-0", appearance.preset.sidebar)}
+          >
+            <div className={cn("space-y-5", appearance.density.headerSpacing)}>
+              <div className="flex justify-start">
+                <div className={appearance.heroIcon}>
+                  <Sparkles className={cn("h-6 w-6", appearance.accent.text)} />
+                </div>
+              </div>
+              <h1 className={cn("font-bold", appearance.title)}>
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(form.title),
+                  }}
+                />
+              </h1>
+              {form.description && (
+                <div
+                  className="text-sm sm:text-base text-muted-foreground text-left leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(form.description),
+                  }}
+                />
+              )}
+            </div>
+          </aside>
+        ) : (
+          <div className={cn("mx-auto w-full", appearance.preset.layout)}>
+            <div
+              className={cn("text-center", appearance.density.headerSpacing)}
+            >
+              <div className="mb-4 flex justify-center">
+                <div className={appearance.heroIcon}>
+                  <Sparkles className={cn("h-6 w-6", appearance.accent.text)} />
+                </div>
+              </div>
+              <h1 className={cn("font-bold", appearance.title)}>
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(form.title),
+                  }}
+                />
+              </h1>
+              {form.description && (
+                <div
+                  className="mt-2 text-sm sm:text-base text-muted-foreground text-left"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(form.description),
+                  }}
+                />
+              )}
             </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold">
-            <div
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(form.title) }}
-            />
-          </h1>
-          {form.description && (
-            <div
-              className="mt-2 text-sm sm:text-base text-muted-foreground text-left"
-              dangerouslySetInnerHTML={{
-                __html: renderMarkdown(form.description),
-              }}
-            />
-          )}
-        </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {form.sections.map((section) => (
-            <SectionRenderer
-              key={section.id}
-              section={section}
-              values={values}
-              errors={errors}
-              onChange={(id: string, label: string, v: any) =>
-                handleChange(id, label, v)
-              }
-            />
-          ))}
+        <Card className={appearance.surface}>
+          <CardContent className="p-4 sm:p-6 md:p-8">
+            <form
+              onSubmit={handleSubmit}
+              className={appearance.density.formGap}
+            >
+              {form.sections.map((section) => (
+                <SectionRenderer
+                  key={section.id}
+                  section={section}
+                  values={values}
+                  errors={errors}
+                  appearance={appearance}
+                  onChange={(id: string, label: string, v: any) =>
+                    handleChange(id, label, v)
+                  }
+                />
+              ))}
 
-          <Button
-            type="submit"
-            className="w-full cursor-pointer"
-            size="lg"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>Submitting...</>
-            ) : (
-              <>
-                <Send className="mr-2 h-4 w-4" />
-                Submit Request
-              </>
-            )}
-          </Button>
-        </form>
+              <Button
+                type="submit"
+                className={cn("w-full cursor-pointer", appearance.submitButton)}
+                style={appearance.submitButtonStyle}
+                size="lg"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>Submitting...</>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Submit Request
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
           Powered by JanitorForge
