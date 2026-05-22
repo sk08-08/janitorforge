@@ -12,6 +12,10 @@ import {
   CheckCircle,
   Clock,
   TrendingUp,
+  Activity,
+  ArrowRight,
+  AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import {
   Card,
@@ -36,6 +40,7 @@ interface StatCardProps {
   icon: typeof Bot;
   trend?: "up" | "down" | "neutral";
   accentColor?: string;
+  footer?: string;
 }
 
 function StatCard({
@@ -44,16 +49,20 @@ function StatCard({
   description,
   icon: Icon,
   accentColor,
+  footer,
 }: StatCardProps) {
   return (
-    <Card className="relative overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
+    <Card className="relative overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
+        <div className="space-y-1">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {title}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
         <div
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg",
+            "flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset ring-border/50",
             accentColor || "bg-primary/10",
           )}
         >
@@ -65,12 +74,142 @@ function StatCard({
           />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-bold">{value}</div>
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      <CardContent className="space-y-2">
+        <div className="flex items-end justify-between gap-3">
+          <div className="text-3xl font-bold tracking-tight">{value}</div>
+          {footer && (
+            <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+              {footer}
+            </span>
+          )}
+        </div>
       </CardContent>
-      {/* Decorative gradient */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/50 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-primary/50 via-primary/20 to-transparent" />
+    </Card>
+  );
+}
+
+interface InsightCardProps {
+  title: string;
+  value: string;
+  description: string;
+  icon: typeof Activity;
+  accentClassName?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
+function InsightCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  accentClassName,
+  actionLabel,
+  onAction,
+}: InsightCardProps) {
+  return (
+    <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <div className="text-2xl font-semibold tracking-tight">{value}</div>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+          <div
+            className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset ring-border/50",
+              accentClassName || "bg-primary/10",
+            )}
+          >
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
+        </div>
+
+        {actionLabel && onAction && (
+          <Button
+            variant="ghost"
+            className="mt-4 h-8 w-full justify-between px-2 text-xs cursor-pointer"
+            onClick={onAction}
+          >
+            {actionLabel}
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface RecentRequestCardProps {
+  formTitle: string;
+  status: "new" | "accepted" | "completed" | "rejected";
+  submitterName?: string;
+  createdAt: Date;
+  notes?: string;
+}
+
+function RecentRequestCard({
+  formTitle,
+  status,
+  submitterName,
+  createdAt,
+  notes,
+}: RecentRequestCardProps) {
+  const statusMeta: Record<
+    RecentRequestCardProps["status"],
+    { label: string; className: string }
+  > = {
+    new: { label: "New", className: "bg-primary/10 text-primary" },
+    accepted: {
+      label: "In Progress",
+      className: "bg-chart-2/10 text-chart-2",
+    },
+    completed: {
+      label: "Completed",
+      className: "bg-success/10 text-success",
+    },
+    rejected: {
+      label: "Rejected",
+      className: "bg-destructive/10 text-destructive",
+    },
+  };
+
+  return (
+    <Card className="overflow-hidden border-border/70 transition-all hover:border-primary/40 hover:shadow-md">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <p className="truncate text-sm font-medium">{formTitle}</p>
+            <p className="text-xs text-muted-foreground">
+              {submitterName || "Anonymous submitter"}
+            </p>
+          </div>
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-2 py-1 text-[11px] font-medium",
+              statusMeta[status].className,
+            )}
+          >
+            {statusMeta[status].label}
+          </span>
+        </div>
+
+        {notes && (
+          <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+            {notes}
+          </p>
+        )}
+
+        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatDate(createdAt)}
+          </span>
+          <span className="truncate">{formTitle}</span>
+        </div>
+      </CardContent>
     </Card>
   );
 }
@@ -213,10 +352,29 @@ export function DashboardHome() {
     completedRequests: requests.filter((r) => r.status === "completed").length,
   };
 
+  const totalRequests = requests.length;
+  const responseRate =
+    totalRequests > 0
+      ? Math.round((stats.completedRequests / totalRequests) * 100)
+      : 0;
+  const activeFormRate =
+    forms.length > 0 ? Math.round((stats.activeForms / forms.length) * 100) : 0;
   // Get recent bots (sorted by updatedAt)
   const recentBots = [...bots]
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     .slice(0, 4);
+
+  const mostRecentBot = recentBots[0];
+
+  const recentRequestItems = [...requests]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 4);
+
+  const oldestPendingRequest = [...requests]
+    .filter(
+      (request) => request.status === "new" || request.status === "accepted",
+    )
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
 
   return (
     <div className="p-4 sm:p-6 md:p-8 lg:p-10">
@@ -231,12 +389,13 @@ export function DashboardHome() {
       </div>
 
       {/* Stats Grid */}
-      <div className="mb-8 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Bots"
           value={stats.totalBots}
           description="Characters created"
           icon={Bot}
+          footer={stats.totalBots > 0 ? "Ready to publish" : "Create one now"}
         />
         <StatCard
           title="Active Forms"
@@ -244,6 +403,7 @@ export function DashboardHome() {
           description="Accepting requests"
           icon={FileText}
           accentColor="bg-chart-2/20"
+          footer={`${activeFormRate}% of forms active`}
         />
         <StatCard
           title="Pending Requests"
@@ -251,6 +411,11 @@ export function DashboardHome() {
           description="Awaiting response"
           icon={Inbox}
           accentColor="bg-chart-3/20"
+          footer={
+            oldestPendingRequest
+              ? `Oldest: ${formatDate(oldestPendingRequest.createdAt)}`
+              : "No backlog"
+          }
         />
         <StatCard
           title="Completed"
@@ -258,7 +423,87 @@ export function DashboardHome() {
           description="Requests fulfilled"
           icon={CheckCircle}
           accentColor="bg-success/20"
+          footer={`${responseRate}% completion rate`}
         />
+      </div>
+
+      {/* Insight Cards */}
+      <div className="mb-8 grid gap-4 lg:grid-cols-3">
+        <InsightCard
+          title="Workspace health"
+          value={`${responseRate}%`}
+          description="Share of requests already completed in this workspace."
+          icon={Activity}
+          accentClassName="bg-primary/10"
+          actionLabel="Open Requests"
+          onAction={() => setCurrentView("requests")}
+        />
+        <InsightCard
+          title="Form activity"
+          value={`${activeFormRate}%`}
+          description="Percentage of your forms that are currently accepting submissions."
+          icon={Sparkles}
+          accentClassName="bg-chart-2/10"
+          actionLabel="Manage Forms"
+          onAction={() => setCurrentView("forms")}
+        />
+        <InsightCard
+          title="Queue pressure"
+          value={
+            stats.pendingRequests > 0
+              ? `${stats.pendingRequests} open`
+              : "Clear"
+          }
+          description="Outstanding requests that need attention."
+          icon={AlertTriangle}
+          accentClassName="bg-chart-3/10"
+          actionLabel="Review queue"
+          onAction={() => setCurrentView("requests")}
+        />
+      </div>
+
+      {/* Recent Requests Section */}
+      <div className="mb-8">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Recent Requests</h2>
+            <p className="text-sm text-muted-foreground">
+              The latest submissions across your active forms
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            className="cursor-pointer"
+            onClick={() => setCurrentView("requests")}
+          >
+            View All
+          </Button>
+        </div>
+
+        {recentRequestItems.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {recentRequestItems.map((request) => (
+              <RecentRequestCard
+                key={request.id}
+                formTitle={request.formTitle}
+                status={request.status}
+                submitterName={request.submitterName}
+                createdAt={request.createdAt}
+                notes={request.notes}
+              />
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <EmptyState
+              icon={Inbox}
+              title="No requests yet"
+              description="Once people submit requests, the latest ones will show up here for quick triage."
+              actionLabel="Open Requests"
+              onAction={() => setCurrentView("requests")}
+            />
+          </Card>
+        )}
       </div>
 
       {/* Recent Bots Section */}
@@ -280,22 +525,29 @@ export function DashboardHome() {
         </div>
 
         {recentBots.length > 0 ? (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {recentBots.map((bot) => (
-              <RecentBotCard
-                key={bot.id}
-                name={bot.name}
-                description={bot.shortDescription}
-                rating={bot.rating}
-                tags={bot.tags}
-                updatedAt={bot.updatedAt}
-                onEdit={() => {
-                  setSelectedBotId(bot.id);
-                  setCurrentView("bots");
-                }}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {recentBots.map((bot) => (
+                <RecentBotCard
+                  key={bot.id}
+                  name={bot.name}
+                  description={bot.shortDescription}
+                  rating={bot.rating}
+                  tags={bot.tags}
+                  updatedAt={bot.updatedAt}
+                  onEdit={() => {
+                    setSelectedBotId(bot.id);
+                    setCurrentView("bots");
+                  }}
+                />
+              ))}
+            </div>
+            {mostRecentBot && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Last updated bot: {mostRecentBot.name}
+              </p>
+            )}
+          </>
         ) : (
           <Card>
             <EmptyState

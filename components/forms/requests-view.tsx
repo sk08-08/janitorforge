@@ -87,19 +87,42 @@ export function RequestsView() {
     filterFormId === "all" || requestFormId === filterFormId;
 
   const isOwnRequest = (requestFormId: string) => {
-    if (!currentUserId) return true;
+    if (!currentUserId) return false;
     const ownerId = formOwnerMap.get(requestFormId);
     return !ownerId || ownerId === currentUserId;
   };
 
-  const ownRequests = requests.filter(
-    (request) => matchesFilter(request.formId) && isOwnRequest(request.formId),
+  const filteredRequests = requests.filter((request) =>
+    matchesFilter(request.formId),
   );
-  const otherRequests = requests.filter(
-    (request) => matchesFilter(request.formId) && !isOwnRequest(request.formId),
-  );
+  const selectedFormOwnerId =
+    filterFormId === "all" ? null : (formOwnerMap.get(filterFormId) ?? null);
+  const isSelectedFormOwn =
+    filterFormId === "all" ||
+    !currentUserId ||
+    !selectedFormOwnerId ||
+    selectedFormOwnerId === currentUserId;
 
-  const hasVisibleRequests = ownRequests.length > 0 || otherRequests.length > 0;
+  const showOwnRequestsSection = filterFormId === "all" || isSelectedFormOwn;
+
+  const ownRequests =
+    filterFormId === "all"
+      ? currentUserId
+        ? filteredRequests.filter((request) => isOwnRequest(request.formId))
+        : filteredRequests
+      : isSelectedFormOwn
+        ? filteredRequests.filter((request) => isOwnRequest(request.formId))
+        : [];
+  const otherRequests = isAdmin
+    ? filterFormId === "all"
+      ? filteredRequests.filter((request) => !isOwnRequest(request.formId))
+      : isSelectedFormOwn
+        ? []
+        : filteredRequests
+    : [];
+
+  const hasVisibleRequests =
+    ownRequests.length > 0 || (isAdmin && otherRequests.length > 0);
 
   const handleStatusChange = (
     requestId: string,
@@ -159,33 +182,35 @@ export function RequestsView() {
         </Card>
       ) : hasVisibleRequests ? (
         <div className="space-y-8">
-          <section className="space-y-3">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold">My requests</h2>
+          {showOwnRequestsSection && (
+            <section className="space-y-3">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold">My requests</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Requests that belong to your own forms.
+                  </p>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  Requests that belong to your own forms.
+                  {ownRequests.length} total
                 </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {ownRequests.length} total
-              </p>
-            </div>
 
-            {ownRequests.length > 0 ? (
-              <KanbanBoard
-                requests={ownRequests}
-                onStatusChange={handleStatusChange}
-                onDelete={handleDelete}
-              />
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No requests in this section.
-                </CardContent>
-              </Card>
-            )}
-          </section>
+              {ownRequests.length > 0 ? (
+                <KanbanBoard
+                  requests={ownRequests}
+                  onStatusChange={handleStatusChange}
+                  onDelete={handleDelete}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    No requests in this section.
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+          )}
 
           {isAdmin && (
             <section className="space-y-3">

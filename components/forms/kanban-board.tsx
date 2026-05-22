@@ -46,11 +46,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { Request, RequestStatus } from "@/lib/types";
@@ -110,6 +105,7 @@ interface RequestCardProps {
   onStatusChange: (status: RequestStatus, notes?: string) => void;
   onDelete: () => void;
   onViewDetails: () => void;
+  className?: string;
 }
 
 function RequestCard({
@@ -118,6 +114,7 @@ function RequestCard({
   onStatusChange,
   onDelete,
   onViewDetails,
+  className,
 }: RequestCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const resolveLabel = (key: string) => request.responseLabels?.[key] || key;
@@ -126,6 +123,10 @@ function RequestCard({
   const previewFields = useMemo(() => {
     return getOrderedResponseEntries(request).slice(0, 2);
   }, [getOrderedResponseEntries, request]);
+  const extraFieldsCount = Math.max(
+    getOrderedResponseEntries(request).length - 2,
+    0,
+  );
 
   const getNextStatus = (): RequestStatus | null => {
     switch (request.status) {
@@ -139,6 +140,15 @@ function RequestCard({
   };
 
   const nextStatus = getNextStatus();
+  const toggleLabel = isExpanded
+    ? "Show less fields"
+    : `Show ${extraFieldsCount} more field${extraFieldsCount === 1 ? "" : "s"}`;
+
+  const toggleIcon = isExpanded ? (
+    <ChevronUp className="mr-1 h-3 w-3" />
+  ) : (
+    <ChevronDown className="mr-1 h-3 w-3" />
+  );
 
   const handleDragStart = (e: any) => {
     e.dataTransfer.setData("text/plain", request.id);
@@ -154,16 +164,21 @@ function RequestCard({
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className="transition-all hover:shadow-md cursor-grab"
+      className={cn(
+        "cursor-grab transition-all hover:shadow-md active:cursor-grabbing",
+        className,
+      )}
     >
-      <CardContent className="p-3">
+      <CardContent className="p-3 sm:p-4">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {request.submitterName && (
               <div className="flex items-center gap-1.5 text-sm">
                 <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="font-medium">{request.submitterName}</span>
+                <span className="min-w-0 truncate font-medium">
+                  {request.submitterName}
+                </span>
               </div>
             )}
           </div>
@@ -222,28 +237,22 @@ function RequestCard({
         </div>
 
         {/* Expandable full details */}
-        {getOrderedResponseEntries(request).length > 2 && (
-          <Collapsible onOpenChange={setIsExpanded}>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-2 h-7 w-full text-xs cursor-pointer"
-              >
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="mr-1 h-3 w-3" />
-                    Show Less
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="mr-1 h-3 w-3" />
-                    Show More ({getOrderedResponseEntries(request).length - 2} more)
-                  </>
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2 space-y-1">
+        {getOrderedResponseEntries(request).length > 2 && !isExpanded && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(true)}
+            className="mt-2 h-8 w-full cursor-pointer text-xs sm:h-7"
+          >
+            {toggleIcon}
+            {toggleLabel}
+          </Button>
+        )}
+
+        {getOrderedResponseEntries(request).length > 2 && isExpanded && (
+          <>
+            <div className="mt-2 space-y-1 rounded-md border border-dashed border-border/70 bg-muted/30 p-2">
               {getOrderedResponseEntries(request)
                 .slice(2)
                 .map(([label, value]) => (
@@ -256,8 +265,18 @@ function RequestCard({
                     </span>
                   </div>
                 ))}
-            </CollapsibleContent>
-          </Collapsible>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(false)}
+              className="mt-2 h-8 w-full cursor-pointer text-xs sm:h-7"
+            >
+              {toggleIcon}
+              {toggleLabel}
+            </Button>
+          </>
         )}
 
         {/* Notes */}
@@ -269,7 +288,7 @@ function RequestCard({
         )}
 
         {/* Footer */}
-        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+        <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <Badge variant="outline" className="text-xs">
             {request.formTitle}
           </Badge>
@@ -300,6 +319,8 @@ interface KanbanColumnProps {
   ) => void;
   onDelete: (requestId: string) => void;
   onViewDetails: (request: Request) => void;
+  isCollapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 function KanbanColumn({
@@ -309,6 +330,8 @@ function KanbanColumn({
   onStatusChange,
   onDelete,
   onViewDetails,
+  isCollapsed,
+  onToggleCollapsed,
 }: KanbanColumnProps) {
   const Icon = config.icon;
 
@@ -326,8 +349,7 @@ function KanbanColumn({
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="flex flex-col min-w-full sm:min-w-80 flex-1 min-h-96"
-      style={{ width: "100%", minWidth: "auto" }}
+      className={cn("flex w-full flex-col", !isCollapsed && "min-h-96")}
     >
       {/* Column Header */}
       <div
@@ -337,35 +359,55 @@ function KanbanColumn({
         )}
       >
         <Icon className={cn("h-4 w-4", config.color)} />
-        <span className="font-medium">{config.title}</span>
+        <span className="min-w-0 truncate font-medium">{config.title}</span>
         <Badge variant="secondary" className="ml-auto">
           {requests.length}
         </Badge>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onToggleCollapsed}
+          className="h-7 w-7 shrink-0 cursor-pointer"
+          aria-label={
+            isCollapsed ? `Expand ${config.title}` : `Collapse ${config.title}`
+          }
+        >
+          <ChevronUp
+            className={cn(
+              "h-4 w-4 transition-transform duration-200",
+              isCollapsed && "rotate-180",
+            )}
+          />
+        </Button>
       </div>
 
       {/* Column Content */}
-      <ScrollArea className="flex-1 rounded-b-lg border border-t-0 bg-card/50">
-        <div className="space-y-2 p-2 min-h-80">
-          {requests.length > 0 ? (
-            requests.map((request) => (
-              <RequestCard
-                key={request.id}
-                request={request}
-                getOrderedResponseEntries={getOrderedResponseEntries}
-                onStatusChange={(status, notes) =>
-                  onStatusChange(request.id, status, notes)
-                }
-                onDelete={() => onDelete(request.id)}
-                onViewDetails={() => onViewDetails(request)}
-              />
-            ))
-          ) : (
-            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-              No requests
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+      {!isCollapsed && (
+        <ScrollArea className="rounded-b-lg border border-t-0 bg-card/50">
+          <div className="flex min-h-72 gap-3 overflow-x-auto overflow-y-hidden p-2 sm:min-h-80">
+            {requests.length > 0 ? (
+              requests.map((request) => (
+                <RequestCard
+                  key={request.id}
+                  request={request}
+                  getOrderedResponseEntries={getOrderedResponseEntries}
+                  onStatusChange={(status, notes) =>
+                    onStatusChange(request.id, status, notes)
+                  }
+                  onDelete={() => onDelete(request.id)}
+                  onViewDetails={() => onViewDetails(request)}
+                  className="w-[18rem] shrink-0 sm:w-80"
+                />
+              ))
+            ) : (
+              <div className="flex h-32 min-w-full items-center justify-center text-sm text-muted-foreground">
+                No requests
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 }
@@ -556,6 +598,14 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const { forms } = useStore();
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [collapsedColumns, setCollapsedColumns] = useState<
+    Record<RequestStatus, boolean>
+  >({
+    new: false,
+    accepted: false,
+    completed: false,
+    rejected: false,
+  });
 
   const responseOrderByFormId = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -619,7 +669,7 @@ export function KanbanBoard({
 
   return (
     <>
-      <div className="flex flex-col md:flex-row gap-4 overflow-x-auto pb-4 scrollbar-thin">
+      <div className="flex flex-col gap-4 pb-4">
         {columns.map((column) => (
           <KanbanColumn
             key={column.id}
@@ -629,6 +679,13 @@ export function KanbanBoard({
             onStatusChange={onStatusChange}
             onDelete={onDelete}
             onViewDetails={setSelectedRequest}
+            isCollapsed={collapsedColumns[column.id]}
+            onToggleCollapsed={() =>
+              setCollapsedColumns((prev) => ({
+                ...prev,
+                [column.id]: !prev[column.id],
+              }))
+            }
           />
         ))}
       </div>
