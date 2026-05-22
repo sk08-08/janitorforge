@@ -5,8 +5,8 @@
 
 "use client";
 
-import { useState } from "react";
-import { Inbox, Filter, LayoutGrid } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Filter, Inbox, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -20,10 +20,8 @@ import { KanbanBoard } from "./kanban-board";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import type { RequestStatus } from "@/lib/types";
-
-// ----------------------------------------------------------------------------
-// Empty State
-// ----------------------------------------------------------------------------
+import { createClient } from "@/lib/supabase/client";
+import { getCurrentUserAccess } from "@/lib/access";
 
 function EmptyState() {
   const { setCurrentView } = useStore();
@@ -49,21 +47,60 @@ function EmptyState() {
   );
 }
 
-// ----------------------------------------------------------------------------
-// Requests View Component
-// ----------------------------------------------------------------------------
-
 export function RequestsView() {
   const { requests, forms, updateRequestStatus, deleteRequest } = useStore();
   const [filterFormId, setFilterFormId] = useState<string>("all");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [accessLoaded, setAccessLoaded] = useState(false);
 
-  // Filter requests by form
-  const filteredRequests =
-    filterFormId === "all"
-      ? requests
-      : requests.filter((r) => r.formId === filterFormId);
+  useEffect(() => {
+    let mounted = true;
 
-  // Handlers
+    (async () => {
+      try {
+        const supabase = createClient();
+        const access = await getCurrentUserAccess(supabase);
+        if (!mounted) return;
+        setCurrentUserId(access.user?.id ?? null);
+        setIsAdmin(access.isAdmin);
+      } catch {
+        if (!mounted) return;
+        setCurrentUserId(null);
+        setIsAdmin(false);
+      } finally {
+        if (mounted) setAccessLoaded(true);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const formOwnerMap = useMemo(
+    () => new Map(forms.map((form) => [form.id, form.ownerId ?? null])),
+    [forms],
+  );
+
+  const matchesFilter = (requestFormId: string) =>
+    filterFormId === "all" || requestFormId === filterFormId;
+
+  const isOwnRequest = (requestFormId: string) => {
+    if (!currentUserId) return true;
+    const ownerId = formOwnerMap.get(requestFormId);
+    return !ownerId || ownerId === currentUserId;
+  };
+
+  const ownRequests = requests.filter(
+    (request) => matchesFilter(request.formId) && isOwnRequest(request.formId),
+  );
+  const otherRequests = requests.filter(
+    (request) => matchesFilter(request.formId) && !isOwnRequest(request.formId),
+  );
+
+  const hasVisibleRequests = ownRequests.length > 0 || otherRequests.length > 0;
+
   const handleStatusChange = (
     requestId: string,
     status: RequestStatus,
@@ -86,7 +123,6 @@ export function RequestsView() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 lg:p-10">
-      {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
@@ -97,7 +133,6 @@ export function RequestsView() {
           </p>
         </div>
 
-        {/* Filter */}
         {forms.length > 0 && (
           <Select value={filterFormId} onValueChange={setFilterFormId}>
             <SelectTrigger className="w-full sm:w-auto">
@@ -116,13 +151,72 @@ export function RequestsView() {
         )}
       </div>
 
-      {/* Content */}
-      {filteredRequests.length > 0 ? (
-        <KanbanBoard
-          requests={filteredRequests}
-          onStatusChange={handleStatusChange}
-          onDelete={handleDelete}
-        />
+      {!accessLoaded ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Loading request access...
+          </CardContent>
+        </Card>
+      ) : hasVisibleRequests ? (
+        <div className="space-y-8">
+          <section className="space-y-3">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">My requests</h2>
+                <p className="text-sm text-muted-foreground">
+                  Requests that belong to your own forms.
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {ownRequests.length} total
+              </p>
+            </div>
+
+            {ownRequests.length > 0 ? (
+              <KanbanBoard
+                requests={ownRequests}
+                onStatusChange={handleStatusChange}
+                onDelete={handleDelete}
+              />
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No requests in this section.
+                </CardContent>
+              </Card>
+            )}
+          </section>
+
+          {isAdmin && (
+            <section className="space-y-3">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Other accounts</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Requests from forms owned by other users.
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {otherRequests.length} total
+                </p>
+              </div>
+
+              {otherRequests.length > 0 ? (
+                <KanbanBoard
+                  requests={otherRequests}
+                  onStatusChange={handleStatusChange}
+                  onDelete={handleDelete}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center text-muted-foreground">
+                    No requests from other accounts yet.
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+          )}
+        </div>
       ) : requests.length > 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { getCurrentUserAccess } from "@/lib/access";
 
 export type SensitivityLevel = "low" | "medium" | "high" | "strict";
 
@@ -120,26 +121,21 @@ export function SensitivityLevelSettings({
     const loadLevel = async () => {
       try {
         const supabase = await createClient();
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError) {
-          throw userError;
-        }
+        const { user, isAdmin } = await getCurrentUserAccess(supabase);
 
         if (!user) {
           setLoading(false);
           return;
         }
 
-        const { data, error } = await supabase
+        const query = supabase
           .from("request_forms")
           .select("security_sensitivity")
-          .eq("id", formId)
-          .eq("user_id", user.id)
-          .single();
+          .eq("id", formId);
+
+        const { data, error } = isAdmin
+          ? await query.single()
+          : await query.eq("user_id", user.id).single();
 
         if (error) {
           console.warn("Failed to load sensitivity level:", error);
@@ -176,25 +172,21 @@ export function SensitivityLevelSettings({
     setSaving(true);
     try {
       const supabase = await createClient();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        throw userError;
-      }
+      const { user, isAdmin } = await getCurrentUserAccess(supabase);
 
       if (!user) {
         toast.error("You must be signed in to update this form");
         return;
       }
 
-      const { error } = await supabase
+      const query = supabase
         .from("request_forms")
         .update({ security_sensitivity: newLevel })
-        .eq("id", formId)
-        .eq("user_id", user.id);
+        .eq("id", formId);
+
+      const { error } = isAdmin
+        ? await query
+        : await query.eq("user_id", user.id);
 
       if (error) {
         console.warn("Failed to update DB but saved locally:", error);

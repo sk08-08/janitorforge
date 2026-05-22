@@ -12,6 +12,7 @@ import {
 } from "@/lib/content-filter";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { ContentFilterResult } from "@/lib/content-filter";
+import { getCurrentUserAccess } from "@/lib/access";
 
 type SupabaseClientType = Awaited<ReturnType<typeof createClient>>;
 
@@ -35,18 +36,17 @@ async function assertOwnedForm(
   | { success: false; error: string }
 > {
   const supabase = await createClient();
-  const userId = await getAuthenticatedUserId(supabase);
+  const access = await getCurrentUserAccess(supabase);
+  const userId = access.user?.id ?? null;
 
   if (!userId) {
     return { success: false, error: "Unauthenticated" };
   }
 
-  const { data, error } = await supabase
-    .from("request_forms")
-    .select("id")
-    .eq("id", formId)
-    .eq("user_id", userId)
-    .maybeSingle();
+  const query = supabase.from("request_forms").select("id").eq("id", formId);
+  const { data, error } = access.isAdmin
+    ? await query.maybeSingle()
+    : await query.eq("user_id", userId).maybeSingle();
 
   if (error) {
     return { success: false, error: String(error.message || error) };

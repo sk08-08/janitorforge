@@ -22,6 +22,7 @@ import type {
   RequestStatus,
   NavigationView,
 } from "./types";
+import { getCurrentUserAccess } from "./access";
 
 // ----------------------------------------------------------------------------
 // Store State Interface
@@ -122,12 +123,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const supabase = createClient();
 
         // Get current authenticated user; if not authenticated, do not fetch private data.
-        const {
-          data: { user },
-          error: userErr,
-        } = await supabase.auth.getUser();
-
-        if (userErr) throw userErr;
+        const { user, isAdmin } = await getCurrentUserAccess(supabase);
 
         if (!mounted) return;
 
@@ -140,14 +136,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         // Fetch only data belonging to the authenticated user
+        const formsQuery = isAdmin
+          ? supabase.from("request_forms").select("*")
+          : supabase.from("request_forms").select("*").eq("user_id", user.id);
+        const requestsQuery = isAdmin
+          ? supabase.from("requests").select("*")
+          : supabase.from("requests").select("*").eq("user_id", user.id);
         const [
           { data: botsData, error: botsError },
           { data: formsData, error: formsError },
           { data: requestsData, error: requestsError },
         ] = await Promise.all([
           supabase.from("bots").select("*").eq("user_id", user.id),
-          supabase.from("request_forms").select("*").eq("user_id", user.id),
-          supabase.from("requests").select("*").eq("user_id", user.id),
+          formsQuery,
+          requestsQuery,
         ]);
 
         if (botsError) throw botsError;
@@ -179,6 +181,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setForms(
             formsData.map((r: any) => ({
               id: r.id,
+              ownerId: r.user_id || undefined,
               title: r.title,
               description: r.description || "",
               sections: r.sections || [],
@@ -200,6 +203,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               status: r.status,
               submitterName: r.submitter_name,
               responses: r.responses || {},
+              responseLabels: r.response_labels || {},
               notes: r.notes,
               createdAt: r.created_at ? new Date(r.created_at) : new Date(),
               updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),

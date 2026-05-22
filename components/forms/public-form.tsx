@@ -665,7 +665,7 @@ export default function PublicForm({ form }: PublicFormProps) {
     try {
       const supabase = createClient();
 
-      // Build label mapping directly from form.sections
+      // Build a stable field-id to label map directly from form.sections
       const labelMap: Record<string, string> = {};
       let sections = form.sections;
 
@@ -691,17 +691,22 @@ export default function PublicForm({ form }: PublicFormProps) {
         });
       }
 
-      // Transform responses to use labels as keys instead of IDs
-      const responsesByLabel: Record<string, string | string[]> = {};
+      // Keep responses keyed by field id so repeated/blank labels never collide
+      const responsesByFieldId: Record<string, string | string[]> = {};
       Object.entries(values).forEach(([fieldId, value]) => {
-        const label = labelMap[fieldId] || fieldId;
-        responsesByLabel[label] = value;
+        responsesByFieldId[fieldId] = value;
       });
+
+      const submitterNameFieldId = Object.keys(labelMap).find(
+        (fieldId) =>
+          String(labelMap[fieldId]).toLowerCase().trim() === "name" ||
+          String(labelMap[fieldId]).toLowerCase().trim() === "submitter name",
+      );
 
       // ===== SECURITY CHECK: Validate content =====
       const securityCheck = await validateFormSubmission(
         form.id,
-        responsesByLabel,
+        responsesByFieldId,
       );
 
       if (!securityCheck.isValid) {
@@ -729,9 +734,15 @@ export default function PublicForm({ form }: PublicFormProps) {
         form_id: form.id,
         user_id: form.userId ?? null,
         form_title: form.title,
-        responses: responsesByLabel,
+        responses: responsesByFieldId,
+        response_labels: labelMap,
         submitter_name:
-          typeof values["name"] === "string" ? values["name"] : null,
+          submitterNameFieldId &&
+          typeof values[submitterNameFieldId] === "string"
+            ? values[submitterNameFieldId]
+            : typeof values["name"] === "string"
+              ? values["name"]
+              : null,
       };
 
       const { error } = await supabase.from("requests").insert(payload);

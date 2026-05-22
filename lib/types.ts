@@ -84,6 +84,7 @@ export interface FormSection {
 
 export interface RequestForm {
   id: string;
+  ownerId?: string;
   title: string;
   description: string;
   sections: FormSection[];
@@ -108,6 +109,7 @@ export interface Request {
   status: RequestStatus;
   submitterName?: string;
   responses: Record<string, string | string[]>;
+  responseLabels?: Record<string, string>;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;

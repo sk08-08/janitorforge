@@ -14,10 +14,14 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   username TEXT UNIQUE,
   display_name TEXT,
+  is_admin BOOLEAN DEFAULT false NOT NULL,
   avatar_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false;
 
 -- ============================================================================
 -- BOTS TABLE
@@ -70,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.requests (
   status TEXT CHECK (status IN ('new', 'accepted', 'completed', 'rejected')) DEFAULT 'new' NOT NULL,
   submitter_name TEXT,
   responses JSONB DEFAULT '{}' NOT NULL,
+  response_labels JSONB DEFAULT '{}' NOT NULL,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
@@ -144,6 +149,35 @@ CREATE POLICY "Users can delete their own forms"
   ON public.request_forms FOR DELETE
   USING (auth.uid() = user_id);
 
+CREATE OR REPLACE FUNCTION public.is_admin_user(p_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(
+    (SELECT is_admin FROM public.profiles WHERE id = p_user_id LIMIT 1),
+    false
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_admin_user(uuid) TO anon, authenticated;
+
+DROP POLICY IF EXISTS "Admins can view all forms" ON public.request_forms;
+CREATE POLICY "Admins can view all forms"
+  ON public.request_forms FOR SELECT
+  USING (public.is_admin_user(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can update all forms" ON public.request_forms;
+CREATE POLICY "Admins can update all forms"
+  ON public.request_forms FOR UPDATE
+  USING (public.is_admin_user(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can delete all forms" ON public.request_forms;
+CREATE POLICY "Admins can delete all forms"
+  ON public.request_forms FOR DELETE
+  USING (public.is_admin_user(auth.uid()));
+
 CREATE OR REPLACE FUNCTION public.can_create_request_for_form(p_form_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -165,6 +199,11 @@ CREATE POLICY "Users can view requests for their forms"
   ON public.requests FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Admins can view all requests" ON public.requests;
+CREATE POLICY "Admins can view all requests"
+  ON public.requests FOR SELECT
+  USING (public.is_admin_user(auth.uid()));
+
 CREATE POLICY "Anyone can create requests for active forms"
   ON public.requests FOR INSERT
   WITH CHECK (
@@ -175,9 +214,19 @@ CREATE POLICY "Users can update requests for their forms"
   ON public.requests FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Admins can update all requests" ON public.requests;
+CREATE POLICY "Admins can update all requests"
+  ON public.requests FOR UPDATE
+  USING (public.is_admin_user(auth.uid()));
+
 CREATE POLICY "Users can delete requests for their forms"
   ON public.requests FOR DELETE
   USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Admins can delete all requests" ON public.requests;
+CREATE POLICY "Admins can delete all requests"
+  ON public.requests FOR DELETE
+  USING (public.is_admin_user(auth.uid()));
 
 -- ============================================================================
 -- SECURITY & MODERATION TABLES

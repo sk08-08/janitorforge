@@ -19,6 +19,7 @@ export interface Database {
           id: string;
           username: string | null;
           display_name: string | null;
+          is_admin: boolean;
           avatar_url: string | null;
           created_at: string;
           updated_at: string;
@@ -27,6 +28,7 @@ export interface Database {
           id: string;
           username?: string | null;
           display_name?: string | null;
+          is_admin?: boolean;
           avatar_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -35,6 +37,7 @@ export interface Database {
           id?: string;
           username?: string | null;
           display_name?: string | null;
+          is_admin?: boolean;
           avatar_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -134,6 +137,7 @@ export interface Database {
           status: "new" | "accepted" | "completed" | "rejected";
           submitter_name: string | null;
           responses: Json;
+          response_labels: Json;
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -146,6 +150,7 @@ export interface Database {
           status?: "new" | "accepted" | "completed" | "rejected";
           submitter_name?: string | null;
           responses?: Json;
+          response_labels?: Json;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -158,6 +163,7 @@ export interface Database {
           status?: "new" | "accepted" | "completed" | "rejected";
           submitter_name?: string | null;
           responses?: Json;
+          response_labels?: Json;
           notes?: string | null;
           created_at?: string;
           updated_at?: string;

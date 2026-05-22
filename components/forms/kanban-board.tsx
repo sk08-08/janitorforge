@@ -104,6 +104,9 @@ const columns: ColumnConfig[] = [
 
 interface RequestCardProps {
   request: Request;
+  getOrderedResponseEntries: (
+    request: Request,
+  ) => Array<[string, string | string[]]>;
   onStatusChange: (status: RequestStatus, notes?: string) => void;
   onDelete: () => void;
   onViewDetails: () => void;
@@ -111,17 +114,18 @@ interface RequestCardProps {
 
 function RequestCard({
   request,
+  getOrderedResponseEntries,
   onStatusChange,
   onDelete,
   onViewDetails,
 }: RequestCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const resolveLabel = (key: string) => request.responseLabels?.[key] || key;
 
   // Get primary response fields for preview
   const previewFields = useMemo(() => {
-    const entries = Object.entries(request.responses);
-    return entries.slice(0, 2);
-  }, [request.responses]);
+    return getOrderedResponseEntries(request).slice(0, 2);
+  }, [getOrderedResponseEntries, request]);
 
   const getNextStatus = (): RequestStatus | null => {
     switch (request.status) {
@@ -207,7 +211,9 @@ function RequestCard({
         <div className="mt-2 space-y-1">
           {previewFields.map(([label, value]) => (
             <div key={label} className="text-sm">
-              <span className="text-muted-foreground">{label}: </span>
+              <span className="text-muted-foreground">
+                {resolveLabel(label)}:{" "}
+              </span>
               <span className="line-clamp-1">
                 {Array.isArray(value) ? value.join(", ") : value}
               </span>
@@ -216,7 +222,7 @@ function RequestCard({
         </div>
 
         {/* Expandable full details */}
-        {Object.keys(request.responses).length > 2 && (
+        {getOrderedResponseEntries(request).length > 2 && (
           <Collapsible onOpenChange={setIsExpanded}>
             <CollapsibleTrigger asChild>
               <Button
@@ -232,17 +238,19 @@ function RequestCard({
                 ) : (
                   <>
                     <ChevronDown className="mr-1 h-3 w-3" />
-                    Show More ({Object.keys(request.responses).length - 2} more)
+                    Show More ({getOrderedResponseEntries(request).length - 2} more)
                   </>
                 )}
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2 space-y-1">
-              {Object.entries(request.responses)
+              {getOrderedResponseEntries(request)
                 .slice(2)
                 .map(([label, value]) => (
                   <div key={label} className="text-sm">
-                    <span className="text-muted-foreground">{label}: </span>
+                    <span className="text-muted-foreground">
+                      {resolveLabel(label)}:{" "}
+                    </span>
                     <span>
                       {Array.isArray(value) ? value.join(", ") : value}
                     </span>
@@ -282,6 +290,9 @@ function RequestCard({
 interface KanbanColumnProps {
   config: ColumnConfig;
   requests: Request[];
+  getOrderedResponseEntries: (
+    request: Request,
+  ) => Array<[string, string | string[]]>;
   onStatusChange: (
     requestId: string,
     status: RequestStatus,
@@ -294,6 +305,7 @@ interface KanbanColumnProps {
 function KanbanColumn({
   config,
   requests,
+  getOrderedResponseEntries,
   onStatusChange,
   onDelete,
   onViewDetails,
@@ -339,6 +351,7 @@ function KanbanColumn({
               <RequestCard
                 key={request.id}
                 request={request}
+                getOrderedResponseEntries={getOrderedResponseEntries}
                 onStatusChange={(status, notes) =>
                   onStatusChange(request.id, status, notes)
                 }
@@ -363,6 +376,9 @@ function KanbanColumn({
 
 interface RequestDetailsDialogProps {
   request: Request | null;
+  getOrderedResponseEntries: (
+    request: Request,
+  ) => Array<[string, string | string[]]>;
   onClose: () => void;
   onStatusChange: (status: RequestStatus, notes?: string) => void;
   onDelete: () => void;
@@ -370,6 +386,7 @@ interface RequestDetailsDialogProps {
 
 function RequestDetailsDialog({
   request,
+  getOrderedResponseEntries,
   onClose,
   onStatusChange,
   onDelete,
@@ -379,6 +396,7 @@ function RequestDetailsDialog({
 
   if (!request) return null;
 
+  const resolveLabel = (key: string) => request.responseLabels?.[key] || key;
   const currentColumn = columns.find((c) => c.id === request.status);
 
   return (
@@ -404,10 +422,10 @@ function RequestDetailsDialog({
           <div className="space-y-4">
             <h4 className="font-medium">Responses</h4>
             <div className="space-y-3">
-              {Object.entries(request.responses).map(([label, value]) => (
+              {getOrderedResponseEntries(request).map(([label, value]) => (
                 <div key={label} className="rounded-lg border p-3">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {label}
+                    {resolveLabel(label)}
                   </p>
                   <p className="mt-1">
                     {Array.isArray(value) ? value.join(", ") : value || "-"}
@@ -536,7 +554,45 @@ export function KanbanBoard({
   onStatusChange,
   onDelete,
 }: KanbanBoardProps) {
+  const { forms } = useStore();
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+
+  const responseOrderByFormId = useMemo(() => {
+    const map = new Map<string, string[]>();
+
+    forms.forEach((form) => {
+      const fieldOrder: string[] = [];
+      form.sections.forEach((section) => {
+        section.fields.forEach((field) => {
+          fieldOrder.push(field.id);
+        });
+      });
+      map.set(form.id, fieldOrder);
+    });
+
+    return map;
+  }, [forms]);
+
+  const getOrderedResponseEntries = useMemo(() => {
+    return (request: Request) => {
+      const fieldOrder = responseOrderByFormId.get(request.formId) || [];
+      const orderIndex = new Map(
+        fieldOrder.map((fieldId, index) => [fieldId, index]),
+      );
+
+      return Object.entries(request.responses).sort((a, b) => {
+        const aIndex = orderIndex.has(a[0])
+          ? (orderIndex.get(a[0]) as number)
+          : Number.MAX_SAFE_INTEGER;
+        const bIndex = orderIndex.has(b[0])
+          ? (orderIndex.get(b[0]) as number)
+          : Number.MAX_SAFE_INTEGER;
+
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return a[0].localeCompare(b[0]);
+      });
+    };
+  }, [responseOrderByFormId]);
 
   // Group requests by status
   const groupedRequests = useMemo(() => {
@@ -569,6 +625,7 @@ export function KanbanBoard({
             key={column.id}
             config={column}
             requests={groupedRequests[column.id]}
+            getOrderedResponseEntries={getOrderedResponseEntries}
             onStatusChange={onStatusChange}
             onDelete={onDelete}
             onViewDetails={setSelectedRequest}
@@ -578,6 +635,7 @@ export function KanbanBoard({
 
       <RequestDetailsDialog
         request={selectedRequest}
+        getOrderedResponseEntries={getOrderedResponseEntries}
         onClose={() => setSelectedRequest(null)}
         onStatusChange={(status, notes) => {
           if (selectedRequest) {

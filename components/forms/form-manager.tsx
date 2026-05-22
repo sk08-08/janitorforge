@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Plus,
   FileText,
@@ -59,6 +59,8 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { RequestForm } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
+import { getCurrentUserAccess } from "@/lib/access";
 
 function escapeHtml(str: string) {
   return String(str)
@@ -122,6 +124,7 @@ function renderMarkdown(md?: string | null) {
 interface FormCardProps {
   form: RequestForm;
   requestCount: number;
+  ownerLabel?: string;
   onEdit: () => void;
   onDelete: () => void;
   onToggleActive: () => void;
@@ -131,6 +134,7 @@ interface FormCardProps {
 function FormCard({
   form,
   requestCount,
+  ownerLabel,
   onEdit,
   onDelete,
   onToggleActive,
@@ -209,6 +213,7 @@ function FormCard({
           <Badge variant={form.isActive ? "default" : "secondary"}>
             {form.isActive ? "Active" : "Inactive"}
           </Badge>
+          {ownerLabel && <Badge variant="outline">{ownerLabel}</Badge>}
           <Badge variant="outline">
             {form.sections.length} section
             {form.sections.length !== 1 ? "s" : ""}
@@ -285,6 +290,37 @@ export function FormManager() {
   const [editingForm, setEditingForm] = useState<RequestForm | null>(null);
   const [deleteConfirmForm, setDeleteConfirmForm] =
     useState<RequestForm | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [accessLoaded, setAccessLoaded] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { user } = await getCurrentUserAccess(supabase);
+        if (!mounted) return;
+        setCurrentUserId(user?.id ?? null);
+      } catch {
+        if (!mounted) return;
+        setCurrentUserId(null);
+      } finally {
+        if (mounted) setAccessLoaded(true);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const ownedForms = currentUserId
+    ? forms.filter((form) => !form.ownerId || form.ownerId === currentUserId)
+    : forms;
+  const otherForms = currentUserId
+    ? forms.filter((form) => form.ownerId && form.ownerId !== currentUserId)
+    : [];
 
   // Handlers
   const handleCreateForm = (
@@ -304,6 +340,7 @@ export function FormManager() {
       const r = res.form;
       upsertForm({
         id: r.id,
+        ownerId: r.user_id || undefined,
         title: r.title,
         description: r.description || "",
         sections: r.sections || [],
@@ -335,6 +372,7 @@ export function FormManager() {
         const r = res.form;
         upsertForm({
           id: r.id,
+          ownerId: r.user_id || undefined,
           title: r.title,
           description: r.description || "",
           sections: r.sections || [],
@@ -382,6 +420,7 @@ export function FormManager() {
       const r = res.form;
       upsertForm({
         id: r.id,
+        ownerId: r.user_id || undefined,
         title: r.title,
         description: r.description || "",
         sections: r.sections || [],
@@ -427,19 +466,75 @@ export function FormManager() {
       </div>
 
       {/* Form List */}
-      {forms.length > 0 ? (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {forms.map((form) => (
-            <FormCard
-              key={form.id}
-              form={form}
-              requestCount={getRequestsByFormId(form.id).length}
-              onEdit={() => setEditingForm(form)}
-              onDelete={() => setDeleteConfirmForm(form)}
-              onToggleActive={() => handleToggleActive(form)}
-              onCopyLink={() => handleCopyLink(form)}
-            />
-          ))}
+      {!accessLoaded ? (
+        <Card className="border-dashed">
+          <CardContent className="p-6 text-center text-muted-foreground">
+            Loading form access...
+          </CardContent>
+        </Card>
+      ) : forms.length > 0 ? (
+        <div className="space-y-8">
+          <section className="space-y-4">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold">My forms</h2>
+                <p className="text-sm text-muted-foreground">
+                  Forms owned by your account.
+                </p>
+              </div>
+              <Badge variant="outline">{ownedForms.length}</Badge>
+            </div>
+            {ownedForms.length > 0 ? (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {ownedForms.map((form) => (
+                  <FormCard
+                    key={form.id}
+                    form={form}
+                    requestCount={getRequestsByFormId(form.id).length}
+                    ownerLabel="Mine"
+                    onEdit={() => setEditingForm(form)}
+                    onDelete={() => setDeleteConfirmForm(form)}
+                    onToggleActive={() => handleToggleActive(form)}
+                    onCopyLink={() => handleCopyLink(form)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-sm text-muted-foreground">
+                  No forms in this section.
+                </CardContent>
+              </Card>
+            )}
+          </section>
+
+          {otherForms.length > 0 && (
+            <section className="space-y-4">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Other accounts</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Forms that belong to other users.
+                  </p>
+                </div>
+                <Badge variant="outline">{otherForms.length}</Badge>
+              </div>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {otherForms.map((form) => (
+                  <FormCard
+                    key={form.id}
+                    form={form}
+                    requestCount={getRequestsByFormId(form.id).length}
+                    ownerLabel="Other account"
+                    onEdit={() => setEditingForm(form)}
+                    onDelete={() => setDeleteConfirmForm(form)}
+                    onToggleActive={() => handleToggleActive(form)}
+                    onCopyLink={() => handleCopyLink(form)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       ) : (
         <Card>

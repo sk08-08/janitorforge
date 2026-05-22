@@ -25,6 +25,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { ModerationPanel } from "@/components/dashboard/moderation-panel";
 import type { RequestForm } from "@/lib/types";
+import { getCurrentUserAccess } from "@/lib/access";
 
 export default function ModerationPageContent() {
   const [forms, setForms] = useState<RequestForm[]>([]);
@@ -39,14 +40,7 @@ export default function ModerationPageContent() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) {
-        throw userError;
-      }
+      const { user, isAdmin } = await getCurrentUserAccess(supabase);
 
       if (!user) {
         setForms([]);
@@ -54,11 +48,14 @@ export default function ModerationPageContent() {
         return;
       }
 
-      const { data, error } = await supabase
+      const query = supabase
         .from("request_forms")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
+
+      const { data, error } = isAdmin
+        ? await query
+        : await query.eq("user_id", user.id);
 
       if (error) {
         console.error("Failed to load forms:", error);
