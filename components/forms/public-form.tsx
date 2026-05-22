@@ -723,7 +723,9 @@ export default function PublicForm({ form }: PublicFormProps) {
       }
 
       // ===== INSERT REQUEST INTO DATABASE =====
+      const requestId = crypto.randomUUID();
       const payload: any = {
+        id: requestId,
         form_id: form.id,
         user_id: form.userId ?? null,
         form_title: form.title,
@@ -732,11 +734,7 @@ export default function PublicForm({ form }: PublicFormProps) {
           typeof values["name"] === "string" ? values["name"] : null,
       };
 
-      const { data, error } = await supabase
-        .from("requests")
-        .insert(payload)
-        .select()
-        .single();
+      const { error } = await supabase.from("requests").insert(payload);
 
       if (error) {
         console.error("Failed to save request:", error);
@@ -751,10 +749,10 @@ export default function PublicForm({ form }: PublicFormProps) {
       }
 
       // ===== FLAG REQUEST IF NEEDED =====
-      if (securityCheck.isFlagged && data) {
+      if (securityCheck.isFlagged) {
         const flagResult = await recordFlaggedRequest(
           form.id,
-          data.id,
+          requestId,
           securityCheck.riskLevel as "warning" | "dangerous",
           securityCheck.flaggedFields || {},
           securityCheck.reason,
@@ -772,7 +770,7 @@ export default function PublicForm({ form }: PublicFormProps) {
         }
       }
 
-      console.log("Request saved:", data);
+      console.log("Request saved:", requestId);
       setIsSubmitting(false);
       setIsSubmitted(true);
     } catch (err) {
