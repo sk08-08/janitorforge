@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "JanitorForge",
   description:
-    "A powerful ecosystem of tools for Janitor AI bot creators. Manage bots, create request forms, generate release posts, and more.",
+    "A powerful ecosystem of tools for Janitor AI bot creators. Manage bots, create request forms, and organize Atlas hubs for series, lore, and creator spaces.",
   keywords: [
     "Janitor AI",
     "bot creator",

@@ -5,13 +5,13 @@
 
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
   Bot,
   FileText,
   Inbox,
-  Megaphone,
+  Globe,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -39,9 +39,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useState } from "react";
 import Image from "next/image";
 import type { NavigationView } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
+import { getCurrentUserAccess } from "@/lib/access";
 
 // ----------------------------------------------------------------------------
 // Navigation Configuration
@@ -86,10 +87,10 @@ const navItems: NavItem[] = [
     description: "Review flagged submissions",
   },
   {
-    id: "release-generator",
-    label: "Release Posts",
-    icon: Megaphone,
-    description: "Generate release announcements",
+    id: "atlas",
+    label: "Atlas",
+    icon: Globe,
+    description: "Organize series, lore, and creator spaces",
   },
 ];
 
@@ -103,14 +104,50 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children, username }: DashboardLayoutProps) {
-  const { currentView, setCurrentView, requests } = useStore();
+  const { currentView, setCurrentView, requests, forms } = useStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [accessLoaded, setAccessLoaded] = useState(false);
   const router = useRouter();
   const isMobile = useIsMobile();
 
-  // Count pending requests for badge
-  const pendingCount = requests.filter((r) => r.status === "new").length;
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const supabase = createClient();
+        const access = await getCurrentUserAccess(supabase);
+        if (!mounted) return;
+        setCurrentUserId(access.user?.id ?? null);
+      } catch {
+        if (!mounted) return;
+        setCurrentUserId(null);
+      } finally {
+        if (mounted) setAccessLoaded(true);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const formOwnerMap = useMemo(
+    () => new Map(forms.map((form) => [form.id, form.ownerId ?? null])),
+    [forms],
+  );
+
+  const pendingCount = accessLoaded
+    ? requests.filter((request) => {
+        if (request.status !== "new" || !currentUserId) return false;
+        const formOwnerId = formOwnerMap.get(request.formId);
+        return (
+          request.ownerId === currentUserId || formOwnerId === currentUserId
+        );
+      }).length
+    : 0;
 
   const handleLogout = async () => {
     await logout();

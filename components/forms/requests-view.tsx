@@ -89,7 +89,7 @@ export function RequestsView() {
   const isOwnRequest = (requestFormId: string) => {
     if (!currentUserId) return false;
     const ownerId = formOwnerMap.get(requestFormId);
-    return !ownerId || ownerId === currentUserId;
+    return ownerId === currentUserId;
   };
 
   const filteredRequests = requests.filter((request) =>
@@ -108,14 +108,25 @@ export function RequestsView() {
   const ownRequests =
     filterFormId === "all"
       ? currentUserId
-        ? filteredRequests.filter((request) => isOwnRequest(request.formId))
+        ? filteredRequests.filter(
+            (request) =>
+              request.ownerId === currentUserId || isOwnRequest(request.formId),
+          )
         : filteredRequests
       : isSelectedFormOwn
-        ? filteredRequests.filter((request) => isOwnRequest(request.formId))
+        ? filteredRequests.filter(
+            (request) =>
+              request.ownerId === currentUserId || isOwnRequest(request.formId),
+          )
         : [];
   const otherRequests = isAdmin
     ? filterFormId === "all"
-      ? filteredRequests.filter((request) => !isOwnRequest(request.formId))
+      ? filteredRequests.filter(
+          (request) =>
+            !(
+              request.ownerId === currentUserId || isOwnRequest(request.formId)
+            ),
+        )
       : isSelectedFormOwn
         ? []
         : filteredRequests
@@ -201,6 +212,7 @@ export function RequestsView() {
                   requests={ownRequests}
                   onStatusChange={handleStatusChange}
                   onDelete={handleDelete}
+                  collapseStateKey="kanban-collapsed-my-requests"
                 />
               ) : (
                 <Card>
@@ -231,6 +243,7 @@ export function RequestsView() {
                   requests={otherRequests}
                   onStatusChange={handleStatusChange}
                   onDelete={handleDelete}
+                  collapseStateKey="kanban-collapsed-other-requests"
                 />
               ) : (
                 <Card>

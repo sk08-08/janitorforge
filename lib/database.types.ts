@@ -169,6 +169,117 @@ export interface Database {
           updated_at?: string;
         };
       };
+      atlas_worlds: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          slug: string;
+          kind: "series" | "universe" | "location" | "timeline";
+          status: "draft" | "active";
+          description: string;
+          lore_summary: string;
+          bot_ids: string[];
+          form_ids: string[];
+          featured_lorebook_ids: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          slug: string;
+          kind: "series" | "universe" | "location" | "timeline";
+          status?: "draft" | "active";
+          description?: string;
+          lore_summary?: string;
+          bot_ids?: string[];
+          form_ids?: string[];
+          featured_lorebook_ids?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          slug?: string;
+          kind?: "series" | "universe" | "location" | "timeline";
+          status?: "draft" | "active";
+          description?: string;
+          lore_summary?: string;
+          bot_ids?: string[];
+          form_ids?: string[];
+          featured_lorebook_ids?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      atlas_lorebooks: {
+        Row: {
+          id: string;
+          user_id: string;
+          world_id: string;
+          title: string;
+          summary: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          world_id: string;
+          title: string;
+          summary?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          world_id?: string;
+          title?: string;
+          summary?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      atlas_entries: {
+        Row: {
+          id: string;
+          user_id: string;
+          world_id: string;
+          lorebook_id: string;
+          title: string;
+          kind: "lore" | "character" | "location" | "timeline" | "note";
+          body: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          world_id: string;
+          lorebook_id: string;
+          title: string;
+          kind?: "lore" | "character" | "location" | "timeline" | "note";
+          body?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          world_id?: string;
+          lorebook_id?: string;
+          title?: string;
+          kind?: "lore" | "character" | "location" | "timeline" | "note";
+          body?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

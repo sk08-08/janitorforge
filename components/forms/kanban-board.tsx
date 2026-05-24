@@ -5,11 +5,12 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import {
   MoreVertical,
   Trash2,
+  ArrowLeft,
   ArrowRight,
   MessageSquare,
   Clock,
@@ -139,7 +140,20 @@ function RequestCard({
     }
   };
 
+  const getPreviousStatus = (): RequestStatus | null => {
+    switch (request.status) {
+      case "accepted":
+        return "new";
+      case "completed":
+      case "rejected":
+        return "accepted";
+      default:
+        return null;
+    }
+  };
+
   const nextStatus = getNextStatus();
+  const previousStatus = getPreviousStatus();
   const toggleLabel = isExpanded
     ? "Show less fields"
     : `Show ${extraFieldsCount} more field${extraFieldsCount === 1 ? "" : "s"}`;
@@ -201,6 +215,15 @@ function RequestCard({
                 <DropdownMenuItem onClick={() => onStatusChange(nextStatus)}>
                   <ArrowRight className="mr-2 h-4 w-4" />
                   Move to {columns.find((c) => c.id === nextStatus)?.title}
+                </DropdownMenuItem>
+              )}
+              {previousStatus && (
+                <DropdownMenuItem
+                  onClick={() => onStatusChange(previousStatus)}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Move back to{" "}
+                  {columns.find((c) => c.id === previousStatus)?.title}
                 </DropdownMenuItem>
               )}
               {request.status !== "rejected" &&
@@ -585,6 +608,7 @@ interface KanbanBoardProps {
     notes?: string,
   ) => void;
   onDelete: (requestId: string) => void;
+  collapseStateKey?: string;
 }
 
 // ----------------------------------------------------------------------------
@@ -595,17 +619,51 @@ export function KanbanBoard({
   requests,
   onStatusChange,
   onDelete,
+  collapseStateKey = "kanban-collapsed-columns",
 }: KanbanBoardProps) {
   const { forms } = useStore();
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
-  const [collapsedColumns, setCollapsedColumns] = useState<
-    Record<RequestStatus, boolean>
-  >({
+  const defaultCollapsedColumns: Record<RequestStatus, boolean> = {
     new: false,
     accepted: false,
     completed: false,
     rejected: false,
+  };
+  const [collapsedColumns, setCollapsedColumns] = useState<
+    Record<RequestStatus, boolean>
+  >(() => {
+    if (typeof window === "undefined") {
+      return defaultCollapsedColumns;
+    }
+
+    try {
+      const savedState = localStorage.getItem(collapseStateKey);
+      if (!savedState) {
+        return defaultCollapsedColumns;
+      }
+
+      const parsed = JSON.parse(savedState) as Partial<
+        Record<RequestStatus, boolean>
+      >;
+
+      return {
+        new: parsed.new ?? false,
+        accepted: parsed.accepted ?? false,
+        completed: parsed.completed ?? false,
+        rejected: parsed.rejected ?? false,
+      };
+    } catch {
+      return defaultCollapsedColumns;
+    }
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(collapseStateKey, JSON.stringify(collapsedColumns));
+    } catch {
+      // Ignore storage errors (private mode, quota, etc).
+    }
+  }, [collapseStateKey, collapsedColumns]);
 
   const responseOrderByFormId = useMemo(() => {
     const map = new Map<string, string[]>();

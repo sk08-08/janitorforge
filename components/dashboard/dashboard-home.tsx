@@ -601,16 +601,16 @@ export function DashboardHome() {
 
           <Card
             className="cursor-pointer transition-all hover:border-primary/50"
-            onClick={() => setCurrentView("release-generator")}
+            onClick={() => setCurrentView("atlas")}
           >
             <CardContent className="flex items-center gap-4 p-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-4/10">
                 <TrendingUp className="h-6 w-6 text-chart-4" />
               </div>
               <div>
-                <h3 className="font-medium">Generate Release Post</h3>
+                <h3 className="font-medium">Open Atlas</h3>
                 <p className="text-sm text-muted-foreground">
-                  Announce your latest creation
+                  Organize series, lore, and creator spaces
                 </p>
               </div>
             </CardContent>

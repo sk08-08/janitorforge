@@ -108,7 +108,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         "currentView",
       ) as NavigationView | null;
       if (savedView) {
-        setCurrentViewState(savedView);
+        setCurrentViewState(
+          savedView === "release-generator" ? "atlas" : savedView,
+        );
       }
     }
   }, []);
@@ -199,6 +201,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             requestsData.map((r: any) => ({
               id: r.id,
               formId: r.form_id,
+              ownerId: r.user_id || undefined,
               formTitle: r.form_title,
               status: r.status,
               submitterName: r.submitter_name,

@@ -11,7 +11,7 @@ import { DashboardHome } from "@/components/dashboard/dashboard-home";
 import { BotManager } from "@/components/bots/bot-manager";
 import { FormManager } from "@/components/forms/form-manager";
 import { RequestsView } from "@/components/forms/requests-view";
-import { ReleasePostGenerator } from "@/components/release/release-post-generator";
+import { AtlasHub } from "@/components/atlas/atlas-hub";
 import ModerationPageContent from "@/app/dashboard/moderation/content";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -34,8 +34,8 @@ function ViewRouter() {
       return <RequestsView />;
     case "moderation":
       return <ModerationPageContent />;
-    case "release-generator":
-      return <ReleasePostGenerator />;
+    case "atlas":
+      return <AtlasHub />;
     default:
       return <DashboardHome />;
   }

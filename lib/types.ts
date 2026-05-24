@@ -105,6 +105,7 @@ export type RequestStatus = "new" | "accepted" | "completed" | "rejected";
 export interface Request {
   id: string;
   formId: string;
+  ownerId?: string;
   formTitle: string;
   status: RequestStatus;
   submitterName?: string;
@@ -202,4 +203,4 @@ export type NavigationView =
   | "forms"
   | "requests"
   | "moderation"
-  | "release-generator";
+  | "atlas";
