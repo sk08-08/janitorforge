@@ -545,12 +545,15 @@ export default function LorebookPage() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button className="cursor-pointer" onClick={saveLorebook}>
+              <Button
+                className="w-full cursor-pointer sm:w-auto"
+                onClick={saveLorebook}
+              >
                 Save lorebook
               </Button>
               <Button
                 variant="destructive"
-                className="cursor-pointer"
+                className="w-full cursor-pointer sm:w-auto"
                 onClick={deleteLorebook}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -604,7 +607,10 @@ export default function LorebookPage() {
                 onChange={(event) => setNewEntryBody(event.target.value)}
               />
             </div>
-            <Button className="cursor-pointer" onClick={addEntry}>
+            <Button
+              className="w-full cursor-pointer sm:w-auto"
+              onClick={addEntry}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add entry
             </Button>

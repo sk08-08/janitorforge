@@ -24,6 +24,24 @@ import type {
 } from "./types";
 import { getCurrentUserAccess } from "./access";
 
+const validNavigationViews: NavigationView[] = [
+  "dashboard",
+  "bots",
+  "forms",
+  "requests",
+  "moderation",
+  "atlas",
+];
+
+function toNavigationView(value: string | null): NavigationView | null {
+  if (!value) return null;
+  if (value === "release-generator") return "atlas";
+
+  return validNavigationViews.includes(value as NavigationView)
+    ? (value as NavigationView)
+    : null;
+}
+
 // ----------------------------------------------------------------------------
 // Store State Interface
 // ----------------------------------------------------------------------------
@@ -104,13 +122,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Load saved view from localStorage on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedView = localStorage.getItem(
-        "currentView",
-      ) as NavigationView | null;
+      const savedView = localStorage.getItem("currentView");
+      const normalizedSavedView = toNavigationView(savedView);
       if (savedView) {
-        setCurrentViewState(
-          savedView === "release-generator" ? "atlas" : savedView,
-        );
+        setCurrentViewState(normalizedSavedView ?? "dashboard");
       }
     }
   }, []);

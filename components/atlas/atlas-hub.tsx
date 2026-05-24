@@ -299,6 +299,64 @@ function createLorebookPackage(
   };
 }
 
+function mapEntryKindToJanitorCategory(kind: AtlasEntryKind) {
+  switch (kind) {
+    case "character":
+      return "character";
+    case "location":
+      return "place";
+    case "timeline":
+      return "timeline";
+    case "lore":
+      return "world_info";
+    default:
+      return "other";
+  }
+}
+
+function createJanitorLorebookExport(lorebookEntries: AtlasEntry[]) {
+  return lorebookEntries.map((entry, index) => {
+    const title = entry.title?.trim() || `Entry ${index + 1}`;
+    const content = entry.body?.trim() || "";
+    const titleLower = title.toLowerCase();
+    const keywords = Array.from(new Set([title, titleLower]));
+    const category = mapEntryKindToJanitorCategory(entry.kind);
+
+    return {
+      activationMode: "standard",
+      activationScript: "",
+      case_sensitive: false,
+      category,
+      comment: "",
+      constant: false,
+      content,
+      depth: 4,
+      enabled: true,
+      extensions: {
+        excludeRecursion: true,
+      },
+      groupWeight: 100,
+      id: index + 1,
+      inclusionGroupRaw: "",
+      insertion_order: (index + 1) * 100,
+      key: keywords,
+      keyMatchPriority: false,
+      keysecondary: [],
+      keysecondaryRaw: "",
+      keysRaw: keywords.join(", "),
+      matchWholeWords: true,
+      minMessages: 0,
+      name: title,
+      prioritizeInclusion: false,
+      priority: index + 1,
+      probability: 100,
+      selectiveLogic: 0,
+      tags: [category],
+      keywordsRaw: keywords.join(", "),
+    };
+  });
+}
+
 function mapJanitorCategoryToEntryKind(category?: string): AtlasEntryKind {
   switch (category?.toLowerCase()) {
     case "character":
@@ -419,7 +477,7 @@ function HubCard({
   return (
     <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75 transition-all hover:border-primary/40 hover:shadow-md">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-inset ring-border/50">
@@ -429,7 +487,11 @@ function HubCard({
             </div>
             <CardDescription>{description}</CardDescription>
           </div>
-          {badge && <Badge variant="secondary">{badge}</Badge>}
+          {badge && (
+            <Badge variant="secondary" className="shrink-0 self-start">
+              {badge}
+            </Badge>
+          )}
         </div>
       </CardHeader>
       {actionLabel && onAction && (
@@ -449,7 +511,7 @@ function HubCard({
 }
 
 export function AtlasHub() {
-  const { setCurrentView, bots } = useStore();
+  const { bots } = useStore();
   const [worlds, setWorlds] = useState<AtlasWorld[]>([]);
   const [lorebooks, setLorebooks] = useState<AtlasLorebook[]>([]);
   const [entries, setEntries] = useState<AtlasEntry[]>([]);
@@ -811,11 +873,10 @@ export function AtlasHub() {
   };
 
   const exportLorebook = (world: AtlasWorld, lorebook: AtlasLorebook) => {
-    const packageData = createLorebookPackage(
-      world,
-      lorebook,
-      entries.filter((entry) => entry.lorebookId === lorebook.id),
+    const lorebookEntries = entries.filter(
+      (entry) => entry.lorebookId === lorebook.id,
     );
+    const packageData = createJanitorLorebookExport(lorebookEntries);
 
     const blob = new Blob([JSON.stringify(packageData, null, 2)], {
       type: "application/json",
@@ -1635,22 +1696,16 @@ export function AtlasHub() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div>
           <HubCard
-            title="Bot series"
-            description="Group related bots under a shared setting, arc, or cast."
+            title="Bots by world"
+            description="Open a visual page that groups your bots by Atlas worlds so you can review coverage quickly."
             icon={Layers3}
             badge={`${bots.length} available`}
-            actionLabel="Open Bot Manager"
-            onAction={() => setCurrentView("bots")}
-          />
-          <HubCard
-            title="Lorebook links"
-            description="Pin important lore entries to a world for faster access."
-            icon={BookOpen}
-            badge={`${featuredCount} pinned`}
-            actionLabel="Add entry"
-            onAction={openEntryEditor}
+            actionLabel="Open world bot page"
+            onAction={() => {
+              window.location.href = "/atlas/bot-series";
+            }}
           />
         </div>
       </div>
@@ -1754,7 +1809,6 @@ export function AtlasHub() {
                       </div>
 
                       <ScrollArea
-                        className="pr-2"
                         style={{
                           height: pinnedLorebooksHeight
                             ? `${pinnedLorebooksHeight}px`
@@ -2352,8 +2406,10 @@ export function AtlasHub() {
                     void handleDrop(e.dataTransfer.files);
                   }}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>Drag & drop a JSON file here, or</div>
+                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-xs sm:text-sm">
+                      Drag & drop a JSON file here, or
+                    </div>
                     <Input
                       id="lorebook-file"
                       type="file"
