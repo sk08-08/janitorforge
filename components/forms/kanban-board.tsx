@@ -315,6 +315,8 @@ function RequestCard({
           <Badge variant="outline" className="text-xs">
             {request.formTitle}
           </Badge>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {request.createdAt.toLocaleDateString()}
@@ -408,7 +410,7 @@ function KanbanColumn({
       {/* Column Content */}
       {!isCollapsed && (
         <ScrollArea className="rounded-b-lg border border-t-0 bg-card/50">
-          <div className="flex min-h-72 gap-3 overflow-x-auto overflow-y-hidden p-2 sm:min-h-80">
+          <div className="flex min-h-72 w-max min-w-full gap-3 overflow-x-auto overflow-y-hidden p-2 sm:min-h-80">
             {requests.length > 0 ? (
               requests.map((request) => (
                 <RequestCard
@@ -420,7 +422,7 @@ function KanbanColumn({
                   }
                   onDelete={() => onDelete(request.id)}
                   onViewDetails={() => onViewDetails(request)}
-                  className="w-[18rem] shrink-0 sm:w-80"
+                  className="w-[85vw] max-w-[18rem] shrink-0 sm:w-80"
                 />
               ))
             ) : (

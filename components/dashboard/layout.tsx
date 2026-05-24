@@ -108,6 +108,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [pendingModerationCount, setPendingModerationCount] = useState(0);
   const [accessLoaded, setAccessLoaded] = useState(false);
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -139,7 +140,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
     [forms],
   );
 
-  const pendingCount = accessLoaded
+  const newRequestsCount = accessLoaded
     ? requests.filter((request) => {
         if (request.status !== "new" || !currentUserId) return false;
         const formOwnerId = formOwnerMap.get(request.formId);
@@ -148,6 +149,41 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
         );
       }).length
     : 0;
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      if (!accessLoaded || !currentUserId) {
+        if (mounted) setPendingModerationCount(0);
+        return;
+      }
+
+      try {
+        const supabase = createClient();
+        const { count, error } = await supabase
+          .from("flagged_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("reviewed", false);
+
+        if (!mounted) return;
+
+        if (error) {
+          console.error("Failed to load moderation count:", error);
+          setPendingModerationCount(0);
+          return;
+        }
+
+        setPendingModerationCount(count || 0);
+      } catch {
+        if (mounted) setPendingModerationCount(0);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [accessLoaded, currentUserId]);
 
   const handleLogout = async () => {
     await logout();
@@ -204,7 +240,15 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
-              const showBadge = item.id === "requests" && pendingCount > 0;
+              const showBadge = item.id === "requests" && newRequestsCount > 0;
+              const showModerationBadge =
+                item.id === "moderation" && pendingModerationCount > 0;
+              const badgeValue =
+                item.id === "requests"
+                  ? newRequestsCount
+                  : item.id === "moderation"
+                    ? pendingModerationCount
+                    : 0;
 
               const button = (
                 <Button
@@ -222,9 +266,9 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                     <Icon
                       className={cn("h-5 w-5", isActive && "text-primary")}
                     />
-                    {showBadge && (
+                    {(showBadge || showModerationBadge) && (
                       <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-                        {pendingCount}
+                        {badgeValue}
                       </span>
                     )}
                   </div>
@@ -343,7 +387,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                     const Icon = item.icon;
                     const isActive = currentView === item.id;
                     const showBadge =
-                      item.id === "requests" && pendingCount > 0;
+                      item.id === "requests" && newRequestsCount > 0;
 
                     return (
                       <Button
@@ -365,7 +409,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                           />
                           {showBadge && (
                             <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-                              {pendingCount}
+                              {newRequestsCount}
                             </span>
                           )}
                         </div>

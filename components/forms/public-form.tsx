@@ -1,10 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  validateFormSubmission,
-  recordFlaggedRequest,
-} from "@/app/actions/safety";
+import { submitPublicFormRequest } from "@/app/actions/safety";
 // Lightweight markdown renderer for basic formatting (bold, italic, links, lists)
 function escapeHtml(str: string) {
   return String(str)
@@ -176,14 +173,12 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { FormAppearance, FormField, FormSection } from "@/lib/types";
 import {
   getFormAppearanceClasses,
   getFormFieldFocusClasses,
 } from "@/lib/form-appearance";
-import { friendlySupabaseError } from "@/lib/error-utils";
 
 interface PublicFormProps {
   form: {
@@ -663,8 +658,6 @@ export default function PublicForm({ form }: PublicFormProps) {
     setIsSubmitting(true);
 
     try {
-      const supabase = createClient();
-
       // Build a stable field-id to label map directly from form.sections
       const labelMap: Record<string, string> = {};
       let sections = form.sections;
@@ -703,85 +696,41 @@ export default function PublicForm({ form }: PublicFormProps) {
           String(labelMap[fieldId]).toLowerCase().trim() === "submitter name",
       );
 
-      // ===== SECURITY CHECK: Validate content =====
-      const securityCheck = await validateFormSubmission(
+      const result = await submitPublicFormRequest(
         form.id,
+        form.title,
+        form.userId ?? "",
         responsesByFieldId,
+        labelMap,
+        submitterNameFieldId && typeof values[submitterNameFieldId] === "string"
+          ? values[submitterNameFieldId]
+          : typeof values["name"] === "string"
+            ? values["name"]
+            : null,
       );
 
-      if (!securityCheck.isValid) {
-        // Dangerous content - reject submission
-        if (securityCheck.riskLevel === "dangerous") {
+      if (!result.success) {
+        if (result.riskLevel === "dangerous") {
           toast.error(
-            "Your submission was rejected due to safety concerns. Please review your content and try again.",
+            result.reason ||
+              "Your submission was rejected due to safety concerns. Please review your content and try again.",
           );
-          setIsSubmitting(false);
-          return;
+        } else {
+          toast.error(
+            result.error || "Failed to submit request. Please try again.",
+          );
         }
-
-        // Rate limit exceeded
-        if (securityCheck.reason?.includes("Rate limit")) {
-          toast.error(securityCheck.reason);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // ===== INSERT REQUEST INTO DATABASE =====
-      const requestId = crypto.randomUUID();
-      const payload: any = {
-        id: requestId,
-        form_id: form.id,
-        user_id: form.userId ?? null,
-        form_title: form.title,
-        responses: responsesByFieldId,
-        response_labels: labelMap,
-        submitter_name:
-          submitterNameFieldId &&
-          typeof values[submitterNameFieldId] === "string"
-            ? values[submitterNameFieldId]
-            : typeof values["name"] === "string"
-              ? values["name"]
-              : null,
-      };
-
-      const { error } = await supabase.from("requests").insert(payload);
-
-      if (error) {
-        console.error("Failed to save request:", error);
-        toast.error(
-          friendlySupabaseError(
-            error,
-            "Failed to submit request. Please try again.",
-          ),
-        );
         setIsSubmitting(false);
         return;
       }
 
-      // ===== FLAG REQUEST IF NEEDED =====
-      if (securityCheck.isFlagged) {
-        const flagResult = await recordFlaggedRequest(
-          form.id,
-          requestId,
-          securityCheck.riskLevel as "warning" | "dangerous",
-          securityCheck.flaggedFields || {},
-          securityCheck.reason,
+      if (result.isFlagged && result.riskLevel === "warning") {
+        toast.info(
+          "Your submission has been received and will be reviewed before being processed.",
         );
-
-        if (!flagResult.success) {
-          console.warn("Failed to record flagged request:", flagResult.error);
-        }
-
-        // Show warning but still confirm submission
-        if (securityCheck.riskLevel === "warning") {
-          toast.info(
-            "Your submission has been received and will be reviewed before being processed.",
-          );
-        }
       }
 
-      console.log("Request saved:", requestId);
+      console.log("Request saved:", result.requestId);
       setIsSubmitting(false);
       setIsSubmitted(true);
     } catch (err) {

@@ -9,11 +9,13 @@
 
 export interface Bot {
   id: string;
+  ownerId?: string;
   name: string;
   chatName?: string;
   shortDescription: string;
   personality: string;
   firstMessage: string;
+  alternateGreetings?: string[];
   scenario: string;
   exampleDialogues: string;
   tags: string[];
@@ -29,6 +31,7 @@ export interface BotFormData {
   shortDescription: string;
   personality: string;
   firstMessage: string;
+  alternateGreetings?: string[];
   scenario: string;
   exampleDialogues: string;
   tags: string[];

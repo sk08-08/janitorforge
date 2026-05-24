@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle,
@@ -14,18 +14,9 @@ import {
   EyeOff,
   AlertCircle,
   Ban,
-  Copy,
   RefreshCw,
-  CheckSquare,
-  Square,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -37,17 +28,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -56,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   getFlaggedRequestsForForm,
@@ -65,7 +47,6 @@ import {
 import type { ContentFilterResult } from "@/lib/content-filter";
 import { CustomBlocklist } from "./custom-blocklist";
 import { SensitivityLevelSettings } from "./sensitivity-level";
-import { Checkbox } from "@/components/ui/checkbox";
 
 interface FlaggedRequest {
   id: string;
@@ -78,24 +59,27 @@ interface FlaggedRequest {
   review_action?: "approved" | "rejected";
   review_notes?: string;
   created_at: string;
+  request?: {
+    response_labels?: Record<string, string>;
+    submitter_name?: string | null;
+    ip_address?: string | null;
+  } | null;
 }
 
 interface ModerationPanelProps {
   formId: string;
   formTitle?: string;
+  formOwnerId?: string | null;
+  currentUserId?: string | null;
 }
 
 function RiskBadge({ level }: { level: "warning" | "dangerous" }) {
-  if (level === "dangerous") {
-    return (
-      <Badge variant="destructive" className="gap-1">
-        <AlertTriangle className="h-3 w-3" />
-        Dangerous
-      </Badge>
-    );
-  }
-
-  return (
+  return level === "dangerous" ? (
+    <Badge variant="destructive" className="gap-1">
+      <AlertTriangle className="h-3 w-3" />
+      Dangerous
+    </Badge>
+  ) : (
     <Badge variant="secondary" className="gap-1">
       <AlertCircle className="h-3 w-3" />
       Warning
@@ -105,62 +89,68 @@ function RiskBadge({ level }: { level: "warning" | "dangerous" }) {
 
 function FlaggedFieldsViewer({
   flaggedFields,
+  fieldLabels,
 }: {
   flaggedFields: Record<string, ContentFilterResult>;
+  fieldLabels?: Record<string, string>;
 }) {
   const [expandedFields, setExpandedFields] = useState<Set<string>>(new Set());
 
-  const toggleExpand = (fieldName: string) => {
-    setExpandedFields((prev) => {
-      const next = new Set(prev);
-      if (next.has(fieldName)) {
-        next.delete(fieldName);
-      } else {
-        next.add(fieldName);
-      }
-      return next;
-    });
-  };
-
   return (
     <div className="space-y-3">
-      {Object.entries(flaggedFields).map(([fieldName, result]) => (
-        <div key={fieldName} className="border rounded-lg p-3 bg-muted/50">
-          <div
-            className="flex items-center justify-between cursor-pointer"
-            onClick={() => toggleExpand(fieldName)}
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">{fieldName}</span>
-              <Badge variant="outline" className="text-xs">
-                {result.flags.length} flags
-              </Badge>
-            </div>
-            {expandedFields.has(fieldName) ? (
-              <EyeOff className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <Eye className="h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
+      {Object.entries(flaggedFields).map(([fieldName, result]) => {
+        const label = fieldLabels?.[fieldName] || fieldName;
 
-          {expandedFields.has(fieldName) && (
-            <div className="mt-2 space-y-2 text-sm">
-              <div className="flex flex-wrap gap-1">
-                {result.flags.map((flag) => (
-                  <Badge key={flag} variant="outline" className="text-xs">
-                    {flag}
-                  </Badge>
-                ))}
+        return (
+          <div key={fieldName} className="border rounded-lg p-3 bg-muted/50">
+            <div
+              className="flex items-center justify-between cursor-pointer"
+              onClick={() => {
+                setExpandedFields((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(fieldName)) next.delete(fieldName);
+                  else next.add(fieldName);
+                  return next;
+                });
+              }}
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-sm">{label}</span>
+                {label !== fieldName && (
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    {fieldName}
+                  </span>
+                )}
+                <Badge variant="outline" className="text-xs">
+                  {result.flags.length} flags
+                </Badge>
               </div>
-              {result.reason && (
-                <p className="text-muted-foreground text-xs italic">
-                  "{result.reason}"
-                </p>
+              {expandedFields.has(fieldName) ? (
+                <EyeOff className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Eye className="h-4 w-4 text-muted-foreground" />
               )}
             </div>
-          )}
-        </div>
-      ))}
+
+            {expandedFields.has(fieldName) && (
+              <div className="mt-2 space-y-2 text-sm">
+                <div className="flex flex-wrap gap-1">
+                  {result.flags.map((flag) => (
+                    <Badge key={flag} variant="outline" className="text-xs">
+                      {flag}
+                    </Badge>
+                  ))}
+                </div>
+                {result.reason && (
+                  <p className="text-muted-foreground text-xs italic">
+                    "{result.reason}"
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -169,13 +159,16 @@ function ReviewFlaggedDialog({
   flagged,
   onApprove,
   onReject,
+  onBlockIp,
 }: {
   flagged: FlaggedRequest;
   onApprove: (notes?: string) => Promise<void>;
   onReject: (notes?: string) => Promise<void>;
+  onBlockIp: (ipAddress: string, reason?: string) => Promise<void>;
 }) {
   const [notes, setNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const fieldLabels = flagged.request?.response_labels || {};
 
   const handleApprove = async () => {
     setIsProcessing(true);
@@ -195,6 +188,21 @@ function ReviewFlaggedDialog({
     }
   };
 
+  const handleBlockIp = async () => {
+    const ipAddress = flagged.request?.ip_address;
+    if (!ipAddress) return;
+
+    setIsProcessing(true);
+    try {
+      await onBlockIp(
+        ipAddress,
+        notes.trim() || flagged.review_notes || flagged.reason || undefined,
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
@@ -205,6 +213,33 @@ function ReviewFlaggedDialog({
       </DialogHeader>
 
       <div className="space-y-4 max-h-96 overflow-y-auto">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {flagged.request?.submitter_name && (
+            <div>
+              <h4 className="font-medium text-sm mb-1">Submitter</h4>
+              <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                {flagged.request.submitter_name}
+              </p>
+            </div>
+          )}
+
+          {flagged.request?.ip_address && (
+            <div>
+              <h4 className="font-medium text-sm mb-1">Submitter IP</h4>
+              <p className="text-sm font-mono text-muted-foreground bg-muted p-2 rounded break-all">
+                {flagged.request.ip_address}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <h4 className="font-medium text-sm mb-1">Request ID</h4>
+            <p className="text-sm font-mono text-muted-foreground bg-muted p-2 rounded break-all">
+              {flagged.request_id}
+            </p>
+          </div>
+        </div>
+
         <div>
           <h4 className="font-medium text-sm mb-2">Reason for Flag</h4>
           <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
@@ -214,7 +249,10 @@ function ReviewFlaggedDialog({
 
         <div>
           <h4 className="font-medium text-sm mb-2">Flagged Fields</h4>
-          <FlaggedFieldsViewer flaggedFields={flagged.flagged_fields} />
+          <FlaggedFieldsViewer
+            flaggedFields={flagged.flagged_fields}
+            fieldLabels={fieldLabels}
+          />
         </div>
 
         <div>
@@ -234,8 +272,18 @@ function ReviewFlaggedDialog({
 
       <DialogFooter className="gap-2">
         <Button
+          variant="secondary"
+          onClick={handleBlockIp}
+          className="cursor-pointer"
+          disabled={isProcessing || !flagged.request?.ip_address}
+        >
+          <Ban className="mr-2 h-4 w-4" />
+          Block IP
+        </Button>
+        <Button
           variant="destructive"
           onClick={handleReject}
+          className="cursor-pointer"
           disabled={isProcessing}
         >
           <XCircle className="mr-2 h-4 w-4" />
@@ -244,6 +292,7 @@ function ReviewFlaggedDialog({
         <Button
           variant="default"
           onClick={handleApprove}
+          className="cursor-pointer"
           disabled={isProcessing}
         >
           <CheckCircle className="mr-2 h-4 w-4" />
@@ -254,87 +303,24 @@ function ReviewFlaggedDialog({
   );
 }
 
-function BlockIpDialog({
-  ipAddress,
-  onBlock,
-}: {
-  ipAddress: string;
-  onBlock: (reason: string) => Promise<void>;
-}) {
-  const [reason, setReason] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleBlock = async () => {
-    if (!reason.trim()) {
-      toast.error("Please provide a reason for blocking");
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      await onBlock(reason);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Block IP Address</DialogTitle>
-        <DialogDescription>
-          Are you sure you want to block this IP?
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="space-y-4">
-        <div>
-          <Label className="text-sm font-medium">IP Address</Label>
-          <div className="mt-1 p-2 bg-muted rounded font-mono text-sm">
-            {ipAddress}
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="block-reason" className="text-sm font-medium">
-            Reason for Blocking
-          </Label>
-          <Textarea
-            id="block-reason"
-            placeholder="e.g., Multiple abusive submissions, contains threatening content..."
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="mt-1 text-sm"
-            rows={3}
-          />
-        </div>
-      </div>
-
-      <DialogFooter>
-        <Button
-          variant="destructive"
-          onClick={handleBlock}
-          disabled={isProcessing}
-        >
-          <Ban className="mr-2 h-4 w-4" />
-          Block IP
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-}
-
-export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
+export function ModerationPanel({
+  formId,
+  formTitle,
+  formOwnerId,
+  currentUserId,
+}: ModerationPanelProps) {
   const [flaggedRequests, setFlaggedRequests] = useState<FlaggedRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "warning" | "dangerous">("all");
   const [selectedFlagged, setSelectedFlagged] = useState<FlaggedRequest | null>(
     null,
   );
-  const [blockingIp, setBlockingIp] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  const canManageSettings =
+    !formOwnerId || !currentUserId || formOwnerId === currentUserId;
 
   useEffect(() => {
     loadFlaggedRequests();
@@ -387,12 +373,16 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
     }
   };
 
-  const handleBlockIp = async (ipAddress: string, reason: string) => {
+  const handleBlockIp = async (ipAddress: string, reason?: string) => {
     try {
-      const result = await blockIpAddress(formId, ipAddress, reason);
+      const result = await blockIpAddress(
+        formId,
+        ipAddress,
+        reason || "Blocked from moderation review",
+      );
       if (result.success) {
         toast.success(`IP ${ipAddress} blocked`);
-        setBlockingIp(null);
+        setSelectedFlagged(null);
       } else {
         toast.error(result.error || "Failed to block IP");
       }
@@ -403,21 +393,10 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
   };
 
   const toggleSelectId = (id: string) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedIds(newSelected);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredRequests.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredRequests.map((r) => r.id)));
-    }
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
   };
 
   const handleBulkApprove = async () => {
@@ -430,12 +409,9 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
     for (const id of selectedIds) {
       try {
         const result = await markFlaggedAsReviewed(id, "approved");
-        if (result.success) {
-          successful++;
-        } else {
-          failed++;
-        }
-      } catch (error) {
+        if (result.success) successful++;
+        else failed++;
+      } catch {
         failed++;
       }
     }
@@ -465,12 +441,9 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
     for (const id of selectedIds) {
       try {
         const result = await markFlaggedAsReviewed(id, "rejected");
-        if (result.success) {
-          successful++;
-        } else {
-          failed++;
-        }
-      } catch (error) {
+        if (result.success) successful++;
+        else failed++;
+      } catch {
         failed++;
       }
     }
@@ -505,7 +478,6 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
           <CardContent className="pt-4">
@@ -513,7 +485,6 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
             <p className="text-xs text-muted-foreground">Total Flagged</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-yellow-600">
@@ -522,7 +493,6 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
             <p className="text-xs text-muted-foreground">Pending Review</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-orange-600">
@@ -531,7 +501,6 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
             <p className="text-xs text-muted-foreground">Warnings</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-red-600">
@@ -542,7 +511,6 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
         </Card>
       </div>
 
-      {/* Filter & Refresh & Bulk Actions */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
           <Select
@@ -579,7 +547,6 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
           </Button>
         </div>
 
-        {/* Bulk Actions */}
         {selectedIds.size > 0 && (
           <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
             <CardContent className="pt-4">
@@ -621,15 +588,24 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
         )}
       </div>
 
-      {/* Settings Panel */}
       {showSettings && (
         <div className="space-y-4">
-          <SensitivityLevelSettings formId={formId} formTitle={formTitle} />
-          <CustomBlocklist formId={formId} formTitle={formTitle} />
+          {canManageSettings ? (
+            <>
+              <SensitivityLevelSettings formId={formId} formTitle={formTitle} />
+              <CustomBlocklist formId={formId} formTitle={formTitle} />
+            </>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="p-6 text-sm text-muted-foreground">
+                Blocklist and sensitivity settings are only available for forms
+                you own.
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
-      {/* Flagged Requests List */}
       <div className="space-y-2">
         {loading ? (
           <Card>
@@ -649,9 +625,7 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
           filteredRequests.map((flagged) => (
             <Card
               key={flagged.id}
-              className={`${
-                flagged.reviewed ? "opacity-60" : ""
-              } hover:shadow-md transition-shadow`}
+              className={`${flagged.reviewed ? "opacity-60" : ""} hover:shadow-md transition-shadow`}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
@@ -687,37 +661,34 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
                       </p>
                     </div>
                   </div>
-
-                  {!flagged.reviewed && (
-                    <div className="flex gap-2">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setSelectedFlagged(flagged)}
-                          >
-                            Review
-                          </Button>
-                        </DialogTrigger>
-                        {selectedFlagged?.id === flagged.id && (
-                          <ReviewFlaggedDialog
-                            flagged={flagged}
-                            onApprove={(notes) =>
-                              handleApprove(flagged.id, notes)
-                            }
-                            onReject={(notes) =>
-                              handleReject(flagged.id, notes)
-                            }
-                          />
-                        )}
-                      </Dialog>
-                    </div>
-                  )}
                 </div>
               </CardHeader>
 
               <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="cursor-pointer"
+                        onClick={() => setSelectedFlagged(flagged)}
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Review actions
+                      </Button>
+                    </DialogTrigger>
+                    {selectedFlagged?.id === flagged.id && (
+                      <ReviewFlaggedDialog
+                        flagged={flagged}
+                        onApprove={(notes) => handleApprove(flagged.id, notes)}
+                        onReject={(notes) => handleReject(flagged.id, notes)}
+                        onBlockIp={handleBlockIp}
+                      />
+                    )}
+                  </Dialog>
+                </div>
+
                 {flagged.reason && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">
@@ -734,7 +705,10 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
                     Flagged Fields ({Object.keys(flagged.flagged_fields).length}
                     )
                   </p>
-                  <FlaggedFieldsViewer flaggedFields={flagged.flagged_fields} />
+                  <FlaggedFieldsViewer
+                    flaggedFields={flagged.flagged_fields}
+                    fieldLabels={flagged.request?.response_labels || {}}
+                  />
                 </div>
 
                 {flagged.review_notes && (
@@ -745,31 +719,6 @@ export function ModerationPanel({ formId, formTitle }: ModerationPanelProps) {
                     <p className="text-sm italic text-muted-foreground">
                       "{flagged.review_notes}"
                     </p>
-                  </div>
-                )}
-
-                {flagged.reviewed && (
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setBlockingIp("0.0.0.0")} // Placeholder
-                        >
-                          <Ban className="h-3 w-3 mr-1" />
-                          Block IP
-                        </Button>
-                      </DialogTrigger>
-                      {blockingIp && (
-                        <BlockIpDialog
-                          ipAddress={blockingIp}
-                          onBlock={(reason) =>
-                            handleBlockIp(blockingIp, reason)
-                          }
-                        />
-                      )}
-                    </Dialog>
                   </div>
                 )}
               </CardContent>

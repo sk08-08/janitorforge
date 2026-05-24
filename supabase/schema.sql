@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.bots (
   short_description TEXT NOT NULL,
   personality TEXT NOT NULL,
   first_message TEXT NOT NULL,
+  alternate_greetings TEXT[] DEFAULT '{}' NOT NULL,
   scenario TEXT DEFAULT '' NOT NULL,
   example_dialogues TEXT DEFAULT '' NOT NULL,
   tags TEXT[] DEFAULT '{}' NOT NULL,
@@ -73,6 +74,7 @@ CREATE TABLE IF NOT EXISTS public.requests (
   form_title TEXT NOT NULL,
   status TEXT CHECK (status IN ('new', 'accepted', 'completed', 'rejected')) DEFAULT 'new' NOT NULL,
   submitter_name TEXT,
+  ip_address TEXT,
   responses JSONB DEFAULT '{}' NOT NULL,
   response_labels JSONB DEFAULT '{}' NOT NULL,
   notes TEXT,
@@ -91,6 +93,9 @@ CREATE INDEX IF NOT EXISTS request_forms_shareable_link_idx ON public.request_fo
 CREATE INDEX IF NOT EXISTS requests_form_id_idx ON public.requests(form_id);
 CREATE INDEX IF NOT EXISTS requests_user_id_idx ON public.requests(user_id);
 CREATE INDEX IF NOT EXISTS requests_status_idx ON public.requests(status);
+
+ALTER TABLE public.requests
+  ADD COLUMN IF NOT EXISTS ip_address TEXT;
 
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -338,11 +343,44 @@ CREATE POLICY "Users can manage blocked IPs for their forms"
   );
 
 -- Custom blocklist policies
-CREATE POLICY "Users can manage their form blocklists"
-  ON public.custom_blocklists FOR ALL
+CREATE POLICY "Users can view their form blocklists"
+  ON public.custom_blocklists FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM public.request_forms 
+      SELECT 1 FROM public.request_forms
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can insert their form blocklists"
+  ON public.custom_blocklists FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.request_forms
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update their form blocklists"
+  ON public.custom_blocklists FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.request_forms
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.request_forms
+      WHERE id = form_id AND user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can delete their form blocklists"
+  ON public.custom_blocklists FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.request_forms
       WHERE id = form_id AND user_id = auth.uid()
     )
   );
@@ -355,6 +393,57 @@ CREATE POLICY "Authenticated users can view global blocklists"
 CREATE POLICY "Authenticated users can insert global blocklists"
   ON public.global_blocklists FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
+
+-- Insert a custom blocklist row only for the owner of the form.
+CREATE OR REPLACE FUNCTION public.add_custom_blocklist(
+  p_form_id uuid,
+  p_pattern text,
+  p_is_regex boolean DEFAULT false
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.request_forms
+    WHERE id = p_form_id
+      AND user_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'Forbidden';
+  END IF;
+
+  INSERT INTO public.custom_blocklists (form_id, pattern, is_regex, created_at)
+  VALUES (p_form_id, p_pattern, COALESCE(p_is_regex, false), NOW());
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.add_custom_blocklist(uuid, text, boolean) TO anon, authenticated;
+
+-- Blocklist lookup for public form submission validation.
+CREATE OR REPLACE FUNCTION public.get_submission_blocklists(p_form_id uuid)
+RETURNS TABLE (
+  pattern text,
+  is_regex boolean,
+  severity text
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT pattern, is_regex, severity
+  FROM public.global_blocklists
+
+  UNION ALL
+
+  SELECT c.pattern, c.is_regex, c.severity
+  FROM public.custom_blocklists c
+  WHERE c.form_id = p_form_id;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_submission_blocklists(uuid) TO anon, authenticated;
 
 -- Public form lookup without exposing the forms table broadly
 CREATE OR REPLACE FUNCTION public.get_public_request_form(p_shareable_link text)

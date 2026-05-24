@@ -318,11 +318,15 @@ export function BotManager() {
     const r = res.bot;
     upsertBot({
       id: r.id,
+      ownerId: r.user_id || undefined,
       chatName: r.chat_name || undefined,
       name: r.name,
       shortDescription: r.short_description || "",
       personality: r.personality || "",
       firstMessage: r.first_message || "",
+      alternateGreetings: Array.isArray(r.alternate_greetings)
+        ? r.alternate_greetings
+        : [],
       scenario: r.scenario || "",
       exampleDialogues: r.example_dialogues || "",
       tags: Array.isArray(r.tags) ? r.tags : [],
@@ -345,11 +349,15 @@ export function BotManager() {
     const r = res.bot;
     upsertBot({
       id: r.id,
+      ownerId: r.user_id || undefined,
       chatName: r.chat_name || undefined,
       name: r.name,
       shortDescription: r.short_description || "",
       personality: r.personality || "",
       firstMessage: r.first_message || "",
+      alternateGreetings: Array.isArray(r.alternate_greetings)
+        ? r.alternate_greetings
+        : [],
       scenario: r.scenario || "",
       exampleDialogues: r.example_dialogues || "",
       tags: Array.isArray(r.tags) ? r.tags : [],

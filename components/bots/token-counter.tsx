@@ -3,58 +3,82 @@
 // Real-time token counting and variable validation display
 // ============================================================================
 
-'use client'
+"use client";
 
-import { useMemo } from 'react'
-import { AlertCircle, CheckCircle, Hash, User, Bot as BotIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { validateVariables, countTokens } from '@/lib/bot-utils'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useMemo } from "react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Hash,
+  User,
+  Bot as BotIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { validateVariables, countTokens } from "@/lib/bot-utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // ----------------------------------------------------------------------------
 // Token Counter Props
 // ----------------------------------------------------------------------------
 
 interface TokenCounterProps {
-  text: string
-  fieldName?: string
-  showVariables?: boolean
-  className?: string
+  text: string | string[];
+  fieldName?: string;
+  showVariables?: boolean;
+  className?: string;
 }
 
 // ----------------------------------------------------------------------------
 // Token Counter Component
 // ----------------------------------------------------------------------------
 
-export function TokenCounter({ text, fieldName, showVariables = true, className }: TokenCounterProps) {
-  const validation = useMemo(() => validateVariables(text), [text])
-  const tokenCount = useMemo(() => countTokens(text), [text])
+export function TokenCounter({
+  text,
+  fieldName,
+  showVariables = true,
+  className,
+}: TokenCounterProps) {
+  const combinedText = useMemo(
+    () => (Array.isArray(text) ? text.filter(Boolean).join("\n\n") : text),
+    [text],
+  );
+  const validation = useMemo(
+    () => validateVariables(combinedText),
+    [combinedText],
+  );
+  const tokenCount = useMemo(() => countTokens(combinedText), [combinedText]);
 
   // Determine token count color based on thresholds
   const getTokenColor = () => {
-    if (tokenCount > 4000) return 'text-destructive'
-    if (tokenCount > 2000) return 'text-warning'
-    return 'text-success'
-  }
+    if (tokenCount > 4000) return "text-destructive";
+    if (tokenCount > 2000) return "text-warning";
+    return "text-success";
+  };
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-3 text-xs', className)}>
+    <div className={cn("flex flex-wrap items-center gap-3 text-xs", className)}>
       {/* Token count */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className={cn('flex items-center gap-1.5', getTokenColor())}>
+          <div className={cn("flex items-center gap-1.5", getTokenColor())}>
             <Hash className="h-3.5 w-3.5" />
-            <span className="font-medium">{tokenCount.toLocaleString()} tokens</span>
+            <span className="font-medium">
+              {tokenCount.toLocaleString()} tokens
+            </span>
           </div>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Token count for {fieldName || 'this field'}</p>
+          <p>Token count for {fieldName || "this field"}</p>
           <p className="text-xs text-muted-foreground">
-            {tokenCount > 4000 && 'High token count may affect performance'}
-            {tokenCount <= 4000 && tokenCount > 2000 && 'Moderate token count'}
-            {tokenCount <= 2000 && 'Good token count'}
+            {tokenCount > 4000 && "High token count may affect performance"}
+            {tokenCount <= 4000 && tokenCount > 2000 && "Moderate token count"}
+            {tokenCount <= 2000 && "Good token count"}
           </p>
         </TooltipContent>
       </Tooltip>
@@ -64,11 +88,15 @@ export function TokenCounter({ text, fieldName, showVariables = true, className 
         <>
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <BotIcon className="h-3.5 w-3.5" />
-            <span>{'{{char}}'}: {validation.charVariableCount}</span>
+            <span>
+              {"{{char}}"}: {validation.charVariableCount}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <User className="h-3.5 w-3.5" />
-            <span>{'{{user}}'}: {validation.userVariableCount}</span>
+            <span>
+              {"{{user}}"}: {validation.userVariableCount}
+            </span>
           </div>
         </>
       )}
@@ -90,14 +118,16 @@ export function TokenCounter({ text, fieldName, showVariables = true, className 
           <TooltipContent>
             <div className="space-y-1">
               {validation.warnings.map((warning, i) => (
-                <p key={i} className="text-xs">{warning}</p>
+                <p key={i} className="text-xs">
+                  {warning}
+                </p>
               ))}
             </div>
           </TooltipContent>
         </Tooltip>
       )}
     </div>
-  )
+  );
 }
 
 // ----------------------------------------------------------------------------
@@ -105,48 +135,58 @@ export function TokenCounter({ text, fieldName, showVariables = true, className 
 // ----------------------------------------------------------------------------
 
 interface TokenSummaryProps {
-  personality: string
-  firstMessage: string
-  scenario: string
-  exampleDialogues: string
+  personality: string;
+  initialMessages: string[];
+  scenario: string;
+  exampleDialogues: string;
 }
 
-export function TokenSummary({ personality, firstMessage, scenario, exampleDialogues }: TokenSummaryProps) {
+export function TokenSummary({
+  personality,
+  initialMessages,
+  scenario,
+  exampleDialogues,
+}: TokenSummaryProps) {
   const totals = useMemo(() => {
+    const combinedInitialMessages = initialMessages
+      .filter(Boolean)
+      .join("\n\n");
     const fields = [
-      { name: 'Personality', text: personality },
-      { name: 'First Message', text: firstMessage },
-      { name: 'Scenario', text: scenario },
-      { name: 'Example Dialogues', text: exampleDialogues },
-    ]
+      { name: "Personality", text: personality },
+      { name: "Initial Messages", text: combinedInitialMessages },
+      { name: "Scenario", text: scenario },
+      { name: "Example Dialogues", text: exampleDialogues },
+    ];
 
-    const fieldCounts = fields.map(f => ({
+    const fieldCounts = fields.map((f) => ({
       name: f.name,
       tokens: countTokens(f.text),
-    }))
+    }));
 
-    const total = fieldCounts.reduce((sum, f) => sum + f.tokens, 0)
-    
+    const total = fieldCounts.reduce((sum, f) => sum + f.tokens, 0);
+
     // Validate all text combined
-    const allText = fields.map(f => f.text).join('\n')
-    const validation = validateVariables(allText)
+    const allText = fields.map((f) => f.text).join("\n");
+    const validation = validateVariables(allText);
 
-    return { fieldCounts, total, validation }
-  }, [personality, firstMessage, scenario, exampleDialogues])
+    return { fieldCounts, total, validation };
+  }, [personality, initialMessages, scenario, exampleDialogues]);
 
   const getTotalColor = () => {
-    if (totals.total > 8000) return 'border-destructive bg-destructive/10'
-    if (totals.total > 4000) return 'border-warning bg-warning/10'
-    return 'border-success bg-success/10'
-  }
+    if (totals.total > 8000) return "border-destructive bg-destructive/10";
+    if (totals.total > 4000) return "border-warning bg-warning/10";
+    return "border-success bg-success/10";
+  };
 
   return (
-    <Card className={cn('transition-colors', getTotalColor())}>
+    <Card className={cn("transition-colors", getTotalColor())}>
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium">Total Token Count</h3>
-            <p className="mt-1 text-2xl font-bold">{totals.total.toLocaleString()}</p>
+            <p className="mt-1 text-2xl font-bold">
+              {totals.total.toLocaleString()}
+            </p>
           </div>
           <div className="text-right">
             {totals.validation.isValid ? (
@@ -155,7 +195,10 @@ export function TokenSummary({ personality, firstMessage, scenario, exampleDialo
                 All Variables Valid
               </Badge>
             ) : (
-              <Badge variant="outline" className="border-destructive text-destructive">
+              <Badge
+                variant="outline"
+                className="border-destructive text-destructive"
+              >
                 <AlertCircle className="mr-1 h-3 w-3" />
                 {totals.validation.invalidVariables.length} Invalid Variable(s)
               </Badge>
@@ -166,12 +209,14 @@ export function TokenSummary({ personality, firstMessage, scenario, exampleDialo
         {/* Breakdown */}
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
           {totals.fieldCounts.map((field) => (
-            <div 
+            <div
               key={field.name}
               className="flex items-center justify-between rounded bg-background/50 px-2 py-1"
             >
               <span className="text-muted-foreground">{field.name}</span>
-              <span className="font-medium">{field.tokens.toLocaleString()}</span>
+              <span className="font-medium">
+                {field.tokens.toLocaleString()}
+              </span>
             </div>
           ))}
         </div>
@@ -180,7 +225,10 @@ export function TokenSummary({ personality, firstMessage, scenario, exampleDialo
         {totals.validation.warnings.length > 0 && (
           <div className="mt-3 space-y-1">
             {totals.validation.warnings.map((warning, i) => (
-              <p key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <p
+                key={i}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              >
                 <AlertCircle className="h-3 w-3 text-warning" />
                 {warning}
               </p>
@@ -189,5 +237,5 @@ export function TokenSummary({ personality, firstMessage, scenario, exampleDialo
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

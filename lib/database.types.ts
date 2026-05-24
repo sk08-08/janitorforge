@@ -51,6 +51,7 @@ export interface Database {
           short_description: string;
           personality: string;
           first_message: string;
+          alternate_greetings: string[];
           scenario: string;
           example_dialogues: string;
           tags: string[];
@@ -66,6 +67,7 @@ export interface Database {
           short_description: string;
           personality: string;
           first_message: string;
+          alternate_greetings?: string[];
           scenario?: string;
           example_dialogues?: string;
           tags?: string[];
@@ -81,6 +83,7 @@ export interface Database {
           short_description?: string;
           personality?: string;
           first_message?: string;
+          alternate_greetings?: string[];
           scenario?: string;
           example_dialogues?: string;
           tags?: string[];

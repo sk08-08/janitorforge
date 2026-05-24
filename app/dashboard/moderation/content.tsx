@@ -30,6 +30,7 @@ import { getCurrentUserAccess } from "@/lib/access";
 export default function ModerationPageContent() {
   const [forms, setForms] = useState<RequestForm[]>([]);
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,12 +42,16 @@ export default function ModerationPageContent() {
     try {
       const supabase = createClient();
       const { user, isAdmin } = await getCurrentUserAccess(supabase);
+      const activeUserId = user?.id ?? null;
 
       if (!user) {
         setForms([]);
         setSelectedFormId(null);
+        setCurrentUserId(null);
         return;
       }
+
+      setCurrentUserId(activeUserId);
 
       const query = supabase
         .from("request_forms")
@@ -70,15 +75,19 @@ export default function ModerationPageContent() {
 
       setForms(ownedForms);
 
+      const ownForms = activeUserId
+        ? ownedForms.filter((form) => form.ownerId === activeUserId)
+        : ownedForms;
+
       setSelectedFormId((currentSelected) => {
         if (
           currentSelected &&
-          ownedForms.some((form) => form.id === currentSelected)
+          ownForms.some((form) => form.id === currentSelected)
         ) {
           return currentSelected;
         }
 
-        return ownedForms[0]?.id || null;
+        return ownForms[0]?.id || ownedForms[0]?.id || null;
       });
     } catch (error) {
       console.error("Error loading forms:", error);
@@ -163,6 +172,8 @@ export default function ModerationPageContent() {
             <ModerationPanel
               formId={selectedForm.id}
               formTitle={selectedForm.title}
+              formOwnerId={selectedForm.ownerId ?? null}
+              currentUserId={currentUserId}
             />
           )}
         </>

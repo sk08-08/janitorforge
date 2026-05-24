@@ -178,11 +178,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           setBots(
             botsData.map((r: any) => ({
               id: r.id,
+              ownerId: r.user_id || undefined,
               name: r.name,
               chatName: r.chat_name || undefined,
               shortDescription: r.short_description || "",
               personality: r.personality || "",
               firstMessage: r.first_message || "",
+              alternateGreetings: Array.isArray(r.alternate_greetings)
+                ? r.alternate_greetings
+                : [],
               scenario: r.scenario || "",
               exampleDialogues: r.example_dialogues || "",
               tags: Array.isArray(r.tags) ? r.tags : [],

@@ -5,6 +5,7 @@
 
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   Bot,
   FileText,
@@ -28,6 +29,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
+import { getCurrentUserAccess } from "@/lib/access";
 
 // ----------------------------------------------------------------------------
 // Stat Card Component
@@ -341,36 +344,88 @@ function EmptyState({
 export function DashboardHome() {
   const { bots, forms, requests, setCurrentView, setSelectedBotId } =
     useStore();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [accessLoaded, setAccessLoaded] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const supabase = createClient();
+        const access = await getCurrentUserAccess(supabase);
+
+        if (!mounted) return;
+        setCurrentUserId(access.user?.id ?? null);
+      } catch {
+        if (!mounted) return;
+        setCurrentUserId(null);
+      } finally {
+        if (mounted) setAccessLoaded(true);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const formOwnerMap = useMemo(
+    () => new Map(forms.map((form) => [form.id, form.ownerId ?? null])),
+    [forms],
+  );
+
+  const visibleBots =
+    accessLoaded && currentUserId
+      ? bots.filter((bot) => bot.ownerId === currentUserId)
+      : [];
+
+  const visibleForms =
+    accessLoaded && currentUserId
+      ? forms.filter((form) => form.ownerId === currentUserId)
+      : [];
+
+  const visibleRequests =
+    accessLoaded && currentUserId
+      ? requests.filter((request) => {
+          if (request.ownerId === currentUserId) return true;
+          const formOwnerId = formOwnerMap.get(request.formId);
+          return formOwnerId === currentUserId;
+        })
+      : [];
 
   // Calculate stats
   const stats = {
-    totalBots: bots.length,
-    activeForms: forms.filter((f) => f.isActive).length,
-    pendingRequests: requests.filter(
+    totalBots: visibleBots.length,
+    activeForms: visibleForms.filter((f) => f.isActive).length,
+    pendingRequests: visibleRequests.filter(
       (r) => r.status === "new" || r.status === "accepted",
     ).length,
-    completedRequests: requests.filter((r) => r.status === "completed").length,
+    completedRequests: visibleRequests.filter((r) => r.status === "completed")
+      .length,
   };
 
-  const totalRequests = requests.length;
+  const totalRequests = visibleRequests.length;
   const responseRate =
     totalRequests > 0
       ? Math.round((stats.completedRequests / totalRequests) * 100)
       : 0;
   const activeFormRate =
-    forms.length > 0 ? Math.round((stats.activeForms / forms.length) * 100) : 0;
+    visibleForms.length > 0
+      ? Math.round((stats.activeForms / visibleForms.length) * 100)
+      : 0;
   // Get recent bots (sorted by updatedAt)
-  const recentBots = [...bots]
+  const recentBots = [...visibleBots]
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     .slice(0, 4);
 
   const mostRecentBot = recentBots[0];
 
-  const recentRequestItems = [...requests]
+  const recentRequestItems = [...visibleRequests]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 4);
 
-  const oldestPendingRequest = [...requests]
+  const oldestPendingRequest = [...visibleRequests]
     .filter(
       (request) => request.status === "new" || request.status === "accepted",
     )

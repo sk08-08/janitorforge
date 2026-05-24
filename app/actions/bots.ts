@@ -40,6 +40,7 @@ export async function createBotAction(data: BotFormData) {
     short_description: data.shortDescription,
     personality: data.personality,
     first_message: data.firstMessage,
+    alternate_greetings: data.alternateGreetings || [],
     scenario: data.scenario,
     example_dialogues: data.exampleDialogues,
     tags: data.tags,
@@ -98,6 +99,8 @@ export async function updateBotAction(id: string, data: Partial<BotFormData>) {
   if (data.personality !== undefined) payload.personality = data.personality;
   if (data.firstMessage !== undefined)
     payload.first_message = data.firstMessage;
+  if (data.alternateGreetings !== undefined)
+    payload.alternate_greetings = data.alternateGreetings;
   if (data.scenario !== undefined) payload.scenario = data.scenario;
   if (data.exampleDialogues !== undefined)
     payload.example_dialogues = data.exampleDialogues;

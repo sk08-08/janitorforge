@@ -24,7 +24,9 @@ export function countTokens(text: string): number {
 export function countBotTokens(bot: Partial<Bot>): number {
   const fields = [
     bot.personality || "",
-    bot.firstMessage || "",
+    [bot.firstMessage || "", ...(bot.alternateGreetings || [])]
+      .filter(Boolean)
+      .join("\n\n"),
     bot.scenario || "",
     bot.exampleDialogues || "",
   ];
@@ -100,7 +102,9 @@ export function validateVariables(text: string): TokenValidation {
 export function validateBot(bot: Partial<Bot>): TokenValidation {
   const allText = [
     bot.personality || "",
-    bot.firstMessage || "",
+    [bot.firstMessage || "", ...(bot.alternateGreetings || [])]
+      .filter(Boolean)
+      .join("\n\n"),
     bot.scenario || "",
     bot.exampleDialogues || "",
   ].join("\n");
@@ -116,6 +120,8 @@ export function validateBot(bot: Partial<Bot>): TokenValidation {
  * Converts a Bot to Character Card V2 format
  */
 export function botToCharacterCard(bot: Bot): CharacterCardV2 {
+  const alternateGreetings = (bot.alternateGreetings || []).filter(Boolean);
+
   return {
     spec: "chara_card_v2",
     spec_version: "2.0",
@@ -124,6 +130,8 @@ export function botToCharacterCard(bot: Bot): CharacterCardV2 {
       description: bot.shortDescription,
       personality: bot.personality,
       first_mes: bot.firstMessage,
+      alternate_greetings:
+        alternateGreetings.length > 0 ? alternateGreetings : undefined,
       scenario: bot.scenario,
       mes_example: bot.exampleDialogues,
       tags: bot.tags,
@@ -146,12 +154,16 @@ export function characterCardToBot(
   const extensions = card.data.extensions?.janitorforge as
     | { rating?: string }
     | undefined;
+  const alternateGreetings = (card.data.alternate_greetings || []).filter(
+    Boolean,
+  );
 
   return {
     name: card.data.name,
     shortDescription: card.data.description,
     personality: card.data.personality,
     firstMessage: card.data.first_mes,
+    alternateGreetings,
     scenario: card.data.scenario,
     exampleDialogues: card.data.mes_example,
     tags: card.data.tags || [],

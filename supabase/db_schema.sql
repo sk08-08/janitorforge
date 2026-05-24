@@ -25,6 +25,7 @@ CREATE TABLE public.bots (
   short_description text NOT NULL,
   personality text NOT NULL,
   first_message text NOT NULL,
+  alternate_greetings text[] NOT NULL DEFAULT '{}'::text[],
   scenario text NOT NULL DEFAULT ''::text,
   example_dialogues text NOT NULL DEFAULT ''::text,
   tags ARRAY NOT NULL DEFAULT '{}'::text[],

@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { X, Plus, Upload, Download, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,8 @@ export function BotForm({
   onDelete,
   isEditing = false,
 }: BotFormProps) {
+  const MAX_INITIAL_MESSAGES = 10;
+
   // Form state
   const [name, setName] = useState(initialData?.name || "");
   const [chatName, setChatName] = useState(initialData?.chatName || "");
@@ -63,9 +65,18 @@ export function BotForm({
   const [personality, setPersonality] = useState(
     initialData?.personality || "",
   );
-  const [firstMessage, setFirstMessage] = useState(
-    initialData?.firstMessage || "",
-  );
+  const [initialMessages, setInitialMessages] = useState<string[]>(() => {
+    const seedMessages = [
+      initialData?.firstMessage || "",
+      ...(initialData?.alternateGreetings || []),
+    ]
+      .map((message) => message.trim())
+      .filter(Boolean);
+
+    return seedMessages.length > 0 ? seedMessages : [""];
+  });
+  const [selectedInitialMessageIndex, setSelectedInitialMessageIndex] =
+    useState(0);
   const [scenario, setScenario] = useState(initialData?.scenario || "");
   const [exampleDialogues, setExampleDialogues] = useState(
     initialData?.exampleDialogues || "",
@@ -102,6 +113,50 @@ export function BotForm({
     [addTag],
   );
 
+  const updateInitialMessage = useCallback((index: number, value: string) => {
+    setInitialMessages((current) =>
+      current.map((message, currentIndex) =>
+        currentIndex === index ? value : message,
+      ),
+    );
+  }, []);
+
+  const addInitialMessage = useCallback(() => {
+    setInitialMessages((current) => {
+      if (current.length >= MAX_INITIAL_MESSAGES) return current;
+      setSelectedInitialMessageIndex(current.length);
+      return [...current, ""];
+    });
+  }, []);
+
+  const removeInitialMessage = useCallback((index: number) => {
+    setInitialMessages((current) => {
+      if (current.length <= 1) return current;
+      const next = current.filter((_, currentIndex) => currentIndex !== index);
+      setSelectedInitialMessageIndex((currentSelected) => {
+        if (index === currentSelected) {
+          return Math.min(currentSelected, next.length - 1);
+        }
+        if (index < currentSelected) {
+          return currentSelected - 1;
+        }
+        return currentSelected;
+      });
+      return next.length > 0 ? next : [""];
+    });
+  }, []);
+
+  useEffect(() => {
+    setSelectedInitialMessageIndex((current) =>
+      Math.min(current, Math.max(initialMessages.length - 1, 0)),
+    );
+  }, [initialMessages.length]);
+
+  const normalizeInitialMessages = useCallback(
+    () => initialMessages.map((message) => message.trim()).filter(Boolean),
+    [initialMessages],
+  );
+
   // Form submission
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -112,12 +167,20 @@ export function BotForm({
         return;
       }
 
+      const normalizedInitialMessages = normalizeInitialMessages();
+
+      if (normalizedInitialMessages.length === 0) {
+        toast.error("Add at least one initial message");
+        return;
+      }
+
       onSubmit({
         name: name.trim(),
         chatName: chatName.trim() || undefined,
         shortDescription: shortDescription.trim(),
         personality,
-        firstMessage,
+        firstMessage: normalizedInitialMessages[0],
+        alternateGreetings: normalizedInitialMessages.slice(1),
         scenario,
         exampleDialogues,
         tags,
@@ -126,9 +189,10 @@ export function BotForm({
     },
     [
       name,
+      chatName,
       shortDescription,
       personality,
-      firstMessage,
+      normalizeInitialMessages,
       scenario,
       exampleDialogues,
       tags,
@@ -140,12 +204,14 @@ export function BotForm({
   // Export character card
   const handleExport = useCallback(async () => {
     try {
+      const normalizedInitialMessages = normalizeInitialMessages();
       const blob = await exportCharacterCardPNG({
         id: "export",
         name,
         shortDescription,
         personality,
-        firstMessage,
+        firstMessage: normalizedInitialMessages[0] || "",
+        alternateGreetings: normalizedInitialMessages.slice(1),
         scenario,
         exampleDialogues,
         tags,
@@ -171,7 +237,7 @@ export function BotForm({
     name,
     shortDescription,
     personality,
-    firstMessage,
+    normalizeInitialMessages,
     scenario,
     exampleDialogues,
     tags,
@@ -191,7 +257,12 @@ export function BotForm({
           setName(botData.name);
           setShortDescription(botData.shortDescription);
           setPersonality(botData.personality);
-          setFirstMessage(botData.firstMessage);
+          setInitialMessages(
+            [
+              botData.firstMessage,
+              ...(botData.alternateGreetings || []),
+            ].filter(Boolean),
+          );
           setScenario(botData.scenario);
           setExampleDialogues(botData.exampleDialogues);
           setTags(botData.tags);
@@ -376,20 +447,89 @@ export function BotForm({
 
           <Separator />
 
-          {/* First Message */}
+          {/* Initial Messages */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="first-message">First Message</Label>
-              <TokenCounter text={firstMessage} fieldName="First Message" />
+              <Label>Initial Messages</Label>
+              <TokenCounter
+                text={initialMessages}
+                fieldName="Initial Messages"
+              />
             </div>
-            <Textarea
-              id="first-message"
-              value={firstMessage}
-              onChange={(e) => setFirstMessage(e.target.value)}
-              placeholder="The opening message {{char}} sends to {{user}}..."
-              rows={6}
-              className="font-mono text-sm max-h-56 overflow-auto resize-y"
-            />
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-1 flex-wrap gap-2">
+                  {initialMessages.map((_, index) => {
+                    const isActive = index === selectedInitialMessageIndex;
+
+                    return (
+                      <Button
+                        key={index}
+                        type="button"
+                        variant={isActive ? "secondary" : "outline"}
+                        size="sm"
+                        className="h-8 cursor-pointer px-3"
+                        onClick={() => setSelectedInitialMessageIndex(index)}
+                      >
+                        Message {index + 1}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={addInitialMessage}
+                  disabled={initialMessages.length >= MAX_INITIAL_MESSAGES}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add
+                </Button>
+                <p className="w-full text-xs text-muted-foreground">
+                  Janitor AI supports up to {MAX_INITIAL_MESSAGES} initial
+                  messages total.
+                </p>
+              </div>
+
+              <div className="space-y-2 rounded-md bg-muted/30 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <Label
+                    htmlFor={`initial-message-${selectedInitialMessageIndex}`}
+                  >
+                    Message {selectedInitialMessageIndex + 1} of{" "}
+                    {initialMessages.length}
+                  </Label>
+                  {initialMessages.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-destructive cursor-pointer"
+                      onClick={() =>
+                        removeInitialMessage(selectedInitialMessageIndex)
+                      }
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <Textarea
+                  id={`initial-message-${selectedInitialMessageIndex}`}
+                  value={initialMessages[selectedInitialMessageIndex] || ""}
+                  onChange={(e) =>
+                    updateInitialMessage(
+                      selectedInitialMessageIndex,
+                      e.target.value,
+                    )
+                  }
+                  placeholder="The opening message {{char}} sends to {{user}}..."
+                  rows={6}
+                  className="font-mono text-sm max-h-56 overflow-auto resize-y"
+                />
+              </div>
+            </div>
           </div>
 
           <Separator />
@@ -436,7 +576,7 @@ export function BotForm({
       {/* Token Summary */}
       <TokenSummary
         personality={personality}
-        firstMessage={firstMessage}
+        initialMessages={initialMessages}
         scenario={scenario}
         exampleDialogues={exampleDialogues}
       />

@@ -6,11 +6,12 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
 import {
   filterFormResponses,
   checkDangerousPatterns,
 } from "@/lib/content-filter";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ContentFilterResult } from "@/lib/content-filter";
 import { getCurrentUserAccess } from "@/lib/access";
 
@@ -88,29 +89,21 @@ export async function validateFormSubmission(
     };
   }
 
-  // Load global and custom blocklists and check matches (owner-independent).
+  // Load global and custom blocklists through a SECURITY DEFINER RPC so
+  // public submissions can be validated without opening table access.
   try {
     const supabaseClient = await createClient();
 
-    const [
-      { data: globalPatterns, error: gError },
-      { data: customPatterns, error: cbError },
-    ] = await Promise.all([
-      supabaseClient
-        .from("global_blocklists")
-        .select("pattern, is_regex, severity"),
-      supabaseClient
-        .from("custom_blocklists")
-        .select("pattern, is_regex, severity")
-        .eq("form_id", formId),
-    ] as any);
+    const { data: blocklistRows, error: blocklistError } =
+      await supabaseClient.rpc("get_submission_blocklists", {
+        p_form_id: formId,
+      });
 
     const allPatterns: Array<any> = [];
 
-    if (!gError && Array.isArray(globalPatterns))
-      allPatterns.push(...globalPatterns);
-    if (!cbError && Array.isArray(customPatterns))
-      allPatterns.push(...customPatterns);
+    if (!blocklistError && Array.isArray(blocklistRows)) {
+      allPatterns.push(...blocklistRows);
+    }
 
     if (allPatterns.length > 0) {
       const flaggedFields: Record<string, ContentFilterResult> = {};
@@ -233,6 +226,98 @@ export async function validateFormSubmission(
 }
 
 /**
+ * Submit a public form request from the server so we can capture the real IP.
+ */
+export async function submitPublicFormRequest(
+  formId: string,
+  formTitle: string,
+  formOwnerId: string,
+  responses: Record<string, string | string[]>,
+  responseLabels: Record<string, string>,
+  submitterName?: string | null,
+): Promise<{
+  success: boolean;
+  requestId?: string;
+  isFlagged?: boolean;
+  riskLevel?: "safe" | "warning" | "dangerous";
+  reason?: string;
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const requestHeaders = await headers();
+  const clientIp = getClientIp(requestHeaders);
+
+  const securityCheck = await validateFormSubmission(
+    formId,
+    responses,
+    clientIp,
+  );
+
+  if (!securityCheck.isValid && securityCheck.riskLevel === "dangerous") {
+    return {
+      success: false,
+      isFlagged: true,
+      riskLevel: securityCheck.riskLevel,
+      reason: securityCheck.reason,
+      error:
+        securityCheck.reason ||
+        "Your submission was rejected due to safety concerns.",
+    };
+  }
+
+  if (!formOwnerId) {
+    return { success: false, error: "Missing form owner" };
+  }
+
+  const requestId = crypto.randomUUID();
+  const payload = {
+    id: requestId,
+    form_id: formId,
+    user_id: formOwnerId,
+    form_title: formTitle,
+    responses,
+    response_labels: responseLabels,
+    submitter_name: submitterName || null,
+    ip_address: clientIp,
+  };
+
+  const { error } = await supabase.from("requests").insert(payload);
+
+  if (error) {
+    console.error("Failed to save request:", error);
+    return {
+      success: false,
+      error: error.message,
+      isFlagged: securityCheck.isFlagged,
+      riskLevel: securityCheck.riskLevel,
+      reason: securityCheck.reason,
+    };
+  }
+
+  if (securityCheck.isFlagged) {
+    const flagResult = await recordFlaggedRequest(
+      formId,
+      requestId,
+      securityCheck.riskLevel as "warning" | "dangerous",
+      securityCheck.flaggedFields || {},
+      securityCheck.reason,
+    );
+
+    if (!flagResult.success) {
+      console.warn("Failed to record flagged request:", flagResult.error);
+    }
+  }
+
+  return {
+    success: true,
+    requestId,
+    isFlagged: securityCheck.isFlagged,
+    riskLevel: securityCheck.riskLevel,
+    reason: securityCheck.reason,
+  };
+}
+
+/**
  * Record a flagged submission for later review
  */
 export async function recordFlaggedRequest(
@@ -284,7 +369,9 @@ export async function getFlaggedRequestsForForm(
 
   const { data, error } = await supabaseClient
     .from("flagged_requests")
-    .select("*")
+    .select(
+      "*, request:requests(response_labels, responses, submitter_name, ip_address)",
+    )
     .eq("form_id", formId)
     .eq("reviewed", false)
     .order("created_at", { ascending: false })
@@ -429,9 +516,11 @@ export async function addToCustomBlocklist(
     created_at: new Date().toISOString(),
   };
 
-  const { error } = await supabaseClient
-    .from("custom_blocklists")
-    .insert(payload);
+  const { error } = await supabaseClient.rpc("add_custom_blocklist", {
+    p_form_id: payload.form_id,
+    p_pattern: payload.pattern,
+    p_is_regex: payload.is_regex,
+  });
 
   if (error) {
     console.error("Failed to add to blocklist:", error);
