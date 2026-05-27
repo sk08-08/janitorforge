@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { Request, RequestStatus } from "@/lib/types";
 
@@ -374,7 +374,7 @@ function KanbanColumn({
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className={cn("flex w-full flex-col", !isCollapsed && "min-h-96")}
+      className="flex w-full flex-col"
     >
       {/* Column Header */}
       <div
@@ -409,8 +409,8 @@ function KanbanColumn({
 
       {/* Column Content */}
       {!isCollapsed && (
-        <ScrollArea className="rounded-b-lg border border-t-0 bg-card/50">
-          <div className="flex min-h-72 w-max min-w-full gap-3 overflow-x-auto overflow-y-hidden p-2 sm:min-h-80">
+        <ScrollArea className="max-h-[65vh] overflow-hidden rounded-b-lg p-2 border border-t-0 bg-card/50 sm:max-h-136">
+          <div className="flex w-max min-w-full items-start gap-3 p-2">
             {requests.length > 0 ? (
               requests.map((request) => (
                 <RequestCard
@@ -431,6 +431,7 @@ function KanbanColumn({
               </div>
             )}
           </div>
+          <ScrollBar orientation="horizontal" />
         </ScrollArea>
       )}
     </div>
