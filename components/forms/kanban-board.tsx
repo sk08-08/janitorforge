@@ -12,6 +12,7 @@ import {
   Trash2,
   ArrowLeft,
   ArrowRight,
+  ChevronsRight,
   MessageSquare,
   Clock,
   User,
@@ -48,6 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { Request, RequestStatus } from "@/lib/types";
 
@@ -106,6 +108,8 @@ interface RequestCardProps {
   onStatusChange: (status: RequestStatus, notes?: string) => void;
   onDelete: () => void;
   onViewDetails: () => void;
+  isSelected: boolean;
+  onSelectionChange: (selected: boolean) => void;
   className?: string;
 }
 
@@ -115,6 +119,8 @@ function RequestCard({
   onStatusChange,
   onDelete,
   onViewDetails,
+  isSelected,
+  onSelectionChange,
   className,
 }: RequestCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -180,6 +186,7 @@ function RequestCard({
       onDragEnd={handleDragEnd}
       className={cn(
         "cursor-grab transition-all hover:shadow-md active:cursor-grabbing",
+        isSelected && "ring-2 ring-primary/60",
         className,
       )}
     >
@@ -187,6 +194,12 @@ function RequestCard({
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
           <div className="flex min-w-0 items-center gap-2">
+            <Checkbox
+              checked={isSelected}
+              className="cursor-pointer"
+              onCheckedChange={(checked) => onSelectionChange(checked === true)}
+              aria-label={`Select request from ${request.submitterName || "anonymous user"}`}
+            />
             {request.submitterName && (
               <div className="flex items-center gap-1.5 text-sm">
                 <User className="h-3.5 w-3.5 text-muted-foreground" />
@@ -344,6 +357,9 @@ interface KanbanColumnProps {
   ) => void;
   onDelete: (requestId: string) => void;
   onViewDetails: (request: Request) => void;
+  selectedRequestIds: Set<string>;
+  onToggleRequestSelection: (requestId: string, selected: boolean) => void;
+  onSelectAllInColumn: (requestIds: string[], selected: boolean) => void;
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
 }
@@ -355,10 +371,18 @@ function KanbanColumn({
   onStatusChange,
   onDelete,
   onViewDetails,
+  selectedRequestIds,
+  onToggleRequestSelection,
+  onSelectAllInColumn,
   isCollapsed,
   onToggleCollapsed,
 }: KanbanColumnProps) {
   const Icon = config.icon;
+  const selectedCount = requests.filter((request) =>
+    selectedRequestIds.has(request.id),
+  ).length;
+  const allSelected = requests.length > 0 && selectedCount === requests.length;
+  const hasPartialSelection = selectedCount > 0 && !allSelected;
 
   const handleDragOver = (e: any) => {
     e.preventDefault();
@@ -388,6 +412,21 @@ function KanbanColumn({
         <Badge variant="secondary" className="ml-auto">
           {requests.length}
         </Badge>
+        {requests.length > 0 && (
+          <Checkbox
+            checked={
+              allSelected ? true : hasPartialSelection ? "indeterminate" : false
+            }
+            onCheckedChange={(checked) =>
+              onSelectAllInColumn(
+                requests.map((request) => request.id),
+                checked === true,
+              )
+            }
+            aria-label={`Select all requests in ${config.title}`}
+            className="ml-2 cursor-pointer"
+          />
+        )}
         <Button
           type="button"
           variant="ghost"
@@ -422,6 +461,10 @@ function KanbanColumn({
                   }
                   onDelete={() => onDelete(request.id)}
                   onViewDetails={() => onViewDetails(request)}
+                  isSelected={selectedRequestIds.has(request.id)}
+                  onSelectionChange={(selected) =>
+                    onToggleRequestSelection(request.id, selected)
+                  }
                   className="w-[85vw] max-w-[18rem] shrink-0 sm:w-80"
                 />
               ))
@@ -626,6 +669,10 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const { forms } = useStore();
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [selectedRequestIds, setSelectedRequestIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const defaultCollapsedColumns: Record<RequestStatus, boolean> = {
     new: false,
     accepted: false,
@@ -667,6 +714,19 @@ export function KanbanBoard({
       // Ignore storage errors (private mode, quota, etc).
     }
   }, [collapseStateKey, collapsedColumns]);
+
+  useEffect(() => {
+    const validRequestIds = new Set(requests.map((request) => request.id));
+    setSelectedRequestIds((prev) => {
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (validRequestIds.has(id)) {
+          next.add(id);
+        }
+      });
+      return next.size === prev.size ? prev : next;
+    });
+  }, [requests]);
 
   const responseOrderByFormId = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -728,8 +788,127 @@ export function KanbanBoard({
     return grouped;
   }, [requests]);
 
+  const selectedRequests = useMemo(
+    () => requests.filter((request) => selectedRequestIds.has(request.id)),
+    [requests, selectedRequestIds],
+  );
+
+  const handleToggleRequestSelection = (
+    requestId: string,
+    selected: boolean,
+  ) => {
+    setSelectedRequestIds((prev) => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(requestId);
+      } else {
+        next.delete(requestId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllInColumn = (requestIds: string[], selected: boolean) => {
+    setSelectedRequestIds((prev) => {
+      const next = new Set(prev);
+      requestIds.forEach((requestId) => {
+        if (selected) {
+          next.add(requestId);
+        } else {
+          next.delete(requestId);
+        }
+      });
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedRequestIds(new Set());
+  };
+
+  const handleBulkMove = (targetStatus: RequestStatus) => {
+    selectedRequests.forEach((request) => {
+      if (request.status !== targetStatus) {
+        onStatusChange(request.id, targetStatus);
+      }
+    });
+    clearSelection();
+  };
+
+  const handleBulkDelete = () => {
+    selectedRequests.forEach((request) => {
+      onDelete(request.id);
+    });
+    clearSelection();
+    setShowBulkDeleteConfirm(false);
+  };
+
   return (
     <>
+      {selectedRequests.length > 0 && (
+        <Card className="mb-4 border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm font-medium">
+              {selectedRequests.length} request
+              {selectedRequests.length === 1 ? "" : "s"} selected
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="cursor-pointer"
+                  >
+                    <ChevronsRight className="mr-2 h-4 w-4" />
+                    Move selected
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {columns.map((column) => {
+                    const movableCount = selectedRequests.filter(
+                      (request) => request.status !== column.id,
+                    ).length;
+
+                    return (
+                      <DropdownMenuItem
+                        key={column.id}
+                        onClick={() => handleBulkMove(column.id)}
+                        disabled={movableCount === 0}
+                      >
+                        Move to {column.title}
+                        <Badge variant="secondary" className="ml-2">
+                          {movableCount}
+                        </Badge>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                variant="destructive"
+                size="sm"
+                className="cursor-pointer"
+                onClick={() => setShowBulkDeleteConfirm(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete selected
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="cursor-pointer"
+                onClick={clearSelection}
+              >
+                Clear selection
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex flex-col gap-4 pb-4">
         {columns.map((column) => (
           <KanbanColumn
@@ -740,6 +919,9 @@ export function KanbanBoard({
             onStatusChange={onStatusChange}
             onDelete={onDelete}
             onViewDetails={setSelectedRequest}
+            selectedRequestIds={selectedRequestIds}
+            onToggleRequestSelection={handleToggleRequestSelection}
+            onSelectAllInColumn={handleSelectAllInColumn}
             isCollapsed={collapsedColumns[column.id]}
             onToggleCollapsed={() =>
               setCollapsedColumns((prev) => ({
@@ -767,6 +949,38 @@ export function KanbanBoard({
           }
         }}
       />
+
+      <Dialog
+        open={showBulkDeleteConfirm}
+        onOpenChange={setShowBulkDeleteConfirm}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete selected requests</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {selectedRequests.length} request
+              {selectedRequests.length === 1 ? "" : "s"}. This action cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => setShowBulkDeleteConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={handleBulkDelete}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

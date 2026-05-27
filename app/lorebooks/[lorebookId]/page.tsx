@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ArrowLeft, ChevronDown, Plus, Search, Trash2 } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 type AtlasEntryKind = "lore" | "character" | "location" | "timeline" | "note";
 
@@ -282,12 +283,28 @@ export default function LorebookPage() {
       const next = { ...prev };
       for (const entry of entries) {
         if (typeof next[entry.id] === "undefined") {
-          next[entry.id] = true;
+          next[entry.id] = false;
         }
       }
       return next;
     });
   }, [entries]);
+
+  // Virtualizer must be declared at top-level so hooks order stays stable
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const virtualizer = useVirtualizer({
+    count: filteredEntries.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 140,
+    overscan: 6,
+    getItemKey: (index) => filteredEntries[index].id,
+  });
+
+  useEffect(() => {
+    virtualizer.measure();
+  }, [expandedEntries, filteredEntries.length]);
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   const saveLorebook = async () => {
     if (!currentUserId || !lorebook) return;
@@ -483,7 +500,7 @@ export default function LorebookPage() {
     return (
       <div className="mx-auto max-w-350 p-4 sm:p-6 md:p-8 lg:p-10">
         <Card>
-          <CardContent className="py-10 text-sm text-muted-foreground">
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
             Loading lorebook...
           </CardContent>
         </Card>
@@ -495,7 +512,7 @@ export default function LorebookPage() {
     return (
       <div className="mx-auto max-w-350 p-4 sm:p-6 md:p-8 lg:p-10">
         <Card>
-          <CardContent className="py-10 text-sm text-muted-foreground">
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
             Lorebook not found.
           </CardContent>
         </Card>
@@ -666,117 +683,155 @@ export default function LorebookPage() {
           {filteredEntries.length === 0 ? (
             <p className="text-sm text-muted-foreground">No entries yet.</p>
           ) : (
-            filteredEntries.map((entry) => (
-              <Collapsible
-                key={entry.id}
-                open={expandedEntries[entry.id] ?? true}
-                onOpenChange={(open) =>
-                  setExpandedEntries((prev) => ({ ...prev, [entry.id]: open }))
-                }
-                className="rounded-xl border border-border/70"
+            <div ref={parentRef} className="max-h-[60vh] overflow-auto">
+              <div
+                style={{
+                  height: `${virtualizer.getTotalSize()}px`,
+                  position: "relative",
+                }}
               >
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                  <div className="min-w-0 space-y-1">
-                    <div className="truncate text-sm font-medium">
-                      {entry.title || "Untitled entry"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {entryKindLabels[entry.kind]}
-                    </div>
-                  </div>
-                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
-                    <Button
-                      className="w-full cursor-pointer sm:w-auto"
-                      size="sm"
-                      onClick={() => saveEntry(entry)}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="w-full cursor-pointer sm:w-auto"
-                      onClick={() => deleteEntry(entry.id)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </Button>
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon-sm"
-                        className="cursor-pointer"
-                      >
-                        <ChevronDown
-                          className={cn(
-                            "h-4 w-4 transition-transform",
-                            (expandedEntries[entry.id] ?? true) && "rotate-180",
-                          )}
-                        />
-                      </Button>
-                    </CollapsibleTrigger>
-                  </div>
-                </div>
-
-                <CollapsibleContent>
-                  <div className="space-y-3 border-t border-border/70 px-4 py-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Input
-                        value={entry.title}
-                        onChange={(event) =>
-                          setEntries((prev) =>
-                            prev.map((item) =>
-                              item.id === entry.id
-                                ? { ...item, title: event.target.value }
-                                : item,
-                            ),
-                          )
+                {virtualItems.map((virtualRow) => {
+                  const entry = filteredEntries[virtualRow.index];
+                  return (
+                    <div
+                      key={entry.id}
+                      data-index={virtualRow.index}
+                      ref={(el) => {
+                        if (el) {
+                          virtualizer.measureElement(el);
                         }
-                      />
-                      <Select
-                        value={entry.kind}
-                        onValueChange={(value) =>
-                          setEntries((prev) =>
-                            prev.map((item) =>
-                              item.id === entry.id
-                                ? { ...item, kind: value as AtlasEntryKind }
-                                : item,
-                            ),
-                          )
+                        return undefined;
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${virtualRow.start}px)`,
+                        paddingBottom: "0.75rem",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <Collapsible
+                        open={expandedEntries[entry.id] ?? false}
+                        onOpenChange={(open) =>
+                          setExpandedEntries((prev) => ({
+                            ...prev,
+                            [entry.id]: open,
+                          }))
                         }
+                        className="rounded-xl border border-border/70"
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(entryKindLabels).map(
-                            ([value, label]) => (
-                              <SelectItem key={value} value={value}>
-                                {label}
-                              </SelectItem>
-                            ),
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                          <div className="min-w-0 space-y-1">
+                            <div className="truncate text-sm font-medium">
+                              {entry.title || "Untitled entry"}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {entryKindLabels[entry.kind]}
+                            </div>
+                          </div>
+                          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                            <Button
+                              className="w-full cursor-pointer sm:w-auto"
+                              size="sm"
+                              onClick={() => saveEntry(entry)}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="w-full cursor-pointer sm:w-auto"
+                              onClick={() => deleteEntry(entry.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </Button>
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                className="cursor-pointer"
+                              >
+                                <ChevronDown
+                                  className={cn(
+                                    "h-4 w-4 transition-transform",
+                                    (expandedEntries[entry.id] ?? false) &&
+                                      "rotate-180",
+                                  )}
+                                />
+                              </Button>
+                            </CollapsibleTrigger>
+                          </div>
+                        </div>
 
-                    <Textarea
-                      rows={8}
-                      value={entry.body}
-                      onChange={(event) =>
-                        setEntries((prev) =>
-                          prev.map((item) =>
-                            item.id === entry.id
-                              ? { ...item, body: event.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                    />
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            ))
+                        <CollapsibleContent>
+                          <div className="space-y-3 border-t border-border/70 px-4 py-4">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <Input
+                                value={entry.title}
+                                onChange={(event) =>
+                                  setEntries((prev) =>
+                                    prev.map((item) =>
+                                      item.id === entry.id
+                                        ? { ...item, title: event.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                              <Select
+                                value={entry.kind}
+                                onValueChange={(value) =>
+                                  setEntries((prev) =>
+                                    prev.map((item) =>
+                                      item.id === entry.id
+                                        ? {
+                                            ...item,
+                                            kind: value as AtlasEntryKind,
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Object.entries(entryKindLabels).map(
+                                    ([value, label]) => (
+                                      <SelectItem key={value} value={value}>
+                                        {label}
+                                      </SelectItem>
+                                    ),
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <Textarea
+                              rows={8}
+                              value={entry.body}
+                              onChange={(event) =>
+                                setEntries((prev) =>
+                                  prev.map((item) =>
+                                    item.id === entry.id
+                                      ? { ...item, body: event.target.value }
+                                      : item,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

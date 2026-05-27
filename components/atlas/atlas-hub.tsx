@@ -520,6 +520,10 @@ export function AtlasHub() {
   const [worldEditorOpen, setWorldEditorOpen] = useState(false);
   const [entryEditorOpen, setEntryEditorOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [selectedWorldIds, setSelectedWorldIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [worldDetailsOpen, setWorldDetailsOpen] = useState(false);
   const [importName, setImportName] = useState("");
   const [importText, setImportText] = useState("");
@@ -531,6 +535,8 @@ export function AtlasHub() {
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [accessLoaded, setAccessLoaded] = useState(false);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -678,16 +684,102 @@ export function AtlasHub() {
     [worlds],
   );
 
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const filteredWorlds = useMemo(() => {
+    if (!debouncedSearch) return sortedWorlds;
+    const q = debouncedSearch.toLowerCase();
+    return sortedWorlds.filter((w) => {
+      return (
+        w.title.toLowerCase().includes(q) ||
+        (w.description || "").toLowerCase().includes(q) ||
+        (w.loreSummary || "").toLowerCase().includes(q)
+      );
+    });
+  }, [sortedWorlds, debouncedSearch]);
+
+  const filteredLorebooks = useMemo(() => {
+    if (!debouncedSearch) return lorebooks;
+    const q = debouncedSearch.toLowerCase();
+    return lorebooks.filter(
+      (l) =>
+        l.title.toLowerCase().includes(q) ||
+        (l.summary || "").toLowerCase().includes(q),
+    );
+  }, [lorebooks, debouncedSearch]);
+
+  const filteredEntries = useMemo(() => {
+    if (!debouncedSearch) return entries;
+    const q = debouncedSearch.toLowerCase();
+    return entries.filter(
+      (e) =>
+        e.title.toLowerCase().includes(q) ||
+        (e.body || "").toLowerCase().includes(q),
+    );
+  }, [entries, debouncedSearch]);
+
   const worldPageCount = Math.max(
     1,
-    Math.ceil(sortedWorlds.length / WORLDS_PER_PAGE),
+    Math.ceil(filteredWorlds.length / WORLDS_PER_PAGE),
   );
 
   const paginatedWorlds = useMemo(() => {
     const normalizedPage = Math.min(worldPage, worldPageCount - 1);
     const startIndex = normalizedPage * WORLDS_PER_PAGE;
-    return sortedWorlds.slice(startIndex, startIndex + WORLDS_PER_PAGE);
-  }, [sortedWorlds, worldPage, worldPageCount]);
+    return filteredWorlds.slice(startIndex, startIndex + WORLDS_PER_PAGE);
+  }, [filteredWorlds, worldPage, worldPageCount]);
+
+  useEffect(() => {
+    // remove any selected ids that no longer exist
+    setSelectedWorldIds((prev) => {
+      const valid = new Set(worlds.map((w) => w.id));
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (valid.has(id)) next.add(id);
+      });
+      return next.size === prev.size ? prev : next;
+    });
+  }, [worlds]);
+
+  const toggleWorldSelection = (worldId: string, selected: boolean) => {
+    setSelectedWorldIds((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(worldId);
+      else next.delete(worldId);
+      return next;
+    });
+  };
+
+  const clearWorldSelection = () => setSelectedWorldIds(new Set());
+
+  const selectedWorlds = useMemo(
+    () => worlds.filter((w) => selectedWorldIds.has(w.id)),
+    [worlds, selectedWorldIds],
+  );
+
+  const handleBulkExport = () => {
+    selectedWorlds.forEach((world) => {
+      const targetLorebook =
+        lorebooks.find(
+          (l) =>
+            l.worldId === world.id && world.featuredLorebookIds.includes(l.id),
+        ) ?? lorebooks.find((l) => l.worldId === world.id);
+      if (targetLorebook) exportLorebook(world, targetLorebook);
+    });
+    clearWorldSelection();
+    toast.success("Export started for selected worlds");
+  };
+
+  const handleBulkDelete = async () => {
+    for (const world of selectedWorlds) {
+      await deleteWorld(world.id);
+    }
+    clearWorldSelection();
+    setShowBulkDeleteConfirm(false);
+  };
 
   const paginationItems = useMemo(() => {
     if (worldPageCount <= 7) {
@@ -1542,7 +1634,25 @@ export function AtlasHub() {
               </CardDescription>
             </div>
             <div className="flex w-full flex-wrap items-center gap-2 self-start sm:w-auto sm:flex-nowrap">
-              <Badge variant="secondary">{sortedWorlds.length} total</Badge>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Input
+                  placeholder="Search worlds, lorebooks, entries..."
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setWorldPage(0);
+                  }}
+                  className="w-full sm:w-64"
+                />
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{sortedWorlds.length} total</Badge>
+                  <div className="text-sm text-muted-foreground">
+                    Matches: {filteredWorlds.length} worlds ·{" "}
+                    {filteredLorebooks.length} lorebooks ·{" "}
+                    {filteredEntries.length} entries
+                  </div>
+                </div>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -1555,6 +1665,44 @@ export function AtlasHub() {
             </div>
           </CardHeader>
           <CardContent>
+            {selectedWorldIds.size > 0 && (
+              <Card className="mb-4 border-primary/30 bg-primary/5">
+                <CardContent className="flex items-center justify-between gap-3 p-3">
+                  <div className="text-sm font-medium">
+                    {selectedWorldIds.size} world
+                    {selectedWorldIds.size === 1 ? "" : "s"} selected
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBulkExport}
+                      className="cursor-pointer"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Export selected
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setShowBulkDeleteConfirm(true)}
+                      className="cursor-pointer"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete selected
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearWorldSelection}
+                      className="cursor-pointer"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <div
               className="space-y-3"
               style={{ height: `${worldListHeight}px` }}
@@ -1569,52 +1717,67 @@ export function AtlasHub() {
                         const isSelected = world.id === selectedWorldId;
 
                         return (
-                          <button
+                          <div
                             key={world.id}
-                            type="button"
-                            onClick={() => openWorldDetails(world.id)}
                             className={cn(
-                              "group w-full rounded-xl border p-4 text-left transition-all hover:border-primary/40 hover:shadow-sm sm:p-5",
+                              "group w-full rounded-xl border p-4 text-left transition-all hover:border-primary/40 hover:shadow-sm sm:p-5 flex items-start gap-3",
                               isSelected
                                 ? "border-primary bg-primary/5 shadow-sm"
                                 : "border-border/70 bg-background/50",
                             )}
                           >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                              <div className="min-w-0 space-y-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="truncate font-semibold">
-                                    {world.title}
-                                  </h3>
-                                  <Badge
-                                    variant="secondary"
-                                    className={cn(
-                                      "border-0",
-                                      worldKindBadges[world.kind],
-                                    )}
-                                  >
-                                    {worldKindLabels[world.kind]}
-                                  </Badge>
-                                  <Badge
-                                    variant={
-                                      world.status === "active"
-                                        ? "default"
-                                        : "outline"
-                                    }
-                                  >
-                                    {world.status}
-                                  </Badge>
+                            <div className="pt-1">
+                              <Checkbox
+                                className="cursor-pointer"
+                                checked={selectedWorldIds.has(world.id)}
+                                onCheckedChange={(val) => {
+                                  // prevent parent click
+                                  toggleWorldSelection(world.id, val === true);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label={`Select world ${world.title}`}
+                              />
+                            </div>
+                            <div
+                              className="flex-1"
+                              onClick={() => openWorldDetails(world.id)}
+                            >
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                                <div className="min-w-0 space-y-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="truncate font-semibold">
+                                      {world.title}
+                                    </h3>
+                                    <Badge
+                                      variant="secondary"
+                                      className={cn(
+                                        "border-0",
+                                        worldKindBadges[world.kind],
+                                      )}
+                                    >
+                                      {worldKindLabels[world.kind]}
+                                    </Badge>
+                                    <Badge
+                                      variant={
+                                        world.status === "active"
+                                          ? "default"
+                                          : "outline"
+                                      }
+                                    >
+                                      {world.status}
+                                    </Badge>
+                                  </div>
+                                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                                    {world.description || "No description yet."}
+                                  </p>
                                 </div>
-                                <p className="line-clamp-2 text-sm text-muted-foreground">
-                                  {world.description || "No description yet."}
-                                </p>
-                              </div>
-                              <div className="shrink-0 text-left text-xs text-muted-foreground sm:text-right">
-                                <div>{botCount} bots</div>
-                                <div>{loreCount} lorebooks</div>
+                                <div className="shrink-0 text-left text-xs text-muted-foreground sm:text-right">
+                                  <div>{botCount} bots</div>
+                                  <div>{loreCount} lorebooks</div>
+                                </div>
                               </div>
                             </div>
-                          </button>
+                          </div>
                         );
                       })
                     ) : (

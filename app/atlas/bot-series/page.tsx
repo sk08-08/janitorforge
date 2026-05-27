@@ -156,7 +156,7 @@ export default function AtlasBotSeriesPage() {
     return (
       <div className="mx-auto w-full max-w-7xl space-y-4 p-4 sm:p-6 md:p-8">
         <Card>
-          <CardContent className="py-10 text-sm text-muted-foreground">
+          <CardContent className="py-10 text-center text-sm text-muted-foreground">
             Loading bot series...
           </CardContent>
         </Card>
@@ -253,7 +253,7 @@ export default function AtlasBotSeriesPage() {
       <div className="space-y-4">
         {worldsWithBots.length === 0 ? (
           <Card>
-            <CardContent className="py-10 text-sm text-muted-foreground">
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
               No worlds match your search.
             </CardContent>
           </Card>
@@ -283,7 +283,7 @@ export default function AtlasBotSeriesPage() {
               </CardHeader>
               <CardContent className="p-4 sm:p-5">
                 {linkedBots.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-center text-sm text-muted-foreground">
                     No bots linked to this world yet.
                   </div>
                 ) : (
