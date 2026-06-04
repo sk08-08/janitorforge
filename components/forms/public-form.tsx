@@ -179,6 +179,7 @@ import {
   getFormAppearanceClasses,
   getFormFieldFocusClasses,
 } from "@/lib/form-appearance";
+import { FeedbackActions } from "@/components/feedback/feedback-actions";
 
 interface PublicFormProps {
   form: {
@@ -189,6 +190,13 @@ interface PublicFormProps {
     sections: FormSection[];
     appearance?: FormAppearance | null;
     userId?: string | null;
+  };
+  feedbackContext?: {
+    sourcePage?: string;
+    sourceLabel?: string;
+    sourcePath?: string;
+    relatedId?: string;
+    metadata?: Record<string, unknown>;
   };
 }
 
@@ -613,7 +621,7 @@ function SectionRenderer({
   );
 }
 
-export default function PublicForm({ form }: PublicFormProps) {
+export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
   const appearance = getFormAppearanceClasses(form.appearance || null);
   const isEditorial = appearance.resolved.preset === "editorial";
   const [values, setValues] = useState<Record<string, string | string[]>>({});
@@ -886,6 +894,32 @@ export default function PublicForm({ form }: PublicFormProps) {
             </form>
           </CardContent>
         </Card>
+
+        <div className="mt-6 sm:mt-8 flex w-full">
+          <Card className="w-full border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+            <CardContent className="p-4 sm:p-5">
+              <div className="mb-3 space-y-1">
+                <p className="text-sm font-medium">
+                  Need to tell us something?
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Send a suggestion or report a bug without interrupting the
+                  form above.
+                </p>
+              </div>
+              <FeedbackActions
+                compact
+                context={
+                  feedbackContext ?? {
+                    sourcePage: form.title,
+                    sourceLabel: "Public form",
+                    relatedId: form.id,
+                  }
+                }
+              />
+            </CardContent>
+          </Card>
+        </div>
 
         <p className="mt-8 text-center text-xs text-muted-foreground">
           Powered by JanitorForge

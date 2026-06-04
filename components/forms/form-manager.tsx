@@ -591,7 +591,7 @@ export function FormManager() {
         open={!!deleteConfirmForm}
         onOpenChange={(open) => !open && setDeleteConfirmForm(null)}
       >
-        <DialogContent>
+        <DialogContent className="w-[calc(100%-1rem)] max-w-md sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Delete Form</DialogTitle>
             <DialogDescription>

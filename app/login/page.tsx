@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { loginWithPin, registerUser } from "@/app/actions/auth";
+import { FeedbackActions } from "@/components/feedback/feedback-actions";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -269,6 +270,17 @@ export default function LoginPage() {
             </TabsContent>
           </Tabs>
         </Card>
+
+        <div className="mt-4 flex justify-center">
+          <FeedbackActions
+            compact
+            context={{
+              sourcePage: "Login / Register",
+              sourceLabel: "Login page",
+              sourcePath: "/login",
+            }}
+          />
+        </div>
       </div>
     </div>
   );

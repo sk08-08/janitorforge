@@ -19,6 +19,7 @@ import {
   User,
   Shield,
   Menu,
+  MessageSquareMore,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/app/actions/auth";
@@ -108,6 +109,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [pendingModerationCount, setPendingModerationCount] = useState(0);
   const [accessLoaded, setAccessLoaded] = useState(false);
   const router = useRouter();
@@ -122,9 +124,11 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
         const access = await getCurrentUserAccess(supabase);
         if (!mounted) return;
         setCurrentUserId(access.user?.id ?? null);
+        setIsAdmin(access.isAdmin);
       } catch {
         if (!mounted) return;
         setCurrentUserId(null);
+        setIsAdmin(false);
       } finally {
         if (mounted) setAccessLoaded(true);
       }
@@ -297,6 +301,38 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
               return button;
             })}
+
+            {isAdmin && (
+              <div className="pt-3">
+                {!collapsed && (
+                  <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    Admin
+                  </p>
+                )}
+                <Button
+                  variant={currentView === "feedback" ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-3 transition-all cursor-pointer",
+                    currentView === "feedback" &&
+                      "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
+                    collapsed && "justify-center px-2",
+                  )}
+                  onClick={() => handleNavClick("feedback")}
+                >
+                  <div className="relative">
+                    <MessageSquareMore
+                      className={cn(
+                        "h-5 w-5",
+                        currentView === "feedback" && "text-primary",
+                      )}
+                    />
+                  </div>
+                  {!collapsed && (
+                    <span className="flex-1 text-left">Feedback Inbox</span>
+                  )}
+                </Button>
+              </div>
+            )}
           </nav>
 
           {/* Collapse Toggle & User */}
@@ -417,6 +453,33 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                       </Button>
                     );
                   })}
+
+                  {isAdmin && (
+                    <div className="pt-3">
+                      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        Admin
+                      </p>
+                      <Button
+                        variant={
+                          currentView === "feedback" ? "secondary" : "ghost"
+                        }
+                        className={cn(
+                          "w-full justify-start gap-3 transition-all cursor-pointer",
+                          currentView === "feedback" &&
+                            "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
+                        )}
+                        onClick={() => handleNavClick("feedback")}
+                      >
+                        <MessageSquareMore
+                          className={cn(
+                            "h-5 w-5",
+                            currentView === "feedback" && "text-primary",
+                          )}
+                        />
+                        <span className="flex-1 text-left">Feedback Inbox</span>
+                      </Button>
+                    </div>
+                  )}
                 </nav>
 
                 {/* Mobile User & Logout */}

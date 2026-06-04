@@ -206,4 +206,5 @@ export type NavigationView =
   | "forms"
   | "requests"
   | "moderation"
+  | "feedback"
   | "atlas";

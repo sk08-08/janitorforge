@@ -64,7 +64,20 @@ export default async function PublicFormPage({
       userId: row.user_id,
     };
 
-    return <PublicForm form={form} />;
+    return (
+      <PublicForm
+        form={form}
+        feedbackContext={{
+          sourcePage: form.title,
+          sourceLabel: "Public form",
+          sourcePath: `/form/${slugValue}`,
+          relatedId: form.id,
+          metadata: {
+            shareableLink: slugValue,
+          },
+        }}
+      />
+    );
   } catch (e) {
     return (
       <div className="min-h-screen bg-background flex items-start justify-center pt-12">

@@ -172,6 +172,56 @@ export interface Database {
           updated_at?: string;
         };
       };
+      feedback_submissions: {
+        Row: {
+          id: string;
+          feedback_type: "suggestion" | "bug";
+          status: "new" | "reviewing" | "resolved" | "closed";
+          subject: string;
+          message: string;
+          contact: string | null;
+          source_page: string;
+          source_label: string;
+          source_path: string;
+          related_id: string | null;
+          metadata: Json;
+          submitter_user_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          feedback_type: "suggestion" | "bug";
+          status?: "new" | "reviewing" | "resolved" | "closed";
+          subject: string;
+          message: string;
+          contact?: string | null;
+          source_page?: string;
+          source_label?: string;
+          source_path?: string;
+          related_id?: string | null;
+          metadata?: Json;
+          submitter_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          feedback_type?: "suggestion" | "bug";
+          status?: "new" | "reviewing" | "resolved" | "closed";
+          subject?: string;
+          message?: string;
+          contact?: string | null;
+          source_page?: string;
+          source_label?: string;
+          source_path?: string;
+          related_id?: string | null;
+          metadata?: Json;
+          submitter_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       atlas_worlds: {
         Row: {
           id: string;

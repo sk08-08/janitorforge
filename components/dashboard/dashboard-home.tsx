@@ -31,6 +31,7 @@ import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
+import { FeedbackActions } from "@/components/feedback/feedback-actions";
 
 // ----------------------------------------------------------------------------
 // Stat Card Component
@@ -617,6 +618,51 @@ export function DashboardHome() {
       </div>
 
       {/* Quick Actions */}
+      <div className="mt-8">
+        <h2 className="mb-4 text-xl font-semibold">Feedback</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+            <CardHeader className="space-y-2 pb-3">
+              <CardTitle className="text-base">Send a suggestion</CardTitle>
+              <CardDescription>
+                Share ideas to improve JanitorForge or ask for a new workflow.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <FeedbackActions
+                compact
+                mode="suggestion"
+                context={{
+                  sourcePage: "Dashboard",
+                  sourceLabel: "Dashboard - Suggestion card",
+                  sourcePath: "/dashboard",
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+            <CardHeader className="space-y-2 pb-3">
+              <CardTitle className="text-base">Report a bug</CardTitle>
+              <CardDescription>
+                Tell us when something is broken so we can fix it faster.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <FeedbackActions
+                compact
+                mode="bug"
+                context={{
+                  sourcePage: "Dashboard",
+                  sourceLabel: "Dashboard - Bug report card",
+                  sourcePath: "/dashboard",
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
       <div className="mt-8">
         <h2 className="mb-4 text-xl font-semibold">Quick Actions</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

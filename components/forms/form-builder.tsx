@@ -992,7 +992,7 @@ export function FormBuilder({
         open={linkModalOpen}
         onOpenChange={(open) => setLinkModalOpen(open)}
       >
-        <DialogContent>
+        <DialogContent className="w-[calc(100%-1rem)] max-w-lg sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Insert link</DialogTitle>
             <DialogDescription>

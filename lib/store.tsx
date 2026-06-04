@@ -30,6 +30,7 @@ const validNavigationViews: NavigationView[] = [
   "forms",
   "requests",
   "moderation",
+  "feedback",
   "atlas",
 ];
 

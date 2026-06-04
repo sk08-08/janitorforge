@@ -97,6 +97,29 @@ CREATE INDEX IF NOT EXISTS requests_status_idx ON public.requests(status);
 ALTER TABLE public.requests
   ADD COLUMN IF NOT EXISTS ip_address TEXT;
 
+CREATE TABLE IF NOT EXISTS public.feedback_submissions (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  feedback_type text NOT NULL CHECK (feedback_type = ANY (ARRAY['suggestion'::text, 'bug'::text])),
+  status text NOT NULL DEFAULT 'new'::text CHECK (status = ANY (ARRAY['new'::text, 'reviewing'::text, 'resolved'::text, 'closed'::text])),
+  subject text NOT NULL,
+  message text NOT NULL,
+  contact text,
+  source_page text NOT NULL DEFAULT ''::text,
+  source_label text NOT NULL DEFAULT ''::text,
+  source_path text NOT NULL DEFAULT ''::text,
+  related_id text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  submitter_user_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT feedback_submissions_pkey PRIMARY KEY (id),
+  CONSTRAINT feedback_submissions_submitter_user_id_fkey FOREIGN KEY (submitter_user_id) REFERENCES auth.users(id)
+);
+
+CREATE INDEX IF NOT EXISTS feedback_submissions_type_idx ON public.feedback_submissions(feedback_type);
+CREATE INDEX IF NOT EXISTS feedback_submissions_status_idx ON public.feedback_submissions(status);
+CREATE INDEX IF NOT EXISTS feedback_submissions_created_at_idx ON public.feedback_submissions(created_at);
+
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
@@ -106,6 +129,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.request_forms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.feedback_submissions ENABLE ROW LEVEL SECURITY;
 
 -- Profiles policies
 CREATE POLICY "Users can view their own profile"
@@ -214,6 +238,19 @@ CREATE POLICY "Anyone can create requests for active forms"
   WITH CHECK (
     public.can_create_request_for_form(form_id)
   );
+
+CREATE POLICY "Anyone can submit feedback"
+  ON public.feedback_submissions FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Admins can view feedback submissions"
+  ON public.feedback_submissions FOR SELECT
+  USING (public.is_admin_user(auth.uid()));
+
+CREATE POLICY "Admins can update feedback submissions"
+  ON public.feedback_submissions FOR UPDATE
+  USING (public.is_admin_user(auth.uid()))
+  WITH CHECK (public.is_admin_user(auth.uid()));
 
 CREATE POLICY "Users can update requests for their forms"
   ON public.requests FOR UPDATE
