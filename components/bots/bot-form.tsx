@@ -85,6 +85,7 @@ export function BotForm({
   const [rating, setRating] = useState<"SFW" | "NSFW">(
     initialData?.rating || "SFW",
   );
+  const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
   const [tagInput, setTagInput] = useState("");
 
   // Tag management
@@ -185,6 +186,7 @@ export function BotForm({
         exampleDialogues,
         tags,
         rating,
+        imageUrl: imageUrl.trim() || undefined,
       });
     },
     [
@@ -197,6 +199,7 @@ export function BotForm({
       exampleDialogues,
       tags,
       rating,
+      imageUrl,
       onSubmit,
     ],
   );
@@ -379,6 +382,34 @@ export function BotForm({
                 </Label>
               </div>
             </RadioGroup>
+          </div>
+
+          {/* Image URL */}
+          <div className="space-y-2">
+            <Label htmlFor="image-url">
+              Image URL
+              <span className="ml-1 text-xs text-muted-foreground font-normal">
+                (optional)
+              </span>
+            </Label>
+            <Input
+              id="image-url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://example.com/bot-image.png"
+            />
+            {imageUrl.trim() && (
+              <div className="mt-2 h-20 w-20 rounded-lg overflow-hidden border border-border/70">
+                <img
+                  src={imageUrl.trim()}
+                  alt="Bot preview"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Tags */}

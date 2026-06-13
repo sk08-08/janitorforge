@@ -46,6 +46,16 @@
   --neon-glow: oklch(0.7 0.3 295);
 }
 
+/* Hide number input spinners globally */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .dark {
   --background: oklch(0.13 0.01 280);
   --foreground: oklch(0.95 0 0);

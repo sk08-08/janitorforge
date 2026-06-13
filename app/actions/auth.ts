@@ -23,6 +23,26 @@ export async function loginWithPin(username: string, pin: string) {
 
   const authUser = signInData.user;
 
+  // Ensure profile exists (fallback if trigger didn't fire)
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id, username")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  if (!existingProfile) {
+    await supabase.from("profiles").upsert({
+      id: authUser.id,
+      username: clean,
+      display_name: clean,
+    });
+  } else if (!existingProfile.username) {
+    await supabase
+      .from("profiles")
+      .update({ username: clean, display_name: clean })
+      .eq("id", authUser.id);
+  }
+
   // Optionally keep a simple janitorforge_session cookie for app-level info
   const cookieStore = await cookies();
   cookieStore.set(
@@ -45,6 +65,8 @@ export async function loginWithPin(username: string, pin: string) {
 }
 
 export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
   const cookieStore = await cookies();
   cookieStore.delete("janitorforge_session");
   return { success: true };
@@ -107,6 +129,9 @@ export async function registerUser(username: string, pin: string) {
   const { error: signUpError } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: { username: clean, display_name: clean },
+    },
   });
 
   if (signUpError) {

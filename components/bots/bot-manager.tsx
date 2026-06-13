@@ -18,6 +18,8 @@ import {
   Download,
   Clock,
   Filter,
+  Users,
+  GitFork,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +62,7 @@ import {
 } from "@/components/ui/sheet";
 import { BotForm } from "./bot-form";
 import { useStore } from "@/lib/store";
+import { createClient } from "@/lib/supabase/client";
 import {
   createBotAction,
   updateBotAction,
@@ -69,6 +72,8 @@ import { cn } from "@/lib/utils";
 import { countBotTokens, exportCharacterCardPNG } from "@/lib/bot-utils";
 import { toast } from "sonner";
 import type { Bot, BotFormData } from "@/lib/types";
+import { CollaboratorDialog } from "./collaborator-dialog";
+import { forkBot } from "@/app/actions/collaboration";
 
 // ----------------------------------------------------------------------------
 // View Modes
@@ -87,18 +92,36 @@ interface BotCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onExport: () => void;
+  onCollaborators: () => void;
+  onFork: () => void;
 }
 
-function BotCard({ bot, viewMode, onEdit, onDelete, onExport }: BotCardProps) {
+function BotCard({
+  bot,
+  viewMode,
+  onEdit,
+  onDelete,
+  onExport,
+  onCollaborators,
+  onFork,
+}: BotCardProps) {
   const tokenCount = useMemo(() => countBotTokens(bot), [bot]);
 
   if (viewMode === "list") {
     return (
       <Card className="transition-all hover:border-primary/30">
         <CardContent className="flex items-center gap-4 p-4">
-          {/* Icon */}
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <BotIcon className="h-6 w-6 text-primary" />
+          {/* Icon / Image */}
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 overflow-hidden">
+            {bot.imageUrl ? (
+              <img
+                src={bot.imageUrl}
+                alt={bot.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <BotIcon className="h-6 w-6 text-primary" />
+            )}
           </div>
 
           {/* Info */}
@@ -147,6 +170,14 @@ function BotCard({ bot, viewMode, onEdit, onDelete, onExport }: BotCardProps) {
                 <Download className="mr-2 h-4 w-4" />
                 Export Card V2
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={onCollaborators}>
+                <Users className="mr-2 h-4 w-4" />
+                Collaborators
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onFork}>
+                <GitFork className="mr-2 h-4 w-4" />
+                Fork Bot
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onDelete} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -161,18 +192,39 @@ function BotCard({ bot, viewMode, onEdit, onDelete, onExport }: BotCardProps) {
 
   // Grid view
   return (
-    <Card className="group transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <BotIcon className="h-5 w-5 text-primary" />
+    <Card className="group transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/8 hover:-translate-y-1">
+      {/* Large cover image */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
+        {bot.imageUrl ? (
+          <img
+            src={bot.imageUrl}
+            alt={bot.name}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+            <BotIcon className="h-14 w-14 text-primary/30" />
           </div>
+        )}
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
+        <Badge
+          variant={bot.rating === "SFW" ? "secondary" : "destructive"}
+          className="absolute top-2.5 right-2.5 backdrop-blur-sm shadow-sm"
+        >
+          {bot.rating}
+        </Badge>
+      </div>
+      <CardHeader className="pb-2 pt-3">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-lg font-bold leading-tight flex-1 min-w-0">
+            {bot.name}
+          </CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
+                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer shrink-0"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -186,6 +238,14 @@ function BotCard({ bot, viewMode, onEdit, onDelete, onExport }: BotCardProps) {
                 <Download className="mr-2 h-4 w-4" />
                 Export Card V2
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={onCollaborators}>
+                <Users className="mr-2 h-4 w-4" />
+                Collaborators
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onFork}>
+                <GitFork className="mr-2 h-4 w-4" />
+                Fork Bot
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onDelete}
@@ -197,17 +257,13 @@ function BotCard({ bot, viewMode, onEdit, onDelete, onExport }: BotCardProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <CardTitle className="mt-3 text-lg">{bot.name}</CardTitle>
-        <CardDescription className="line-clamp-2">
+        <CardDescription className="line-clamp-2 text-sm mt-1">
           {bot.shortDescription || "No description provided"}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {/* Tags */}
         <div className="flex flex-wrap gap-1.5">
-          <Badge variant={bot.rating === "SFW" ? "secondary" : "destructive"}>
-            {bot.rating}
-          </Badge>
           {bot.tags.slice(0, 2).map((tag) => (
             <Badge key={tag} variant="outline" className="text-xs">
               {tag}
@@ -271,6 +327,8 @@ export function BotManager() {
   const [isCreating, setIsCreating] = useState(false);
   const [editingBot, setEditingBot] = useState<Bot | null>(null);
   const [deleteConfirmBot, setDeleteConfirmBot] = useState<Bot | null>(null);
+  const [collabDialogBot, setCollabDialogBot] = useState<Bot | null>(null);
+  const [forking, setForking] = useState(false);
 
   // Check if we should open editing from external navigation
   const externalEditBot = selectedBotId
@@ -485,6 +543,58 @@ export function BotManager() {
               onEdit={() => setEditingBot(bot)}
               onDelete={() => setDeleteConfirmBot(bot)}
               onExport={() => handleExportBot(bot)}
+              onCollaborators={() => setCollabDialogBot(bot)}
+              onFork={async () => {
+                setForking(true);
+                const result = await forkBot(bot.id);
+                setForking(false);
+                if (result.success) {
+                  // Fetch the newly created forked bot and add it to the store
+                  try {
+                    const supabase = createClient();
+                    const { data: forkedBotData } = await supabase
+                      .from("bots")
+                      .select("*")
+                      .eq("id", result.forkedBotId)
+                      .single();
+                    if (forkedBotData) {
+                      upsertBot({
+                        id: forkedBotData.id,
+                        ownerId: forkedBotData.user_id || undefined,
+                        chatName: forkedBotData.chat_name || undefined,
+                        name: forkedBotData.name,
+                        shortDescription: forkedBotData.short_description || "",
+                        personality: forkedBotData.personality || "",
+                        firstMessage: forkedBotData.first_message || "",
+                        alternateGreetings: Array.isArray(
+                          forkedBotData.alternate_greetings,
+                        )
+                          ? forkedBotData.alternate_greetings
+                          : [],
+                        scenario: forkedBotData.scenario || "",
+                        exampleDialogues: forkedBotData.example_dialogues || "",
+                        tags: Array.isArray(forkedBotData.tags)
+                          ? forkedBotData.tags
+                          : [],
+                        rating:
+                          forkedBotData.rating === "NSFW" ? "NSFW" : "SFW",
+                        imageUrl: forkedBotData.image_url || undefined,
+                        createdAt: forkedBotData.created_at
+                          ? new Date(forkedBotData.created_at)
+                          : new Date(),
+                        updatedAt: forkedBotData.updated_at
+                          ? new Date(forkedBotData.updated_at)
+                          : new Date(),
+                      });
+                    }
+                  } catch {
+                    // Bot will appear on next page load anyway
+                  }
+                  toast.success(`Bot "${bot.name}" forked successfully!`);
+                } else {
+                  toast.error(result.error || "Failed to fork bot");
+                }
+              }}
             />
           ))}
         </div>
@@ -559,8 +669,8 @@ export function BotManager() {
           <DialogHeader>
             <DialogTitle>Delete Bot</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{deleteConfirmBot?.name}
-              &quot;? This action cannot be undone.
+              Are you sure you want to delete "{deleteConfirmBot?.name}
+              "? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -581,6 +691,18 @@ export function BotManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Collaborator Dialog */}
+      {collabDialogBot && (
+        <CollaboratorDialog
+          open={!!collabDialogBot}
+          onOpenChange={(open) => {
+            if (!open) setCollabDialogBot(null);
+          }}
+          botId={collabDialogBot.id}
+          botName={collabDialogBot.name}
+        />
+      )}
     </div>
   );
 }

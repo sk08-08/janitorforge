@@ -64,400 +64,59 @@ import {
   Upload,
   X,
   Trash2,
+  Layout,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Bot as BotType } from "@/lib/types";
 import { toast } from "sonner";
-
-type AtlasWorldKind = "series" | "universe" | "location" | "timeline";
-type AtlasWorldStatus = "draft" | "active";
-type AtlasEntryKind = "lore" | "character" | "location" | "timeline" | "note";
-
-interface AtlasWorld {
-  id: string;
-  title: string;
-  slug: string;
-  kind: AtlasWorldKind;
-  status: AtlasWorldStatus;
-  description: string;
-  loreSummary: string;
-  botIds: string[];
-  featuredLorebookIds: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AtlasWorldRow {
-  id: string;
-  user_id: string;
-  title: string;
-  slug: string;
-  kind: AtlasWorldKind;
-  status: AtlasWorldStatus;
-  description: string;
-  lore_summary: string;
-  bot_ids: string[];
-  featured_lorebook_ids: string[];
-  created_at: string;
-  updated_at: string;
-}
-
-interface AtlasLorebook {
-  id: string;
-  worldId: string;
-  title: string;
-  summary: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AtlasLorebookRow {
-  id: string;
-  user_id: string;
-  world_id: string;
-  title: string;
-  summary: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AtlasEntry {
-  id: string;
-  worldId: string;
-  lorebookId: string;
-  title: string;
-  kind: AtlasEntryKind;
-  body: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AtlasEntryRow {
-  id: string;
-  user_id: string;
-  world_id: string;
-  lorebook_id: string;
-  title: string;
-  kind: AtlasEntryKind;
-  body: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface WorldEditorState {
-  id?: string;
-  title: string;
-  slug: string;
-  kind: AtlasWorldKind;
-  status: AtlasWorldStatus;
-  description: string;
-  loreSummary: string;
-  botIds: string[];
-  featuredLorebookIds: string[];
-}
-
-interface EntryEditorState {
-  id?: string;
-  worldId: string;
-  lorebookId: string;
-  title: string;
-  kind: AtlasEntryKind;
-  body: string;
-}
-
-interface LorebookPackage {
-  version: number;
-  world?: {
-    title: string;
-    slug: string;
-    kind: AtlasWorldKind;
-    status: AtlasWorldStatus;
-    description: string;
-    loreSummary: string;
-    botIds: string[];
-    featuredLorebookIds: string[];
-  };
-  entries: Array<{
-    title: string;
-    kind: AtlasEntryKind;
-    body: string;
-  }>;
-}
-
-interface JanitorLorebookEntry {
-  name?: string;
-  content?: string;
-  category?: string;
-  comment?: string;
-  depth?: number;
-  priority?: number;
-  insertion_order?: number;
-  activationMode?: string;
-  keysRaw?: string;
-  keywordsRaw?: string;
-}
-
-const LEGACY_ATLAS_STORAGE_KEY = "janitorforge-atlas-worlds";
-const WORLDS_PER_PAGE = 4;
-const WORLD_CARD_HEIGHT = 88;
-const WORLD_LIST_GAP = 12;
-const WORLD_LIST_PADDING = 24;
-const WORLD_LIST_MAX_HEIGHT = 560;
-const WORLD_LIST_MIN_HEIGHT = 160;
-const PAGINATION_HEIGHT = 56;
-const LOREBOOK_LIST_HEIGHT = 288;
-const LOREBOOK_CARD_HEIGHT = 140;
-const LOREBOOK_LIST_GAP = 8;
-const LOREBOOK_LIST_PADDING = 12;
-
-const worldKindLabels: Record<AtlasWorldKind, string> = {
-  series: "Series",
-  universe: "Universe",
-  location: "Location",
-  timeline: "Timeline",
-};
-
-const worldKindBadges: Record<AtlasWorldKind, string> = {
-  series: "bg-primary/10 text-primary",
-  universe: "bg-chart-2/10 text-chart-2",
-  location: "bg-chart-4/10 text-chart-4",
-  timeline: "bg-success/10 text-success",
-};
-
-const entryKindLabels: Record<AtlasEntryKind, string> = {
-  lore: "Lore",
-  character: "Character",
-  location: "Location",
-  timeline: "Timeline",
-  note: "Note",
-};
-
-const entryKindBadges: Record<AtlasEntryKind, string> = {
-  lore: "bg-primary/10 text-primary",
-  character: "bg-chart-2/10 text-chart-2",
-  location: "bg-chart-4/10 text-chart-4",
-  timeline: "bg-success/10 text-success",
-  note: "bg-muted text-muted-foreground",
-};
-
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function createEmptyWorldEditorState(): WorldEditorState {
-  return {
-    title: "",
-    slug: "",
-    kind: "series",
-    status: "draft",
-    description: "",
-    loreSummary: "",
-    botIds: [],
-    featuredLorebookIds: [],
-  };
-}
-
-function createEmptyEntryEditorState(
-  worldId = "",
-  lorebookId = "",
-): EntryEditorState {
-  return {
-    worldId,
-    lorebookId,
-    title: "",
-    kind: "note",
-    body: "",
-  };
-}
-
-function createLorebookPackage(
-  world: AtlasWorld,
-  lorebook: AtlasLorebook,
-  lorebookEntries: AtlasEntry[],
-): LorebookPackage {
-  return {
-    version: 1,
-    world: {
-      title: world.title,
-      slug: world.slug,
-      kind: world.kind,
-      status: world.status,
-      description: world.description,
-      loreSummary: world.loreSummary,
-      botIds: world.botIds,
-      featuredLorebookIds: world.featuredLorebookIds,
-    },
-    entries: lorebookEntries.map((entry) => ({
-      title: entry.title,
-      kind: entry.kind,
-      body: entry.body,
-    })),
-  };
-}
-
-function mapEntryKindToJanitorCategory(kind: AtlasEntryKind) {
-  switch (kind) {
-    case "character":
-      return "character";
-    case "location":
-      return "place";
-    case "timeline":
-      return "timeline";
-    case "lore":
-      return "world_info";
-    default:
-      return "other";
-  }
-}
-
-function createJanitorLorebookExport(lorebookEntries: AtlasEntry[]) {
-  return lorebookEntries.map((entry, index) => {
-    const title = entry.title?.trim() || `Entry ${index + 1}`;
-    const content = entry.body?.trim() || "";
-    const titleLower = title.toLowerCase();
-    const keywords = Array.from(new Set([title, titleLower]));
-    const category = mapEntryKindToJanitorCategory(entry.kind);
-
-    return {
-      activationMode: "standard",
-      activationScript: "",
-      case_sensitive: false,
-      category,
-      comment: "",
-      constant: false,
-      content,
-      depth: 4,
-      enabled: true,
-      extensions: {
-        excludeRecursion: true,
-      },
-      groupWeight: 100,
-      id: index + 1,
-      inclusionGroupRaw: "",
-      insertion_order: (index + 1) * 100,
-      key: keywords,
-      keyMatchPriority: false,
-      keysecondary: [],
-      keysecondaryRaw: "",
-      keysRaw: keywords.join(", "),
-      matchWholeWords: true,
-      minMessages: 0,
-      name: title,
-      prioritizeInclusion: false,
-      priority: index + 1,
-      probability: 100,
-      selectiveLogic: 0,
-      tags: [category],
-      keywordsRaw: keywords.join(", "),
-    };
-  });
-}
-
-function mapJanitorCategoryToEntryKind(category?: string): AtlasEntryKind {
-  switch (category?.toLowerCase()) {
-    case "character":
-      return "character";
-    case "place":
-    case "location":
-      return "location";
-    case "world_info":
-    case "faction":
-    case "event":
-    case "other":
-      return "lore";
-    case "timeline":
-      return "timeline";
-    default:
-      return "note";
-  }
-}
-
-function buildImportedEntryBody(entry: JanitorLorebookEntry) {
-  return entry.content?.trim() || "";
-}
-
-function stripImportedMetadataBlock(body: string) {
-  const marker = "\n\n---\nImported metadata";
-  const markerIndex = body.indexOf(marker);
-
-  if (markerIndex === -1) {
-    return body;
-  }
-
-  return body.slice(0, markerIndex).trimEnd();
-}
-
-function isAtlasPackage(value: unknown): value is Partial<LorebookPackage> {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    "entries" in value,
-  );
-}
-
-function mapWorldRow(row: AtlasWorldRow): AtlasWorld {
-  return {
-    id: row.id,
-    title: row.title,
-    slug: row.slug,
-    kind: row.kind,
-    status: row.status,
-    description: row.description || "",
-    loreSummary: row.lore_summary || "",
-    botIds: Array.isArray(row.bot_ids) ? row.bot_ids : [],
-    featuredLorebookIds: Array.isArray(row.featured_lorebook_ids)
-      ? row.featured_lorebook_ids
-      : [],
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function mapLorebookRow(row: AtlasLorebookRow): AtlasLorebook {
-  return {
-    id: row.id,
-    worldId: row.world_id,
-    title: row.title,
-    summary: row.summary || "",
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function mapEntryRow(row: AtlasEntryRow): AtlasEntry {
-  return {
-    id: row.id,
-    worldId: row.world_id,
-    lorebookId: row.lorebook_id,
-    title: row.title,
-    kind: row.kind,
-    body: row.body || "",
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function buildWorldRow(world: AtlasWorld, userId: string): AtlasWorldRow {
-  return {
-    id: world.id,
-    user_id: userId,
-    title: world.title,
-    slug: world.slug,
-    kind: world.kind,
-    status: world.status,
-    description: world.description,
-    lore_summary: world.loreSummary,
-    bot_ids: world.botIds,
-    featured_lorebook_ids: world.featuredLorebookIds,
-    created_at: world.createdAt,
-    updated_at: world.updatedAt,
-  };
-}
+import { CreatorPages } from "./creator-pages";
+import type {
+  AtlasWorld,
+  AtlasWorldRow,
+  AtlasLorebook,
+  AtlasLorebookRow,
+  AtlasEntry,
+  AtlasEntryRow,
+  AtlasWorldKind,
+  AtlasWorldStatus,
+  AtlasEntryKind,
+  WorldEditorState,
+  EntryEditorState,
+  JanitorLorebookEntry,
+} from "./atlas-types";
+import {
+  worldKindLabels,
+  worldKindBadges,
+  entryKindLabels,
+  entryKindBadges,
+  WORLDS_PER_PAGE,
+  WORLD_CARD_HEIGHT,
+  WORLD_LIST_GAP,
+  WORLD_LIST_PADDING,
+  WORLD_LIST_MAX_HEIGHT,
+  WORLD_LIST_MIN_HEIGHT,
+  PAGINATION_HEIGHT,
+  LOREBOOK_LIST_HEIGHT,
+  LOREBOOK_CARD_HEIGHT,
+  LOREBOOK_LIST_GAP,
+  LOREBOOK_LIST_PADDING,
+  LEGACY_ATLAS_STORAGE_KEY,
+  slugify,
+  mapWorldRow,
+  mapLorebookRow,
+  mapEntryRow,
+  buildWorldRow,
+  createEmptyWorldEditorState,
+  createEmptyEntryEditorState,
+  createLorebookPackage,
+  createJanitorLorebookExport,
+  mapEntryKindToJanitorCategory,
+  mapJanitorCategoryToEntryKind,
+  buildImportedEntryBody,
+  stripImportedMetadataBlock,
+  isAtlasPackage,
+} from "./atlas-utils";
 
 function HubCard({
   title,
@@ -537,6 +196,7 @@ export function AtlasHub() {
   const [accessLoaded, setAccessLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [showCreatorPages, setShowCreatorPages] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -1540,6 +1200,11 @@ export function AtlasHub() {
     });
   };
 
+  // Show Creator Pages if active
+  if (showCreatorPages) {
+    return <CreatorPages onBack={() => setShowCreatorPages(false)} />;
+  }
+
   if (!accessLoaded) {
     return (
       <div className="p-4 sm:p-6 md:p-8 lg:p-10">
@@ -1859,7 +1524,7 @@ export function AtlasHub() {
           </CardContent>
         </Card>
 
-        <div>
+        <div className="grid gap-4 sm:grid-cols-2">
           <HubCard
             title="Bots by world"
             description="Open a visual page that groups your bots by Atlas worlds so you can review coverage quickly."
@@ -1869,6 +1534,14 @@ export function AtlasHub() {
             onAction={() => {
               window.location.href = "/atlas/bot-series";
             }}
+          />
+          <HubCard
+            title="Creator Pages"
+            description="Build your public creator page. Showcase your bots, group them into worlds, and customize the look and feel."
+            icon={Layout}
+            badge="New"
+            actionLabel="Open Creator Pages"
+            onAction={() => setShowCreatorPages(true)}
           />
         </div>
       </div>

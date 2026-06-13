@@ -44,6 +44,8 @@ import Image from "next/image";
 import type { NavigationView } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
+import { ProfileView } from "@/components/profile/profile-view";
+import { getOwnProfile } from "@/app/actions/profile";
 
 // ----------------------------------------------------------------------------
 // Navigation Configuration
@@ -112,7 +114,25 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingModerationCount, setPendingModerationCount] = useState(0);
   const [accessLoaded, setAccessLoaded] = useState(false);
+  const [profileViewOpen, setProfileViewOpen] = useState(false);
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+  const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
   const router = useRouter();
+
+  // Load profile avatar on mount
+  useEffect(() => {
+    let mounted = true;
+    getOwnProfile().then((result) => {
+      if (!mounted) return;
+      if (result.success && result.profile) {
+        setUserAvatarUrl(result.profile.avatar_url || null);
+        setUserDisplayName(result.profile.display_name || null);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -337,22 +357,31 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
           {/* Collapse Toggle & User */}
           <div className="border-t border-sidebar-border p-2 space-y-2">
-            {/* User Info */}
-            <div
+            {/* User Info — clickable to open profile */}
+            <button
               className={cn(
-                "flex items-center gap-2 px-2 py-1.5 rounded-md bg-sidebar-accent/50",
+                "flex w-full items-center gap-2 px-2 py-1.5 rounded-md bg-sidebar-accent/50 text-left transition-colors hover:bg-sidebar-accent cursor-pointer",
                 collapsed && "justify-center",
               )}
+              onClick={() => setProfileViewOpen(true)}
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20">
-                <User className="h-4 w-4 text-primary" />
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 overflow-hidden shrink-0">
+                {userAvatarUrl ? (
+                  <img
+                    src={userAvatarUrl}
+                    alt={userDisplayName || username}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <User className="h-4 w-4 text-primary" />
+                )}
               </div>
               {!collapsed && (
                 <span className="flex-1 text-sm font-medium truncate">
-                  {username}
+                  {userDisplayName || username}
                 </span>
               )}
-            </div>
+            </button>
 
             {/* Logout */}
             <Button
@@ -508,6 +537,13 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
           <div className="h-full pt-16 md:pt-0">{children}</div>
         </main>
+
+        {/* Profile View Dialog */}
+        <ProfileView
+          open={profileViewOpen}
+          onOpenChange={setProfileViewOpen}
+          onAvatarUpdate={setUserAvatarUrl}
+        />
       </div>
     </TooltipProvider>
   );
