@@ -676,7 +676,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -709,13 +709,13 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <div className="grid gap-6 lg:grid-cols-2 overflow-hidden">
           {/* Settings */}
-          <Card className="border-border/70">
+          <Card className="border-border/70 min-w-0 overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Page Settings</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 min-w-0">
               <div className="space-y-2">
                 <Label>Page Title</Label>
                 <Input
@@ -731,8 +731,8 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                     (public URL)
                   </span>
                 </Label>
-                <div className="flex items-center gap-0">
-                  <span className="flex h-10 items-center rounded-l-md border border-r-0 bg-muted px-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-0 min-w-0 overflow-hidden">
+                  <span className="flex h-10 shrink-0 items-center rounded-l-md border border-r-0 bg-muted px-3 text-xs text-muted-foreground">
                     /
                   </span>
                   <Input
@@ -745,7 +745,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                           .replace(/-+/g, "-"),
                       )
                     }
-                    className="rounded-l-none"
+                    className="rounded-l-none min-w-0"
                   />
                 </div>
               </div>
@@ -909,9 +909,9 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
           </Card>
 
           {/* Sections */}
-          <Card className="border-border/70">
+          <Card className="border-border/70 min-w-0 overflow-hidden">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-base">Sections</CardTitle>
                 <Button
                   variant="outline"
@@ -986,7 +986,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
 
         {/* Add Section Dialog */}
         <Dialog open={addSectionOpen} onOpenChange={setAddSectionOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Add Section</DialogTitle>
               <DialogDescription>
@@ -1041,7 +1041,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
           open={!!editingSection}
           onOpenChange={(open) => !open && setEditingSection(null)}
         >
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {editingSection && (
@@ -1728,7 +1728,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                     <span>/{page.slug}</span>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-3">
+                <div className="flex gap-2 mt-3 flex-wrap">
                   {page.is_published && (
                     <a
                       href={`/${page.slug}`}
@@ -1748,7 +1748,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 cursor-pointer"
+                    className="flex-1 min-w-0 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleTogglePublish(page);

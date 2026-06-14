@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { submitPublicFormRequest } from "@/app/actions/safety";
-// Lightweight markdown renderer for basic formatting (bold, italic, links, lists)
+import { MarkdownRenderer } from "./markdown-renderer";
+
+// Lightweight inline markdown for labels (single-line, no block elements)
 function escapeHtml(str: string) {
   return String(str)
     .replace(/&/g, "&amp;")

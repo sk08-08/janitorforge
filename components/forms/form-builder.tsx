@@ -81,73 +81,8 @@ import {
   resolveFormAppearance,
 } from "@/lib/form-appearance";
 import { toast } from "sonner";
-
-// Lightweight markdown renderer for live preview in the builder
-function escapeHtml(str: string) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function renderMarkdownPreview(md?: string | null) {
-  if (!md) return "";
-  let out = escapeHtml(String(md));
-  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, txt, href) => {
-    const safe = String(href).trim();
-    if (/^\s*(javascript:|data:)/i.test(safe)) return escapeHtml(txt);
-    return `<a href=\"${escapeHtml(safe)}\" target=\"_blank\" rel=\"noopener noreferrer\">${escapeHtml(txt)}</a>`;
-  });
-  out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
-  out = out.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  out = out.replace(/_(.+?)_/g, "<em>$1</em>");
-  const lines = out.split(/\r?\n/);
-  let result = "";
-  let inList = false;
-  let listType: "ul" | "ol" | null = null;
-  for (const line of lines) {
-    const mUn = line.match(/^\s*[-*]\s+(.+)/);
-    const mOl = line.match(/^\s*(\d+)\.\s+(.+)/);
-    if (mUn || mOl) {
-      const thisType = mUn ? "ul" : "ol";
-      const content = mUn ? mUn[1] : mOl![2];
-      if (!inList || listType !== thisType) {
-        if (inList) {
-          result += listType === "ul" ? "</ul>" : "</ol>";
-        }
-        inList = true;
-        listType = thisType;
-        result += thisType === "ul" ? "<ul>" : "<ol>";
-      }
-      result += `<li>${content}</li>`;
-    } else {
-      if (inList) {
-        result += listType === "ul" ? "</ul>" : "</ol>";
-        inList = false;
-        listType = null;
-      }
-      if (line.trim() === "") {
-        result += "<br/>";
-      } else {
-        result += `<p>${line}</p>`;
-      }
-    }
-  }
-  if (inList) result += listType === "ul" ? "</ul>" : "</ol>";
-  // Force inline styles on list containers to avoid global resets hiding markers
-  result = result.replace(
-    /<ul>/g,
-    '<ul style="list-style-type: disc; margin-left:1rem; padding-left:1.25rem">',
-  );
-  result = result.replace(
-    /<ol>/g,
-    '<ol style="list-style-type: decimal; margin-left:1rem; padding-left:1.25rem">',
-  );
-  return result;
-}
+import { MarkdownRenderer } from "./markdown-renderer";
+import type { FieldCondition, ConditionOperator } from "@/lib/types";
 
 function sanitizeUrl(input: string) {
   const url = String(input || "").trim();
@@ -357,8 +292,18 @@ const InlineMarkdownEditor = React.forwardRef(
             id={id}
             className="cursor-text rendered-markdown"
             onClick={() => setEditing(true)}
-            dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(value) }}
-          />
+          >
+            {value ? (
+              <MarkdownRenderer
+                content={value}
+                className="[&>*:last-child]:mb-0"
+              />
+            ) : (
+              <span className="text-muted-foreground italic">
+                {placeholder}
+              </span>
+            )}
+          </div>
         ) : (
           <textarea
             id={id}
@@ -400,10 +345,24 @@ interface FieldEditorProps {
   field: FormField;
   onUpdate: (field: FormField) => void;
   onDelete: () => void;
+  allFields?: FormField[];
   openLinkModal?: (cb: (url: string) => void) => void;
 }
 
-function FieldEditor({ field, onUpdate, onDelete }: FieldEditorProps) {
+const conditionOperators: { value: ConditionOperator; label: string }[] = [
+  { value: "equals", label: "equals" },
+  { value: "not_equals", label: "does not equal" },
+  { value: "contains", label: "contains" },
+  { value: "is_not_empty", label: "is not empty" },
+  { value: "is_empty", label: "is empty" },
+];
+
+function FieldEditor({
+  field,
+  onUpdate,
+  onDelete,
+  allFields = [],
+}: FieldEditorProps) {
   const [optionInput, setOptionInput] = useState("");
   const labelRef = useRef<any>(null);
   const descRef = useRef<any>(null);
@@ -617,6 +576,125 @@ function FieldEditor({ field, onUpdate, onDelete }: FieldEditorProps) {
                 Required field
               </Label>
             </div>
+
+            {/* Conditional display */}
+            {allFields.length > 1 && (
+              <div className="space-y-2 rounded-lg border border-dashed p-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">
+                    Conditional Display
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs cursor-pointer"
+                    onClick={() => {
+                      const newCondition: FieldCondition = {
+                        fieldId: "",
+                        operator: "is_not_empty",
+                      };
+                      onUpdate({
+                        ...field,
+                        conditions: [...(field.conditions || []), newCondition],
+                      });
+                    }}
+                  >
+                    <Plus className="mr-1 h-3 w-3" />
+                    Add Rule
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Show this field only when conditions are met.
+                </p>
+                {field.conditions && field.conditions.length > 0 && (
+                  <div className="space-y-2">
+                    {field.conditions.map((cond, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-wrap items-center gap-1.5 text-xs"
+                      >
+                        <span className="text-muted-foreground">Show when</span>
+                        <Select
+                          value={cond.fieldId || ""}
+                          onValueChange={(v) => {
+                            const newConds = [...field.conditions!];
+                            newConds[idx] = { ...cond, fieldId: v };
+                            onUpdate({ ...field, conditions: newConds });
+                          }}
+                        >
+                          <SelectTrigger className="h-7 w-36 text-xs">
+                            <SelectValue placeholder="Select field..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allFields
+                              .filter((f) => f.id !== field.id)
+                              .map((f) => (
+                                <SelectItem key={f.id} value={f.id}>
+                                  {f.label || f.id}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={cond.operator}
+                          onValueChange={(v) => {
+                            const newConds = [...field.conditions!];
+                            newConds[idx] = {
+                              ...cond,
+                              operator: v as ConditionOperator,
+                            };
+                            onUpdate({ ...field, conditions: newConds });
+                          }}
+                        >
+                          <SelectTrigger className="h-7 w-32 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {conditionOperators.map((op) => (
+                              <SelectItem key={op.value} value={op.value}>
+                                {op.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {!["is_empty", "is_not_empty"].includes(
+                          cond.operator,
+                        ) && (
+                          <Input
+                            value={cond.value || ""}
+                            onChange={(e) => {
+                              const newConds = [...field.conditions!];
+                              newConds[idx] = {
+                                ...cond,
+                                value: e.target.value,
+                              };
+                              onUpdate({ ...field, conditions: newConds });
+                            }}
+                            placeholder="value"
+                            className="h-7 w-28 text-xs"
+                          />
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive cursor-pointer"
+                          onClick={() => {
+                            const newConds = field.conditions!.filter(
+                              (_, i) => i !== idx,
+                            );
+                            onUpdate({ ...field, conditions: newConds });
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Delete button */}
@@ -803,6 +881,7 @@ function SectionEditor({
             field={field}
             onUpdate={(updated) => updateField(field.id, updated)}
             onDelete={() => deleteField(field.id)}
+            allFields={section.fields}
             openLinkModal={openLinkModal}
           />
         ))}

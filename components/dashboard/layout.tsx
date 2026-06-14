@@ -44,7 +44,6 @@ import Image from "next/image";
 import type { NavigationView } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
-import { ProfileView } from "@/components/profile/profile-view";
 import { getOwnProfile } from "@/app/actions/profile";
 
 // ----------------------------------------------------------------------------
@@ -114,7 +113,6 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingModerationCount, setPendingModerationCount] = useState(0);
   const [accessLoaded, setAccessLoaded] = useState(false);
-  const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
   const router = useRouter();
@@ -363,7 +361,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                 "flex w-full items-center gap-2 px-2 py-1.5 rounded-md bg-sidebar-accent/50 text-left transition-colors hover:bg-sidebar-accent cursor-pointer",
                 collapsed && "justify-center",
               )}
-              onClick={() => setProfileViewOpen(true)}
+              onClick={() => setCurrentView("profile")}
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 overflow-hidden shrink-0">
                 {userAvatarUrl ? (
@@ -537,13 +535,6 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
           <div className="h-full pt-16 md:pt-0">{children}</div>
         </main>
-
-        {/* Profile View Dialog */}
-        <ProfileView
-          open={profileViewOpen}
-          onOpenChange={setProfileViewOpen}
-          onAvatarUpdate={setUserAvatarUrl}
-        />
       </div>
     </TooltipProvider>
   );

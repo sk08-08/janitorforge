@@ -1223,7 +1223,7 @@ export function AtlasHub() {
         <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Atlas (W.I.P)
+              Atlas
             </h1>
             <p className="mt-1 max-w-2xl text-sm sm:text-base text-muted-foreground">
               A workspace for series, universes, and lorebooks. Organize bots,

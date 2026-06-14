@@ -32,6 +32,7 @@ const validNavigationViews: NavigationView[] = [
   "moderation",
   "feedback",
   "atlas",
+  "profile",
 ];
 
 function toNavigationView(value: string | null): NavigationView | null {

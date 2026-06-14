@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "@/components/ui/sonner";
+import { CustomScrollbar } from "@/components/ui/custom-scrollbar";
 import "./globals.css";
 
 // Font configuration
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
+        <CustomScrollbar />
         {children}
         <Toaster />
         {process.env.NODE_ENV === "production" && <Analytics />}

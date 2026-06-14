@@ -58,9 +58,10 @@ export interface FormField {
   label: string;
   placeholder?: string;
   required: boolean;
-  options?: string[]; // For select, radio, checkbox
+  options?: string[];
   allowOther?: boolean;
   description?: string;
+  conditions?: FieldCondition[];
 }
 
 export type FormPreset = "clean" | "bold" | "editorial" | "minimal";
@@ -104,6 +105,66 @@ export interface RequestForm {
 // ----------------------------------------------------------------------------
 
 export type RequestStatus = "new" | "accepted" | "completed" | "rejected";
+
+// Conditional field support
+export type ConditionOperator =
+  | "equals"
+  | "not_equals"
+  | "contains"
+  | "is_not_empty"
+  | "is_empty";
+
+export interface FieldCondition {
+  fieldId: string;
+  operator: ConditionOperator;
+  value?: string;
+}
+
+// Notification types
+export interface Notification {
+  id: string;
+  user_id: string;
+  type:
+    | "new_request"
+    | "request_status_change"
+    | "new_submission"
+    | "flagged_submission"
+    | "form_shared"
+    | "collaboration_invite";
+  title: string;
+  message?: string | null;
+  link?: string | null;
+  is_read: boolean;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+}
+
+// Form template types
+export interface FormTemplate {
+  id: string;
+  name: string;
+  description?: string | null;
+  category: string;
+  icon?: string;
+  is_builtin: boolean;
+  owner_id?: string | null;
+  sections: FormSection[];
+  appearance?: FormAppearance | null;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Audit log types
+export interface AuditLogEntry {
+  id: string;
+  moderator_id?: string | null;
+  action: string;
+  target_type: string;
+  target_id?: string | null;
+  details?: Record<string, unknown> | null;
+  created_at: string;
+}
 
 export interface Request {
   id: string;
@@ -207,4 +268,5 @@ export type NavigationView =
   | "requests"
   | "moderation"
   | "feedback"
-  | "atlas";
+  | "atlas"
+  | "profile";

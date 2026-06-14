@@ -58,7 +58,7 @@ import {
 } from "@/app/actions/forms";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { RequestForm } from "@/lib/types";
+import type { RequestForm, FormTemplate, FormSection } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 
@@ -290,8 +290,27 @@ export function FormManager() {
   const [editingForm, setEditingForm] = useState<RequestForm | null>(null);
   const [deleteConfirmForm, setDeleteConfirmForm] =
     useState<RequestForm | null>(null);
+  const [templates, setTemplates] = useState<FormTemplate[]>([]);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(
+    null,
+  );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [accessLoaded, setAccessLoaded] = useState(false);
+
+  // Fetch templates when template picker opens
+  useEffect(() => {
+    if (!showTemplatePicker) return;
+    const supabase = createClient();
+    supabase
+      .from("form_templates")
+      .select("*")
+      .order("is_builtin", { ascending: false })
+      .order("usage_count", { ascending: false })
+      .then(({ data }) => {
+        if (data) setTemplates(data as FormTemplate[]);
+      });
+  }, [showTemplatePicker]);
 
   useEffect(() => {
     let mounted = true;
@@ -314,6 +333,16 @@ export function FormManager() {
       mounted = false;
     };
   }, []);
+
+  const handleNewFormClick = () => {
+    setShowTemplatePicker(true);
+  };
+
+  const handleSelectTemplate = (template: FormTemplate | null) => {
+    setShowTemplatePicker(false);
+    setSelectedTemplate(template);
+    setIsCreating(true);
+  };
 
   const ownedForms = currentUserId
     ? forms.filter((form) => !form.ownerId || form.ownerId === currentUserId)
@@ -457,7 +486,7 @@ export function FormManager() {
           </p>
         </div>
         <Button
-          onClick={() => setIsCreating(true)}
+          onClick={handleNewFormClick}
           className="cursor-pointer w-full sm:w-auto"
         >
           <Plus className="mr-2 h-4 w-4" />
@@ -538,7 +567,7 @@ export function FormManager() {
         </div>
       ) : (
         <Card>
-          <EmptyState onCreateNew={() => setIsCreating(true)} />
+          <EmptyState onCreateNew={handleNewFormClick} />
         </Card>
       )}
 
@@ -574,17 +603,100 @@ export function FormManager() {
               </div>
             )}
             <FormBuilder
-              initialForm={editingForm || undefined}
+              initialForm={
+                editingForm ||
+                (selectedTemplate
+                  ? {
+                      id: "",
+                      title: selectedTemplate.name,
+                      description: selectedTemplate.description || "",
+                      sections: (selectedTemplate.sections ||
+                        []) as FormSection[],
+                      shareableLink: "",
+                      isActive: true,
+                      createdAt: new Date(),
+                      updatedAt: new Date(),
+                      appearance: selectedTemplate.appearance || undefined,
+                    }
+                  : undefined)
+              }
               onSave={editingForm ? handleUpdateForm : handleCreateForm}
               onCancel={() => {
                 setIsCreating(false);
                 setEditingForm(null);
+                setSelectedTemplate(null);
               }}
               isEditing={!!editingForm}
             />
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Template Picker Dialog */}
+      <Dialog open={showTemplatePicker} onOpenChange={setShowTemplatePicker}>
+        <DialogContent className="w-[calc(100%-1rem)] max-w-lg sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Choose a Template</DialogTitle>
+            <DialogDescription>
+              Start with a pre-built template or create a blank form.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-3 grid-cols-1 sm:grid-cols-2">
+            {/* Blank form option */}
+            <button
+              className="flex flex-col items-start gap-2 rounded-lg border border-dashed p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 cursor-pointer"
+              onClick={() => handleSelectTemplate(null)}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                <Plus className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium">Blank Form</p>
+                <p className="text-xs text-muted-foreground">
+                  Start from scratch with an empty form.
+                </p>
+              </div>
+            </button>
+            {/* Template options */}
+            {templates.map((template) => {
+              const iconMap: Record<string, typeof FileText> = {
+                Bot: FileText,
+                Bug: FileText,
+                Lightbulb: FileText,
+                Paintbrush: FileText,
+                FileText,
+              };
+              const Icon = iconMap[template.icon || "FileText"] || FileText;
+              const fieldCount = Array.isArray(template.sections)
+                ? (template.sections as FormSection[]).reduce(
+                    (sum: number, s: FormSection) => sum + s.fields.length,
+                    0,
+                  )
+                : 0;
+              return (
+                <button
+                  key={template.id}
+                  className="flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 cursor-pointer"
+                  onClick={() => handleSelectTemplate(template)}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{template.name}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {template.description}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {fieldCount} fields · {template.category}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog

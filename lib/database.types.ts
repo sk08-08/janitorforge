@@ -131,6 +131,108 @@ export interface Database {
           updated_at?: string;
         };
       };
+      form_templates: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          category: string;
+          icon: string | null;
+          is_builtin: boolean;
+          owner_id: string | null;
+          sections: Json;
+          appearance: Json | null;
+          usage_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          category?: string;
+          icon?: string | null;
+          is_builtin?: boolean;
+          owner_id?: string | null;
+          sections?: Json;
+          appearance?: Json | null;
+          usage_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          category?: string;
+          usage_count?: number;
+          updated_at?: string;
+        };
+      };
+      moderation_audit_log: {
+        Row: {
+          id: string;
+          moderator_id: string | null;
+          action: string;
+          target_type: string;
+          target_id: string | null;
+          details: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          moderator_id: string | null;
+          action: string;
+          target_type: string;
+          target_id?: string | null;
+          details?: Json | null;
+          created_at?: string;
+        };
+        Update: never;
+      };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          message: string | null;
+          link: string | null;
+          is_read: boolean;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          title: string;
+          message?: string | null;
+          link?: string | null;
+          is_read?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          is_read?: boolean;
+        };
+      };
+      ip_blocklist: {
+        Row: {
+          id: string;
+          ip_address: string;
+          reason: string | null;
+          blocked_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          ip_address: string;
+          reason?: string | null;
+          blocked_by: string | null;
+          created_at?: string;
+        };
+        Update: never;
+      };
       requests: {
         Row: {
           id: string;
@@ -142,6 +244,9 @@ export interface Database {
           responses: Json;
           response_labels: Json;
           notes: string | null;
+          honeypot_value: string | null;
+          submission_ip: string | null;
+          submission_user_agent: string | null;
           created_at: string;
           updated_at: string;
         };

@@ -1,0 +1,148 @@
+// ============================================================================
+// JanitorForge - Bot Detail Modal
+// Shared modal for viewing bot details across the app
+// ============================================================================
+
+"use client";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+
+interface BotDetailData {
+  id: string;
+  name: string;
+  shortDescription?: string;
+  short_description?: string;
+  personality?: string;
+  firstMessage?: string;
+  scenario?: string;
+  tags?: string[];
+  rating?: string;
+  imageUrl?: string;
+  image_url?: string;
+  hideSensitiveFields?: boolean;
+}
+
+interface BotDetailModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  bot: BotDetailData | null;
+}
+
+export function BotDetailModal({
+  open,
+  onOpenChange,
+  bot,
+}: BotDetailModalProps) {
+  if (!bot) return null;
+
+  const hideSensitive = bot.hideSensitiveFields === true;
+  const imgSrc = bot.imageUrl || bot.image_url;
+  const description =
+    bot.shortDescription || bot.short_description || "No description";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-md max-h-[85vh] p-0 flex flex-col overflow-hidden">
+        {/* Image container — fixed height, never overlaps text */}
+        {imgSrc && (
+          <div className="w-full h-40 sm:h-48 bg-muted shrink-0 relative">
+            <img
+              src={imgSrc}
+              alt={bot.name}
+              className="absolute inset-0 w-full h-full object-contain"
+            />
+          </div>
+        )}
+
+        {/* Content area — starts strictly below image, scrolls within remaining height */}
+        <div className="flex-1 overflow-y-auto px-5 pt-4 pb-5 space-y-4">
+          {/* Header */}
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              {bot.name}
+              {bot.rating && (
+                <Badge
+                  variant={bot.rating === "SFW" ? "secondary" : "destructive"}
+                  className="text-[10px]"
+                >
+                  {bot.rating}
+                </Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Bot details for {bot.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Tags */}
+          {bot.tags && bot.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {bot.tags.slice(0, 8).map((t) => (
+                <Badge key={t} variant="outline" className="text-[11px]">
+                  {t}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Description */}
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
+              Description
+            </p>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">
+              {description}
+            </p>
+          </div>
+
+          {/* Sensitive fields */}
+          {!hideSensitive && bot.personality && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
+                Personality
+              </p>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
+                {bot.personality}
+              </p>
+            </div>
+          )}
+
+          {!hideSensitive && bot.firstMessage && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
+                First Message
+              </p>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80 italic">
+                {bot.firstMessage}
+              </p>
+            </div>
+          )}
+
+          {!hideSensitive && bot.scenario && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
+                Scenario
+              </p>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
+                {bot.scenario}
+              </p>
+            </div>
+          )}
+
+          {hideSensitive && (
+            <p className="text-xs text-muted-foreground italic border-l-2 border-muted-foreground/30 pl-3">
+              Some fields are hidden by the creator.
+            </p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

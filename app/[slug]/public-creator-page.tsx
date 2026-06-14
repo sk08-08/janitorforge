@@ -11,10 +11,22 @@ import {
   ArrowLeft,
   Sparkles,
   Star,
-  MessageCircle,
   Clock,
   Users,
+  MapPin,
+  Award,
+  Heart,
+  MessageCircle,
 } from "lucide-react";
+import {
+  TwitterIcon,
+  DiscordIcon,
+  GithubIcon,
+  TiktokIcon,
+  YoutubeIcon,
+  TwitchIcon,
+  WebsiteIcon,
+} from "@/components/ui/social-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +40,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useState, useEffect } from "react";
+import {
+  followUser,
+  unfollowUser,
+  checkIsFollowing,
+} from "@/app/actions/profile";
+import { toast } from "sonner";
+import { FollowListModal } from "@/components/profile/follow-list-modal";
+import { BotDetailModal } from "@/components/bots/bot-detail-modal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +66,21 @@ interface Profile {
   slug: string | null;
   theme: Record<string, unknown> | null;
   created_at: string;
+  pronouns?: string | null;
+  location?: string | null;
+  website_url?: string | null;
+  specialties?: string[] | null;
+  status_message?: string | null;
+  social_links?: Record<string, string> | null;
+  profile_badges?: Array<{
+    id: string;
+    label: string;
+    icon?: string;
+    color?: string;
+  }> | null;
+  profile_completeness?: number | null;
+  _followers?: number;
+  _following?: number;
 }
 
 interface CreatorPageData {
@@ -97,19 +134,97 @@ interface PublicCreatorPageProps {
 }
 
 // ---------------------------------------------------------------------------
+// Follow Button Component
+// ---------------------------------------------------------------------------
+
+function FollowButton({
+  profileId,
+  themeColor,
+}: {
+  profileId: string;
+  themeColor: string;
+}) {
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    checkIsFollowing(profileId).then((r) => {
+      if (mounted) {
+        setIsFollowing(r.isFollowing);
+        setChecked(true);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [profileId]);
+
+  const handleToggle = async () => {
+    setLoading(true);
+    try {
+      if (isFollowing) {
+        const r = await unfollowUser(profileId);
+        if (r.success) setIsFollowing(false);
+        else toast.error(r.error || "Failed to unfollow");
+      } else {
+        const r = await followUser(profileId);
+        if (r.success) setIsFollowing(true);
+        else toast.error(r.error || "Failed to follow");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!checked) return null;
+
+  return (
+    <Button
+      variant={isFollowing ? "outline" : "default"}
+      size="sm"
+      className="cursor-pointer transition-all"
+      style={
+        isFollowing
+          ? { borderColor: `${themeColor}44`, color: themeColor }
+          : { background: themeColor }
+      }
+      onClick={handleToggle}
+      disabled={loading}
+    >
+      {isFollowing ? (
+        <>
+          <Heart className="h-4 w-4 mr-1 fill-current" /> Following
+        </>
+      ) : (
+        <>
+          <Users className="h-4 w-4 mr-1" /> Follow
+        </>
+      )}
+    </Button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Bot Card — Premium style with large image
 // ---------------------------------------------------------------------------
 
 function BotCardGrid({
   bot,
   themeColor,
+  onClick,
 }: {
   bot: BotPreview;
   themeColor?: string;
+  onClick?: () => void;
 }) {
   return (
     <Card
-      className="group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+      className="group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+      onClick={onClick}
       style={
         themeColor
           ? {
@@ -169,9 +284,18 @@ function BotCardGrid({
   );
 }
 
-function BotCardList({ bot }: { bot: BotPreview }) {
+function BotCardList({
+  bot,
+  onClick,
+}: {
+  bot: BotPreview;
+  onClick?: () => void;
+}) {
   return (
-    <Card className="group overflow-hidden transition-all duration-200 hover:border-primary/30 hover:shadow-md">
+    <Card
+      className="group overflow-hidden transition-all duration-200 hover:border-primary/30 hover:shadow-md cursor-pointer"
+      onClick={onClick}
+    >
       <CardContent className="flex items-center gap-4 p-4">
         {/* Image or icon */}
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
@@ -228,6 +352,7 @@ function SectionRenderer({
   layout?: string;
   themeColor: string;
 }) {
+  const isMobile = useIsMobile();
   const description = (section.config as any)?.description || "";
 
   switch (section.kind) {
@@ -496,6 +621,15 @@ function SectionRenderer({
       );
 
       if (positionMode === "absolute") {
+        if (isMobile) {
+          return (
+            <div className="space-y-2 w-full">
+              <div className="mx-auto max-w-full flex justify-center">
+                {imgEl}
+              </div>
+            </div>
+          );
+        }
         return (
           <div
             style={{
@@ -518,7 +652,7 @@ function SectionRenderer({
         right: "ml-auto",
       };
       return (
-        <div className="space-y-2">
+        <div className="space-y-2 w-full">
           <div
             className={
               alignMap[(section.config as any)?.alignment || "center"] ||
@@ -681,6 +815,11 @@ export function PublicCreatorPage({
   pageLayout = "grid",
   pageConfig = {},
 }: PublicCreatorPageProps) {
+  const [botDetailBot, setBotDetailBot] = useState<any>(null);
+  const [followModalOpen, setFollowModalOpen] = useState(false);
+  const [followModalTab, setFollowModalTab] = useState<
+    "followers" | "following"
+  >("followers");
   const displayName = profile?.display_name || profile?.username || "Creator";
   const themeColor =
     pageConfig.accentColor ||
@@ -719,8 +858,17 @@ export function PublicCreatorPage({
           : "";
 
   const renderBot = (bot: BotPreview) => {
-    if (pageLayout === "list") return <BotCardList key={bot.id} bot={bot} />;
-    return <BotCardGrid key={bot.id} bot={bot} themeColor={themeColor} />;
+    const openDetail = () => setBotDetailBot(bot);
+    if (pageLayout === "list")
+      return <BotCardList key={bot.id} bot={bot} onClick={openDetail} />;
+    return (
+      <BotCardGrid
+        key={bot.id}
+        bot={bot}
+        themeColor={themeColor}
+        onClick={openDetail}
+      />
+    );
   };
 
   const getDefaultGridClass = () => {
@@ -776,9 +924,19 @@ export function PublicCreatorPage({
           <div
             className={`flex-1 min-w-0 pt-2 ${headerStyle === "center" || headerStyle === "stacked" ? "flex flex-col items-center" : ""}`}
           >
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              {displayName}
-            </h1>
+            {/* Name + pronouns + handle — same structure as ProfilePage */}
+            <div
+              className={`flex items-center gap-2 flex-wrap ${headerStyle === "center" || headerStyle === "stacked" ? "justify-center" : ""}`}
+            >
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                {displayName}
+              </h1>
+              {profile?.pronouns && profile.pronouns !== "none" && (
+                <Badge variant="secondary" className="text-xs font-normal">
+                  {profile.pronouns}
+                </Badge>
+              )}
+            </div>
             {profile?.username && (
               <p
                 className="text-sm mt-0.5"
@@ -787,28 +945,210 @@ export function PublicCreatorPage({
                 @{profile.username}
               </p>
             )}
+            {profile?.status_message && (
+              <p className="text-sm italic text-muted-foreground mt-1">
+                &ldquo;{profile.status_message}&rdquo;
+              </p>
+            )}
+
+            {/* Follow counts — clickable, same style as ProfilePage */}
+            {(profile?._followers !== undefined ||
+              profile?._following !== undefined) && (
+              <div className="flex items-center gap-5 mt-2 text-sm">
+                <button
+                  className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => {
+                    setFollowModalTab("followers");
+                    setFollowModalOpen(true);
+                  }}
+                >
+                  <p
+                    className="text-lg font-bold"
+                    style={{ color: themeColor }}
+                  >
+                    {profile._followers || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Followers</p>
+                </button>
+                <button
+                  className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => {
+                    setFollowModalTab("following");
+                    setFollowModalOpen(true);
+                  }}
+                >
+                  <p
+                    className="text-lg font-bold"
+                    style={{ color: themeColor }}
+                  >
+                    {profile._following || 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Following</p>
+                </button>
+              </div>
+            )}
+
+            {/* Tagline — same position as ProfilePage */}
             {profile?.tagline && (
-              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+              <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
                 {profile.tagline}
               </p>
             )}
+
+            {/* Bio — same position as ProfilePage */}
+            {profile?.bio && (
+              <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                {profile.bio}
+              </p>
+            )}
+
+            {/* Meta: location, website, join date — same row as ProfilePage */}
+            <div
+              className={`flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs text-muted-foreground ${headerStyle === "center" || headerStyle === "stacked" ? "justify-center" : ""}`}
+            >
+              {profile?.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> {profile.location}
+                </span>
+              )}
+              {profile?.website_url && (
+                <a
+                  href={profile.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 hover:underline"
+                  style={{ color: themeColor }}
+                >
+                  <Globe className="h-3 w-3" />
+                  {new URL(profile.website_url).hostname}
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              )}
+              {profile?.created_at && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Joined{" "}
+                  {new Date(profile.created_at).toLocaleDateString("en-US", {
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              )}
+            </div>
+
+            {/* Social links — same position as ProfilePage */}
+            {profile?.social_links &&
+              Object.values(profile.social_links).some(
+                (v) => v && v.trim(),
+              ) && (
+                <div
+                  className={`flex flex-wrap gap-2 mt-4 ${headerStyle === "center" || headerStyle === "stacked" ? "justify-center" : ""}`}
+                >
+                  {Object.entries(profile.social_links).map(([key, value]) => {
+                    if (!value || !value.trim()) return null;
+                    const socialIconMap: Record<
+                      string,
+                      React.FC<{ className?: string; size?: number }>
+                    > = {
+                      twitter: TwitterIcon,
+                      discord: DiscordIcon,
+                      github: GithubIcon,
+                      tiktok: TiktokIcon,
+                      youtube: YoutubeIcon,
+                      twitch: TwitchIcon,
+                      website: WebsiteIcon,
+                    };
+                    const Icon = socialIconMap[key] || WebsiteIcon;
+                    const isUrl = value.startsWith("http");
+                    return isUrl ? (
+                      <a
+                        key={key}
+                        href={value}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Badge
+                          variant="outline"
+                          className="text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                          style={{
+                            borderColor: `${themeColor}44`,
+                            color: themeColor,
+                          }}
+                        >
+                          <Icon className="h-3 w-3 mr-1" />
+                          {key.charAt(0).toUpperCase() + key.slice(1)}
+                        </Badge>
+                      </a>
+                    ) : (
+                      <Badge
+                        key={key}
+                        variant="outline"
+                        className="text-xs"
+                        style={{ borderColor: `${themeColor}44` }}
+                      >
+                        <Icon className="h-3 w-3 mr-1" /> {value}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+
+            {/* Specialties — same position as ProfilePage */}
+            {profile?.specialties && profile.specialties.length > 0 && (
+              <div
+                className={`mt-4 ${headerStyle === "center" || headerStyle === "stacked" ? "flex flex-col items-center" : ""}`}
+              >
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                  Specialties
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {profile.specialties.map((s) => (
+                    <Badge
+                      key={s}
+                      variant="secondary"
+                      className="text-xs"
+                      style={{
+                        backgroundColor: `${themeColor}15`,
+                        color: themeColor,
+                      }}
+                    >
+                      {s}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Profile Badges — same position as ProfilePage */}
+            {profile?.profile_badges && profile.profile_badges.length > 0 && (
+              <div
+                className={`mt-4 ${headerStyle === "center" || headerStyle === "stacked" ? "flex flex-col items-center" : ""}`}
+              >
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                  Badges
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {profile.profile_badges.map((badge) => (
+                    <div
+                      key={badge.id}
+                      className="flex items-center gap-1.5 rounded-full border px-3 py-1"
+                      style={{ borderColor: badge.color || themeColor }}
+                    >
+                      <Award
+                        className="h-3.5 w-3.5"
+                        style={{ color: badge.color || themeColor }}
+                      />
+                      <span className="text-xs font-medium">{badge.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {showBadges && (
               <div
                 className={`flex flex-wrap items-center gap-2 mt-3 ${headerStyle === "center" || headerStyle === "stacked" ? "justify-center" : ""}`}
               >
-                <Badge
-                  variant="secondary"
-                  className="text-xs"
-                  style={{
-                    background: `${themeColor}15`,
-                    color: themeColor,
-                    border: `1px solid ${themeColor}33`,
-                  }}
-                >
-                  <Calendar className="h-3 w-3 mr-1" />
-                  Joined{" "}
-                  {new Date(profile?.created_at || "").toLocaleDateString()}
-                </Badge>
                 <Badge
                   variant="secondary"
                   className="text-xs"
@@ -825,45 +1165,29 @@ export function PublicCreatorPage({
             )}
           </div>
 
-          {/* Back to JanitorForge */}
-          {showBackButton && (
-            <Link href="/">
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 cursor-pointer transition-all hover:shadow-md"
-                style={{
-                  borderColor: `${themeColor}44`,
-                  color: themeColor,
-                }}
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back to JanitorForge
-              </Button>
-            </Link>
-          )}
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            {profile?.id && !activePage && (
+              <FollowButton profileId={profile.id} themeColor={themeColor} />
+            )}
+            {showBackButton && (
+              <Link href="/">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer transition-all hover:shadow-md"
+                  style={{
+                    borderColor: `${themeColor}44`,
+                    color: themeColor,
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Back
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
-
-        {/* Bio */}
-        {profile?.bio && (
-          <Card
-            className="mb-10"
-            style={{
-              borderColor: `${themeColor}33`,
-              background: `linear-gradient(135deg, ${themeColor}08, transparent)`,
-            }}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="h-4 w-4" style={{ color: themeColor }} />
-                <span className="text-sm font-medium">About</span>
-              </div>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                {profile.bio}
-              </p>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Active Page Sections */}
         {activePage && (
@@ -913,41 +1237,16 @@ export function PublicCreatorPage({
           </div>
         )}
 
-        {/* Profile page (no active page) - show bots + pages */}
+        {/* Profile page (no active page) — same sections order as ProfilePage */}
         {!activePage && (
-          <div className="space-y-10">
-            {/* Published Pages */}
-            {creatorPages.length > 0 && (
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <Layout className="h-5 w-5 text-primary" />
-                  Pages
-                </h2>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {creatorPages.map((page) => (
-                    <Link key={page.id} href={`/${page.slug}`}>
-                      <Card className="cursor-pointer transition-all hover:border-primary/40 hover:shadow-lg h-full group">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base">
-                            {page.title || "Untitled Page"}
-                          </CardTitle>
-                          <CardDescription className="line-clamp-2">
-                            {page.description || "No description"}
-                          </CardDescription>
-                        </CardHeader>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* All Bots */}
+          <div className="space-y-6">
+            {/* Bots */}
             <div className="space-y-4">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Bot className="h-5 w-5 text-primary" />
-                Bots by {displayName}
-              </h2>
+              <div className="flex items-center gap-3">
+                <Star className="h-5 w-5" style={{ color: themeColor }} />
+                <h2 className="text-lg font-semibold">Bots</h2>
+                <Badge variant="outline">{bots.length}</Badge>
+              </div>
               {bots.length > 0 ? (
                 <div className={getDefaultGridClass()}>
                   {bots.map(renderBot)}
@@ -960,7 +1259,121 @@ export function PublicCreatorPage({
                 </Card>
               )}
             </div>
+            <hr
+              className="border-t"
+              style={{ borderColor: `${themeColor}33` }}
+            />
+
+            {/* Creator Pages */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Layout className="h-5 w-5" style={{ color: themeColor }} />
+                <h2 className="text-lg font-semibold">Creator Pages</h2>
+                <Badge variant="outline">{creatorPages.length}</Badge>
+              </div>
+              {creatorPages.length > 0 ? (
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {creatorPages.map((page) => (
+                    <Link key={page.id} href={`/${page.slug}`}>
+                      <div className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer h-full">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium truncate">
+                            {page.title || "Untitled"}
+                          </p>
+                          <Badge
+                            variant={
+                              page.is_published ? "default" : "secondary"
+                            }
+                            className="text-[10px] shrink-0"
+                          >
+                            {page.is_published ? "Live" : "Draft"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {page.description || "No description"}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed p-6 text-center">
+                  <Layout className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    No creator pages yet
+                  </p>
+                </div>
+              )}
+            </div>
+            <hr
+              className="border-t"
+              style={{ borderColor: `${themeColor}33` }}
+            />
+
+            {/* Worlds */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Globe className="h-5 w-5" style={{ color: themeColor }} />
+                <h2 className="text-lg font-semibold">Worlds</h2>
+                <Badge variant="outline">{worlds.length}</Badge>
+              </div>
+              {worlds && worlds.length > 0 ? (
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {worlds.map((world) => (
+                    <div
+                      key={world.id}
+                      className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] capitalize"
+                        >
+                          {world.kind}
+                        </Badge>
+                        <p className="text-sm font-medium truncate">
+                          {world.title}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {world.description || "No description"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {world.bot_ids?.length || 0} bots
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed p-6 text-center">
+                  <Globe className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    No worlds created yet
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
+        )}
+
+        {/* Bot Detail Modal */}
+        <BotDetailModal
+          open={!!botDetailBot}
+          onOpenChange={(v) => {
+            if (!v) setBotDetailBot(null);
+          }}
+          bot={botDetailBot}
+        />
+
+        {/* Follow List Modal */}
+        {profile?.id && (
+          <FollowListModal
+            open={followModalOpen}
+            onOpenChange={setFollowModalOpen}
+            userId={profile.id}
+            tab={followModalTab}
+            themeColor={themeColor}
+          />
         )}
 
         {/* Footer */}

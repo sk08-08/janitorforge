@@ -28,12 +28,17 @@ export default async function CreatorPage({ params }: PageProps) {
     const { data: profile } = await supabase
       .from("profiles")
       .select(
-        "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at",
+        "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, featured_bot_ids, profile_badges, profile_completeness",
       )
       .eq("slug", slug)
       .maybeSingle();
 
     if (!profile) {
+      notFound();
+    }
+
+    // Check visibility
+    if (profile.visibility === "private") {
       notFound();
     }
 
@@ -55,13 +60,40 @@ export default async function CreatorPage({ params }: PageProps) {
       .order("updated_at", { ascending: false })
       .limit(20);
 
+    // Fetch worlds
+    const { data: worlds } = await supabase
+      .from("atlas_worlds")
+      .select("id, title, slug, kind, status, description, bot_ids")
+      .eq("user_id", profile.id)
+      .eq("status", "active")
+      .order("updated_at", { ascending: false });
+
+    // Fetch follow counts
+    const [{ count: followers }, { count: following }] = await Promise.all([
+      supabase
+        .from("profile_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("following_id", profile.id),
+      supabase
+        .from("profile_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", profile.id),
+    ]);
+
     return (
       <PublicCreatorPage
-        profile={profile}
+        profile={
+          {
+            ...(profile as Record<string, unknown>),
+            _followers: followers || 0,
+            _following: following || 0,
+          } as any
+        }
         creatorPages={pages || []}
         bots={bots || []}
         activePage={null}
         sections={[]}
+        worlds={worlds || []}
         pageLayout="grid"
         pageConfig={{}}
       />

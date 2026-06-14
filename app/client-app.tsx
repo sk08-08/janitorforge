@@ -12,6 +12,7 @@ import { BotManager } from "@/components/bots/bot-manager";
 import { FormManager } from "@/components/forms/form-manager";
 import { RequestsView } from "@/components/forms/requests-view";
 import { AtlasHub } from "@/components/atlas/atlas-hub";
+import { ProfilePage } from "@/components/profile/profile-page";
 import { FeedbackInbox } from "@/components/dashboard/feedback-inbox";
 import ModerationPageContent from "@/app/dashboard/moderation/content";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,6 +40,8 @@ function ViewRouter() {
       return <FeedbackInbox />;
     case "atlas":
       return <AtlasHub />;
+    case "profile":
+      return <ProfilePage />;
     default:
       return <DashboardHome />;
   }
