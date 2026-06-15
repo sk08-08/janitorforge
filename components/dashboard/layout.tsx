@@ -434,8 +434,13 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
               <SheetContent side="left" className="w-64 p-0">
                 <SheetHeader className="border-b border-sidebar-border p-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 neon-glow-sm">
-                      <Sparkles className="h-5 w-5 text-primary" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 neon-glow-sm overflow-hidden">
+                      <Image
+                        src="/logo.png"
+                        alt="JanitorForge Logo"
+                        width={24}
+                        height={24}
+                      />
                     </div>
                     <div className="flex flex-col">
                       <SheetTitle>JanitorForge</SheetTitle>
@@ -511,14 +516,28 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
                 {/* Mobile User & Logout */}
                 <div className="border-t border-sidebar-border p-2 space-y-2">
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-sidebar-accent/50">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20">
-                      <User className="h-4 w-4 text-primary" />
+                  {/* Profile — clickable */}
+                  <button
+                    className="flex w-full items-center gap-2 px-2 py-1.5 rounded-md bg-sidebar-accent/50 text-left transition-colors hover:bg-sidebar-accent cursor-pointer"
+                    onClick={() => {
+                      handleNavClick("profile");
+                    }}
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 overflow-hidden shrink-0">
+                      {userAvatarUrl ? (
+                        <img
+                          src={userAvatarUrl}
+                          alt={userDisplayName || username}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-4 w-4 text-primary" />
+                      )}
                     </div>
                     <span className="flex-1 text-sm font-medium truncate">
-                      {username}
+                      {userDisplayName || username}
                     </span>
-                  </div>
+                  </button>
                   <Button
                     variant="ghost"
                     size="sm"
