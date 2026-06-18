@@ -45,6 +45,7 @@ import type { NavigationView } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { getOwnProfile } from "@/app/actions/profile";
+import { NotificationBell } from "./notification-bell";
 
 // ----------------------------------------------------------------------------
 // Navigation Configuration
@@ -355,6 +356,13 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
           {/* Collapse Toggle & User */}
           <div className="border-t border-sidebar-border p-2 space-y-2">
+            {/* Notifications — desktop */}
+            {!collapsed && (
+              <div className="px-1">
+                <NotificationBell />
+              </div>
+            )}
+
             {/* User Info — clickable to open profile */}
             <button
               className={cn(
@@ -416,16 +424,19 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
         {/* Main Content */}
         <main className="flex-1 overflow-auto bg-background relative">
-          {/* Mobile Menu Button */}
+          {/* Mobile Top Bar */}
           {isMobile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 left-4 z-40 md:hidden cursor-pointer"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
+            <div className="absolute top-3 left-3 right-3 z-40 flex items-center justify-between md:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="cursor-pointer"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              <NotificationBell />
+            </div>
           )}
 
           {/* Mobile Sidebar Menu */}

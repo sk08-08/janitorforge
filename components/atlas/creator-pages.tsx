@@ -1307,7 +1307,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                           <SelectContent>
                             {availableForms.map((form) => (
                               <SelectItem key={form.id} value={form.id}>
-                                {form.form_title || form.id.slice(0, 8)}
+                                {form.form_title || "Untitled form"}
                               </SelectItem>
                             ))}
                           </SelectContent>

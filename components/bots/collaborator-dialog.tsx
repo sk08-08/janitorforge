@@ -46,6 +46,12 @@ import { cn } from "@/lib/utils";
 
 type CollaboratorRole = "viewer" | "editor" | "co_owner";
 
+interface CollaboratorProfile {
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
 interface CollaboratorRecord {
   id: string;
   user_id: string;
@@ -53,6 +59,8 @@ interface CollaboratorRecord {
   role: CollaboratorRole;
   status: "pending" | "accepted" | "declined";
   created_at: string;
+  profile?: CollaboratorProfile | null;
+  inviter?: { username: string | null; display_name: string | null } | null;
 }
 
 interface CollaboratorDialogProps {
@@ -249,7 +257,9 @@ export function CollaboratorDialog({
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {collab.user_id.slice(0, 8)}...
+                          {collab.profile?.display_name ||
+                            collab.profile?.username ||
+                            "Unknown user"}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <Badge

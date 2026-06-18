@@ -126,7 +126,9 @@ export async function getBotCollaborators(botId: string) {
 
   const { data, error } = await supabase
     .from("bot_collaborators")
-    .select("id, user_id, invited_by, role, status, created_at")
+    .select(
+      "id, user_id, invited_by, role, status, created_at, profile:user_id(username, display_name, avatar_url), inviter:invited_by(username, display_name)",
+    )
     .eq("bot_id", botId);
 
   if (error) {
@@ -208,7 +210,9 @@ export async function getMyPendingInvites() {
 
   const { data, error } = await supabase
     .from("bot_collaborators")
-    .select("id, bot_id, invited_by, role, status, created_at")
+    .select(
+      "id, bot_id, invited_by, role, status, created_at, bot:bot_id(name), inviter:invited_by(username, display_name)",
+    )
     .eq("user_id", access.user.id)
     .eq("status", "pending");
 
