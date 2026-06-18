@@ -5,17 +5,13 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Bell, Check, CheckCheck, Trash2, Loader2, Inbox } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import {
   getNotifications,
@@ -27,16 +23,6 @@ import {
 } from "@/app/actions/notifications";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-// Notification type config for icons and colors
-const typeConfig: Record<string, { color: string; bg: string }> = {
-  new_request: { color: "text-blue-400", bg: "bg-blue-500/10" },
-  request_status_change: { color: "text-emerald-400", bg: "bg-emerald-500/10" },
-  new_follower: { color: "text-pink-400", bg: "bg-pink-500/10" },
-  flagged_submission: { color: "text-red-400", bg: "bg-red-500/10" },
-  collaboration_invite: { color: "text-purple-400", bg: "bg-purple-500/10" },
-  form_shared: { color: "text-amber-400", bg: "bg-amber-500/10" },
-};
 
 function getTimeAgo(dateStr: string): string {
   const now = Date.now();
@@ -75,53 +61,11 @@ export function NotificationBell() {
     setLoading(false);
   }, []);
 
-  // Load count on mount + Supabase Realtime subscription
+  // Load count on mount and poll every 60s
   useEffect(() => {
     refreshCount();
-
-    const supabase = createClient();
-
-    // Subscribe to real-time changes on notifications table
-    const channel = supabase
-      .channel("notifications-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*", // INSERT, UPDATE, DELETE
-          schema: "public",
-          table: "notifications",
-        },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            // New notification arrived — increment count and prepend to list
-            setUnreadCount((prev) => prev + 1);
-            setNotifications((prev) => {
-              const newNotif = payload.new as Notification;
-              // Avoid duplicates
-              if (prev.some((n) => n.id === newNotif.id)) return prev;
-              return [newNotif, ...prev];
-            });
-          } else if (payload.eventType === "UPDATE") {
-            // Notification updated (e.g. marked as read)
-            const updated = payload.new as Notification;
-            setNotifications((prev) =>
-              prev.map((n) => (n.id === updated.id ? updated : n)),
-            );
-            // Recalculate unread count
-            refreshCount();
-          } else if (payload.eventType === "DELETE") {
-            // Notification deleted
-            const deletedId = (payload.old as { id: string }).id;
-            setNotifications((prev) => prev.filter((n) => n.id !== deletedId));
-            refreshCount();
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const interval = setInterval(refreshCount, 60000);
+    return () => clearInterval(interval);
   }, [refreshCount]);
 
   // Load full list when dropdown opens
@@ -165,11 +109,11 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-9 w-9 cursor-pointer"
+          className="relative h-7 w-7 cursor-pointer"
         >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -212,73 +156,64 @@ export function NotificationBell() {
           </div>
         ) : (
           <div className="divide-y divide-border/30">
-            {notifications.map((notification) => {
-              const config = typeConfig[notification.type] || {
-                color: "text-muted-foreground",
-                bg: "bg-muted",
-              };
-
-              return (
-                <div
-                  key={notification.id}
-                  className={cn(
-                    "group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
-                    !notification.is_read && "bg-primary/[0.03]",
-                  )}
-                >
-                  {/* Unread indicator + content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      {!notification.is_read && (
-                        <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                      )}
-                      <p
-                        className={cn(
-                          "text-sm font-medium truncate",
-                          !notification.is_read
-                            ? "text-foreground"
-                            : "text-muted-foreground",
-                        )}
-                      >
-                        {notification.title}
-                      </p>
-                    </div>
-                    {notification.message && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                        {notification.message}
-                      </p>
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={cn(
+                  "group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
+                  !notification.is_read && "bg-primary/[0.03]",
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {!notification.is_read && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
                     )}
-                    <p className="text-[10px] text-muted-foreground/60 mt-1">
-                      {getTimeAgo(notification.created_at)}
+                    <p
+                      className={cn(
+                        "text-sm font-medium truncate",
+                        !notification.is_read
+                          ? "text-foreground"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {notification.title}
                     </p>
                   </div>
+                  {notification.message && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      {notification.message}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                    {getTimeAgo(notification.created_at)}
+                  </p>
+                </div>
 
-                  {/* Actions (visible on hover) */}
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    {!notification.is_read && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 cursor-pointer"
-                        title="Mark as read"
-                        onClick={() => handleMarkAsRead(notification.id)}
-                      >
-                        <Check className="h-3 w-3" />
-                      </Button>
-                    )}
+                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  {!notification.is_read && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 cursor-pointer text-muted-foreground hover:text-destructive"
-                      title="Delete"
-                      onClick={() => handleDelete(notification.id)}
+                      className="h-6 w-6 cursor-pointer"
+                      title="Mark as read"
+                      onClick={() => handleMarkAsRead(notification.id)}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Check className="h-3 w-3" />
                     </Button>
-                  </div>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 cursor-pointer text-muted-foreground hover:text-destructive"
+                    title="Delete"
+                    onClick={() => handleDelete(notification.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </DropdownMenuContent>

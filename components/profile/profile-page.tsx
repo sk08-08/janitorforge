@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { BotDetailModal } from "@/components/bots/bot-detail-modal";
+import { renderMarkdown } from "@/lib/markdown";
 import {
   User,
   Pencil,
@@ -702,9 +703,14 @@ export function ProfilePage() {
                     {form.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {form.description || "No description"}
-                </p>
+                <p
+                  className="text-xs text-muted-foreground line-clamp-2 rendered-markdown"
+                  dangerouslySetInnerHTML={{
+                    __html: form.description
+                      ? renderMarkdown(form.description)
+                      : "No description",
+                  }}
+                />
                 <p className="text-[10px] text-muted-foreground mt-1">
                   {requests.filter((r) => r.formId === form.id).length}{" "}
                   responses · {form.sections.length} sections

@@ -198,6 +198,32 @@ export async function forkBot(originalBotId: string, reason?: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Get followed users for current user (for suggestions)
+// ---------------------------------------------------------------------------
+
+export async function getMyFollowing() {
+  const supabase = await createClient();
+  const access = await getCurrentUserAccess(supabase);
+  if (!access.user) {
+    return { success: false, error: "Not authenticated", following: [] };
+  }
+
+  const { data, error } = await supabase
+    .from("profile_follows")
+    .select("following:following_id(id, username, display_name, avatar_url)")
+    .eq("follower_id", access.user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return { success: false, error: error.message, following: [] };
+  }
+
+  const following = (data || []).map((r: any) => r.following).filter(Boolean);
+
+  return { success: true, following };
+}
+
+// ---------------------------------------------------------------------------
 // Get pending invites for current user
 // ---------------------------------------------------------------------------
 

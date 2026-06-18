@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import {
   Users,
+  User,
   UserPlus,
   Trash2,
   Check,
@@ -40,6 +41,7 @@ import {
   inviteCollaborator,
   getBotCollaborators,
   removeCollaborator,
+  getMyFollowing,
 } from "@/app/actions/collaboration";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -120,6 +122,15 @@ export function CollaboratorDialog({
   const [inviteUsername, setInviteUsername] = useState("");
   const [inviteRole, setInviteRole] = useState<CollaboratorRole>("editor");
   const [inviting, setInviting] = useState(false);
+  const [suggestions, setSuggestions] = useState<
+    Array<{
+      id: string;
+      username: string | null;
+      display_name: string | null;
+      avatar_url: string | null;
+    }>
+  >([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -127,11 +138,17 @@ export function CollaboratorDialog({
     let mounted = true;
     setLoading(true);
 
-    getBotCollaborators(botId).then((result) => {
-      if (!mounted) return;
-      setCollaborators(result.collaborators as CollaboratorRecord[]);
-      setLoading(false);
-    });
+    // Load collaborators and following list in parallel
+    Promise.all([getBotCollaborators(botId), getMyFollowing()]).then(
+      ([collabResult, followingResult]) => {
+        if (!mounted) return;
+        setCollaborators(collabResult.collaborators as CollaboratorRecord[]);
+        if (followingResult.success && followingResult.following) {
+          setSuggestions(followingResult.following as typeof suggestions);
+        }
+        setLoading(false);
+      },
+    );
 
     return () => {
       mounted = false;
@@ -183,14 +200,85 @@ export function CollaboratorDialog({
         {/* Invite form */}
         <div className="space-y-3 rounded-lg border border-border/70 bg-muted/30 p-4">
           <Label className="text-sm font-medium">Invite a collaborator</Label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              value={inviteUsername}
-              onChange={(e) => setInviteUsername(e.target.value.toLowerCase())}
-              placeholder="Username"
-              className="flex-1"
-              maxLength={48}
-            />
+          <div className="flex flex-col gap-2 sm:flex-row relative">
+            <div className="flex-1 relative">
+              <Input
+                value={inviteUsername}
+                onChange={(e) => {
+                  setInviteUsername(e.target.value.toLowerCase());
+                  setShowSuggestions(e.target.value.length > 0);
+                }}
+                onFocus={() => setShowSuggestions(inviteUsername.length > 0)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="Username"
+                className="w-full"
+                maxLength={48}
+              />
+              {/* Suggestions dropdown */}
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-40 overflow-y-auto rounded-md border border-border bg-popover shadow-md">
+                  {suggestions
+                    .filter(
+                      (s) =>
+                        (s.username || "")
+                          .toLowerCase()
+                          .includes(inviteUsername) ||
+                        (s.display_name || "")
+                          .toLowerCase()
+                          .includes(inviteUsername),
+                    )
+                    .filter(
+                      (s) => !collaborators.some((c) => c.user_id === s.id),
+                    )
+                    .slice(0, 5)
+                    .map((s) => (
+                      <button
+                        key={s.id}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted cursor-pointer"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setInviteUsername(s.username || "");
+                          setShowSuggestions(false);
+                        }}
+                      >
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 overflow-hidden shrink-0">
+                          {s.avatar_url ? (
+                            <img
+                              src={s.avatar_url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <User className="h-3 w-3 text-primary" />
+                          )}
+                        </div>
+                        <span className="font-medium">
+                          {s.display_name || s.username}
+                        </span>
+                        {s.username && s.display_name && (
+                          <span className="text-muted-foreground text-xs">
+                            @{s.username}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  {suggestions.filter(
+                    (s) =>
+                      ((s.username || "")
+                        .toLowerCase()
+                        .includes(inviteUsername) ||
+                        (s.display_name || "")
+                          .toLowerCase()
+                          .includes(inviteUsername)) &&
+                      !collaborators.some((c) => c.user_id === s.id),
+                  ).length === 0 && (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      No matches in your following list
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
             <Select
               value={inviteRole}
               onValueChange={(v) => setInviteRole(v as CollaboratorRole)}

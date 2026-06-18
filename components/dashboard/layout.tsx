@@ -356,14 +356,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
           {/* Collapse Toggle & User */}
           <div className="border-t border-sidebar-border p-2 space-y-2">
-            {/* Notifications — desktop */}
-            {!collapsed && (
-              <div className="px-1">
-                <NotificationBell />
-              </div>
-            )}
-
-            {/* User Info — clickable to open profile */}
+            {/* User Info — clickable to open profile, with notification bell */}
             <button
               className={cn(
                 "flex w-full items-center gap-2 px-2 py-1.5 rounded-md bg-sidebar-accent/50 text-left transition-colors hover:bg-sidebar-accent cursor-pointer",
@@ -383,9 +376,14 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                 )}
               </div>
               {!collapsed && (
-                <span className="flex-1 text-sm font-medium truncate">
-                  {userDisplayName || username}
-                </span>
+                <>
+                  <span className="flex-1 text-sm font-medium truncate">
+                    {userDisplayName || username}
+                  </span>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <NotificationBell />
+                  </div>
+                </>
               )}
             </button>
 
