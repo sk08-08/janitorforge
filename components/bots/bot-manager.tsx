@@ -74,6 +74,7 @@ import { toast } from "sonner";
 import type { Bot, BotFormData } from "@/lib/types";
 import { CollaboratorDialog } from "./collaborator-dialog";
 import { forkBot } from "@/app/actions/collaboration";
+import { PendingInvites } from "./pending-invites";
 
 // ----------------------------------------------------------------------------
 // View Modes
@@ -460,6 +461,9 @@ export function BotManager() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 lg:p-10">
+      {/* Pending Collaboration Invites */}
+      <PendingInvites />
+
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

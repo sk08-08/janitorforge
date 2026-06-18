@@ -5,8 +5,9 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Bell, Check, CheckCheck, Trash2, Loader2, Inbox } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -74,11 +75,53 @@ export function NotificationBell() {
     setLoading(false);
   }, []);
 
-  // Load count on mount and periodically
+  // Load count on mount + Supabase Realtime subscription
   useEffect(() => {
     refreshCount();
-    const interval = setInterval(refreshCount, 30000); // every 30s
-    return () => clearInterval(interval);
+
+    const supabase = createClient();
+
+    // Subscribe to real-time changes on notifications table
+    const channel = supabase
+      .channel("notifications-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // INSERT, UPDATE, DELETE
+          schema: "public",
+          table: "notifications",
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            // New notification arrived — increment count and prepend to list
+            setUnreadCount((prev) => prev + 1);
+            setNotifications((prev) => {
+              const newNotif = payload.new as Notification;
+              // Avoid duplicates
+              if (prev.some((n) => n.id === newNotif.id)) return prev;
+              return [newNotif, ...prev];
+            });
+          } else if (payload.eventType === "UPDATE") {
+            // Notification updated (e.g. marked as read)
+            const updated = payload.new as Notification;
+            setNotifications((prev) =>
+              prev.map((n) => (n.id === updated.id ? updated : n)),
+            );
+            // Recalculate unread count
+            refreshCount();
+          } else if (payload.eventType === "DELETE") {
+            // Notification deleted
+            const deletedId = (payload.old as { id: string }).id;
+            setNotifications((prev) => prev.filter((n) => n.id !== deletedId));
+            refreshCount();
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [refreshCount]);
 
   // Load full list when dropdown opens
