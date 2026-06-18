@@ -302,12 +302,12 @@ DECLARE
   v_form_title TEXT;
 BEGIN
   -- Get form owner and title
-  SELECT owner_id, title INTO v_owner_id, v_form_title
+  SELECT user_id, title INTO v_owner_id, v_form_title
   FROM request_forms
   WHERE id = NEW.form_id;
 
   -- Don't notify yourself
-  IF v_owner_id IS NOT NULL AND v_owner_id != NEW.owner_id THEN
+  IF v_owner_id IS NOT NULL AND v_owner_id != NEW.user_id THEN
     INSERT INTO notifications (user_id, type, title, message, link, metadata)
     VALUES (
       v_owner_id,
@@ -342,7 +342,7 @@ BEGIN
   END IF;
 
   -- Notify the form owner
-  SELECT owner_id INTO v_owner_id
+  SELECT user_id INTO v_owner_id
   FROM request_forms
   WHERE id = NEW.form_id;
 
