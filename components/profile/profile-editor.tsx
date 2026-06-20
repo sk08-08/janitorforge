@@ -1,6 +1,7 @@
 // ============================================================================
 // JanitorForge - Profile Editor (Tabbed)
 // Rich profile customization with General, Social, Appearance, Featured, Privacy
+// Fully responsive with improved UX
 // ============================================================================
 
 "use client";
@@ -40,10 +41,18 @@ import {
   MapPin,
   Globe,
   MessageCircle,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
 } from "lucide-react";
 import { getOwnProfile, updateProfile } from "@/app/actions/profile";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+// ----------------------------------------------------------------------------
+// Types & Constants
+// ----------------------------------------------------------------------------
 
 interface ProfileEditorProps {
   open: boolean;
@@ -51,21 +60,14 @@ interface ProfileEditorProps {
   onSaved?: () => void;
 }
 
-interface SocialLink {
-  platform: string;
-  url: string;
-  label: string;
-  icon: string;
-}
-
 const socialPlatforms = [
-  { key: "twitter", label: "Twitter / X", icon: "Twitter" },
-  { key: "discord", label: "Discord", icon: "MessageCircle" },
-  { key: "github", label: "GitHub", icon: "Globe" },
-  { key: "tiktok", label: "TikTok", icon: "Globe" },
-  { key: "youtube", label: "YouTube", icon: "Globe" },
-  { key: "twitch", label: "Twitch", icon: "Globe" },
-  { key: "website", label: "Website", icon: "Globe" },
+  { key: "twitter", label: "Twitter / X", placeholder: "https://x.com/..." },
+  { key: "discord", label: "Discord", placeholder: "username#0000" },
+  { key: "github", label: "GitHub", placeholder: "https://github.com/..." },
+  { key: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/..." },
+  { key: "youtube", label: "YouTube", placeholder: "https://youtube.com/..." },
+  { key: "twitch", label: "Twitch", placeholder: "https://twitch.tv/..." },
+  { key: "website", label: "Website", placeholder: "https://..." },
 ];
 
 const accentPresets = [
@@ -75,7 +77,121 @@ const accentPresets = [
   { label: "Amber", value: "#f59e0b" },
   { label: "Sky", value: "#0ea5e9" },
   { label: "Slate", value: "#64748b" },
+  { label: "Fuchsia", value: "#d946ef" },
+  { label: "Teal", value: "#14b8a6" },
 ];
+
+// ----------------------------------------------------------------------------
+// Sub-components
+// ----------------------------------------------------------------------------
+
+function ColorPickerField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <input
+            type="color"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-9 w-9 rounded-full cursor-pointer border-2 border-border appearance-none [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
+          />
+        </div>
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 font-mono text-xs h-9"
+          maxLength={7}
+        />
+      </div>
+      <div className="flex gap-1 mt-1">
+        {accentPresets.slice(0, 6).map((preset) => (
+          <button
+            key={preset.value}
+            type="button"
+            className={cn(
+              "h-5 w-5 rounded-full border cursor-pointer transition-transform hover:scale-110",
+              value === preset.value && "ring-2 ring-primary ring-offset-1",
+            )}
+            style={{ backgroundColor: preset.value }}
+            onClick={() => onChange(preset.value)}
+            title={preset.label}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ImagePreview({
+  url,
+  alt,
+  fallback,
+  aspectRatio = "square",
+  className,
+}: {
+  url: string;
+  alt: string;
+  fallback: React.ReactNode;
+  aspectRatio?: "square" | "banner";
+  className?: string;
+}) {
+  const [error, setError] = useState(false);
+
+  if (!url) {
+    return (
+      <div
+        className={cn(
+          "flex items-center justify-center bg-muted border-2 border-dashed border-border",
+          aspectRatio === "square"
+            ? "h-20 w-20 rounded-full"
+            : "h-24 w-full rounded-lg",
+          className,
+        )}
+      >
+        {fallback}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "overflow-hidden border bg-muted relative",
+        aspectRatio === "square"
+          ? "h-20 w-20 rounded-full"
+          : "h-24 w-full rounded-lg",
+        className,
+      )}
+    >
+      {error ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+          {fallback}
+        </div>
+      ) : (
+        <img
+          src={url}
+          alt={alt}
+          className="h-full w-full object-cover"
+          onError={() => setError(true)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Main Component
+// ----------------------------------------------------------------------------
 
 export function ProfileEditor({
   open,
@@ -87,7 +203,6 @@ export function ProfileEditor({
 
   // General
   const [displayName, setDisplayName] = useState("");
-  const [slug, setSlug] = useState("");
   const [pronouns, setPronouns] = useState("");
   const [tagline, setTagline] = useState("");
   const [bio, setBio] = useState("");
@@ -131,7 +246,6 @@ export function ProfileEditor({
       if (result.success && result.profile) {
         const p = result.profile;
         setDisplayName(p.display_name || "");
-        setSlug(p.slug || "");
         setPronouns(p.pronouns || "");
         setTagline(p.tagline || "");
         setBio(p.bio || "");
@@ -157,10 +271,15 @@ export function ProfileEditor({
         setCardStyle((theme.cardStyle as string) || "default");
         setFontFamily((theme.fontFamily as string) || "default");
         setProfileBackground((theme.profileBackground as string) || "default");
-        setShowStats(theme.showStats !== false);
-        setShowBadges(theme.showBadges !== false);
-        setShowFeatured(theme.showFeatured !== false);
-        setHideCompletenessNudge(theme.hideCompletenessNudge === "true");
+        setShowStats(theme.showStats === true || theme.showStats === "true");
+        setShowBadges(theme.showBadges === true || theme.showBadges === "true");
+        setShowFeatured(
+          theme.showFeatured === true || theme.showFeatured === "true",
+        );
+        setHideCompletenessNudge(
+          theme.hideCompletenessNudge === true ||
+            theme.hideCompletenessNudge === "true",
+        );
       }
     } catch (err) {
       console.error("Failed to load profile:", err);
@@ -178,7 +297,6 @@ export function ProfileEditor({
     try {
       const result = await updateProfile({
         display_name: displayName,
-        slug,
         pronouns,
         tagline,
         bio,
@@ -199,10 +317,10 @@ export function ProfileEditor({
           cardStyle,
           fontFamily,
           profileBackground,
-          showStats: String(showStats),
-          showBadges: String(showBadges),
-          showFeatured: String(showFeatured),
-          hideCompletenessNudge: String(hideCompletenessNudge),
+          showStats,
+          showBadges,
+          showFeatured,
+          hideCompletenessNudge,
         },
       });
 
@@ -221,8 +339,9 @@ export function ProfileEditor({
   };
 
   const addSpecialty = () => {
-    if (specialtyInput.trim() && !specialties.includes(specialtyInput.trim())) {
-      setSpecialties([...specialties, specialtyInput.trim()]);
+    const trimmed = specialtyInput.trim();
+    if (trimmed && !specialties.includes(trimmed) && specialties.length < 10) {
+      setSpecialties([...specialties, trimmed]);
       setSpecialtyInput("");
     }
   };
@@ -231,10 +350,14 @@ export function ProfileEditor({
     setSpecialties(specialties.filter((t) => t !== s));
   };
 
+  const filledSocialCount = Object.values(socialLinks).filter(
+    (v) => v && v.trim(),
+  ).length;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
             Customize your public profile. Changes are saved when you click
@@ -247,86 +370,115 @@ export function ProfileEditor({
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 h-auto">
-              <TabsTrigger value="general" className="text-xs px-1 py-1.5">
+          <Tabs
+            defaultValue="general"
+            className="flex-1 overflow-hidden flex flex-col min-h-0"
+          >
+            {/* Responsive tab bar — horizontal scroll on mobile */}
+            <TabsList className="shrink-0 w-full overflow-x-auto flex sm:grid sm:grid-cols-5 h-auto gap-0.5 sm:gap-1 scrollbar-none">
+              <TabsTrigger
+                value="general"
+                className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
+              >
                 <User className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
                 General
               </TabsTrigger>
-              <TabsTrigger value="social" className="text-xs px-1 py-1.5">
+              <TabsTrigger
+                value="social"
+                className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
+              >
                 <Share2 className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
                 Social
+                {filledSocialCount > 0 && (
+                  <span className="ml-1 text-[10px] opacity-60">
+                    ({filledSocialCount})
+                  </span>
+                )}
               </TabsTrigger>
-              <TabsTrigger value="appearance" className="text-xs px-1 py-1.5">
+              <TabsTrigger
+                value="appearance"
+                className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
+              >
                 <Palette className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
                 Theme
               </TabsTrigger>
-              <TabsTrigger value="featured" className="text-xs px-1 py-1.5">
+              <TabsTrigger
+                value="featured"
+                className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
+              >
                 <Star className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
                 Featured
+                {featuredBotIds.length > 0 && (
+                  <span className="ml-1 text-[10px] opacity-60">
+                    ({featuredBotIds.length})
+                  </span>
+                )}
               </TabsTrigger>
-              <TabsTrigger value="privacy" className="text-xs px-1 py-1.5">
+              <TabsTrigger
+                value="privacy"
+                className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
+              >
                 <Shield className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
                 Privacy
               </TabsTrigger>
             </TabsList>
 
             {/* ===== GENERAL TAB ===== */}
-            <TabsContent value="general" className="space-y-4 mt-4">
-              {/* Avatar preview */}
-              <div className="flex items-start gap-4">
-                <div className="shrink-0">
-                  <div className="h-20 w-20 rounded-full border-2 border-dashed border-border overflow-hidden bg-muted flex items-center justify-center">
-                    {avatarUrl ? (
-                      <img
-                        src={avatarUrl}
-                        alt="Avatar"
-                        className="h-full w-full object-cover"
-                        onError={(e) =>
-                          ((e.target as HTMLImageElement).style.display =
-                            "none")
-                        }
-                      />
-                    ) : (
-                      <User className="h-8 w-8 text-muted-foreground" />
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1 space-y-2 min-w-0">
-                  <Label>Avatar URL</Label>
+            <TabsContent
+              value="general"
+              className="space-y-4 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
+            >
+              {/* Avatar & Banner Preview — stacked on mobile */}
+              <div className="space-y-3">
+                {/* Banner */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center gap-1">
+                    <ImageIcon className="h-3 w-3" /> Banner
+                  </Label>
+                  <ImagePreview
+                    url={bannerUrl}
+                    alt="Banner preview"
+                    aspectRatio="banner"
+                    fallback={
+                      <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                    }
+                  />
                   <Input
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    placeholder="https://example.com/avatar.png"
+                    value={bannerUrl}
+                    onChange={(e) => setBannerUrl(e.target.value)}
+                    placeholder="https://example.com/banner.png"
+                    className="text-xs"
                   />
                 </div>
-              </div>
 
-              {/* Banner URL */}
-              <div className="space-y-1.5">
-                <Label>Banner Image URL</Label>
-                <Input
-                  value={bannerUrl}
-                  onChange={(e) => setBannerUrl(e.target.value)}
-                  placeholder="https://example.com/banner.png"
-                />
-                {bannerUrl && (
-                  <div className="h-20 w-full rounded-lg overflow-hidden border bg-muted">
-                    <img
-                      src={bannerUrl}
-                      alt="Banner preview"
-                      className="h-full w-full object-cover"
-                      onError={(e) =>
-                        ((e.target as HTMLImageElement).style.display = "none")
-                      }
+                {/* Avatar */}
+                <div className="flex items-end gap-3">
+                  <ImagePreview
+                    url={avatarUrl}
+                    alt="Avatar preview"
+                    aspectRatio="square"
+                    fallback={
+                      <User className="h-8 w-8 text-muted-foreground/40" />
+                    }
+                  />
+                  <div className="flex-1 space-y-1.5 min-w-0">
+                    <Label className="text-xs flex items-center gap-1">
+                      <User className="h-3 w-3" /> Avatar URL
+                    </Label>
+                    <Input
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      placeholder="https://example.com/avatar.png"
+                      className="text-xs"
                     />
                   </div>
-                )}
+                </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Name & Slug */}
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Display Name</Label>
+                  <Label className="text-xs">Display Name</Label>
                   <Input
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
@@ -334,35 +486,14 @@ export function ProfileEditor({
                     maxLength={64}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Profile URL</Label>
-                  <div className="flex items-center gap-0">
-                    <span className="flex h-10 shrink-0 items-center rounded-l-md border border-r-0 bg-muted px-3 text-xs text-muted-foreground">
-                      /
-                    </span>
-                    <Input
-                      value={slug}
-                      onChange={(e) =>
-                        setSlug(
-                          e.target.value
-                            .toLowerCase()
-                            .replace(/[^a-z0-9-]/g, "-")
-                            .replace(/-+/g, "-"),
-                        )
-                      }
-                      placeholder="your-slug"
-                      maxLength={48}
-                      className="rounded-l-none"
-                    />
-                  </div>
-                </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Pronouns & Location */}
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Pronouns</Label>
+                  <Label className="text-xs">Pronouns</Label>
                   <Select value={pronouns} onValueChange={setPronouns}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9">
                       <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -377,9 +508,8 @@ export function ProfileEditor({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>
-                    <MapPin className="inline h-3 w-3 mr-1" />
-                    Location
+                  <Label className="text-xs flex items-center gap-1">
+                    <MapPin className="h-3 w-3" /> Location
                   </Label>
                   <Input
                     value={location}
@@ -390,23 +520,24 @@ export function ProfileEditor({
                 </div>
               </div>
 
+              {/* Tagline */}
               <div className="space-y-1.5">
-                <Label>Tagline</Label>
+                <Label className="text-xs">Tagline</Label>
                 <Input
                   value={tagline}
                   onChange={(e) => setTagline(e.target.value)}
                   placeholder="A short tagline about yourself"
                   maxLength={120}
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  {tagline.length}/120 characters
+                <p className="text-[10px] text-muted-foreground text-right">
+                  {tagline.length}/120
                 </p>
               </div>
 
+              {/* Status */}
               <div className="space-y-1.5">
-                <Label>
-                  <MessageCircle className="inline h-3 w-3 mr-1" />
-                  Status Message
+                <Label className="text-xs flex items-center gap-1">
+                  <MessageCircle className="h-3 w-3" /> Status Message
                 </Label>
                 <Input
                   value={statusMessage}
@@ -416,24 +547,26 @@ export function ProfileEditor({
                 />
               </div>
 
+              {/* Bio */}
               <div className="space-y-1.5">
-                <Label>Bio</Label>
+                <Label className="text-xs">Bio</Label>
                 <Textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell the community about yourself..."
-                  rows={5}
+                  rows={4}
                   maxLength={2000}
+                  className="resize-none"
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  {bio.length}/2000 characters
+                <p className="text-[10px] text-muted-foreground text-right">
+                  {bio.length}/2000
                 </p>
               </div>
 
+              {/* Website */}
               <div className="space-y-1.5">
-                <Label>
-                  <Globe className="inline h-3 w-3 mr-1" />
-                  Website URL
+                <Label className="text-xs flex items-center gap-1">
+                  <Globe className="h-3 w-3" /> Website
                 </Label>
                 <Input
                   value={websiteUrl}
@@ -444,7 +577,7 @@ export function ProfileEditor({
 
               {/* Specialties */}
               <div className="space-y-1.5">
-                <Label>Specialties</Label>
+                <Label className="text-xs">Specialties</Label>
                 <div className="flex gap-2">
                   <Input
                     value={specialtyInput}
@@ -453,13 +586,20 @@ export function ProfileEditor({
                     onKeyDown={(e) =>
                       e.key === "Enter" && (e.preventDefault(), addSpecialty())
                     }
+                    maxLength={30}
+                    disabled={specialties.length >= 10}
                   />
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
                     onClick={addSpecialty}
-                    className="cursor-pointer"
+                    className="cursor-pointer shrink-0 h-9 w-9 p-0"
+                    disabled={
+                      !specialtyInput.trim() ||
+                      specialties.includes(specialtyInput.trim()) ||
+                      specialties.length >= 10
+                    }
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -470,26 +610,33 @@ export function ProfileEditor({
                       <Badge
                         key={s}
                         variant="secondary"
-                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground transition-colors gap-1"
                         onClick={() => removeSpecialty(s)}
                       >
-                        {s} <X className="h-3 w-3 ml-1" />
+                        {s}
+                        <X className="h-3 w-3" />
                       </Badge>
                     ))}
                   </div>
                 )}
+                <p className="text-[10px] text-muted-foreground">
+                  {specialties.length}/10 specialties
+                </p>
               </div>
             </TabsContent>
 
             {/* ===== SOCIAL TAB ===== */}
-            <TabsContent value="social" className="space-y-4 mt-4">
-              <p className="text-sm text-muted-foreground">
+            <TabsContent
+              value="social"
+              className="space-y-3 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
+            >
+              <p className="text-xs text-muted-foreground">
                 Add your social media links. They will appear as icons on your
                 public profile.
               </p>
               {socialPlatforms.map((platform) => (
-                <div key={platform.key} className="space-y-1.5">
-                  <Label>{platform.label}</Label>
+                <div key={platform.key} className="space-y-1">
+                  <Label className="text-xs">{platform.label}</Label>
                   <Input
                     value={socialLinks[platform.key] || ""}
                     onChange={(e) =>
@@ -498,99 +645,45 @@ export function ProfileEditor({
                         [platform.key]: e.target.value,
                       })
                     }
-                    placeholder={
-                      platform.key === "discord"
-                        ? "username#0000"
-                        : `https://${platform.key}.com/...`
-                    }
+                    placeholder={platform.placeholder}
+                    className="text-xs"
                   />
                 </div>
               ))}
             </TabsContent>
 
             {/* ===== APPEARANCE TAB ===== */}
-            <TabsContent value="appearance" className="space-y-4 mt-4">
-              {/* Avatar Border Color */}
-              <div className="space-y-1.5">
-                <Label>Avatar Border Color</Label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={avatarBorderColor}
-                    onChange={(e) => setAvatarBorderColor(e.target.value)}
-                    className="h-10 w-10 rounded-full cursor-pointer border"
-                  />
-                  <Input
-                    value={avatarBorderColor}
-                    onChange={(e) => setAvatarBorderColor(e.target.value)}
-                    className="flex-1"
-                  />
-                  <div className="flex gap-1.5">
-                    {accentPresets.map((preset) => (
-                      <button
-                        key={preset.value}
-                        className="h-5 w-5 rounded-full border cursor-pointer"
-                        style={{ backgroundColor: preset.value }}
-                        onClick={() => setAvatarBorderColor(preset.value)}
-                        title={preset.label}
-                      />
-                    ))}
-                  </div>
-                </div>
+            <TabsContent
+              value="appearance"
+              className="space-y-5 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
+            >
+              {/* Avatar Border */}
+              <ColorPickerField
+                label="Avatar Border Color"
+                value={avatarBorderColor}
+                onChange={setAvatarBorderColor}
+              />
+
+              {/* Primary & Accent */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ColorPickerField
+                  label="Primary Color"
+                  value={primaryColor}
+                  onChange={setPrimaryColor}
+                />
+                <ColorPickerField
+                  label="Accent Color"
+                  value={accentColor}
+                  onChange={setAccentColor}
+                />
               </div>
 
-              {/* Colors */}
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Layout & Card Style */}
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Primary Color</Label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="h-10 w-10 rounded cursor-pointer border"
-                    />
-                    <Input
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="flex-1"
-                    />
-                  </div>
-                  <div className="flex gap-1.5 mt-1">
-                    {accentPresets.map((preset) => (
-                      <button
-                        key={preset.value}
-                        className="h-5 w-5 rounded-full border cursor-pointer"
-                        style={{ backgroundColor: preset.value }}
-                        onClick={() => setPrimaryColor(preset.value)}
-                        title={preset.label}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Accent Color</Label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={accentColor}
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      className="h-10 w-10 rounded cursor-pointer border"
-                    />
-                    <Input
-                      value={accentColor}
-                      onChange={(e) => setAccentColor(e.target.value)}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Layout</Label>
+                  <Label className="text-xs">Layout</Label>
                   <Select value={layout} onValueChange={setLayout}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -601,9 +694,9 @@ export function ProfileEditor({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Card Style</Label>
+                  <Label className="text-xs">Card Style</Label>
                   <Select value={cardStyle} onValueChange={setCardStyle}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -616,11 +709,12 @@ export function ProfileEditor({
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Font & Background */}
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Font Family</Label>
+                  <Label className="text-xs">Font Family</Label>
                   <Select value={fontFamily} onValueChange={setFontFamily}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -632,12 +726,12 @@ export function ProfileEditor({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Background Style</Label>
+                  <Label className="text-xs">Background Style</Label>
                   <Select
                     value={profileBackground}
                     onValueChange={setProfileBackground}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -650,61 +744,72 @@ export function ProfileEditor({
                 </div>
               </div>
 
-              {/* Visibility toggles */}
-              <div className="space-y-3 pt-2">
-                <Label>Profile Sections</Label>
-                <div className="flex items-center gap-2">
-                  <Switch checked={showStats} onCheckedChange={setShowStats} />
-                  <Label className="cursor-pointer text-sm">
-                    Show Statistics
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={showBadges}
-                    onCheckedChange={setShowBadges}
-                  />
-                  <Label className="cursor-pointer text-sm">Show Badges</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={showFeatured}
-                    onCheckedChange={setShowFeatured}
-                  />
-                  <Label className="cursor-pointer text-sm">
-                    Show Featured Bots
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={hideCompletenessNudge}
-                    onCheckedChange={setHideCompletenessNudge}
-                  />
-                  <Label className="cursor-pointer text-sm">
-                    Hide "Complete Profile" Nudge
-                  </Label>
+              {/* Section Toggles */}
+              <div className="space-y-3">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Profile Sections
+                </Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    {
+                      label: "Show Statistics",
+                      value: showStats,
+                      onChange: setShowStats,
+                    },
+                    {
+                      label: "Show Badges",
+                      value: showBadges,
+                      onChange: setShowBadges,
+                    },
+                    {
+                      label: "Show Featured Bots",
+                      value: showFeatured,
+                      onChange: setShowFeatured,
+                    },
+                    {
+                      label: "Hide Completeness Nudge",
+                      value: hideCompletenessNudge,
+                      onChange: setHideCompletenessNudge,
+                    },
+                  ].map((toggle) => (
+                    <div
+                      key={toggle.label}
+                      className="flex items-center justify-between rounded-lg border p-2.5"
+                    >
+                      <Label className="text-xs cursor-pointer">
+                        {toggle.label}
+                      </Label>
+                      <Switch
+                        checked={toggle.value}
+                        onCheckedChange={toggle.onChange}
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
             </TabsContent>
 
             {/* ===== FEATURED TAB ===== */}
-            <TabsContent value="featured" className="space-y-4 mt-4">
-              <p className="text-sm text-muted-foreground">
-                Select bots to feature on your profile. Featured bots appear as
-                highlighted cards.
+            <TabsContent
+              value="featured"
+              className="space-y-3 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
+            >
+              <p className="text-xs text-muted-foreground">
+                Select bots to feature on your profile.
               </p>
               {bots.length > 0 ? (
-                <div className="space-y-2">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {bots.map((bot) => {
                     const isSelected = featuredBotIds.includes(bot.id);
                     return (
                       <label
                         key={bot.id}
-                        className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-all",
                           isSelected
-                            ? "border-primary bg-primary/5"
-                            : "hover:border-primary/30"
-                        }`}
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "hover:border-primary/30",
+                        )}
                       >
                         <input
                           type="checkbox"
@@ -718,7 +823,7 @@ export function ProfileEditor({
                               );
                             }
                           }}
-                          className="rounded"
+                          className="rounded shrink-0"
                         />
                         <div className="h-8 w-8 rounded bg-muted overflow-hidden shrink-0">
                           {bot.imageUrl ? (
@@ -734,16 +839,16 @@ export function ProfileEditor({
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">
+                          <p className="text-xs font-medium truncate">
                             {bot.name}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate">
+                          <p className="text-[10px] text-muted-foreground truncate">
                             {bot.shortDescription || "No description"}
                           </p>
                         </div>
                         <Badge
                           variant="outline"
-                          className="text-[10px] shrink-0"
+                          className="text-[9px] shrink-0"
                         >
                           {bot.rating}
                         </Badge>
@@ -752,55 +857,95 @@ export function ProfileEditor({
                   })}
                 </div>
               ) : (
-                <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  No bots created yet. Create a bot first to feature it on your
-                  profile.
+                <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
+                  No bots created yet. Create a bot first to feature it.
                 </div>
-              )}
-              {featuredBotIds.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {featuredBotIds.length} bot
-                  {featuredBotIds.length !== 1 ? "s" : ""} selected for
-                  featuring
-                </p>
               )}
             </TabsContent>
 
             {/* ===== PRIVACY TAB ===== */}
-            <TabsContent value="privacy" className="space-y-4 mt-4">
+            <TabsContent
+              value="privacy"
+              className="space-y-4 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
+            >
               <div className="space-y-1.5">
-                <Label>Profile Visibility</Label>
+                <Label className="text-xs">Profile Visibility</Label>
                 <Select value={visibility} onValueChange={setVisibility}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="public">
-                      Public - Anyone can view
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-3.5 w-3.5 text-emerald-500" />
+                        Public
+                      </div>
                     </SelectItem>
                     <SelectItem value="followers">
-                      Followers Only - Only followers can view
+                      <div className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-amber-500" />
+                        Followers Only
+                      </div>
                     </SelectItem>
                     <SelectItem value="private">
-                      Private - Only you can view
+                      <div className="flex items-center gap-2">
+                        <EyeOff className="h-3.5 w-3.5 text-red-500" />
+                        Private
+                      </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {visibility === "public" &&
-                    "Your profile is visible to everyone, including search engines."}
-                  {visibility === "followers" &&
-                    "Only users who follow you can see your full profile."}
-                  {visibility === "private" &&
-                    "Your profile is hidden from everyone except you."}
-                </p>
+              </div>
+
+              {/* Visibility explanation card */}
+              <div
+                className={cn(
+                  "rounded-lg border p-3 text-xs space-y-1",
+                  visibility === "public" &&
+                    "border-emerald-500/30 bg-emerald-500/5",
+                  visibility === "followers" &&
+                    "border-amber-500/30 bg-amber-500/5",
+                  visibility === "private" && "border-red-500/30 bg-red-500/5",
+                )}
+              >
+                {visibility === "public" && (
+                  <>
+                    <p className="font-medium text-emerald-600">
+                      🌐 Public Profile
+                    </p>
+                    <p className="text-muted-foreground">
+                      Anyone can view your profile, including search engines.
+                      Your profile will appear in the public creator directory.
+                    </p>
+                  </>
+                )}
+                {visibility === "followers" && (
+                  <>
+                    <p className="font-medium text-amber-600">
+                      👥 Followers Only
+                    </p>
+                    <p className="text-muted-foreground">
+                      Only users who follow you can see your full profile.
+                      Non-followers will see a limited preview.
+                    </p>
+                  </>
+                )}
+                {visibility === "private" && (
+                  <>
+                    <p className="font-medium text-red-600">🔒 Private</p>
+                    <p className="text-muted-foreground">
+                      Your profile is hidden from everyone except you. It won't
+                      appear in directories or search results.
+                    </p>
+                  </>
+                )}
               </div>
             </TabsContent>
           </Tabs>
         )}
 
-        {/* Save button */}
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        {/* Save button — fixed at bottom */}
+        <div className="shrink-0 flex justify-end gap-2 pt-4 border-t">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -810,7 +955,7 @@ export function ProfileEditor({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || loading}
             className="cursor-pointer"
           >
             {saving ? (

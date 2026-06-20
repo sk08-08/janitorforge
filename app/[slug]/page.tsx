@@ -5,10 +5,80 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { PublicCreatorPage } from "@/app/[slug]/public-creator-page";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = await createClient();
+
+  // Try creator page first
+  const { data: creatorPage } = await supabase
+    .from("creator_pages")
+    .select("title, description, user_id")
+    .eq("slug", slug)
+    .eq("is_published", true)
+    .maybeSingle();
+
+  if (creatorPage) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, username, avatar_url")
+      .eq("id", creatorPage.user_id)
+      .maybeSingle();
+
+    const title = creatorPage.title || profile?.display_name || slug;
+    const description =
+      creatorPage.description ||
+      `Creator page by ${profile?.display_name || profile?.username || "Unknown"}`;
+
+    return {
+      title: `${title} — JanitorForge`,
+      description: description.slice(0, 160),
+      openGraph: {
+        title,
+        description: description.slice(0, 160),
+        type: "profile",
+        images: profile?.avatar_url ? [profile.avatar_url] : [],
+      },
+    };
+  }
+
+  // Try profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, username, tagline, avatar_url, bio, visibility")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (profile && profile.visibility !== "private") {
+    const title = profile.display_name || profile.username || slug;
+    const description =
+      profile.tagline ||
+      profile.bio?.slice(0, 160) ||
+      `Profile page of ${title} on JanitorForge`;
+
+    return {
+      title: `${title} — JanitorForge`,
+      description: description.slice(0, 160),
+      openGraph: {
+        title,
+        description: description.slice(0, 160),
+        type: "profile",
+        images: profile.avatar_url ? [profile.avatar_url] : [],
+      },
+    };
+  }
+
+  return {
+    title: "Page Not Found — JanitorForge",
+  };
 }
 
 export default async function CreatorPage({ params }: PageProps) {
@@ -37,9 +107,17 @@ export default async function CreatorPage({ params }: PageProps) {
       notFound();
     }
 
-    // Check visibility
+    // Check visibility — private profiles are hidden
     if (profile.visibility === "private") {
       notFound();
+    }
+
+    // Also check for followers-only visibility (block non-authenticated users)
+    if (profile.visibility === "followers") {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) {
+        notFound();
+      }
     }
 
     // Fetch their published creator pages
@@ -104,10 +182,21 @@ export default async function CreatorPage({ params }: PageProps) {
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at",
+      "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, visibility",
     )
     .eq("id", creatorPage.user_id)
     .maybeSingle();
+
+  // Check owner's profile visibility
+  if (profile?.visibility === "private") {
+    notFound();
+  }
+  if (profile?.visibility === "followers") {
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) {
+      notFound();
+    }
+  }
 
   const { data: sections } = await supabase
     .from("creator_page_sections")

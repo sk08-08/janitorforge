@@ -247,6 +247,27 @@ export async function submitPublicFormRequest(
   const requestHeaders = await headers();
   const clientIp = getClientIp(requestHeaders);
 
+  // Check if IP is blocked BEFORE processing submission
+  if (clientIp) {
+    try {
+      const { data: blockedIp } = await supabase.rpc("is_ip_blocked_for_form", {
+        p_form_id: formId,
+        p_ip_address: clientIp,
+      });
+      if (blockedIp) {
+        return {
+          success: false,
+          isFlagged: true,
+          riskLevel: "dangerous",
+          reason: "Your IP has been blocked from submitting to this form.",
+          error: "Your IP has been blocked from submitting to this form.",
+        };
+      }
+    } catch {
+      // Non-fatal: if IP check fails, continue with other validations
+    }
+  }
+
   const securityCheck = await validateFormSubmission(
     formId,
     responses,

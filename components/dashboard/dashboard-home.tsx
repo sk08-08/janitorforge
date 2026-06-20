@@ -1,6 +1,6 @@
 // ============================================================================
 // JanitorForge - Dashboard Home View
-// Overview panel with statistics and recent activity
+// Overview panel with statistics, activity feed, and quick actions
 // ============================================================================
 
 "use client";
@@ -17,6 +17,15 @@ import {
   ArrowRight,
   AlertTriangle,
   Sparkles,
+  Users,
+  Upload,
+  Star,
+  Calendar,
+  Zap,
+  BookOpen,
+  BarChart3,
+  ChevronRight,
+  MessageSquare,
 } from "lucide-react";
 import {
   Card,
@@ -34,6 +43,50 @@ import { getCurrentUserAccess } from "@/lib/access";
 import { FeedbackActions } from "@/components/feedback/feedback-actions";
 
 // ----------------------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------------------
+
+function formatDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = Date.now();
+  const diff = Math.floor((now - date.getTime()) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return formatDate(date);
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function getMotivationalMessage(stats: {
+  totalBots: number;
+  activeForms: number;
+  pendingRequests: number;
+  completedRequests: number;
+}): string {
+  if (stats.totalBots === 0) return "Ready to create your first character?";
+  if (stats.pendingRequests > 5)
+    return "You've got requests waiting — let's tackle them!";
+  if (stats.completedRequests > 10)
+    return "Impressive output! Keep up the great work.";
+  if (stats.activeForms > 0 && stats.pendingRequests === 0)
+    return "All clear! Your forms are live and waiting.";
+  return "Here's what's happening in your workspace.";
+}
+
+// ----------------------------------------------------------------------------
 // Stat Card Component
 // ----------------------------------------------------------------------------
 
@@ -43,8 +96,10 @@ interface StatCardProps {
   description: string;
   icon: typeof Bot;
   trend?: "up" | "down" | "neutral";
+  trendValue?: string;
   accentColor?: string;
   footer?: string;
+  onClick?: () => void;
 }
 
 function StatCard({
@@ -52,11 +107,21 @@ function StatCard({
   value,
   description,
   icon: Icon,
+  trend,
+  trendValue,
   accentColor,
   footer,
+  onClick,
 }: StatCardProps) {
   return (
-    <Card className="relative overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+    <Card
+      className={cn(
+        "relative overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75 transition-all",
+        onClick &&
+          "cursor-pointer hover:border-primary/40 hover:shadow-md hover:shadow-primary/5",
+      )}
+      onClick={onClick}
+    >
       <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
         <div className="space-y-1">
           <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -81,7 +146,21 @@ function StatCard({
       <CardContent className="space-y-2">
         <div className="flex items-end justify-between gap-3">
           <div className="text-3xl font-bold tracking-tight">{value}</div>
-          {footer && (
+          {trend && trendValue && (
+            <span
+              className={cn(
+                "flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                trend === "up" && "bg-emerald-500/10 text-emerald-500",
+                trend === "down" && "bg-red-500/10 text-red-500",
+                trend === "neutral" && "bg-muted text-muted-foreground",
+              )}
+            >
+              {trend === "up" && "↑"}
+              {trend === "down" && "↓"}
+              {trendValue}
+            </span>
+          )}
+          {footer && !trendValue && (
             <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
               {footer}
             </span>
@@ -92,6 +171,10 @@ function StatCard({
     </Card>
   );
 }
+
+// ----------------------------------------------------------------------------
+// Insight Card Component
+// ----------------------------------------------------------------------------
 
 interface InsightCardProps {
   title: string;
@@ -146,12 +229,17 @@ function InsightCard({
   );
 }
 
+// ----------------------------------------------------------------------------
+// Recent Request Card
+// ----------------------------------------------------------------------------
+
 interface RecentRequestCardProps {
   formTitle: string;
   status: "new" | "accepted" | "completed" | "rejected";
   submitterName?: string;
   createdAt: Date;
   notes?: string;
+  onClick?: () => void;
 }
 
 function RecentRequestCard({
@@ -160,6 +248,7 @@ function RecentRequestCard({
   submitterName,
   createdAt,
   notes,
+  onClick,
 }: RecentRequestCardProps) {
   const statusMeta: Record<
     RecentRequestCardProps["status"],
@@ -181,7 +270,13 @@ function RecentRequestCard({
   };
 
   return (
-    <Card className="overflow-hidden border-border/70 transition-all hover:border-primary/40 hover:shadow-md">
+    <Card
+      className={cn(
+        "overflow-hidden border-border/70 transition-all hover:border-primary/40 hover:shadow-md",
+        onClick && "cursor-pointer",
+      )}
+      onClick={onClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
@@ -209,7 +304,7 @@ function RecentRequestCard({
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatDate(createdAt)}
+            {formatRelativeTime(createdAt)}
           </span>
           <span className="truncate">{formTitle}</span>
         </div>
@@ -228,14 +323,8 @@ interface RecentBotCardProps {
   rating: "SFW" | "NSFW";
   tags: string[];
   updatedAt: Date;
+  collaboratorCount?: number;
   onEdit: () => void;
-}
-
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function RecentBotCard({
@@ -244,6 +333,7 @@ function RecentBotCard({
   rating,
   tags,
   updatedAt,
+  collaboratorCount,
   onEdit,
 }: RecentBotCardProps) {
   return (
@@ -284,13 +374,21 @@ function RecentBotCard({
 
         {/* Footer */}
         <div className="mt-4 flex items-center justify-between">
-          <span
-            className="flex items-center gap-1.5 text-xs text-muted-foreground"
-            suppressHydrationWarning
-          >
-            <Clock className="h-3 w-3" />
-            {formatDate(updatedAt)}
-          </span>
+          <div className="flex items-center gap-3">
+            <span
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
+              suppressHydrationWarning
+            >
+              <Clock className="h-3 w-3" />
+              {formatRelativeTime(updatedAt)}
+            </span>
+            {collaboratorCount && collaboratorCount > 0 && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Users className="h-3 w-3" />
+                {collaboratorCount}
+              </span>
+            )}
+          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -302,6 +400,50 @@ function RecentBotCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Activity Feed Item
+// ----------------------------------------------------------------------------
+
+interface ActivityItem {
+  id: string;
+  type:
+    | "bot_created"
+    | "bot_updated"
+    | "request_received"
+    | "request_completed"
+    | "form_created"
+    | "collaborator_joined";
+  title: string;
+  description: string;
+  timestamp: Date;
+  icon: typeof Bot;
+  accentColor: string;
+}
+
+function ActivityFeedItem({ item }: { item: ActivityItem }) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-muted/30">
+      <div
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full shrink-0",
+          item.accentColor,
+        )}
+      >
+        <item.icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{item.title}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {item.description}
+        </p>
+      </div>
+      <span className="text-[11px] text-muted-foreground/60 shrink-0">
+        {formatRelativeTime(item.timestamp)}
+      </span>
+    </div>
   );
 }
 
@@ -339,13 +481,128 @@ function EmptyState({
 }
 
 // ----------------------------------------------------------------------------
+// Onboarding Banner
+// ----------------------------------------------------------------------------
+
+function OnboardingBanner({
+  totalBots,
+  totalForms,
+  onCreateBot,
+  onCreateForm,
+}: {
+  totalBots: number;
+  totalForms: number;
+  onCreateBot: () => void;
+  onCreateForm: () => void;
+}) {
+  const steps = [
+    {
+      label: "Create your first bot",
+      done: totalBots > 0,
+      action: onCreateBot,
+    },
+    {
+      label: "Design a request form",
+      done: totalForms > 0,
+      action: onCreateForm,
+    },
+    {
+      label: "Share and receive requests",
+      done: false,
+      action: onCreateForm,
+    },
+  ];
+
+  const completedSteps = steps.filter((s) => s.done).length;
+
+  return (
+    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-card to-chart-2/5">
+      <CardContent className="p-6">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+            <Zap className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold">Welcome to JanitorForge!</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Get started in {3 - completedSteps} easy steps to set up your
+              creator workspace.
+            </p>
+            <div className="mt-4 space-y-2">
+              {steps.map((step, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={step.action}
+                  disabled={step.done}
+                  className={cn(
+                    "flex items-center gap-3 w-full rounded-lg p-2.5 text-left transition-colors cursor-pointer",
+                    step.done
+                      ? "bg-emerald-500/5"
+                      : "bg-background/50 hover:bg-primary/5 border border-border/50",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full shrink-0",
+                      step.done
+                        ? "bg-emerald-500/20 text-emerald-500"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {step.done ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <span className="text-xs font-medium">{i + 1}</span>
+                    )}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-sm",
+                      step.done
+                        ? "text-muted-foreground line-through"
+                        : "font-medium",
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                  {!step.done && (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{
+                  width: `${(completedSteps / steps.length) * 100}%`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ----------------------------------------------------------------------------
 // Dashboard Home Component
 // ----------------------------------------------------------------------------
 
 export function DashboardHome() {
-  const { bots, forms, requests, setCurrentView, setSelectedBotId } =
-    useStore();
+  const {
+    bots,
+    forms,
+    requests,
+    setCurrentView,
+    setSelectedBotId,
+    collaborativeBots,
+    refreshCollaborativeBots,
+  } = useStore();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [accessLoaded, setAccessLoaded] = useState(false);
 
   useEffect(() => {
@@ -358,6 +615,12 @@ export function DashboardHome() {
 
         if (!mounted) return;
         setCurrentUserId(access.user?.id ?? null);
+        setUserName(
+          access.profile?.display_name ||
+            access.profile?.username ||
+            access.user?.email?.split("@")[0] ||
+            null,
+        );
       } catch {
         if (!mounted) return;
         setCurrentUserId(null);
@@ -370,6 +633,13 @@ export function DashboardHome() {
       mounted = false;
     };
   }, []);
+
+  // Refresh collaborative bots
+  useEffect(() => {
+    if (accessLoaded && currentUserId) {
+      refreshCollaborativeBots();
+    }
+  }, [accessLoaded, currentUserId, refreshCollaborativeBots]);
 
   const formOwnerMap = useMemo(
     () => new Map(forms.map((form) => [form.id, form.ownerId ?? null])),
@@ -415,6 +685,7 @@ export function DashboardHome() {
     visibleForms.length > 0
       ? Math.round((stats.activeForms / visibleForms.length) * 100)
       : 0;
+
   // Get recent bots (sorted by updatedAt)
   const recentBots = [...visibleBots]
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
@@ -432,17 +703,86 @@ export function DashboardHome() {
     )
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
 
+  // Build activity feed from real data
+  const activityFeed = useMemo((): ActivityItem[] => {
+    const items: ActivityItem[] = [];
+
+    // Recent bot updates
+    recentBots.slice(0, 3).forEach((bot) => {
+      items.push({
+        id: `bot-${bot.id}`,
+        type: "bot_updated",
+        title: `"${bot.name}" was updated`,
+        description: `Modified ${formatRelativeTime(bot.updatedAt)}`,
+        timestamp: bot.updatedAt,
+        icon: Bot,
+        accentColor: "bg-primary/10 text-primary",
+      });
+    });
+
+    // Recent requests
+    recentRequestItems.slice(0, 3).forEach((req) => {
+      const isCompleted = req.status === "completed";
+      items.push({
+        id: `req-${req.id}`,
+        type: isCompleted ? "request_completed" : "request_received",
+        title: isCompleted ? `Request completed` : `New request received`,
+        description: `${req.formTitle} — ${req.submitterName || "Anonymous"}`,
+        timestamp: req.createdAt,
+        icon: isCompleted ? CheckCircle : Inbox,
+        accentColor: isCompleted
+          ? "bg-emerald-500/10 text-emerald-500"
+          : "bg-amber-500/10 text-amber-500",
+      });
+    });
+
+    // Sort by timestamp descending
+    return items
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 6);
+  }, [recentBots, recentRequestItems]);
+
+  const isNewUser =
+    accessLoaded &&
+    currentUserId &&
+    stats.totalBots === 0 &&
+    visibleForms.length === 0;
+
   return (
     <div className="p-4 sm:p-6 md:p-8 lg:p-10">
-      {/* Header */}
+      {/* Header with greeting */}
       <div className="mb-6 sm:mb-8">
+        <div className="flex items-center gap-3 mb-1">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        </div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-          Dashboard
+          {getGreeting()}
+          {userName ? `, ${userName}` : ""}
         </h1>
         <p className="mt-1 text-sm sm:text-base text-muted-foreground">
-          Welcome back! Here&apos;s an overview of your bot creator workspace.
+          {getMotivationalMessage(stats)}
         </p>
       </div>
+
+      {/* Onboarding Banner for new users */}
+      {isNewUser && (
+        <div className="mb-8">
+          <OnboardingBanner
+            totalBots={stats.totalBots}
+            totalForms={visibleForms.length}
+            onCreateBot={() => setCurrentView("bots")}
+            onCreateForm={() => setCurrentView("forms")}
+          />
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="mb-8 grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
@@ -451,7 +791,12 @@ export function DashboardHome() {
           value={stats.totalBots}
           description="Characters created"
           icon={Bot}
+          trend={stats.totalBots > 0 ? "up" : "neutral"}
+          trendValue={
+            stats.totalBots > 0 ? `${stats.totalBots} active` : undefined
+          }
           footer={stats.totalBots > 0 ? "Ready to publish" : "Create one now"}
+          onClick={() => setCurrentView("bots")}
         />
         <StatCard
           title="Active Forms"
@@ -459,7 +804,18 @@ export function DashboardHome() {
           description="Accepting requests"
           icon={FileText}
           accentColor="bg-chart-2/20"
+          trend={
+            visibleForms.length > 0
+              ? stats.activeForms > 0
+                ? "up"
+                : "down"
+              : "neutral"
+          }
+          trendValue={
+            visibleForms.length > 0 ? `${activeFormRate}% active` : undefined
+          }
           footer={`${activeFormRate}% of forms active`}
+          onClick={() => setCurrentView("forms")}
         />
         <StatCard
           title="Pending Requests"
@@ -467,11 +823,14 @@ export function DashboardHome() {
           description="Awaiting response"
           icon={Inbox}
           accentColor="bg-chart-3/20"
+          trend={stats.pendingRequests > 0 ? "up" : "neutral"}
+          trendValue={stats.pendingRequests > 0 ? "needs attention" : undefined}
           footer={
             oldestPendingRequest
               ? `Oldest: ${formatDate(oldestPendingRequest.createdAt)}`
               : "No backlog"
           }
+          onClick={() => setCurrentView("requests")}
         />
         <StatCard
           title="Completed"
@@ -479,7 +838,12 @@ export function DashboardHome() {
           description="Requests fulfilled"
           icon={CheckCircle}
           accentColor="bg-success/20"
+          trend={stats.completedRequests > 0 ? "up" : "neutral"}
+          trendValue={
+            stats.completedRequests > 0 ? `${responseRate}% rate` : undefined
+          }
           footer={`${responseRate}% completion rate`}
+          onClick={() => setCurrentView("requests")}
         />
       </div>
 
@@ -518,52 +882,149 @@ export function DashboardHome() {
         />
       </div>
 
-      {/* Recent Requests Section */}
-      <div className="mb-8">
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-semibold">Recent Requests</h2>
-            <p className="text-sm text-muted-foreground">
-              The latest submissions across your active forms
-            </p>
+      {/* Two-column layout: Activity Feed + Recent Requests */}
+      <div className="mb-8 grid gap-6 lg:grid-cols-5">
+        {/* Activity Feed */}
+        <div className="lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Activity Feed</h2>
+              <p className="text-sm text-muted-foreground">
+                Latest updates across your workspace
+              </p>
+            </div>
           </div>
-          <Button
-            variant="outline"
-            className="cursor-pointer"
-            onClick={() => setCurrentView("requests")}
-          >
-            View All
-          </Button>
+
+          <Card className="border-border/70">
+            {activityFeed.length > 0 ? (
+              <CardContent className="p-2">
+                {activityFeed.map((item) => (
+                  <ActivityFeedItem key={item.id} item={item} />
+                ))}
+              </CardContent>
+            ) : (
+              <CardContent className="p-0">
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Activity className="h-6 w-6 text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    No recent activity
+                  </p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    Activity will appear here as you create and manage content
+                  </p>
+                </div>
+              </CardContent>
+            )}
+          </Card>
         </div>
 
-        {recentRequestItems.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {recentRequestItems.map((request) => (
-              <RecentRequestCard
-                key={request.id}
-                formTitle={request.formTitle}
-                status={request.status}
-                submitterName={request.submitterName}
-                createdAt={request.createdAt}
-                notes={request.notes}
-              />
-            ))}
+        {/* Recent Requests */}
+        <div className="lg:col-span-3">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold">Recent Requests</h2>
+              <p className="text-sm text-muted-foreground">
+                The latest submissions across your active forms
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => setCurrentView("requests")}
+            >
+              View All
+            </Button>
           </div>
-        ) : (
-          <Card>
-            <EmptyState
-              icon={Inbox}
-              title="No requests yet"
-              description="Once people submit requests, the latest ones will show up here for quick triage."
-              actionLabel="Open Requests"
-              onAction={() => setCurrentView("requests")}
-            />
-          </Card>
-        )}
+
+          {recentRequestItems.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {recentRequestItems.map((request) => (
+                <RecentRequestCard
+                  key={request.id}
+                  formTitle={request.formTitle}
+                  status={request.status}
+                  submitterName={request.submitterName}
+                  createdAt={request.createdAt}
+                  notes={request.notes}
+                  onClick={() => setCurrentView("requests")}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <EmptyState
+                icon={Inbox}
+                title="No requests yet"
+                description="Once people submit requests, the latest ones will show up here for quick triage."
+                actionLabel="Open Requests"
+                onAction={() => setCurrentView("requests")}
+              />
+            </Card>
+          )}
+        </div>
       </div>
 
+      {/* Collaborative Bots Section */}
+      {collaborativeBots.length > 0 && (
+        <div className="mb-8">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Shared With You
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Bots where you're a collaborator
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {collaborativeBots.slice(0, 4).map((bot) => (
+              <Card
+                key={bot.id}
+                className="group cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5"
+                onClick={() => {
+                  setSelectedBotId(bot.id);
+                  setCurrentView("bots");
+                }}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-sm font-semibold truncate">
+                        {bot.name}
+                      </CardTitle>
+                      <CardDescription className="mt-1 line-clamp-1 text-xs">
+                        {bot.short_description}
+                      </CardDescription>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] ml-2 shrink-0"
+                    >
+                      {bot.collaborator_role || "collaborator"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Users className="h-3 w-3" />
+                    <span>
+                      by{" "}
+                      {bot.owner_display_name ||
+                        bot.owner_username ||
+                        "Unknown"}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent Bots Section */}
-      <div>
+      <div className="mb-8">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">Recent Bots</h2>
@@ -618,12 +1079,125 @@ export function DashboardHome() {
       </div>
 
       {/* Quick Actions */}
-      <div className="mt-8">
+      <div className="mb-8">
+        <h2 className="mb-4 text-xl font-semibold">Quick Actions</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card
+            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
+            onClick={() => setCurrentView("bots")}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <Bot className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium">Create New Bot</h3>
+                <p className="text-sm text-muted-foreground">
+                  Start building a new character
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
+            onClick={() => setCurrentView("forms")}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-2/10">
+                <FileText className="h-6 w-6 text-chart-2" />
+              </div>
+              <div>
+                <h3 className="font-medium">Design Request Form</h3>
+                <p className="text-sm text-muted-foreground">
+                  Create custom intake forms
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
+            onClick={() => setCurrentView("atlas")}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-4/10">
+                <BookOpen className="h-6 w-6 text-chart-4" />
+              </div>
+              <div>
+                <h3 className="font-medium">Open Atlas</h3>
+                <p className="text-sm text-muted-foreground">
+                  Organize series, lore, and creator spaces
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
+            onClick={() => setCurrentView("profile")}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-5/10">
+                <Star className="h-6 w-6 text-chart-5" />
+              </div>
+              <div>
+                <h3 className="font-medium">Edit Profile</h3>
+                <p className="text-sm text-muted-foreground">
+                  Update your public creator page
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
+            onClick={() => setCurrentView("requests")}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500/10">
+                <BarChart3 className="h-6 w-6 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-medium">Review Requests</h3>
+                <p className="text-sm text-muted-foreground">
+                  {stats.pendingRequests > 0
+                    ? `${stats.pendingRequests} pending`
+                    : "View all requests"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
+            onClick={() => setCurrentView("bots")}
+          >
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/10">
+                <Upload className="h-6 w-6 text-emerald-500" />
+              </div>
+              <div>
+                <h3 className="font-medium">Import Character Card</h3>
+                <p className="text-sm text-muted-foreground">
+                  Import from PNG or JSON
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Feedback Section */}
+      <div>
         <h2 className="mb-4 text-xl font-semibold">Feedback</h2>
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
             <CardHeader className="space-y-2 pb-3">
-              <CardTitle className="text-base">Send a suggestion</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-primary" />
+                Send a suggestion
+              </CardTitle>
               <CardDescription>
                 Share ideas to improve JanitorForge or ask for a new workflow.
               </CardDescription>
@@ -643,7 +1217,10 @@ export function DashboardHome() {
 
           <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
             <CardHeader className="space-y-2 pb-3">
-              <CardTitle className="text-base">Report a bug</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Report a bug
+              </CardTitle>
               <CardDescription>
                 Tell us when something is broken so we can fix it faster.
               </CardDescription>
@@ -658,62 +1235,6 @@ export function DashboardHome() {
                   sourcePath: "/dashboard",
                 }}
               />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <h2 className="mb-4 text-xl font-semibold">Quick Actions</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50"
-            onClick={() => setCurrentView("bots")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <Bot className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-medium">Create New Bot</h3>
-                <p className="text-sm text-muted-foreground">
-                  Start building a new character
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50"
-            onClick={() => setCurrentView("forms")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-2/10">
-                <FileText className="h-6 w-6 text-chart-2" />
-              </div>
-              <div>
-                <h3 className="font-medium">Design Request Form</h3>
-                <p className="text-sm text-muted-foreground">
-                  Create custom intake forms
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50"
-            onClick={() => setCurrentView("atlas")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-4/10">
-                <TrendingUp className="h-6 w-6 text-chart-4" />
-              </div>
-              <div>
-                <h3 className="font-medium">Open Atlas</h3>
-                <p className="text-sm text-muted-foreground">
-                  Organize series, lore, and creator spaces
-                </p>
-              </div>
             </CardContent>
           </Card>
         </div>

@@ -1,5 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export interface UserProfile {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  slug: string | null;
+  is_admin: boolean | null;
+}
+
 export async function getCurrentUserAccess(supabase: SupabaseClient) {
   const {
     data: { user },
@@ -11,23 +20,17 @@ export async function getCurrentUserAccess(supabase: SupabaseClient) {
   }
 
   if (!user) {
-    return { user: null as null, isAdmin: false };
+    return { user: null as null, isAdmin: false, profile: null as null };
   }
 
-  const { data: isAdminValue, error: adminError } = await supabase.rpc(
-    "is_admin_user",
-    { p_user_id: user.id },
-  );
+  // Fetch profile data in the same call
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, slug, is_admin")
+    .eq("id", user.id)
+    .maybeSingle<UserProfile>();
 
-  if (adminError) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .maybeSingle();
+  const isAdmin = !!profile?.is_admin;
 
-    return { user, isAdmin: !!profile?.is_admin };
-  }
-
-  return { user, isAdmin: !!isAdminValue };
+  return { user, isAdmin, profile };
 }

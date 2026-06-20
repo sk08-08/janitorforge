@@ -1,6 +1,7 @@
 // ============================================================================
 // JanitorForge - Profile View
 // Rich profile display with banner, avatar, badges, social links, stats
+// Fully responsive with improved visual hierarchy
 // ============================================================================
 
 "use client";
@@ -28,9 +29,6 @@ import {
   MessageCircle,
   Users,
   Bot,
-  FileText,
-  Share2,
-  Twitter,
   Heart,
 } from "lucide-react";
 import {
@@ -51,6 +49,10 @@ import {
 } from "@/app/actions/profile";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+// ----------------------------------------------------------------------------
+// Types
+// ----------------------------------------------------------------------------
 
 interface ProfileViewProps {
   open: boolean;
@@ -78,6 +80,150 @@ const socialIconMap: Record<
   twitch: TwitchIcon,
   website: WebsiteIcon,
 };
+
+// ----------------------------------------------------------------------------
+// Sub-components
+// ----------------------------------------------------------------------------
+
+function AvatarDisplay({
+  url,
+  name,
+  color,
+  size = "md",
+}: {
+  url?: string | null;
+  name?: string;
+  color: string;
+  size?: "sm" | "md" | "lg";
+}) {
+  const [error, setError] = useState(false);
+  const sizeClasses = {
+    sm: "h-14 w-14 border-2",
+    md: "h-20 w-20 border-4",
+    lg: "h-24 w-24 border-4",
+  };
+  const iconSizes = { sm: "h-6 w-6", md: "h-8 w-8", lg: "h-10 w-10" };
+
+  return (
+    <div
+      className={cn(
+        "rounded-full overflow-hidden shadow-lg",
+        sizeClasses[size],
+      )}
+      style={{ borderColor: color || "hsl(var(--background))" }}
+    >
+      {url && !error ? (
+        <img
+          src={url}
+          alt={name || "Avatar"}
+          className="h-full w-full object-cover"
+          onError={() => setError(true)}
+        />
+      ) : (
+        <div
+          className="h-full w-full flex items-center justify-center"
+          style={{ backgroundColor: `${color}22` }}
+        >
+          <User className={iconSizes[size]} style={{ color }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BannerDisplay({
+  url,
+  color,
+  height = "h-28 sm:h-36",
+}: {
+  url?: string | null;
+  color: string;
+  height?: string;
+}) {
+  const [error, setError] = useState(false);
+
+  return (
+    <div
+      className={cn("w-full relative", height)}
+      style={{
+        background:
+          url && !error
+            ? `url(${url}) center/cover no-repeat`
+            : `linear-gradient(135deg, ${color}88, ${color}22, ${color}44)`,
+      }}
+    >
+      {url && (
+        <img
+          src={url}
+          alt=""
+          className="hidden"
+          onError={() => setError(true)}
+        />
+      )}
+      {/* Gradient overlay for readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+    </div>
+  );
+}
+
+function SocialLinkButton({
+  platform,
+  value,
+}: {
+  platform: string;
+  value: string;
+}) {
+  const Icon = socialIconMap[platform] || Globe;
+  const isUrl = value.startsWith("http");
+  const label = platform.charAt(0).toUpperCase() + platform.slice(1);
+
+  const content = (
+    <div
+      className={cn(
+        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all",
+        "hover:bg-primary hover:text-primary-foreground hover:border-primary cursor-pointer",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {isUrl ? label : value}
+    </div>
+  );
+
+  if (isUrl) {
+    return (
+      <a href={value} target="_blank" rel="noopener noreferrer">
+        {content}
+      </a>
+    );
+  }
+  return content;
+}
+
+function StatBox({
+  value,
+  label,
+  color,
+  icon: Icon,
+}: {
+  value: number | string;
+  label: string;
+  color: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1 rounded-lg border p-3 bg-card/50">
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      <p className="text-lg font-bold" style={{ color }}>
+        {value}
+      </p>
+      <p className="text-[10px] text-muted-foreground text-center">{label}</p>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// ProfileView (Own Profile Dialog)
+// ----------------------------------------------------------------------------
 
 export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
@@ -124,68 +270,52 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
   const p = profile as Record<string, unknown>;
   const theme = (p.theme as Record<string, unknown>) || {};
   const primaryColor = (theme.primaryColor as string) || "#7c3aed";
+  const avatarBorderColor = (theme.avatarBorderColor as string) || primaryColor;
   const socialLinks = (p.social_links as Record<string, string>) || {};
   const badges = (p.profile_badges as ProfileBadge[]) || [];
   const specialtiesList = (p.specialties as string[]) || [];
   const showStats = theme.showStats !== false;
   const showBadges = theme.showBadges !== false;
-  const showFeatured = theme.showFeatured !== false;
-
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
+  const completeness = (p.profile_completeness as number) || 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100%-1rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Banner */}
-        <div
-          className="h-28 sm:h-36 w-full rounded-t-lg relative"
-          style={{
-            background: p.banner_url
-              ? `url(${p.banner_url}) center/cover no-repeat`
-              : `linear-gradient(135deg, ${primaryColor}88, ${primaryColor}33)`,
+        <BannerDisplay
+          url={p.banner_url as string}
+          color={primaryColor}
+          height="h-32 sm:h-40"
+        />
+
+        {/* Edit button */}
+        <Button
+          variant="secondary"
+          size="sm"
+          className="absolute top-3 right-3 cursor-pointer bg-background/80 backdrop-blur-sm z-10"
+          onClick={() => {
+            onOpenChange(false);
+            onEdit();
           }}
         >
-          {/* Edit button overlay */}
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute top-3 right-3 cursor-pointer bg-background/80 backdrop-blur-sm"
-            onClick={() => {
-              onOpenChange(false);
-              onEdit();
-            }}
-          >
-            <Pencil className="h-3.5 w-3.5 mr-1" />
-            Edit
-          </Button>
+          <Pencil className="h-3.5 w-3.5 mr-1" />
+          Edit
+        </Button>
+
+        {/* Avatar overlapping banner */}
+        <div className="px-5 -mt-12 relative z-10">
+          <AvatarDisplay
+            url={p.avatar_url as string}
+            name={(p.display_name as string) || "Avatar"}
+            color={avatarBorderColor}
+            size="lg"
+          />
         </div>
 
-        {/* Avatar - overlapping banner */}
-        <div className="px-5 -mt-10 relative z-10">
-          <div
-            className="h-20 w-20 rounded-full border-4 border-background overflow-hidden shadow-lg"
-            style={{ borderColor: "hsl(var(--background))" }}
-          >
-            {p.avatar_url ? (
-              <img
-                src={p.avatar_url as string}
-                alt={(p.display_name as string) || "Avatar"}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div
-                className="h-full w-full flex items-center justify-center"
-                style={{ backgroundColor: `${primaryColor}22` }}
-              >
-                <User className="h-8 w-8" style={{ color: primaryColor }} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Profile Info */}
+        {/* Profile Content */}
         <div className="px-5 pt-3 pb-5 space-y-4">
-          {/* Name & Handle */}
+          {/* Name, Pronouns, Handle */}
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-bold">
@@ -201,7 +331,8 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
               @{(p.slug as string) || (p.username as string) || "unknown"}
             </p>
             {(p.status_message as string) && (
-              <p className="text-sm mt-1 italic text-muted-foreground">
+              <p className="text-sm mt-1.5 italic text-muted-foreground flex items-start gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                 &ldquo;{p.status_message as string}&rdquo;
               </p>
             )}
@@ -209,20 +340,21 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
 
           {/* Follow counts */}
           <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <Users className="h-4 w-4 text-muted-foreground" />
               <span className="font-semibold">{followCounts.followers}</span>
-              <span className="text-muted-foreground">followers</span>
+              <span className="text-muted-foreground text-xs">followers</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="w-px h-4 bg-border" />
+            <div className="flex items-center gap-1.5">
               <span className="font-semibold">{followCounts.following}</span>
-              <span className="text-muted-foreground">following</span>
+              <span className="text-muted-foreground text-xs">following</span>
             </div>
           </div>
 
           {/* Tagline */}
           {(p.tagline as string) && (
-            <p className="text-sm">{p.tagline as string}</p>
+            <p className="text-sm font-medium">{p.tagline as string}</p>
           )}
 
           {/* Bio */}
@@ -248,7 +380,13 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
                 className="flex items-center gap-1 hover:text-primary transition-colors"
               >
                 <Globe className="h-3 w-3" />
-                {new URL(p.website_url as string).hostname}
+                {(() => {
+                  try {
+                    return new URL(p.website_url as string).hostname;
+                  } catch {
+                    return p.website_url as string;
+                  }
+                })()}
                 <ExternalLink className="h-2.5 w-2.5" />
               </a>
             )}
@@ -266,31 +404,11 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
 
           {/* Social Links */}
           {hasSocialLinks && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {Object.entries(socialLinks).map(([key, value]) => {
                 if (!value || !value.trim()) return null;
-                const Icon = socialIconMap[key] || Globe;
-                const isUrl = value.startsWith("http");
-                return isUrl ? (
-                  <a
-                    key={key}
-                    href={value}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                    >
-                      <Icon className="h-3 w-3 mr-1" />
-                      {key.charAt(0).toUpperCase() + key.slice(1)}
-                    </Badge>
-                  </a>
-                ) : (
-                  <Badge key={key} variant="outline">
-                    <Icon className="h-3 w-3 mr-1" />
-                    {value}
-                  </Badge>
+                return (
+                  <SocialLinkButton key={key} platform={key} value={value} />
                 );
               })}
             </div>
@@ -326,14 +444,12 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Badges
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {badges.map((badge) => (
                   <div
                     key={badge.id}
-                    className="flex items-center gap-1.5 rounded-full border px-3 py-1"
-                    style={{
-                      borderColor: badge.color || primaryColor,
-                    }}
+                    className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 transition-colors hover:bg-muted/50"
+                    style={{ borderColor: badge.color || primaryColor }}
                   >
                     <Award
                       className="h-3.5 w-3.5"
@@ -348,63 +464,68 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
 
           {/* Stats */}
           {showStats && (
-            <div className="rounded-lg border p-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                Activity
-              </p>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <p
-                    className="text-lg font-bold"
-                    style={{ color: primaryColor }}
-                  >
-                    {(p.profile_completeness as number) || 0}%
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    Profile Complete
-                  </p>
-                </div>
-                <div>
-                  <p
-                    className="text-lg font-bold"
-                    style={{ color: primaryColor }}
-                  >
-                    {followCounts.followers}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">Followers</p>
-                </div>
-                <div>
-                  <p
-                    className="text-lg font-bold"
-                    style={{ color: primaryColor }}
-                  >
-                    {badges.length}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">Badges</p>
-                </div>
-              </div>
+            <div className="grid grid-cols-3 gap-2">
+              <StatBox
+                value={`${completeness}%`}
+                label="Complete"
+                color={primaryColor}
+                icon={Star}
+              />
+              <StatBox
+                value={followCounts.followers}
+                label="Followers"
+                color={primaryColor}
+                icon={Users}
+              />
+              <StatBox
+                value={badges.length}
+                label="Badges"
+                color={primaryColor}
+                icon={Award}
+              />
             </div>
           )}
 
-          {/* Profile completeness nudge */}
-          {(p.profile_completeness as number) < 100 && (
-            <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground text-center">
-              Your profile is{" "}
-              <span className="font-semibold">
-                {(p.profile_completeness as number) || 0}%
-              </span>{" "}
-              complete.
-              <button
-                className="ml-1 text-primary hover:underline cursor-pointer"
-                onClick={() => {
-                  onOpenChange(false);
-                  onEdit();
-                }}
-              >
-                Complete your profile
-              </button>
-            </div>
-          )}
+          {/* Completeness nudge */}
+          {completeness < 100 &&
+            !(
+              theme.hideCompletenessNudge === true ||
+              theme.hideCompletenessNudge === "true"
+            ) && (
+              <div className="rounded-lg border border-dashed p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Profile completeness
+                  </span>
+                  <span
+                    className="font-semibold"
+                    style={{ color: primaryColor }}
+                  >
+                    {completeness}%
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${completeness}%`,
+                      backgroundColor: primaryColor,
+                    }}
+                  />
+                </div>
+                {completeness < 100 && (
+                  <button
+                    className="text-xs text-primary hover:underline cursor-pointer"
+                    onClick={() => {
+                      onOpenChange(false);
+                      onEdit();
+                    }}
+                  >
+                    Complete your profile →
+                  </button>
+                )}
+              </div>
+            )}
         </div>
       </DialogContent>
     </Dialog>
@@ -429,6 +550,7 @@ export function PublicProfileCard({
   const p = profile;
   const theme = (p.theme as Record<string, unknown>) || {};
   const primaryColor = (theme.primaryColor as string) || "#7c3aed";
+  const avatarBorderColor = (theme.avatarBorderColor as string) || primaryColor;
   const socialLinks = (p.social_links as Record<string, string>) || {};
   const badges = (p.profile_badges as ProfileBadge[]) || [];
   const specialtiesList = (p.specialties as string[]) || [];
@@ -469,87 +591,39 @@ export function PublicProfileCard({
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
 
   return (
-    <div className="rounded-xl border overflow-hidden">
+    <div className="rounded-xl border overflow-hidden transition-all hover:shadow-lg hover:shadow-primary/5 group">
       {/* Banner */}
-      <div
-        className="h-24 w-full"
-        style={{
-          background: p.banner_url
-            ? `url(${p.banner_url}) center/cover no-repeat`
-            : `linear-gradient(135deg, ${primaryColor}88, ${primaryColor}33)`,
-        }}
+      <BannerDisplay
+        url={p.banner_url as string}
+        color={primaryColor}
+        height="h-24"
       />
 
       <div className="px-4 pb-4 -mt-8 relative z-10">
         {/* Avatar */}
-        <div
-          className="h-16 w-16 rounded-full border-3 border-background overflow-hidden shadow-md mb-2"
-          style={{ borderColor: "hsl(var(--background))" }}
-        >
-          {p.avatar_url ? (
-            <img
-              src={p.avatar_url as string}
-              alt={(p.display_name as string) || "Avatar"}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div
-              className="h-full w-full flex items-center justify-center"
-              style={{ backgroundColor: `${primaryColor}22` }}
-            >
-              <User className="h-6 w-6" style={{ color: primaryColor }} />
-            </div>
-          )}
+        <AvatarDisplay
+          url={p.avatar_url as string}
+          name={(p.display_name as string) || "Avatar"}
+          color={avatarBorderColor}
+          size="md"
+        />
+
+        {/* Name & handle */}
+        <div className="mt-2">
+          <h3 className="text-sm font-bold truncate">
+            {(p.display_name as string) || "Unnamed"}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            @{(p.slug as string) || (p.username as string) || "?"}
+          </p>
         </div>
 
-        {/* Name */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="font-bold truncate">
-              {(p.display_name as string) || "Unnamed"}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              @{((p.slug as string) || (p.username as string)) ?? "unknown"}
-            </p>
-          </div>
-          {!isOwn && currentUserId && (
-            <Button
-              variant={isFollowing ? "outline" : "default"}
-              size="sm"
-              className="cursor-pointer shrink-0"
-              onClick={handleFollow}
-              disabled={followLoading}
-            >
-              {isFollowing ? (
-                <>
-                  <Heart className="h-3.5 w-3.5 mr-1 fill-current" /> Following
-                </>
-              ) : (
-                <>
-                  <Users className="h-3.5 w-3.5 mr-1" /> Follow
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-
+        {/* Tagline */}
         {(p.tagline as string) && (
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+          <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">
             {p.tagline as string}
           </p>
         )}
-
-        {/* Stats */}
-        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-          <span>
-            <strong className="text-foreground">{counts.followers}</strong>{" "}
-            followers
-          </span>
-          <span>
-            <strong className="text-foreground">{counts.following}</strong>{" "}
-            following
-          </span>
-        </div>
 
         {/* Specialties */}
         {specialtiesList.length > 0 && (
@@ -558,9 +632,9 @@ export function PublicProfileCard({
               <Badge
                 key={s}
                 variant="secondary"
-                className="text-[10px]"
+                className="text-[10px] px-1.5 py-0"
                 style={{
-                  backgroundColor: `${primaryColor}15`,
+                  backgroundColor: `${primaryColor}10`,
                   color: primaryColor,
                 }}
               >
@@ -568,63 +642,74 @@ export function PublicProfileCard({
               </Badge>
             ))}
             {specialtiesList.length > 3 && (
-              <Badge variant="secondary" className="text-[10px]">
+              <span className="text-[10px] text-muted-foreground">
                 +{specialtiesList.length - 3}
-              </Badge>
+              </span>
             )}
           </div>
         )}
 
-        {/* Social links */}
+        {/* Stats row */}
+        <div className="flex items-center gap-3 mt-2.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <Users className="h-3 w-3" />
+            <span className="font-medium text-foreground">
+              {counts.followers}
+            </span>{" "}
+            followers
+          </span>
+          {showBadges && badges.length > 0 && (
+            <span className="flex items-center gap-1">
+              <Award className="h-3 w-3" />
+              {badges.length}
+            </span>
+          )}
+        </div>
+
+        {/* Social links (compact) */}
         {hasSocialLinks && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
+          <div className="flex flex-wrap gap-1 mt-2">
             {Object.entries(socialLinks)
               .filter(([, v]) => v && v.trim())
               .slice(0, 4)
-              .map(([key, value]) => {
+              .map(([key]) => {
                 const Icon = socialIconMap[key] || Globe;
-                return value.startsWith("http") ? (
-                  <a
+                return (
+                  <div
                     key={key}
-                    href={value}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    className="h-6 w-6 rounded-full bg-muted flex items-center justify-center"
+                    title={key}
                   >
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] cursor-pointer hover:bg-muted"
-                    >
-                      <Icon className="h-2.5 w-2.5 mr-0.5" />
-                      {key}
-                    </Badge>
-                  </a>
-                ) : (
-                  <Badge key={key} variant="outline" className="text-[10px]">
-                    <Icon className="h-2.5 w-2.5 mr-0.5" />
-                    {value}
-                  </Badge>
+                    <Icon className="h-3 w-3 text-muted-foreground" />
+                  </div>
                 );
               })}
           </div>
         )}
 
-        {/* Badges */}
-        {showBadges && badges.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {badges.slice(0, 3).map((badge) => (
-              <div
-                key={badge.id}
-                className="flex items-center gap-1 rounded-full border px-2 py-0.5"
-                style={{ borderColor: badge.color || primaryColor }}
-              >
-                <Award
-                  className="h-2.5 w-2.5"
-                  style={{ color: badge.color || primaryColor }}
-                />
-                <span className="text-[10px]">{badge.label}</span>
-              </div>
-            ))}
-          </div>
+        {/* Follow button (for other users) */}
+        {!isOwn && currentUserId && (
+          <Button
+            variant={isFollowing ? "outline" : "default"}
+            size="sm"
+            className="mt-3 w-full cursor-pointer text-xs h-8"
+            onClick={handleFollow}
+            disabled={followLoading}
+          >
+            {followLoading ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            ) : isFollowing ? (
+              <>
+                <Heart className="h-3 w-3 mr-1 fill-current" />
+                Following
+              </>
+            ) : (
+              <>
+                <Heart className="h-3 w-3 mr-1" />
+                Follow
+              </>
+            )}
+          </Button>
         )}
       </div>
     </div>

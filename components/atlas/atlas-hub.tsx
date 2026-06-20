@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1300,13 +1301,14 @@ export function AtlasHub() {
             </div>
             <div className="flex w-full flex-wrap items-center gap-2 self-start sm:w-auto sm:flex-nowrap">
               <div className="flex items-center gap-3 w-full sm:w-auto">
-                <Input
-                  placeholder="Search worlds, lorebooks, entries..."
+                <SearchInput
                   value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
+                  onChange={(v) => {
+                    setSearch(v);
                     setWorldPage(0);
                   }}
+                  placeholder="Search worlds, lorebooks, entries..."
+                  shortcutKey="/"
                   className="w-full sm:w-64"
                 />
                 <div className="flex items-center gap-2">

@@ -21,6 +21,7 @@ import type {
   Request,
   RequestStatus,
   NavigationView,
+  CollaborativeBot,
 } from "./types";
 import { getCurrentUserAccess } from "./access";
 
@@ -61,6 +62,10 @@ interface StoreState {
   deleteBot: (id: string) => void;
   getBot: (id: string) => Bot | undefined;
 
+  // Collaborative Bots (shared with current user)
+  collaborativeBots: CollaborativeBot[];
+  refreshCollaborativeBots: () => Promise<void>;
+
   // Forms
   forms: RequestForm[];
   addForm: (
@@ -90,6 +95,10 @@ interface StoreState {
   setSelectedBotId: (id: string | null) => void;
   selectedFormId: string | null;
   setSelectedFormId: (id: string | null) => void;
+
+  // Workspace persistence (survives page refresh)
+  workspaceBotId: string | null;
+  setWorkspaceBotId: (id: string | null) => void;
 }
 
 // ----------------------------------------------------------------------------
@@ -118,6 +127,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Data state (start empty; fetch from Supabase on mount)
   const [bots, setBots] = useState<Bot[]>([]);
+  const [collaborativeBots, setCollaborativeBots] = useState<
+    CollaborativeBot[]
+  >([]);
   const [forms, setForms] = useState<RequestForm[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
 
@@ -149,9 +161,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!user) {
           // Not signed in: don't fetch or expose any user-scoped lists.
           setBots([]);
+          setCollaborativeBots([]);
           setForms([]);
           setRequests([]);
           return;
+        }
+
+        // Fetch collaborative bots (shared with this user)
+        const { getCollaborativeBots } =
+          await import("@/app/actions/collaboration");
+        const collabResult = await getCollaborativeBots();
+        if (mounted && collabResult.success) {
+          setCollaborativeBots((collabResult.bots || []) as CollaborativeBot[]);
         }
 
         // Fetch only data belonging to the authenticated user
@@ -166,7 +187,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           { data: formsData, error: formsError },
           { data: requestsData, error: requestsError },
         ] = await Promise.all([
-          supabase.from("bots").select("*").eq("user_id", user.id),
+          supabase
+            .from("bots")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("updated_at", { ascending: false })
+            .limit(20),
           formsQuery,
           requestsQuery,
         ]);
@@ -257,6 +283,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
 
+  // Workspace persistence (survives page refresh)
+  const [workspaceBotId, setWorkspaceBotIdState] = useState<string | null>(
+    null,
+  );
+
+  const setWorkspaceBotId = useCallback((id: string | null) => {
+    setWorkspaceBotIdState(id);
+    if (typeof window !== "undefined") {
+      if (id) {
+        localStorage.setItem("workspaceBotId", id);
+      } else {
+        localStorage.removeItem("workspaceBotId");
+      }
+    }
+  }, []);
+
+  // Load saved workspaceBotId from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("workspaceBotId");
+      if (saved) {
+        setWorkspaceBotIdState(saved);
+      }
+    }
+  }, []);
+
   // Bot operations
   const addBot = useCallback((data: BotFormData): Bot => {
     const newBot: Bot = {
@@ -295,6 +347,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [bots],
   );
+
+  // Refresh collaborative bots
+  const refreshCollaborativeBots = useCallback(async () => {
+    try {
+      const { getCollaborativeBots } =
+        await import("@/app/actions/collaboration");
+      const result = await getCollaborativeBots();
+      if (result.success) {
+        setCollaborativeBots((result.bots || []) as CollaborativeBot[]);
+      }
+    } catch {
+      // Non-fatal
+    }
+  }, []);
 
   // Form operations
   const addForm = useCallback(
@@ -440,6 +506,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateBot,
     deleteBot,
     getBot,
+    collaborativeBots,
+    refreshCollaborativeBots,
     forms,
     addForm,
     upsertForm,
@@ -456,6 +524,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSelectedBotId,
     selectedFormId,
     setSelectedFormId,
+    workspaceBotId,
+    setWorkspaceBotId,
   };
 
   return (

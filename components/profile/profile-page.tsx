@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/social-icons";
 import { getOwnProfile, getFollowCounts } from "@/app/actions/profile";
 import { useStore } from "@/lib/store";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ProfileEditor } from "./profile-editor";
 import { FollowListModal } from "./follow-list-modal";
@@ -205,7 +206,9 @@ export function ProfilePage() {
   const showStats = theme.showStats !== false;
   const showBadges = theme.showBadges !== false;
   const showFeatured = theme.showFeatured !== false;
-  const hideCompletenessNudge = theme.hideCompletenessNudge === "true";
+  const hideCompletenessNudge =
+    theme.hideCompletenessNudge === true ||
+    theme.hideCompletenessNudge === "true";
   const featuredBotIds = p.featured_bot_ids || [];
   const ownForms = forms.filter(
     (f) => f.ownerId === (p.id as string) || f.ownerId === undefined,
@@ -355,7 +358,13 @@ export function ProfilePage() {
                 className="flex items-center gap-1 hover:text-primary transition-colors"
               >
                 <Globe className="h-3 w-3" />
-                {new URL(p.website_url).hostname}
+                {(() => {
+                  try {
+                    return new URL(p.website_url).hostname;
+                  } catch {
+                    return p.website_url;
+                  }
+                })()}
                 <ExternalLink className="h-2.5 w-2.5" />
               </a>
             )}
@@ -602,7 +611,7 @@ export function ProfilePage() {
             {creatorPages.map((page) => (
               <a
                 key={page.id}
-                href={page.is_published ? `/${page.slug}` : "#"}
+                href={page.is_published ? `/page/${page.slug}` : "#"}
                 target={page.is_published ? "_blank" : undefined}
                 rel="noopener noreferrer"
               >
@@ -690,32 +699,39 @@ export function ProfilePage() {
         {ownForms.length > 0 ? (
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {ownForms.map((form) => (
-              <div
+              <Link
+                href={`/form/${form.shareableLink}`}
+                target="_blank"
                 key={form.id}
-                className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md"
+                rel="noopener noreferrer"
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm font-medium truncate">{form.title}</p>
-                  <Badge
-                    variant={form.isActive ? "default" : "secondary"}
-                    className="text-[10px] shrink-0"
-                  >
-                    {form.isActive ? "Active" : "Inactive"}
-                  </Badge>
+                <div
+                  key={form.id}
+                  className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-medium truncate">{form.title}</p>
+                    <Badge
+                      variant={form.isActive ? "default" : "secondary"}
+                      className="text-[10px] shrink-0"
+                    >
+                      {form.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <p
+                    className="text-xs text-muted-foreground line-clamp-2 rendered-markdown"
+                    dangerouslySetInnerHTML={{
+                      __html: form.description
+                        ? renderMarkdown(form.description)
+                        : "No description",
+                    }}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {requests.filter((r) => r.formId === form.id).length}{" "}
+                    responses · {form.sections.length} sections
+                  </p>
                 </div>
-                <p
-                  className="text-xs text-muted-foreground line-clamp-2 rendered-markdown"
-                  dangerouslySetInnerHTML={{
-                    __html: form.description
-                      ? renderMarkdown(form.description)
-                      : "No description",
-                  }}
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  {requests.filter((r) => r.formId === form.id).length}{" "}
-                  responses · {form.sections.length} sections
-                </p>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (

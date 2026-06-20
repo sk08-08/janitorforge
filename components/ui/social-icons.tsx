@@ -106,6 +106,22 @@ export function TwitchIcon({ className, size = 16 }: SocialIconProps) {
   );
 }
 
+// Janitor AI
+export function JanitorAIIcon({ className, size = 16 }: SocialIconProps) {
+  return (
+    <svg
+      role="img"
+      viewBox="0 0 24 24"
+      className={cn("fill-current", className)}
+      width={size}
+      height={size}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm-2 15a1 1 0 11-2 0 1 1 0 012 0zm4 0a1 1 0 11-2 0 1 1 0 012 0zm-1-5.5c-2.33 0-4.32 1.45-5.12 3.5h10.24c-.8-2.05-2.79-3.5-5.12-3.5z" />
+    </svg>
+  );
+}
+
 // Website / Link
 export function WebsiteIcon({ className, size = 16 }: SocialIconProps) {
   return (
@@ -172,6 +188,7 @@ export function BlueskyIcon({ className, size = 16 }: SocialIconProps) {
 
 // Map of social platform names to their icon components
 export const socialIcons: Record<string, React.FC<SocialIconProps>> = {
+  janitorai: JanitorAIIcon,
   twitter: TwitterIcon,
   discord: DiscordIcon,
   github: GithubIcon,

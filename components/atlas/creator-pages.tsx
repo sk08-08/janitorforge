@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
+import { checkSlugAvailability } from "@/app/actions/slug-check";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -77,6 +78,7 @@ interface PageSection {
   id: string;
   page_id: string;
   kind:
+    | "hero"
     | "bot_showcase"
     | "world_showcase"
     | "text_block"
@@ -87,7 +89,9 @@ interface PageSection {
     | "sticker"
     | "divider"
     | "social_links"
-    | "spacer";
+    | "spacer"
+    | "gallery"
+    | "embed";
   title: string;
   config: Record<string, unknown>;
   position: number;
@@ -97,20 +101,24 @@ interface PageSection {
 type SectionKind = PageSection["kind"];
 
 const sectionKindLabels: Record<SectionKind, string> = {
+  hero: "Hero Section",
+  banner: "Banner",
   bot_showcase: "Bot Showcase",
+  bot_group: "Bot Group",
   world_showcase: "World Showcase",
   text_block: "Text Block",
-  lorebook_gallery: "Lorebook Gallery",
-  banner: "Banner",
-  bot_group: "Bot Group",
+  gallery: "Image Gallery",
+  embed: "Embed (YouTube/Twitch)",
   form: "Request Form",
-  sticker: "Sticker / Image",
-  divider: "Divider",
   social_links: "Social Links",
+  sticker: "Sticker / Image",
+  lorebook_gallery: "Lorebook Gallery",
+  divider: "Divider",
   spacer: "Spacer",
 };
 
 const sectionKindIcons: Record<SectionKind, typeof Layout> = {
+  hero: Layout,
   bot_showcase: LayoutGrid,
   world_showcase: Globe,
   text_block: LayoutList,
@@ -122,6 +130,8 @@ const sectionKindIcons: Record<SectionKind, typeof Layout> = {
   divider: Layout,
   social_links: Layout,
   spacer: Layout,
+  gallery: LayoutGrid,
+  embed: Layout,
 };
 
 const layoutLabels: Record<CreatorPage["layout"], string> = {
@@ -163,6 +173,12 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
   const [editShowBackButton, setEditShowBackButton] = useState(true);
   const [editShowBadges, setEditShowBadges] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Slug availability checking
+  const [slugStatus, setSlugStatus] = useState<
+    "idle" | "checking" | "available" | "taken"
+  >("idle");
+  const [slugMessage, setSlugMessage] = useState("");
 
   // Section dialog
   const [addSectionOpen, setAddSectionOpen] = useState(false);
@@ -264,9 +280,62 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
     setEditShowBadges((cfg as any).showBadges !== "false");
   };
 
+  // Debounced slug availability check for editor
+  useEffect(() => {
+    if (!editingPage || !editSlug || editSlug.length < 2) {
+      setSlugStatus("idle");
+      setSlugMessage("");
+      return;
+    }
+
+    // Skip check if slug hasn't changed
+    if (editSlug === editingPage.slug) {
+      setSlugStatus("idle");
+      setSlugMessage("");
+      return;
+    }
+
+    setSlugStatus("checking");
+    setSlugMessage("Checking...");
+
+    const timer = setTimeout(async () => {
+      if (!currentUserId) return;
+      try {
+        const result = await checkSlugAvailability(
+          editSlug,
+          currentUserId,
+          "creator_page",
+          editingPage.id,
+        );
+        if (result.available) {
+          setSlugStatus("available");
+          setSlugMessage(result.message);
+        } else {
+          setSlugStatus("taken");
+          setSlugMessage(result.message);
+        }
+      } catch {
+        setSlugStatus("idle");
+        setSlugMessage("");
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [editSlug, editingPage, currentUserId]);
+
   // Save page
   const handleSavePage = async () => {
     if (!editingPage || !currentUserId) return;
+    if (slugStatus === "taken") {
+      toast.error(
+        "Please choose a different URL slug — this one conflicts with an existing profile or page",
+      );
+      return;
+    }
+    if (slugStatus === "checking") {
+      toast.error("Please wait while we verify the URL slug");
+      return;
+    }
     setSaving(true);
     try {
       const supabase = createClient();
@@ -410,6 +479,30 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
   >([]);
   const [editingFormId, setEditingFormId] = useState<string>("");
 
+  // Social links state for visual editor
+  const [editingLinks, setEditingLinks] = useState<
+    Array<{ platform: string; url: string; label: string }>
+  >([]);
+
+  // Gallery images state for visual editor
+  const [editingImages, setEditingImages] = useState<
+    Array<{ url: string; alt: string }>
+  >([]);
+
+  // Bot/world selection for showcase sections
+  const [editingSelectedBotIds, setEditingSelectedBotIds] = useState<string[]>(
+    [],
+  );
+  const [editingSelectedWorldIds, setEditingSelectedWorldIds] = useState<
+    string[]
+  >([]);
+  const [availableBots, setAvailableBots] = useState<
+    Array<{ id: string; name: string; image_url: string | null }>
+  >([]);
+  const [availableWorlds, setAvailableWorlds] = useState<
+    Array<{ id: string; title: string }>
+  >([]);
+
   const loadAvailableForms = async () => {
     try {
       const supabase = createClient();
@@ -428,6 +521,34 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
         );
     } catch (error) {
       console.error("Failed to load forms:", error);
+    }
+  };
+
+  const loadAvailableBots = async () => {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("bots")
+        .select("id, name, image_url")
+        .eq("user_id", currentUserId)
+        .order("name");
+      if (data) setAvailableBots(data);
+    } catch (error) {
+      console.error("Failed to load bots:", error);
+    }
+  };
+
+  const loadAvailableWorlds = async () => {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("worlds")
+        .select("id, title")
+        .eq("user_id", currentUserId)
+        .order("title");
+      if (data) setAvailableWorlds(data);
+    } catch (error) {
+      console.error("Failed to load worlds:", error);
     }
   };
 
@@ -484,29 +605,56 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
   const openSectionEditor = (section: PageSection) => {
     setEditingSection(section);
     setSectionTitleEdit(section.title);
+    const config: Record<string, string> = {};
     if (section.kind === "form") {
       loadAvailableForms();
       const savedFormId = (section.config as any)?.formId || "";
       setEditingFormId(savedFormId);
+      config.description = (section.config as any)?.description || "";
+      config.ctaText = (section.config as any)?.ctaText || "";
     }
-    const config: Record<string, string> = {};
     if (section.kind === "banner") {
       config.subtitle = (section.config as any)?.subtitle || "";
       config.background = (section.config as any)?.background || "#7c3aed";
       config.background2 = (section.config as any)?.background2 || "#4c1d95";
       config.backgroundType =
         (section.config as any)?.backgroundType || "gradient";
+      config.backgroundImage = (section.config as any)?.backgroundImage || "";
+      config.overlayOpacity = String(
+        (section.config as any)?.overlayOpacity || "50",
+      );
       config.alignment = (section.config as any)?.alignment || "center";
+      config.ctaText = (section.config as any)?.ctaText || "";
+      config.ctaLink = (section.config as any)?.ctaLink || "";
+      config.ctaColor = (section.config as any)?.ctaColor || "";
     } else if (section.kind === "text_block") {
       config.body = (section.config as any)?.body || "";
+      config.backgroundColor = (section.config as any)?.backgroundColor || "";
+      config.textColor = (section.config as any)?.textColor || "";
+      config.textAlignment = (section.config as any)?.textAlignment || "left";
+      config.padding = (section.config as any)?.padding || "normal";
+      config.fontSize = (section.config as any)?.fontSize || "normal";
+      config.bordered =
+        (section.config as any)?.bordered !== false &&
+        (section.config as any)?.bordered !== "false"
+          ? "true"
+          : "false";
     } else if (
       section.kind === "bot_showcase" ||
       section.kind === "bot_group"
     ) {
       config.description = (section.config as any)?.description || "";
       config.columns = String((section.config as any)?.columns || "3");
+      const savedBotIds = (section.config as any)?.selectedBotIds;
+      setEditingSelectedBotIds(Array.isArray(savedBotIds) ? savedBotIds : []);
+      loadAvailableBots();
     } else if (section.kind === "world_showcase") {
       config.description = (section.config as any)?.description || "";
+      const savedWorldIds = (section.config as any)?.selectedWorldIds;
+      setEditingSelectedWorldIds(
+        Array.isArray(savedWorldIds) ? savedWorldIds : [],
+      );
+      loadAvailableWorlds();
     } else if (section.kind === "lorebook_gallery") {
       config.description = (section.config as any)?.description || "";
     } else if (section.kind === "sticker") {
@@ -526,7 +674,10 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
       config.height = (section.config as any)?.height || "1";
     } else if (section.kind === "social_links") {
       const links = (section.config as any)?.links;
-      config.links = Array.isArray(links) ? JSON.stringify(links) : "[]";
+      setEditingLinks(Array.isArray(links) ? links : []);
+    } else if (section.kind === "gallery") {
+      const images = (section.config as any)?.images;
+      setEditingImages(Array.isArray(images) ? images : []);
     } else if (section.kind === "spacer") {
       config.height = (section.config as any)?.height || "3rem";
     }
@@ -539,12 +690,38 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
       const supabase = createClient();
       const config: Record<string, unknown> = {};
       Object.entries(sectionConfigEdit).forEach(([k, v]) => {
-        if (v.trim()) config[k] = v.trim();
+        // Preserve boolean-like strings and non-empty values
+        if (v === "true") config[k] = true;
+        else if (v === "false") config[k] = false;
+        else if (v.trim()) config[k] = v.trim();
       });
       if (editingSection.kind === "form" && editingFormId) {
         config.formId = editingFormId;
         const selected = availableForms.find((f) => f.id === editingFormId);
         if (selected) config.shareableLink = selected.shareable_link;
+      }
+      // Social links: use visual editor state
+      if (editingSection.kind === "social_links") {
+        config.links = editingLinks;
+      }
+      // Gallery: use visual editor state
+      if (editingSection.kind === "gallery") {
+        config.images = editingImages;
+      }
+      // Bot showcase/group: save selected bot IDs
+      if (
+        editingSection.kind === "bot_showcase" ||
+        editingSection.kind === "bot_group"
+      ) {
+        if (editingSelectedBotIds.length > 0) {
+          config.selectedBotIds = editingSelectedBotIds;
+        }
+      }
+      // World showcase: save selected world IDs
+      if (editingSection.kind === "world_showcase") {
+        if (editingSelectedWorldIds.length > 0) {
+          config.selectedWorldIds = editingSelectedWorldIds;
+        }
       }
 
       const { error } = await supabase
@@ -731,7 +908,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                     (public URL)
                   </span>
                 </Label>
-                <div className="flex items-center gap-0 min-w-0 overflow-hidden">
+                <div className="flex items-center gap-0 min-w-0 overflow-hidden relative">
                   <span className="flex h-10 shrink-0 items-center rounded-l-md border border-r-0 bg-muted px-3 text-xs text-muted-foreground">
                     /
                   </span>
@@ -745,9 +922,49 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                           .replace(/-+/g, "-"),
                       )
                     }
-                    className="rounded-l-none min-w-0"
+                    className={cn(
+                      "rounded-l-none min-w-0 pr-9 transition-colors",
+                      slugStatus === "available" &&
+                        "border-emerald-500 focus-visible:ring-emerald-500/30",
+                      slugStatus === "taken" &&
+                        "border-destructive focus-visible:ring-destructive/30",
+                    )}
                   />
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                    {slugStatus === "checking" && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    {slugStatus === "available" && (
+                      <span className="text-emerald-500 text-xs font-bold">
+                        ✓
+                      </span>
+                    )}
+                    {slugStatus === "taken" && (
+                      <span className="text-destructive text-xs font-bold">
+                        ✗
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {slugMessage && slugStatus !== "idle" && (
+                  <p
+                    className={cn(
+                      "text-[11px]",
+                      slugStatus === "available" && "text-emerald-600",
+                      slugStatus === "taken" && "text-destructive",
+                      slugStatus === "checking" && "text-muted-foreground",
+                    )}
+                  >
+                    {slugMessage}
+                  </p>
+                )}
+                {slugStatus === "taken" && (
+                  <p className="text-[10px] text-muted-foreground">
+                    {slugMessage.includes("priority")
+                      ? "Your profile slug has priority. Choose a different URL for this creator page."
+                      : "This slug conflicts with an existing profile or page. Choose a unique one."}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>
@@ -1190,28 +1407,619 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <Label>Background Image URL</Label>
+                      <Input
+                        value={sectionConfigEdit.backgroundImage || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            backgroundImage: e.target.value,
+                          }))
+                        }
+                        placeholder="https://example.com/bg.jpg"
+                      />
+                    </div>
+                    {sectionConfigEdit.backgroundImage && (
+                      <div className="space-y-2">
+                        <Label>
+                          Overlay Opacity (
+                          {sectionConfigEdit.overlayOpacity || 50}%)
+                        </Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={sectionConfigEdit.overlayOpacity || "50"}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              overlayOpacity: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label>CTA Button Text</Label>
+                      <Input
+                        value={sectionConfigEdit.ctaText || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            ctaText: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. View My Bots"
+                      />
+                    </div>
+                    {sectionConfigEdit.ctaText && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>CTA Link</Label>
+                          <Input
+                            value={sectionConfigEdit.ctaLink || ""}
+                            onChange={(e) =>
+                              setSectionConfigEdit((prev) => ({
+                                ...prev,
+                                ctaLink: e.target.value,
+                              }))
+                            }
+                            placeholder="https://..."
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>CTA Color (empty = accent)</Label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={sectionConfigEdit.ctaColor || "#7c3aed"}
+                              onChange={(e) =>
+                                setSectionConfigEdit((prev) => ({
+                                  ...prev,
+                                  ctaColor: e.target.value,
+                                }))
+                              }
+                              className="h-10 w-10 rounded cursor-pointer border"
+                            />
+                            <Input
+                              value={sectionConfigEdit.ctaColor || ""}
+                              onChange={(e) =>
+                                setSectionConfigEdit((prev) => ({
+                                  ...prev,
+                                  ctaColor: e.target.value,
+                                }))
+                              }
+                              placeholder="Accent color"
+                              className="flex-1"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
 
                 {/* Text Block fields */}
                 {editingSection.kind === "text_block" && (
-                  <div className="space-y-2">
-                    <Label>Content</Label>
-                    <Textarea
-                      value={sectionConfigEdit.body || ""}
-                      onChange={(e) =>
-                        setSectionConfigEdit((prev) => ({
-                          ...prev,
-                          body: e.target.value,
-                        }))
-                      }
-                      placeholder="Write your content here. Supports plain text."
-                      rows={8}
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      {(sectionConfigEdit.body || "").length} characters
-                    </p>
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label>Content</Label>
+                      <Textarea
+                        value={sectionConfigEdit.body || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            body: e.target.value,
+                          }))
+                        }
+                        placeholder="Write your content here. Supports plain text."
+                        rows={8}
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        {(sectionConfigEdit.body || "").length} characters
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Font Size</Label>
+                      <Select
+                        value={sectionConfigEdit.fontSize || "normal"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            fontSize: v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="small">Small</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="large">Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Text Alignment</Label>
+                      <Select
+                        value={sectionConfigEdit.textAlignment || "left"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            textAlignment: v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">Left</SelectItem>
+                          <SelectItem value="center">Center</SelectItem>
+                          <SelectItem value="right">Right</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Padding</Label>
+                      <Select
+                        value={sectionConfigEdit.padding || "normal"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            padding: v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="compact">Compact</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="spacious">Spacious</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Background Color (empty = default)</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={sectionConfigEdit.backgroundColor || "#ffffff"}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              backgroundColor: e.target.value,
+                            }))
+                          }
+                          className="h-10 w-10 rounded cursor-pointer border"
+                        />
+                        <Input
+                          value={sectionConfigEdit.backgroundColor || ""}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              backgroundColor: e.target.value,
+                            }))
+                          }
+                          placeholder="Default"
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Text Color (empty = default)</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={sectionConfigEdit.textColor || "#000000"}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              textColor: e.target.value,
+                            }))
+                          }
+                          className="h-10 w-10 rounded cursor-pointer border"
+                        />
+                        <Input
+                          value={sectionConfigEdit.textColor || ""}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              textColor: e.target.value,
+                            }))
+                          }
+                          placeholder="Default"
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Hero fields */}
+                {editingSection.kind === "hero" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Headline</Label>
+                      <Input
+                        value={sectionConfigEdit.headline || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            headline: e.target.value,
+                          }))
+                        }
+                        placeholder="Welcome to my page"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Subheadline</Label>
+                      <Input
+                        value={sectionConfigEdit.subheadline || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            subheadline: e.target.value,
+                          }))
+                        }
+                        placeholder="A short description"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Background Image URL</Label>
+                      <Input
+                        value={sectionConfigEdit.heroImage || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            heroImage: e.target.value,
+                          }))
+                        }
+                        placeholder="https://example.com/hero.jpg"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Overlay Color</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={sectionConfigEdit.overlayColor || "#000000"}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              overlayColor: e.target.value,
+                            }))
+                          }
+                          className="h-10 w-10 rounded cursor-pointer border"
+                        />
+                        <Input
+                          value={sectionConfigEdit.overlayColor || "#000000"}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              overlayColor: e.target.value,
+                            }))
+                          }
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>
+                        Overlay Opacity (
+                        {sectionConfigEdit.overlayOpacity || 60}%)
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={sectionConfigEdit.overlayOpacity || "60"}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            overlayOpacity: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Height</Label>
+                      <Select
+                        value={sectionConfigEdit.height || "tall"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            height: v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="short">Short (40vh)</SelectItem>
+                          <SelectItem value="medium">Medium (60vh)</SelectItem>
+                          <SelectItem value="tall">Tall (80vh)</SelectItem>
+                          <SelectItem value="fullscreen">Fullscreen</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Alignment</Label>
+                      <Select
+                        value={sectionConfigEdit.alignment || "center"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            alignment: v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="left">Left</SelectItem>
+                          <SelectItem value="center">Center</SelectItem>
+                          <SelectItem value="right">Right</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Primary CTA Text</Label>
+                      <Input
+                        value={sectionConfigEdit.ctaText || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            ctaText: e.target.value,
+                          }))
+                        }
+                        placeholder="Get Started"
+                      />
+                    </div>
+                    {sectionConfigEdit.ctaText && (
+                      <div className="space-y-2">
+                        <Label>Primary CTA Link</Label>
+                        <Input
+                          value={sectionConfigEdit.ctaLink || ""}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              ctaLink: e.target.value,
+                            }))
+                          }
+                          placeholder="https://..."
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label>Secondary CTA Text</Label>
+                      <Input
+                        value={sectionConfigEdit.secondaryCtaText || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            secondaryCtaText: e.target.value,
+                          }))
+                        }
+                        placeholder="Learn More"
+                      />
+                    </div>
+                    {sectionConfigEdit.secondaryCtaText && (
+                      <div className="space-y-2">
+                        <Label>Secondary CTA Link</Label>
+                        <Input
+                          value={sectionConfigEdit.secondaryCtaLink || ""}
+                          onChange={(e) =>
+                            setSectionConfigEdit((prev) => ({
+                              ...prev,
+                              secondaryCtaLink: e.target.value,
+                            }))
+                          }
+                          placeholder="https://..."
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Gallery fields */}
+                {editingSection.kind === "gallery" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Columns</Label>
+                      <Select
+                        value={sectionConfigEdit.columns || "3"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            columns: v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="2">2 columns</SelectItem>
+                          <SelectItem value="3">3 columns</SelectItem>
+                          <SelectItem value="4">4 columns</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Gap</Label>
+                      <Select
+                        value={sectionConfigEdit.gap || "normal"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({ ...prev, gap: v }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="compact">Compact</SelectItem>
+                          <SelectItem value="normal">Normal</SelectItem>
+                          <SelectItem value="spacious">Spacious</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Border Radius</Label>
+                      <Select
+                        value={sectionConfigEdit.rounded || "md"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            rounded: v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="sm">Small</SelectItem>
+                          <SelectItem value="md">Medium</SelectItem>
+                          <SelectItem value="lg">Large</SelectItem>
+                          <SelectItem value="full">Full</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-3">
+                      <Label>Images</Label>
+                      {editingImages.map((img, i) => (
+                        <div
+                          key={i}
+                          className="flex gap-2 items-start rounded-lg border border-border/70 p-3 bg-muted/20"
+                        >
+                          {img.url && (
+                            <div className="h-16 w-16 shrink-0 rounded overflow-hidden bg-muted">
+                              <img
+                                src={img.url}
+                                alt={img.alt || ""}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1 space-y-2 min-w-0">
+                            <Input
+                              value={img.url}
+                              onChange={(e) => {
+                                const updated = [...editingImages];
+                                updated[i] = {
+                                  ...updated[i],
+                                  url: e.target.value,
+                                };
+                                setEditingImages(updated);
+                              }}
+                              placeholder="https://example.com/image.jpg"
+                              className="h-8 text-xs"
+                            />
+                            <Input
+                              value={img.alt || ""}
+                              onChange={(e) => {
+                                const updated = [...editingImages];
+                                updated[i] = {
+                                  ...updated[i],
+                                  alt: e.target.value,
+                                };
+                                setEditingImages(updated);
+                              }}
+                              placeholder="Alt text (optional)"
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive shrink-0 cursor-pointer"
+                            onClick={() =>
+                              setEditingImages((prev) =>
+                                prev.filter((_, j) => j !== i),
+                              )
+                            }
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="cursor-pointer w-full"
+                        onClick={() =>
+                          setEditingImages((prev) => [
+                            ...prev,
+                            { url: "", alt: "" },
+                          ])
+                        }
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Add Image
+                      </Button>
+                    </div>
+                  </>
+                )}
+
+                {/* Embed fields */}
+                {editingSection.kind === "embed" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Embed Type</Label>
+                      <Select
+                        value={sectionConfigEdit.embedType || "youtube"}
+                        onValueChange={(v) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            embedType: v,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="youtube">YouTube</SelectItem>
+                          <SelectItem value="twitch">Twitch</SelectItem>
+                          <SelectItem value="other">Other (iframe)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Video/Embed URL</Label>
+                      <Input
+                        value={sectionConfigEdit.embedUrl || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            embedUrl: e.target.value,
+                          }))
+                        }
+                        placeholder="https://youtube.com/watch?v=..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Height (px)</Label>
+                      <Input
+                        type="number"
+                        value={sectionConfigEdit.height || "400"}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            height: e.target.value,
+                          }))
+                        }
+                        placeholder="400"
+                      />
+                    </div>
+                  </>
                 )}
 
                 {/* Bot Showcase / Bot Group fields */}
@@ -1253,25 +2061,119 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <Label>Select Bots to Display</Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        {editingSelectedBotIds.length > 0
+                          ? `${editingSelectedBotIds.length} selected — uncheck all to show all bots`
+                          : "All bots will be displayed"}
+                      </p>
+                      <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border p-2">
+                        {availableBots.length > 0 ? (
+                          availableBots.map((bot) => {
+                            const checked = editingSelectedBotIds.includes(
+                              bot.id,
+                            );
+                            return (
+                              <label
+                                key={bot.id}
+                                className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer transition-colors ${checked ? "bg-primary/10" : "hover:bg-muted"}`}
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(c) => {
+                                    if (c) {
+                                      setEditingSelectedBotIds((prev) => [
+                                        ...prev,
+                                        bot.id,
+                                      ]);
+                                    } else {
+                                      setEditingSelectedBotIds((prev) =>
+                                        prev.filter((id) => id !== bot.id),
+                                      );
+                                    }
+                                  }}
+                                />
+                                <span className="text-sm truncate">
+                                  {bot.name}
+                                </span>
+                              </label>
+                            );
+                          })
+                        ) : (
+                          <p className="text-xs text-muted-foreground py-2">
+                            No bots found.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </>
                 )}
 
                 {/* World Showcase fields */}
                 {editingSection.kind === "world_showcase" && (
-                  <div className="space-y-2">
-                    <Label>Description</Label>
-                    <Textarea
-                      value={sectionConfigEdit.description || ""}
-                      onChange={(e) =>
-                        setSectionConfigEdit((prev) => ({
-                          ...prev,
-                          description: e.target.value,
-                        }))
-                      }
-                      placeholder="Describe the worlds you want to showcase..."
-                      rows={3}
-                    />
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        value={sectionConfigEdit.description || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            description: e.target.value,
+                          }))
+                        }
+                        placeholder="Describe the worlds you want to showcase..."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Select Worlds to Display</Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        {editingSelectedWorldIds.length > 0
+                          ? `${editingSelectedWorldIds.length} selected — uncheck all to show all worlds`
+                          : "All worlds will be displayed"}
+                      </p>
+                      <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border p-2">
+                        {availableWorlds.length > 0 ? (
+                          availableWorlds.map((world) => {
+                            const checked = editingSelectedWorldIds.includes(
+                              world.id,
+                            );
+                            return (
+                              <label
+                                key={world.id}
+                                className={`flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer transition-colors ${checked ? "bg-primary/10" : "hover:bg-muted"}`}
+                              >
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(c) => {
+                                    if (c) {
+                                      setEditingSelectedWorldIds((prev) => [
+                                        ...prev,
+                                        world.id,
+                                      ]);
+                                    } else {
+                                      setEditingSelectedWorldIds((prev) =>
+                                        prev.filter((id) => id !== world.id),
+                                      );
+                                    }
+                                  }}
+                                />
+                                <span className="text-sm truncate">
+                                  {world.title}
+                                </span>
+                              </label>
+                            );
+                          })
+                        ) : (
+                          <p className="text-xs text-muted-foreground py-2">
+                            No worlds found.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {/* Lorebook Gallery fields */}
@@ -1294,6 +2196,33 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
 
                 {editingSection.kind === "form" && (
                   <>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        value={sectionConfigEdit.description || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            description: e.target.value,
+                          }))
+                        }
+                        placeholder="Describe what this form is for..."
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CTA Button Text</Label>
+                      <Input
+                        value={sectionConfigEdit.ctaText || ""}
+                        onChange={(e) =>
+                          setSectionConfigEdit((prev) => ({
+                            ...prev,
+                            ctaText: e.target.value,
+                          }))
+                        }
+                        placeholder="Open Request Form"
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Select a Request Form</Label>
                       {availableForms.length > 0 ? (
@@ -1558,6 +2487,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                           <SelectItem value="line">Line</SelectItem>
                           <SelectItem value="dots">Dots</SelectItem>
                           <SelectItem value="gradient">Gradient</SelectItem>
+                          <SelectItem value="ornament">Ornament (◆)</SelectItem>
                           <SelectItem value="space">Space</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1578,24 +2508,114 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                   </>
                 )}
 
-                {/* Social Links fields */}
+                {/* Social Links fields — Visual Editor */}
                 {editingSection.kind === "social_links" && (
-                  <div className="space-y-2">
-                    <Label>Social Links (JSON array)</Label>
-                    <Textarea
-                      value={sectionConfigEdit.links || "[]"}
-                      onChange={(e) =>
-                        setSectionConfigEdit((prev) => ({
+                  <div className="space-y-3">
+                    <Label>Social Links</Label>
+                    {editingLinks.map((link, i) => (
+                      <div
+                        key={i}
+                        className="flex gap-2 items-start rounded-lg border border-border/70 p-3 bg-muted/20"
+                      >
+                        <div className="flex-1 space-y-2 min-w-0">
+                          <Select
+                            value={link.platform || "website"}
+                            onValueChange={(v) => {
+                              const updated = [...editingLinks];
+                              const platformLabels: Record<string, string> = {
+                                janitorai: "Janitor AI",
+                                twitter: "Twitter",
+                                discord: "Discord",
+                                github: "GitHub",
+                                tiktok: "TikTok",
+                                youtube: "YouTube",
+                                twitch: "Twitch",
+                                website: "Website",
+                                other: "Other",
+                              };
+                              updated[i] = {
+                                ...updated[i],
+                                platform: v,
+                                label:
+                                  platformLabels[v] ||
+                                  v.charAt(0).toUpperCase() + v.slice(1),
+                              };
+                              setEditingLinks(updated);
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="janitorai">
+                                Janitor AI
+                              </SelectItem>
+                              <SelectItem value="twitter">
+                                Twitter / X
+                              </SelectItem>
+                              <SelectItem value="discord">Discord</SelectItem>
+                              <SelectItem value="github">GitHub</SelectItem>
+                              <SelectItem value="tiktok">TikTok</SelectItem>
+                              <SelectItem value="youtube">YouTube</SelectItem>
+                              <SelectItem value="twitch">Twitch</SelectItem>
+                              <SelectItem value="website">Website</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={link.url}
+                            onChange={(e) => {
+                              const updated = [...editingLinks];
+                              updated[i] = {
+                                ...updated[i],
+                                url: e.target.value,
+                              };
+                              setEditingLinks(updated);
+                            }}
+                            placeholder="https://..."
+                            className="h-8 text-xs"
+                          />
+                          <Input
+                            value={link.label || ""}
+                            onChange={(e) => {
+                              const updated = [...editingLinks];
+                              updated[i] = {
+                                ...updated[i],
+                                label: e.target.value,
+                              };
+                              setEditingLinks(updated);
+                            }}
+                            placeholder="Display label (optional)"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive shrink-0 cursor-pointer"
+                          onClick={() => {
+                            setEditingLinks((prev) =>
+                              prev.filter((_, j) => j !== i),
+                            );
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="cursor-pointer w-full"
+                      onClick={() =>
+                        setEditingLinks((prev) => [
                           ...prev,
-                          links: e.target.value,
-                        }))
+                          { platform: "website", url: "", label: "" },
+                        ])
                       }
-                      placeholder='[{"platform": "Twitter", "url": "https://twitter.com/user", "label": "Twitter"}]'
-                      rows={6}
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      Format: [{"{"}platform, url, label{"}"}]
-                    </p>
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Add Link
+                    </Button>
                   </div>
                 )}
 
@@ -1731,7 +2751,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                 <div className="flex gap-2 mt-3 flex-wrap">
                   {page.is_published && (
                     <a
-                      href={`/${page.slug}`}
+                      href={`/page/${page.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}

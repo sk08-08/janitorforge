@@ -1,6 +1,6 @@
 // ============================================================================
-// JanitorForge - Pending Collaboration Invites
-// Shows pending collaboration invites and allows accept/decline
+// JanitorForge - Pending Collaboration Invites (Overhaul)
+// Shows pending invites with bot images, inviter avatars, and role details
 // ============================================================================
 
 "use client";
@@ -15,6 +15,8 @@ import {
   Eye,
   Pencil,
   Inbox,
+  Bot as BotIcon,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,47 +25,23 @@ import {
   getMyPendingInvites,
   respondToInvite,
 } from "@/app/actions/collaboration";
+import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { CollaboratorRole, PendingInvite } from "@/lib/types";
+import { roleConfig } from "@/lib/types";
 
-type CollaboratorRole = "viewer" | "editor" | "co_owner";
-
-interface PendingInvite {
-  id: string;
-  bot_id: string;
-  invited_by: string;
-  role: CollaboratorRole;
-  status: string;
-  created_at: string;
-  bot?: { name: string | null } | null;
-  inviter?: { username: string | null; display_name: string | null } | null;
-}
-
-const roleConfig: Record<
-  CollaboratorRole,
-  { label: string; icon: typeof Eye; className: string }
-> = {
-  viewer: {
-    label: "Viewer",
-    icon: Eye,
-    className: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  },
-  editor: {
-    label: "Editor",
-    icon: Pencil,
-    className: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  },
-  co_owner: {
-    label: "Co-owner",
-    icon: Crown,
-    className: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  },
+const roleIcons: Record<CollaboratorRole, typeof Eye> = {
+  viewer: Eye,
+  editor: Pencil,
+  co_owner: Crown,
 };
 
 export function PendingInvites() {
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const { refreshCollaborativeBots } = useStore();
 
   const loadInvites = useCallback(async () => {
     setLoading(true);
@@ -85,7 +63,15 @@ export function PendingInvites() {
 
     if (result.success) {
       setInvites((prev) => prev.filter((i) => i.id !== inviteId));
-      toast.success(accept ? "Invite accepted!" : "Invite declined");
+      toast.success(
+        accept
+          ? "Invite accepted! The bot is now available in your Bot Manager."
+          : "Invite declined",
+      );
+      // Refresh the collaborative bots in the store
+      if (accept) {
+        await refreshCollaborativeBots();
+      }
     } else {
       toast.error(result.error || "Failed to respond to invite");
     }
@@ -107,44 +93,82 @@ export function PendingInvites() {
   }
 
   return (
-    <Card className="border-primary/20 bg-primary/[0.02]">
+    <Card className="border-primary/20 bg-primary/[0.02] mb-6">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
-          <Inbox className="h-4 w-4 text-primary" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+            <Inbox className="h-4 w-4 text-primary" />
+          </div>
           Collaboration Invites
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-[10px] ml-auto">
             {invites.length}
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-3">
         {invites.map((invite) => {
           const roleConf = roleConfig[invite.role];
-          const RoleIcon = roleConf.icon;
+          const RoleIcon = roleIcons[invite.role];
           const inviterName =
-            invite.inviter?.display_name ||
-            invite.inviter?.username ||
-            "Someone";
-          const botName = invite.bot?.name || "a bot";
+            invite.inviter_display_name || invite.inviter_username || "Someone";
+          const botName = invite.bot_name || "a bot";
 
           return (
             <div
               key={invite.id}
-              className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-border/70 bg-background/50 p-3"
+              className="group relative flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-border/70 bg-background/80 p-4 transition-all hover:border-primary/30 hover:shadow-md"
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 shrink-0">
-                  <Users className="h-4 w-4 text-primary" />
+              {/* Bot image */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="relative h-12 w-12 shrink-0 rounded-lg overflow-hidden bg-muted">
+                  {invite.bot_image_url ? (
+                    <img
+                      src={invite.bot_image_url}
+                      alt={botName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                      <BotIcon className="h-6 w-6 text-primary/40" />
+                    </div>
+                  )}
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm">
+
+                {/* Invite info */}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm leading-snug">
                     <span className="font-medium">{inviterName}</span>{" "}
                     <span className="text-muted-foreground">
                       invited you to collaborate on
                     </span>{" "}
-                    <span className="font-medium">{botName}</span>
+                    <span className="font-semibold text-foreground">
+                      {botName}
+                    </span>
                   </p>
-                  <div className="flex items-center gap-1.5 mt-1">
+                  {invite.bot_short_description && (
+                    <p className="text-xs text-muted-foreground/70 mt-0.5 truncate">
+                      {invite.bot_short_description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    {/* Inviter avatar */}
+                    <div className="flex items-center gap-1">
+                      <div className="h-4 w-4 rounded-full bg-primary/10 overflow-hidden shrink-0">
+                        {invite.inviter_avatar_url ? (
+                          <img
+                            src={invite.inviter_avatar_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <User className="h-3 w-3 text-primary p-0.5" />
+                        )}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        @{invite.inviter_username || "unknown"}
+                      </span>
+                    </div>
+                    {/* Role badge */}
                     <Badge
                       variant="outline"
                       className={cn(
@@ -155,7 +179,8 @@ export function PendingInvites() {
                       <RoleIcon className="h-2.5 w-2.5 mr-0.5" />
                       {roleConf.label}
                     </Badge>
-                    <span className="text-[10px] text-muted-foreground">
+                    {/* Time */}
+                    <span className="text-[10px] text-muted-foreground/60">
                       {new Date(invite.created_at).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -164,10 +189,12 @@ export function PendingInvites() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 shrink-0 sm:flex-col">
                 <Button
                   size="sm"
-                  className="cursor-pointer"
+                  className="cursor-pointer flex-1 sm:flex-none"
                   onClick={() => handleRespond(invite.id, true)}
                   disabled={respondingId === invite.id}
                 >
@@ -182,7 +209,7 @@ export function PendingInvites() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="cursor-pointer"
+                  className="cursor-pointer flex-1 sm:flex-none"
                   onClick={() => handleRespond(invite.id, false)}
                   disabled={respondingId === invite.id}
                 >

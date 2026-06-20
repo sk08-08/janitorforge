@@ -1,7 +1,9 @@
 // ============================================================================
 // Content Safety Filter
-// Detects dangerous content: self-harm, suicide, severe harassment
-// Does NOT censor slang, casual language, or neutral words
+// Detects dangerous content directed at REAL people: self-harm encouragement,
+// direct threats, hate speech, harassment
+// Does NOT filter: fiction, roleplay, Dead Dove content, internet slang,
+// casual swearing, memes, harmless expressions in any language
 // ============================================================================
 
 export interface ContentFilterResult {
@@ -9,151 +11,189 @@ export interface ContentFilterResult {
   riskLevel: "safe" | "warning" | "dangerous";
   flags: string[];
   reason?: string;
+  matchedPattern?: string;
 }
 
-// Categorized patterns for safety detection.
-// Keep patterns specific to reduce false positives.
+// ============================================================================
+// DANGEROUS CONTENT — Targets real people, not fiction
+// ============================================================================
 
-// Suicidal / self-harm encouragement (highest severity)
+// Suicide/self-harm ENCOURAGEMENT (directed at someone, not self-expression)
+// These use word boundaries and "you/yourself" to avoid catching fictional context
 const SUICIDE_PATTERNS: RegExp[] = [
-  /\bkill yourself\b/i,
-  /\bgo kill yourself\b/i,
-  /\bkys\b/i,
-  /\b(i want to die|i wanna die|i want to kill myself|want to end my life|end it all)\b/i,
-  /\b(im going to kill myself|i'm going to kill myself|i will kill myself|i'll kill myself|im gonna kill myself|i'm gonna kill myself)\b/i,
-  /\b(hurt myself|harm myself|cut myself|cutting myself)\b/i,
-  /\boverdose( myself)?\b/i,
-  /\bhang myself\b/i,
-  /\bdeep cuts?\b/i,
-  /\bself[- ]harm\b/i,
-  /\bsuicide\b/i,
-  /\bsuicidal\b/i,
+  /\bkill\s*(your|ur)self\b/i,
+  /\bk*y+s\b/i,
+  /\bgo\s+kill\s*(your|ur)self\b/i,
+  /\b(you\s+should|you\s+need\s+to|why\s+don'?t\s+you)\s+(just\s+)?(kill\s*(your|ur)self|die|end\s+it)\b/i,
+  /\bcommit\s+suicide\b/i,
+  /\bneck\s+rope\b/i,
+  /\brope\s+and\s+stool\b/i,
+  // First person suicidal ideation (directed at self, not fiction)
+  /\b(i\s+want\s+to\s+die|i\s+wanna\s+die|i\s+want\s+to\s+kill\s+myself|want\s+to\s+end\s+my\s+life|end\s+it\s+all)\b/i,
+  /\b(im|i'm|iam)\s+going\s+to\s+kill\s+myself\b/i,
+  /\b(i\s+will|i'll)\s+kill\s+myself\b/i,
+  /\b(i'm|im|i\s+am)\s+going\s+to\s+end\s+it\b/i,
+  /\b(hurt|harm|cut)\s+myself\b/i,
+  /\boverdose\s*(myself)?\b/i,
+  /\bhang\s+myself\b/i,
+  /\bself[- ]?harm\b/i,
 ];
 
-// Severe threats (direct violence toward others)
+// Severe threats (directed at a real person present in conversation)
 const THREAT_PATTERNS: RegExp[] = [
-  /\b(i will kill you|i'll kill you|im going to kill you|i'm going to kill you|i will murder you)\b/i,
-  /\bi will (rape|assault|abuse) you\b/i,
-  /\b(i will beat you|i'll beat you|im going to beat you|i'm going to beat you|i will hit you|i'll hit you)\b/i,
+  /\b(i\s+will|i'?ll|i'?m\s+going\s+to)\s+(kill|murder|execute)\s+(you|u|him|her|them)\b/i,
+  /\b(i\s+will|i'?ll)\s+(rape|molest|assault)\s+(you|u|him|her|them)\b/i,
+  /\bi'?ll\s+(beat|stab|shoot|burn)\s+(you|u)\s+(up|down)\b/i,
+  /\bi'?m\s+going\s+to\s+(beat|stab|shoot|burn)\s+(you|u)\b/i,
+  /\bi\s+know\s+where\s+(you|u)\s+live\b/i,
+  /\bi'?ll\s+find\s+where\s+(you|u)\s+live\b/i,
+  /\bdox|doxx|doxing|doxxing\b/i,
+  /\bswat(ting|s)?\b/i,
 ];
 
-// Hate speech / severe slurs (sensitive)
-const HATE_SPEECH_PATTERNS: RegExp[] = [/\b(faggot|nigger|retard)\b/i];
-
-// General insults and dehumanization (warning level)
-const INSULT_PATTERNS: RegExp[] = [
-  /\b(bitch|slut|cunt|motherfucker|bastard|scumbag|asshole|dickhead|cumdump)\b/i,
-  /\b(fuck you|fuck u|suck my dick|suck it)\b/i,
-  /\b(go die|drop dead|you should die|you deserve to die|you don't deserve to live|youre garbage|you're garbage|you're trash|youre trash)\b/i,
+// Hate speech — severe slurs directed at someone
+const HATE_SPEECH_PATTERNS: RegExp[] = [
+  /\b(f+a+g+o*t+|n+i+g+g+(e*r|a+h*)|r+e+t+a+r+d+)\b/gi,
 ];
 
-// Spanish equivalents
+// Direct harassment (these are ONLY flagged when directed at someone with "you/ur")
+const HARASSMENT_PATTERNS: RegExp[] = [
+  /\byou'?re?\s*(a\s+)?(worthless|trash|garbage|subhuman|disgusting|pathetic|waste\s+of\s+(space|oxygen|life))\b/i,
+  /\byou\s+don'?t\s+deserve\s+to\s+(live|exist|be\s+here)\b/i,
+  /\bthe\s+world\s+would\s+be\s+better\s+without\s+(you|u)\b/i,
+  /\bno\s+one\s+(would|will)\s+(care|miss)\s+if\s+(you|u)\s+(died|disappeared|were\s+gone)\b/i,
+];
+
+// Spanish — Suicide encouragement directed at someone
 const SPANISH_SUICIDE_PATTERNS: RegExp[] = [
-  /\b(suicidarse?|suicidio|me voy a matar|voy a matarme?|quiero morirme?|suicid)\b/i,
-  /\bmatate?s?\b/i,
-  /\bdeberias? morirte?\b/i,
-  /\bmuerete?\b/i,
+  /\b(mata[rt]e|suicida[rt]e)\b/i,
+  /\b(anda|ve|vete)\s+a\s+mata[rt]e\b/i,
+  /\b(deberias|debes?|tendrias?\s+que)\s+mori[rt]e?\b/i,
+  /\b(muerete|muere[rt]e?)\b/i,
+  /\bpor\s+qu[eé]\s+no\s+te\s+(mata[rt]e|mueres)\b/i,
+  /\bkys\b/i,
 ];
 
-const SPANISH_SELFHARM_PATTERNS: RegExp[] = [
-  /\b(cortarme?|cortarte?|automutilaci[óo]n|mutilaci[óo]n|hacerme?|daño)\b/i,
-  /\bcortes? profundos?\b/i,
-];
-
+// Spanish — Direct threats
 const SPANISH_THREAT_PATTERNS: RegExp[] = [
-  /\b(te voy a violar|violarte|voy a abusarte)\b/i,
-  /\b(te voy a matar|voy a matarte|voy a asesinarte)\b/i,
-  /\b(te voy a pegar|voy a golpearte|agresión)\b/i,
+  /\bte\s+(voy\s+a\s+)?(matar|asesinar|violar|golpear)\b/i,
+  /\b(voy\s+a\s+)?(matar|asesinar|violar|golpear)te\b/i,
+  /\bsé\s+dónde\s+vives?\b/i,
+  /\bte\s+voy\s+a\s+(buscar|encontrar)\b/i,
 ];
 
+// Spanish — Dehumanization directed at someone
 const SPANISH_DEHUMANIZE_PATTERNS: RegExp[] = [
-  /\b(mereces? morir|no mereces? vivir|eres? basura|eres? menos que basura)\b/i,
+  /\b(eres?|son)\s+(basura|inutil|inútil|insecto|cucaracha)\b/i,
+  /\bno\s+mereces?\s+(vivir|existir|estar\s+aqu[ií])\b/i,
+  /\bmereces?\s+(morir|sufrir|lo\s+peor)\b/i,
 ];
 
-const DANGEROUS_CATEGORY_MAP: { [key: string]: RegExp[] } = {
+// Portuguese — Common threats
+const PORTUGUESE_PATTERNS: RegExp[] = [
+  /\b(vai|vai\s+se)\s+matar\b/i,
+  /\bte\s+matar\b/i,
+  /\bmata[- ]?te\b/i,
+  /\bmor(re|ra)\b/i,
+];
+
+const DANGEROUS_CATEGORY_MAP: Record<string, RegExp[]> = {
   suicide: SUICIDE_PATTERNS,
   threat: THREAT_PATTERNS,
   hate: HATE_SPEECH_PATTERNS,
-  insult: INSULT_PATTERNS,
+  harassment: HARASSMENT_PATTERNS,
   spanish_suicide: SPANISH_SUICIDE_PATTERNS,
-  spanish_selfharm: SPANISH_SELFHARM_PATTERNS,
   spanish_threat: SPANISH_THREAT_PATTERNS,
   spanish_dehumanize: SPANISH_DEHUMANIZE_PATTERNS,
+  portuguese: PORTUGUESE_PATTERNS,
 };
 
-// Spam/abuse patterns
+// ============================================================================
+// SPAM PATTERNS
+// ============================================================================
+
 const SPAM_PATTERNS = [
-  /^(.{0,3})\1{20,}$/g, // Repetitive characters (aaaaa...)
-  /(http|https|www)[^\s]*(.ru|.tk|.cf|.ml)/gi, // Suspicious domains
-  /viagra|cialis|casino|lottery|prize|winner|claim|free money/gi, // Classic spam
+  /(.)\1{19,}/g, // Extreme character repetition (20+ same chars)
+  /\b(viagra|cialis|casino|lottery|prize|winner|claim\s+now|free\s+money|hot\s+singles|click\s+here)\b/gi,
+  /(https?:\/\/[^\s]*\.(ru|tk|cf|ml|ga|gq|pw|cc)\b)/gi, // Suspicious TLDs in links
 ];
 
-// URLs that are commonly malicious
+// Known URL shorteners / phishing domains
 const MALICIOUS_DOMAINS = [
   "bit.do",
   "short.link",
-  "tinyurl",
-  "goo.gl",
-  "ow.ly",
-  "rebrand",
+  "cutt.ly",
+  "rb.gy",
+  "tinyurl.com", // Only suspicious, not auto-blocked
 ];
 
+const SUSPICIOUS_TLDS = [".ru", ".tk", ".cf", ".ml", ".ga", ".gq", ".pw"];
+
+// ============================================================================
+// PUBLIC INTERNET SLANG — Explicitly excluded from all filters
+// These are common expressions that could false-positive on regex patterns.
+// Adding them here ensures we never flag harmless internet culture.
+// ============================================================================
+
+const SLANG_WHITELIST = [
+  "kms", // "kill me" as slang expression (e.g. "kms that's so funny")
+  "lmao",
+  "lmfao",
+  "rofl",
+  "bruh",
+  "nah",
+  "fr fr",
+  "no cap",
+  "ong",
+  "deadass",
+  "tbh",
+  "ngl",
+  "imo",
+  "smh",
+  "gg",
+  "glhf",
+  "rip",
+  "oof",
+  "yeet",
+  "based",
+  "cringe",
+  "sus",
+  "slay",
+  "periodt",
+  "stan",
+  "woke",
+  "tea",
+  "period",
+  "simp",
+  "vibe check",
+  "touch grass",
+  "ratio",
+  "cope",
+  "seethe",
+  "dingus",
+  "brb",
+  "idk",
+  "idc",
+  "afk",
+  "ty",
+  "ttyl",
+  "btw",
+];
+
+// ============================================================================
+// CORE FUNCTIONS
+// ============================================================================
+
 /**
- * Check if content contains dangerous patterns (suicide, self-harm, threats)
- */
-export function checkDangerousPatterns(text: string): string[] {
-  const flags: string[] = [];
-
-  for (const [category, patterns] of Object.entries(DANGEROUS_CATEGORY_MAP)) {
-    for (const pattern of patterns) {
-      try {
-        if ((pattern as RegExp).lastIndex !== undefined)
-          (pattern as RegExp).lastIndex = 0;
-
-        if (pattern.test(text)) {
-          // Map categories to flags
-          if (
-            category === "suicide" ||
-            category === "spanish_suicide" ||
-            category === "spanish_selfharm"
-          ) {
-            flags.push("dangerous_content_detected");
-          } else if (category === "threat" || category === "spanish_threat") {
-            flags.push("threat_detected");
-          } else if (category === "hate") {
-            flags.push("hate_speech_detected");
-          } else if (
-            category === "insult" ||
-            category === "spanish_dehumanize"
-          ) {
-            flags.push("insult_detected");
-          }
-
-          // stop at first match for performance
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
-    }
-
-    if (flags.length > 0) break;
-  }
-
-  return flags;
-}
-
-/**
- * Normalize text for more reliable matching: unicode normalize, lowercase,
- * collapse whitespace and strip zero-width chars and simple leetspeak.
+ * Normalize text for matching: unicode normalize, strip zero-width chars,
+ * collapse whitespace, normalize simple leetspeak
  */
 export function normalizeText(text: string): string {
   if (!text) return text;
-  // Normalize unicode
   let s = text.normalize("NFC");
-  // Remove zero-width spaces and control chars
-  s = s.replace(/[\u200B-\u200F\uFEFF]/g, "");
-  // Simple leetspeak normalization: 0->o, 1|!->i, 3->e, 4->a, 5->s, 7->t
+  // Remove zero-width spaces and invisible control chars
+  s = s.replace(/[\u200B-\u200F\uFEFF\u2060-\u2064]/g, "");
+  // Simple leetspeak (common bypass attempts)
   s = s
     .replace(/0/g, "o")
     .replace(/[1!|]/g, "i")
@@ -161,25 +201,77 @@ export function normalizeText(text: string): string {
     .replace(/4/g, "a")
     .replace(/5/g, "s")
     .replace(/7/g, "t");
-  // Collapse multiple whitespace/punctuation into single spaces for matching
-  s = s.replace(/[\s\p{P}]+/gu, " ").trim();
+  // Collapse multiple whitespace into single space
+  s = s.replace(/[\s\u00A0]+/g, " ").trim();
   return s;
 }
 
 /**
- * Check for spam patterns
+ * Check if the text contains any whitelisted slang expression
+ * If so, it's likely safe internet talk, not actual danger
+ */
+function containsWhitelistedSlang(text: string): boolean {
+  const lower = text.toLowerCase();
+  return SLANG_WHITELIST.some((term) => lower.includes(term));
+}
+
+/**
+ * Check dangerous content patterns (suicide, threats, hate, harassment)
+ * Returns category flags for matched patterns
+ */
+export function checkDangerousPatterns(text: string): string[] {
+  const flags: string[] = [];
+  const seenCategories = new Set<string>();
+
+  for (const [category, patterns] of Object.entries(DANGEROUS_CATEGORY_MAP)) {
+    for (const pattern of patterns) {
+      try {
+        // Reset regex state for global patterns
+        pattern.lastIndex = 0;
+        if (pattern.test(text)) {
+          seenCategories.add(category);
+          if (
+            category === "suicide" ||
+            category === "spanish_suicide" ||
+            category === "portuguese"
+          ) {
+            flags.push("dangerous_content_detected");
+          } else if (category === "threat" || category === "spanish_threat") {
+            flags.push("threat_detected");
+          } else if (category === "hate") {
+            flags.push("hate_speech_detected");
+          } else if (
+            category === "harassment" ||
+            category === "spanish_dehumanize"
+          ) {
+            flags.push("harassment_detected");
+          }
+          break; // First match per category is enough
+        }
+      } catch {
+        continue;
+      }
+    }
+    // Don't break early — check all categories for comprehensive flags
+  }
+
+  return flags;
+}
+
+/**
+ * Check for spam indicators
  */
 export function checkSpamPatterns(text: string): string[] {
   const flags: string[] = [];
 
-  // Check for extreme repetition
-  if (/(.\S)\1{15,}/.test(text)) {
+  if (/(.)\1{19,}/.test(text)) {
     flags.push("spam_repetition");
   }
 
-  // Check for spam keywords
   if (
-    /viagra|cialis|casino|lottery|prize|winner|claim|free money/i.test(text)
+    /\b(viagra|cialis|casino|lottery|prize|winner|claim\s+now|free\s+money)\b/i.test(
+      text,
+    )
   ) {
     flags.push("spam_keywords");
   }
@@ -188,20 +280,18 @@ export function checkSpamPatterns(text: string): string[] {
 }
 
 /**
- * Check for malicious URLs
+ * Check for malicious or suspicious URLs in content
  */
 export function checkMaliciousUrls(text: string): string[] {
   const flags: string[] = [];
 
-  // Extract URLs from text
-  const urlPattern = /https?:\/\/[^\s]+/g;
+  const urlPattern = /https?:\/\/[^\s)]+/g;
   const urls = text.match(urlPattern) || [];
 
   for (const url of urls) {
     try {
-      const domain = new URL(url).hostname;
+      const domain = new URL(url).hostname.toLowerCase();
 
-      // Check against known malicious domains
       for (const maliciousDomain of MALICIOUS_DOMAINS) {
         if (domain.includes(maliciousDomain)) {
           flags.push("malicious_url");
@@ -209,11 +299,13 @@ export function checkMaliciousUrls(text: string): string[] {
         }
       }
 
-      // Check for suspicious domains (.ru, .tk, .cf, .ml are often abuse vectors)
-      if (/(\.ru|\.tk|\.cf|\.ml)$/i.test(domain)) {
-        flags.push("suspicious_url_domain");
+      for (const tld of SUSPICIOUS_TLDS) {
+        if (domain.endsWith(tld)) {
+          flags.push("suspicious_url_domain");
+          break;
+        }
       }
-    } catch (e) {
+    } catch {
       // Invalid URL, skip
     }
   }
@@ -222,23 +314,24 @@ export function checkMaliciousUrls(text: string): string[] {
 }
 
 /**
- * Check for excessive capitals/aggression indicators
+ * Check for aggression indicators in text
  */
 export function checkAggression(text: string): string[] {
   const flags: string[] = [];
 
-  if (text.length > 20) {
-    const upperCount = (text.match(/[A-Z]/g) || []).length;
-    const upperRatio = upperCount / text.length;
-
-    // If more than 70% is uppercase, it's likely aggressive
-    if (upperRatio > 0.7) {
-      flags.push("all_caps_aggression");
+  // ALL CAPS aggression (only for longer messages — short caps are normal)
+  if (text.length > 50) {
+    const letters = text.replace(/[^a-zA-ZáéíóúñüÁÉÍÓÚÑÜ]/g, "");
+    if (letters.length > 20) {
+      const upperCount = (letters.match(/[A-ZÁÉÍÓÚÑÜ]/g) || []).length;
+      if (upperCount / letters.length > 0.85) {
+        flags.push("all_caps_aggression");
+      }
     }
   }
 
-  // Multiple exclamation marks or question marks
-  if (/!{3,}|\?{3,}/.test(text)) {
+  // Excessive punctuation (4+ exclamation/question marks)
+  if (/!{4,}|\?{4,}/.test(text)) {
     flags.push("excessive_punctuation");
   }
 
@@ -246,16 +339,15 @@ export function checkAggression(text: string): string[] {
 }
 
 /**
- * Main filter function - analyzes content and returns safety assessment
+ * Main content filter — analyzes text for safety
+ * Returns a safety assessment with flags and risk level
  */
 export function filterContent(text: string): ContentFilterResult {
   if (!text || typeof text !== "string") {
     return { isSafe: true, riskLevel: "safe", flags: [] };
   }
 
-  // Normalize text to improve matching (handles unicode, simple leet, punctuation)
   const normalized = normalizeText(text);
-
   const allFlags: string[] = [];
 
   // Check dangerous content first (highest priority)
@@ -270,15 +362,29 @@ export function filterContent(text: string): ContentFilterResult {
   const urlFlags = checkMaliciousUrls(text);
   allFlags.push(...urlFlags);
 
-  // Check aggression indicators (lower priority)
+  // Check aggression (lowest priority)
   const aggressionFlags = checkAggression(text);
   allFlags.push(...aggressionFlags);
 
-  // Determine safety level
-  // Dangerous when suicidal content, direct threats, or malicious URLs are found
+  // If only aggression/spam flags AND text contains common slang, downgrade to safe
+  const hasOnlyMinorFlags =
+    allFlags.length > 0 &&
+    allFlags.every(
+      (f) =>
+        f === "all_caps_aggression" ||
+        f === "excessive_punctuation" ||
+        f === "spam_repetition",
+    );
+
+  if (hasOnlyMinorFlags && containsWhitelistedSlang(text)) {
+    return { isSafe: true, riskLevel: "safe", flags: [] };
+  }
+
+  // Dangerous: suicidal content, threats, hate speech, malicious URLs
   if (
     allFlags.includes("dangerous_content_detected") ||
     allFlags.includes("threat_detected") ||
+    allFlags.includes("hate_speech_detected") ||
     allFlags.includes("malicious_url")
   ) {
     return {
@@ -288,7 +394,8 @@ export function filterContent(text: string): ContentFilterResult {
       reason: "Dangerous content detected",
     };
   }
-  // Warning for hate speech, insults, spam, or aggression indicators
+
+  // Warning: harassment, spam, aggression
   if (allFlags.length > 0) {
     return {
       isSafe: false,
@@ -298,15 +405,12 @@ export function filterContent(text: string): ContentFilterResult {
     };
   }
 
-  return {
-    isSafe: true,
-    riskLevel: "safe",
-    flags: [],
-  };
+  return { isSafe: true, riskLevel: "safe", flags: [] };
 }
 
 /**
- * Filter all responses in a form submission
+ * Filter all text responses in a form submission
+ * Returns per-field results and overall risk assessment
  */
 export function filterFormResponses(responses: Record<string, any>): {
   isClean: boolean;
@@ -317,7 +421,6 @@ export function filterFormResponses(responses: Record<string, any>): {
   let overallRisk: "safe" | "warning" | "dangerous" = "safe";
 
   for (const [fieldName, value] of Object.entries(responses)) {
-    // Handle string or array values
     const valuesToCheck: string[] = [];
 
     if (typeof value === "string") {
@@ -326,14 +429,12 @@ export function filterFormResponses(responses: Record<string, any>): {
       valuesToCheck.push(...value.filter((v) => typeof v === "string"));
     }
 
-    // Check each value
     for (const strValue of valuesToCheck) {
       const result = filterContent(strValue);
 
       if (!result.isSafe) {
         flaggedFields[fieldName] = result;
 
-        // Update overall risk (dangerous > warning > safe)
         if (result.riskLevel === "dangerous") {
           overallRisk = "dangerous";
         } else if (

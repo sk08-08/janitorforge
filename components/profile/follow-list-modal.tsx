@@ -124,7 +124,7 @@ export function FollowListModal({
               {users.map((user) => (
                 <Link
                   key={user.id}
-                  href={user.slug ? `/${user.slug}` : "#"}
+                  href={user.username ? `/profile/${user.username}` : "#"}
                   onClick={() => onOpenChange(false)}
                 >
                   <div className="flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-muted cursor-pointer">

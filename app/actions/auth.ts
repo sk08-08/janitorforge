@@ -3,14 +3,36 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
-export async function loginWithPin(username: string, pin: string) {
-  const supabase = await createClient();
-
+// Shared validation helpers
+function validateUsername(username: string): string | null {
   const clean = username.toLowerCase().trim();
-  const email = `${clean}@janitorforge.local`;
-  const password = `${pin}${clean}`; // deterministic, simple password so users only need PIN+username
+  if (clean.length < 3) return "Username must be at least 3 characters";
+  if (clean.length > 30) return "Username must be at most 30 characters";
+  if (!/^[a-z0-9_-]+$/.test(clean))
+    return "Username can only contain letters, numbers, hyphens, and underscores";
+  return null;
+}
 
-  // Sign in via Supabase Auth to establish a real Supabase session cookie (RLS will see this)
+function validatePin(pin: string): string | null {
+  if (pin.length !== 4 || !/^\d{4}$/.test(pin))
+    return "PIN must be exactly 4 digits";
+  return null;
+}
+
+export async function loginWithPin(username: string, pin: string) {
+  const clean = username.toLowerCase().trim();
+
+  // Validate inputs
+  const usernameError = validateUsername(clean);
+  if (usernameError) return { success: false, error: usernameError };
+  const pinError = validatePin(pin);
+  if (pinError) return { success: false, error: pinError };
+
+  const supabase = await createClient();
+  const email = `${clean}@janitorforge.local`;
+  const password = `${pin}${clean}`;
+
+  // Sign in via Supabase Auth
   const { data: signInData, error: signInError } =
     await supabase.auth.signInWithPassword({
       email,
@@ -43,7 +65,7 @@ export async function loginWithPin(username: string, pin: string) {
       .eq("id", authUser.id);
   }
 
-  // Optionally keep a simple janitorforge_session cookie for app-level info
+  // Keep a simple janitorforge_session cookie for app-level info
   const cookieStore = await cookies();
   cookieStore.set(
     "janitorforge_session",
@@ -62,6 +84,51 @@ export async function loginWithPin(username: string, pin: string) {
   );
 
   return { success: true, user: { id: authUser.id, username: clean } };
+}
+
+export async function checkUsernameAvailability(username: string) {
+  const clean = username.toLowerCase().trim();
+
+  // Validate format first
+  const validationError = validateUsername(clean);
+  if (validationError) {
+    return { available: false, error: validationError, checked: clean };
+  }
+
+  const supabase = await createClient();
+
+  // Check if username exists in profiles
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", clean)
+    .maybeSingle();
+
+  if (existing) {
+    return {
+      available: false,
+      error: "This username is already taken",
+      checked: clean,
+    };
+  }
+
+  // Also check auth.users email pattern (since we use {username}@janitorforge.local)
+  // This handles edge cases where profile exists but auth doesn't or vice versa
+  const { data: authUsers } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", clean)
+    .limit(1);
+
+  if (authUsers && authUsers.length > 0) {
+    return {
+      available: false,
+      error: "This username is already taken",
+      checked: clean,
+    };
+  }
+
+  return { available: true, error: null, checked: clean };
 }
 
 export async function logout() {
@@ -92,19 +159,23 @@ export async function getSession() {
 }
 
 export async function registerUser(username: string, pin: string) {
-  if (pin.length !== 4 || !/^\d+$/.test(pin)) {
-    return { success: false, error: "PIN must be 4 digits" };
-  }
-  const supabase = await createClient();
+  // Validate inputs using shared helpers
   const clean = username.toLowerCase().trim();
-  const email = `${clean}@janitorforge.local`;
-  const password = `${pin}${clean}`; // deterministic password derived from PIN+username
+  const usernameError = validateUsername(clean);
+  if (usernameError) return { success: false, error: usernameError };
+  const pinError = validatePin(pin);
+  if (pinError) return { success: false, error: pinError };
 
-  // Try to sign in first (avoids sending sign-up confirmation emails if user exists)
-  const { data: signInExisting, error: _signInExistingError } =
+  const supabase = await createClient();
+  const email = `${clean}@janitorforge.local`;
+  const password = `${pin}${clean}`;
+
+  // Try to sign in first (user may already exist with this PIN)
+  const { data: signInExisting, error: signInExistingError } =
     await supabase.auth.signInWithPassword({ email, password });
 
   if (signInExisting?.user) {
+    // User already exists and PIN is correct — sign them in
     const existingUser = signInExisting.user;
     const cookieStore = await cookies();
     cookieStore.set(
@@ -125,7 +196,19 @@ export async function registerUser(username: string, pin: string) {
     return { success: true, user: { id: existingUser.id, username: clean } };
   }
 
-  // Not signed in yet; attempt signup
+  // If sign-in failed for reasons other than wrong credentials, surface the error
+  if (
+    signInExistingError &&
+    !signInExistingError.message?.toLowerCase().includes("invalid") &&
+    !signInExistingError.message?.toLowerCase().includes("credentials")
+  ) {
+    return {
+      success: false,
+      error: signInExistingError.message || "Error checking existing account",
+    };
+  }
+
+  // Attempt signup for new user
   const { error: signUpError } = await supabase.auth.signUp({
     email,
     password,
@@ -135,31 +218,42 @@ export async function registerUser(username: string, pin: string) {
   });
 
   if (signUpError) {
-    const msg = (signUpError as any)?.message || "Error registering user";
-    if (String(msg).toLowerCase().includes("rate")) {
+    const msg = signUpError.message || "Error registering user";
+    if (msg.toLowerCase().includes("rate")) {
+      return {
+        success: false,
+        error: "Too many attempts. Please wait a moment and try again.",
+      };
+    }
+    if (
+      msg.toLowerCase().includes("already") ||
+      msg.toLowerCase().includes("exists")
+    ) {
       return {
         success: false,
         error:
-          "Email rate limit exceeded: disable email confirmations in Supabase Auth settings or configure SMTP to avoid rate limits.",
+          "An account with this username already exists. Try a different username or sign in with your PIN.",
       };
     }
     return { success: false, error: msg };
   }
 
-  // Immediately sign in to create session cookie after successful signup
+  // Immediately sign in after successful signup
   const { data: signInData, error: signInError } =
     await supabase.auth.signInWithPassword({ email, password });
 
   if (signInError || !signInData?.user) {
     return {
       success: false,
-      error: (signInError as any)?.message || "Error creating session",
+      error:
+        signInError?.message ||
+        "Account created but failed to start session. Please try signing in.",
     };
   }
 
   const authUser = signInData.user;
 
-  // Set our simple janitorforge_session cookie for app usage
+  // Set session cookie
   const cookieStore = await cookies();
   cookieStore.set(
     "janitorforge_session",

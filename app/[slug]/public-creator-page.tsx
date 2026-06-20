@@ -241,6 +241,19 @@ function BotCardGrid({
             src={bot.image_url}
             alt={bot.name}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            onError={(e) => {
+              const el = e.target as HTMLImageElement;
+              el.style.display = "none";
+              const parent = el.parentElement;
+              if (parent && !parent.querySelector(".img-fallback")) {
+                const fallback = document.createElement("div");
+                fallback.className =
+                  "img-fallback absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent";
+                fallback.innerHTML =
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-primary/30"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>';
+                parent.appendChild(fallback);
+              }
+            }}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
@@ -951,59 +964,60 @@ export function PublicCreatorPage({
               </p>
             )}
 
-            {/* Follow counts — clickable, same style as ProfilePage */}
-            {(profile?._followers !== undefined ||
-              profile?._following !== undefined) && (
-              <div className="flex items-center gap-5 mt-2 text-sm">
-                <button
-                  className="text-center cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => {
-                    setFollowModalTab("followers");
-                    setFollowModalOpen(true);
-                  }}
-                >
-                  <p
-                    className="text-lg font-bold"
-                    style={{ color: themeColor }}
+            {/* Follow counts — only on profile pages (not creator pages) */}
+            {!activePage &&
+              (profile?._followers !== undefined ||
+                profile?._following !== undefined) && (
+                <div className="flex items-center gap-5 mt-2 text-sm">
+                  <button
+                    className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => {
+                      setFollowModalTab("followers");
+                      setFollowModalOpen(true);
+                    }}
                   >
-                    {profile._followers || 0}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Followers</p>
-                </button>
-                <button
-                  className="text-center cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => {
-                    setFollowModalTab("following");
-                    setFollowModalOpen(true);
-                  }}
-                >
-                  <p
-                    className="text-lg font-bold"
-                    style={{ color: themeColor }}
+                    <p
+                      className="text-lg font-bold"
+                      style={{ color: themeColor }}
+                    >
+                      {profile._followers || 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Followers</p>
+                  </button>
+                  <button
+                    className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => {
+                      setFollowModalTab("following");
+                      setFollowModalOpen(true);
+                    }}
                   >
-                    {profile._following || 0}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Following</p>
-                </button>
-              </div>
-            )}
+                    <p
+                      className="text-lg font-bold"
+                      style={{ color: themeColor }}
+                    >
+                      {profile._following || 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Following</p>
+                  </button>
+                </div>
+              )}
 
-            {/* Tagline — same position as ProfilePage */}
-            {profile?.tagline && (
+            {/* Tagline */}
+            {/* {profile?.tagline && (
               <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
                 {profile.tagline}
               </p>
-            )}
+            )} */}
 
-            {/* Bio — same position as ProfilePage */}
+            {/* Bio */}
             {profile?.bio && (
               <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
                 {profile.bio}
               </p>
             )}
 
-            {/* Meta: location, website, join date — same row as ProfilePage */}
-            <div
+            {/* Meta: location, website, join date */}
+            {/* <div
               className={`flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs text-muted-foreground ${headerStyle === "center" || headerStyle === "stacked" ? "justify-center" : ""}`}
             >
               {profile?.location && (
@@ -1020,7 +1034,13 @@ export function PublicCreatorPage({
                   style={{ color: themeColor }}
                 >
                   <Globe className="h-3 w-3" />
-                  {new URL(profile.website_url).hostname}
+                  {(() => {
+                    try {
+                      return new URL(profile.website_url).hostname;
+                    } catch {
+                      return profile.website_url;
+                    }
+                  })()}
                   <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               )}
@@ -1034,10 +1054,11 @@ export function PublicCreatorPage({
                   })}
                 </span>
               )}
-            </div>
+            </div> */}
 
-            {/* Social links — same position as ProfilePage */}
-            {profile?.social_links &&
+            {/* Social links — only on profile pages */}
+            {!activePage &&
+              profile?.social_links &&
               Object.values(profile.social_links).some(
                 (v) => v && v.trim(),
               ) && (
@@ -1093,57 +1114,63 @@ export function PublicCreatorPage({
                 </div>
               )}
 
-            {/* Specialties — same position as ProfilePage */}
-            {profile?.specialties && profile.specialties.length > 0 && (
-              <div
-                className={`mt-4 ${headerStyle === "center" || headerStyle === "stacked" ? "flex flex-col items-center" : ""}`}
-              >
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Specialties
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {profile.specialties.map((s) => (
-                    <Badge
-                      key={s}
-                      variant="secondary"
-                      className="text-xs"
-                      style={{
-                        backgroundColor: `${themeColor}15`,
-                        color: themeColor,
-                      }}
-                    >
-                      {s}
-                    </Badge>
-                  ))}
+            {/* Specialties — only on profile pages */}
+            {!activePage &&
+              profile?.specialties &&
+              profile.specialties.length > 0 && (
+                <div
+                  className={`mt-4 ${headerStyle === "center" || headerStyle === "stacked" ? "flex flex-col items-center" : ""}`}
+                >
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                    Specialties
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.specialties.map((s) => (
+                      <Badge
+                        key={s}
+                        variant="secondary"
+                        className="text-xs"
+                        style={{
+                          backgroundColor: `${themeColor}15`,
+                          color: themeColor,
+                        }}
+                      >
+                        {s}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Profile Badges — same position as ProfilePage */}
-            {profile?.profile_badges && profile.profile_badges.length > 0 && (
-              <div
-                className={`mt-4 ${headerStyle === "center" || headerStyle === "stacked" ? "flex flex-col items-center" : ""}`}
-              >
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Badges
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {profile.profile_badges.map((badge) => (
-                    <div
-                      key={badge.id}
-                      className="flex items-center gap-1.5 rounded-full border px-3 py-1"
-                      style={{ borderColor: badge.color || themeColor }}
-                    >
-                      <Award
-                        className="h-3.5 w-3.5"
-                        style={{ color: badge.color || themeColor }}
-                      />
-                      <span className="text-xs font-medium">{badge.label}</span>
-                    </div>
-                  ))}
+            {/* Profile Badges — only on profile pages */}
+            {!activePage &&
+              profile?.profile_badges &&
+              profile.profile_badges.length > 0 && (
+                <div
+                  className={`mt-4 ${headerStyle === "center" || headerStyle === "stacked" ? "flex flex-col items-center" : ""}`}
+                >
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                    Badges
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.profile_badges.map((badge) => (
+                      <div
+                        key={badge.id}
+                        className="flex items-center gap-1.5 rounded-full border px-3 py-1"
+                        style={{ borderColor: badge.color || themeColor }}
+                      >
+                        <Award
+                          className="h-3.5 w-3.5"
+                          style={{ color: badge.color || themeColor }}
+                        />
+                        <span className="text-xs font-medium">
+                          {badge.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {showBadges && (
               <div
@@ -1165,13 +1192,19 @@ export function PublicCreatorPage({
             )}
           </div>
 
-          {/* Action buttons */}
+          {/* Action buttons — Follow only on profile pages, not creator pages */}
           <div className="flex items-center gap-2 shrink-0">
             {profile?.id && !activePage && (
               <FollowButton profileId={profile.id} themeColor={themeColor} />
             )}
             {showBackButton && (
-              <Link href="/">
+              <Link
+                href={
+                  activePage && profile?.username
+                    ? `/profile/${profile.username}`
+                    : "/"
+                }
+              >
                 <Button
                   variant="outline"
                   size="sm"
@@ -1274,7 +1307,7 @@ export function PublicCreatorPage({
               {creatorPages.length > 0 ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {creatorPages.map((page) => (
-                    <Link key={page.id} href={`/${page.slug}`}>
+                    <Link key={page.id} href={`/page/${page.slug}`}>
                       <div className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer h-full">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="text-sm font-medium truncate">

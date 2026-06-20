@@ -529,7 +529,7 @@ export function ModerationPanel({
 
           <Button
             variant="outline"
-            size="icon"
+            size="sm"
             className="cursor-pointer w-full sm:w-auto"
             onClick={loadFlaggedRequests}
             disabled={loading}

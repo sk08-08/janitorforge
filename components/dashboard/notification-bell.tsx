@@ -6,7 +6,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bell, Check, CheckCheck, Trash2, Loader2, Inbox } from "lucide-react";
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  Trash2,
+  Loader2,
+  Inbox,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -162,13 +170,19 @@ export function NotificationBell() {
                 className={cn(
                   "group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
                   !notification.is_read && "bg-primary/[0.03]",
+                  notification.type === "collaboration_invite" &&
+                    "border-l-2 border-l-purple-500/50",
                 )}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    {!notification.is_read && (
+                    {notification.type === "collaboration_invite" ? (
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10 shrink-0">
+                        <Users className="h-3 w-3 text-purple-400" />
+                      </div>
+                    ) : !notification.is_read ? (
                       <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                    )}
+                    ) : null}
                     <p
                       className={cn(
                         "text-sm font-medium truncate",
