@@ -160,11 +160,13 @@ function ReviewFlaggedDialog({
   onApprove,
   onReject,
   onBlockIp,
+  formTitle,
 }: {
   flagged: FlaggedRequest;
   onApprove: (notes?: string) => Promise<void>;
   onReject: (notes?: string) => Promise<void>;
   onBlockIp: (ipAddress: string, reason?: string) => Promise<void>;
+  formTitle?: string;
 }) {
   const [notes, setNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -233,9 +235,9 @@ function ReviewFlaggedDialog({
           )}
 
           <div>
-            <h4 className="font-medium text-sm mb-1">Request ID</h4>
-            <p className="text-sm font-mono text-muted-foreground bg-muted p-2 rounded break-all">
-              {flagged.request_id}
+            <h4 className="font-medium text-sm mb-1">Form</h4>
+            <p className="text-sm text-muted-foreground bg-muted p-2 rounded">
+              {formTitle || "Unknown form"}
             </p>
           </div>
         </div>
@@ -609,8 +611,8 @@ export function ModerationPanel({
       <div className="space-y-2">
         {loading ? (
           <Card>
-            <CardContent className="pt-6 text-center text-muted-foreground">
-              Loading flagged requests...
+            <CardContent className="p-6 text-center text-muted-foreground">
+              Loading flagged submissions...
             </CardContent>
           </Card>
         ) : filteredRequests.length === 0 ? (
@@ -684,6 +686,7 @@ export function ModerationPanel({
                         onApprove={(notes) => handleApprove(flagged.id, notes)}
                         onReject={(notes) => handleReject(flagged.id, notes)}
                         onBlockIp={handleBlockIp}
+                        formTitle={formTitle}
                       />
                     )}
                   </Dialog>

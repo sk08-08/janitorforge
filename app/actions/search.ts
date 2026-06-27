@@ -65,7 +65,8 @@ export async function searchBots(
   let countQuery = supabase
     .from("bots")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .is("deleted_at", null);
 
   if (query.trim()) {
     const escaped = query.replace(/[,()]/g, " ").trim();
@@ -85,6 +86,7 @@ export async function searchBots(
       "id, name, short_description, personality, tags, rating, image_url, created_at, updated_at",
     )
     .eq("user_id", userId)
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -137,6 +139,7 @@ export async function searchCollaborativeBots(
       "id, user_id, name, short_description, personality, tags, rating, image_url, created_at, updated_at, chat_name, first_message, scenario, example_dialogues, alternate_greetings",
     )
     .in("id", botIds)
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .limit(limit);
 
@@ -210,7 +213,8 @@ export async function searchForms(
   let countQuery = supabase
     .from("request_forms")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .is("deleted_at", null);
   if (query.trim()) {
     const escaped = query.replace(/[,()]/g, " ").trim();
     countQuery = countQuery.or(
@@ -225,6 +229,7 @@ export async function searchForms(
       "id, title, description, is_active, shareable_link, created_at, updated_at",
     )
     .eq("user_id", userId)
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

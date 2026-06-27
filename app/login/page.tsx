@@ -29,6 +29,7 @@ import {
 } from "@/app/actions/auth";
 import { FeedbackActions } from "@/components/feedback/feedback-actions";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 // ----------------------------------------------------------------------------
 // Username validation rules (client-side mirror of server)
@@ -227,14 +228,14 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+          <Link href="/">
             <Image
               src="/logo.png"
               alt="JanitorForge Logo"
-              width={44}
-              height={44}
+              width={54}
+              height={54}
             />
-          </div>
+          </Link>
           <h1 className="text-2xl font-bold tracking-tight">JanitorForge</h1>
           <p className="text-sm text-muted-foreground">
             Bot creators control panel

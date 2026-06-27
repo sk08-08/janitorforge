@@ -99,6 +99,14 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
   if (data.shareableLink !== undefined)
     payload.shareable_link = ensureShareableLink(data.shareableLink as any);
   if (data.isActive !== undefined) payload.is_active = data.isActive;
+  if (data.deactivatedMessage !== undefined)
+    payload.deactivated_message = data.deactivatedMessage ?? "";
+  if (data.deactivatedRedirectUrl !== undefined)
+    payload.deactivated_redirect_url = data.deactivatedRedirectUrl ?? "";
+  if (data.deactivatedRedirectLabel !== undefined)
+    payload.deactivated_redirect_label = data.deactivatedRedirectLabel ?? "";
+  if (data.deactivatedAccentColor !== undefined)
+    payload.deactivated_accent_color = data.deactivatedAccentColor ?? "";
 
   const { data: updated, error } = await supabase
     .from("request_forms")
@@ -141,7 +149,29 @@ export async function deleteFormAction(id: string) {
   }
   if (!userId) return { success: false, error: "Unauthenticated" };
 
-  const { error } = await supabase.from("request_forms").delete().eq("id", id);
+  // Verify ownership before deleting
+  const { data: form, error: fetchError } = await supabase
+    .from("request_forms")
+    .select("user_id")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+
+  if (fetchError || !form) {
+    return { success: false, error: "Form not found" };
+  }
+  if (form.user_id !== userId) {
+    return {
+      success: false,
+      error: "You don't have permission to delete this form",
+    };
+  }
+
+  const { error } = await supabase
+    .from("request_forms")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) {
     return {
       success: false,

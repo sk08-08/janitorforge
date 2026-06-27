@@ -198,7 +198,7 @@ export async function deleteFeedback(feedbackId: string) {
     const { supabase } = await requireAdmin();
     const { error } = await supabase
       .from("feedback_submissions")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", feedbackId);
 
     if (error) {

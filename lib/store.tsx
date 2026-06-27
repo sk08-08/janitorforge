@@ -86,6 +86,7 @@ interface StoreState {
     status: RequestStatus,
     notes?: string,
   ) => void;
+  updateRequestNotes: (id: string, notes: string) => void;
   deleteRequest: (id: string) => void;
   getRequestsByFormId: (formId: string) => Request[];
   getRequestsByStatus: (status: RequestStatus) => Request[];
@@ -191,9 +192,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .from("bots")
             .select("*")
             .eq("user_id", user.id)
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false })
             .limit(20),
-          formsQuery,
+          formsQuery.is("deleted_at", null),
           requestsQuery,
         ]);
 
@@ -274,8 +276,90 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     load();
+
+    // Real-time subscription for requests
+    let channelRef: { remove: () => void } | null = null;
+    (async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user || !mounted) return;
+
+      const ch = supabase
+        .channel("requests-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "requests",
+            filter: `user_id=eq.${userData.user.id}`,
+          },
+          (payload) => {
+            if (payload.eventType === "INSERT") {
+              const r = payload.new as any;
+              setRequests((prev) => {
+                if (prev.some((req) => req.id === r.id)) return prev;
+                return [
+                  ...prev,
+                  {
+                    id: r.id,
+                    formId: r.form_id,
+                    ownerId: r.user_id || undefined,
+                    formTitle: r.form_title,
+                    status: r.status,
+                    submitterName: r.submitter_name,
+                    responses: r.responses || {},
+                    responseLabels: r.response_labels || {},
+                    notes: r.notes,
+                    createdAt: r.created_at
+                      ? new Date(r.created_at)
+                      : new Date(),
+                    updatedAt: r.updated_at
+                      ? new Date(r.updated_at)
+                      : new Date(),
+                  },
+                ];
+              });
+            } else if (payload.eventType === "UPDATE") {
+              const r = payload.new as any;
+              setRequests((prev) =>
+                prev.map((req) =>
+                  req.id === r.id
+                    ? {
+                        ...req,
+                        formTitle: r.form_title || req.formTitle,
+                        status: r.status,
+                        submitterName: r.submitter_name || req.submitterName,
+                        responses: r.responses || req.responses,
+                        responseLabels: r.response_labels || req.responseLabels,
+                        notes: r.notes ?? req.notes,
+                        updatedAt: r.updated_at
+                          ? new Date(r.updated_at)
+                          : new Date(),
+                      }
+                    : req,
+                ),
+              );
+            } else if (payload.eventType === "DELETE") {
+              const oldId = (payload.old as any)?.id;
+              if (oldId) {
+                setRequests((prev) => prev.filter((req) => req.id !== oldId));
+              }
+            }
+          },
+        )
+        .subscribe();
+      channelRef = {
+        remove: () => {
+          supabase.removeChannel(ch);
+        },
+      };
+    })();
+
     return () => {
       mounted = false;
+      channelRef?.remove();
     };
   }, []);
 
@@ -464,22 +548,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const updateRequestNotes = useCallback(async (id: string, notes: string) => {
+    // Update UI immediately
+    setRequests((prev) =>
+      prev.map((req) =>
+        req.id === id ? { ...req, notes, updatedAt: new Date() } : req,
+      ),
+    );
+
+    // Update in Supabase in the background
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("requests")
+        .update({
+          notes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error updating request notes:", error);
+      }
+    } catch (err) {
+      console.error("Failed to update request notes in Supabase:", err);
+    }
+  }, []);
+
   const deleteRequest = useCallback(async (id: string) => {
     // Remove from UI immediately
     setRequests((prev) => prev.filter((req) => req.id !== id));
 
-    // Delete from Supabase in the background
+    // Soft delete: set deleted_at instead of hard delete
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      const { error } = await supabase.from("requests").delete().eq("id", id);
+      const { error } = await supabase
+        .from("requests")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id);
 
       if (error) {
-        console.error("Error deleting request:", error);
-        // Optionally: reload requests on error
+        console.error("Error soft-deleting request:", error);
       }
     } catch (err) {
-      console.error("Failed to delete request from Supabase:", err);
+      console.error("Failed to soft-delete request in Supabase:", err);
     }
   }, []);
 
@@ -517,6 +631,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     requests,
     addRequest,
     updateRequestStatus,
+    updateRequestNotes,
     deleteRequest,
     getRequestsByFormId,
     getRequestsByStatus,

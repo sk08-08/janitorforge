@@ -73,15 +73,15 @@ const navItems: NavItem[] = [
   },
   {
     id: "forms",
-    label: "Request Forms",
+    label: "Forms",
     icon: FileText,
-    description: "Design custom request forms",
+    description: "Design custom forms",
   },
   {
     id: "requests",
-    label: "Requests",
+    label: "Submissions",
     icon: Inbox,
-    description: "Manage incoming requests",
+    description: "Manage incoming submissions",
   },
   {
     id: "moderation",
@@ -249,7 +249,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
             {!collapsed && (
               <div className="flex flex-col">
                 <span className="font-semibold text-sidebar-foreground">
-                  JanitorForge
+                  JanitorForge (Beta)
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Bot Creator Toolkit
@@ -392,12 +392,12 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
               variant="ghost"
               size="sm"
               className={cn(
-                "w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer",
+                "w-full hover:text-white hover:bg-destructive/10 cursor-pointer",
                 collapsed ? "justify-center" : "justify-start gap-2",
               )}
               onClick={handleLogout}
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-4 w-4 text-destructive" />
               {!collapsed && <span>Sign Out</span>}
             </Button>
 
@@ -452,7 +452,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                       />
                     </div>
                     <div className="flex flex-col">
-                      <SheetTitle>JanitorForge</SheetTitle>
+                      <SheetTitle>JanitorForge (Beta)</SheetTitle>
                       <SheetDescription>Bot Creator Toolkit</SheetDescription>
                     </div>
                   </div>
@@ -550,7 +550,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer justify-start gap-2"
+                    className="w-full text-destructive hover:text-white hover:bg-destructive/10 cursor-pointer justify-start gap-2"
                     onClick={handleLogout}
                   >
                     <LogOut className="h-4 w-4" />

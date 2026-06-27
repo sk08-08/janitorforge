@@ -17,8 +17,12 @@ import {
   Clock,
   ToggleLeft,
   ToggleRight,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -62,22 +66,50 @@ import type { RequestForm, FormTemplate, FormSection } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 
+// Uses String.fromCharCode to avoid formatter mangling HTML entities
+const _amp = String.fromCharCode(38);
 function escapeHtml(str: string) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  return String(str).replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case "&":
+        return _amp + "amp;";
+      case "<":
+        return _amp + "lt;";
+      case ">":
+        return _amp + "gt;";
+      case '"':
+        return _amp + "quot;";
+      case "'":
+        return _amp + "#39;";
+      default:
+        return c;
+    }
+  });
+}
+
+function sanitizeUrl(input: string): string {
+  const url = String(input || "").trim();
+  if (!url) return "";
+  // Only allow safe schemes
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url)) {
+    // Has explicit scheme — only allow http, https, mailto
+    if (/^https?:$/i.test(url) || /^mailto:$/i.test(url)) {
+      return url;
+    }
+    // Block javascript:, data:, vbscript:, file:, etc.
+    return "";
+  }
+  // Relative URL (no scheme) — allow
+  return url;
 }
 
 function renderMarkdown(md?: string | null) {
   if (!md) return "";
   let out = escapeHtml(String(md));
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, txt, href) => {
-    const safe = String(href).trim();
-    if (/^\s*(javascript:|data:)/i.test(safe)) return escapeHtml(txt);
-    return `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(txt)}</a>`;
+    const sanitized = sanitizeUrl(String(href).trim());
+    if (!sanitized) return escapeHtml(txt);
+    return `<a href="${escapeHtml(sanitized)}" target="_blank" rel="noopener noreferrer">${escapeHtml(txt)}</a>`;
   });
   out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
@@ -128,6 +160,7 @@ interface FormCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onToggleActive: () => void;
+  onEditDeactivation: () => void;
   onCopyLink: () => void;
 }
 
@@ -138,6 +171,7 @@ function FormCard({
   onEdit,
   onDelete,
   onToggleActive,
+  onEditDeactivation,
   onCopyLink,
 }: FormCardProps) {
   const fieldCount = form.sections.reduce((sum, s) => sum + s.fields.length, 0);
@@ -166,22 +200,28 @@ function FormCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit}>
-                <Pencil className="mr-2 h-4 w-4" />
+                <Pencil className="mr-2 h-4 w-4 text-primary" />
                 Edit Form
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onCopyLink}>
-                <Copy className="mr-2 h-4 w-4" />
+                <Copy className="mr-2 h-4 w-4 text-primary" />
                 Copy Link
               </DropdownMenuItem>
+              {!form.isActive && (
+                <DropdownMenuItem onClick={onEditDeactivation}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit Deactivation Page
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={onToggleActive}>
                 {form.isActive ? (
                   <>
-                    <ToggleLeft className="mr-2 h-4 w-4" />
+                    <ToggleLeft className="mr-2 h-4 w-4 text-warning" />
                     Deactivate
                   </>
                 ) : (
                   <>
-                    <ToggleRight className="mr-2 h-4 w-4" />
+                    <ToggleRight className="mr-2 h-4 w-4 text-success" />
                     Activate
                   </>
                 )}
@@ -189,15 +229,20 @@ function FormCard({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onDelete}
-                className="text-destructive cursor-pointer"
+                className="text-destructive hover:text-white"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <CardTitle className="mt-3 text-lg">{form.title}</CardTitle>
+        <CardTitle
+          className="mt-3 text-lg rendered-markdown"
+          dangerouslySetInnerHTML={{
+            __html: form.title ? renderMarkdown(form.title) : "Untitled Form",
+          }}
+        />
         <CardDescription
           className="line-clamp-2 rendered-markdown"
           dangerouslySetInnerHTML={{
@@ -237,7 +282,6 @@ function FormCard({
             size="sm"
             className="h-7 text-xs cursor-pointer"
             onClick={() => window.open(`/form/${form.shareableLink}`, "_blank")}
-            disabled={!form.isActive}
           >
             <ExternalLink className="mr-1 h-3 w-3" />
             Preview
@@ -260,7 +304,7 @@ function EmptyState({ onCreateNew }: { onCreateNew: () => void }) {
       </div>
       <h3 className="mt-6 text-xl font-semibold">No forms yet</h3>
       <p className="mt-2 max-w-sm text-muted-foreground">
-        Create your first request form to start collecting bot ideas from your
+        Create your first form to start collecting submissions from your
         community.
       </p>
       <Button className="mt-6 cursor-pointer" onClick={onCreateNew}>
@@ -297,6 +341,15 @@ export function FormManager() {
   );
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [accessLoaded, setAccessLoaded] = useState(false);
+
+  // Deactivation dialog state
+  const [deactivateForm, setDeactivateForm] = useState<RequestForm | null>(
+    null,
+  );
+  const [deactivateMessage, setDeactivateMessage] = useState("");
+  const [deactivateRedirectUrl, setDeactivateRedirectUrl] = useState("");
+  const [deactivateRedirectLabel, setDeactivateRedirectLabel] = useState("");
+  const [deactivateAccentColor, setDeactivateAccentColor] = useState("#7c3aed");
 
   // Fetch templates when template picker opens
   useEffect(() => {
@@ -434,33 +487,54 @@ export function FormManager() {
   };
 
   const handleToggleActive = (form: RequestForm) => {
-    (async () => {
-      const res = await updateFormAction(form.id, {
-        isActive: !form.isActive,
-      } as Partial<RequestForm>);
-      if (!res.success) {
-        console.error(
-          "updateFormAction (toggle) error:",
-          (res as any).raw ?? res,
-        );
-        toast.error(res.error || "Failed to update form");
-        return;
-      }
-      const r = res.form;
-      upsertForm({
-        id: r.id,
-        ownerId: r.user_id || undefined,
-        title: r.title,
-        description: r.description || "",
-        sections: r.sections || [],
-        shareableLink: r.shareable_link || "",
-        isActive: !!r.is_active,
-        createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-        updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-        appearance: r.appearance || undefined,
-      });
-      toast.success(form.isActive ? "Form deactivated" : "Form activated");
-    })();
+    if (form.isActive) {
+      // Deactivating — show dialog to set custom message
+      setDeactivateForm(form);
+      setDeactivateMessage(form.deactivatedMessage || "");
+      setDeactivateRedirectUrl(form.deactivatedRedirectUrl || "");
+      setDeactivateRedirectLabel(form.deactivatedRedirectLabel || "");
+      setDeactivateAccentColor(form.deactivatedAccentColor || "#7c3aed");
+    } else {
+      // Activating — do it directly
+      doToggleActive(form, true, "");
+    }
+  };
+
+  const doToggleActive = async (
+    form: RequestForm,
+    isActive: boolean,
+    deactivatedMessage: string,
+  ) => {
+    const res = await updateFormAction(form.id, {
+      isActive,
+      deactivatedMessage: deactivatedMessage || "",
+      deactivatedRedirectUrl: deactivateRedirectUrl || "",
+      deactivatedRedirectLabel: deactivateRedirectLabel || "",
+      deactivatedAccentColor: deactivateAccentColor || "#7c3aed",
+    } as Partial<RequestForm>);
+    if (!res.success) {
+      console.error(
+        "updateFormAction (toggle) error:",
+        (res as any).raw ?? res,
+      );
+      toast.error(res.error || "Failed to update form");
+      return;
+    }
+    const r = res.form;
+    upsertForm({
+      id: r.id,
+      ownerId: r.user_id || undefined,
+      title: r.title,
+      description: r.description || "",
+      sections: r.sections || [],
+      shareableLink: r.shareable_link || "",
+      isActive: !!r.is_active,
+      deactivatedMessage: r.deactivated_message || "",
+      createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+      updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+      appearance: r.appearance || undefined,
+    });
+    toast.success(isActive ? "Form activated" : "Form deactivated");
   };
 
   const handleCopyLink = async (form: RequestForm) => {
@@ -473,6 +547,45 @@ export function FormManager() {
     }
   };
 
+  const handleEditDeactivation = (form: RequestForm) => {
+    setDeactivateForm(form);
+    setDeactivateMessage(form.deactivatedMessage || "");
+    setDeactivateRedirectUrl(form.deactivatedRedirectUrl || "");
+    setDeactivateRedirectLabel(form.deactivatedRedirectLabel || "");
+    setDeactivateAccentColor(form.deactivatedAccentColor || "#7c3aed");
+  };
+
+  const handleSaveDeactivation = async () => {
+    if (!deactivateForm) return;
+    const res = await updateFormAction(deactivateForm.id, {
+      deactivatedMessage: deactivateMessage || "",
+      deactivatedRedirectUrl: deactivateRedirectUrl || "",
+      deactivatedRedirectLabel: deactivateRedirectLabel || "",
+      deactivatedAccentColor: deactivateAccentColor || "#7c3aed",
+    } as Partial<RequestForm>);
+    if (!res.success) {
+      toast.error(res.error || "Failed to update deactivation settings");
+      return;
+    }
+    const r = res.form;
+    upsertForm({
+      id: r.id,
+      ownerId: r.user_id || undefined,
+      title: r.title,
+      description: r.description || "",
+      sections: r.sections || [],
+      shareableLink: r.shareable_link || "",
+      isActive: !!r.is_active,
+      deactivatedMessage: r.deactivated_message || "",
+      createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+      updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+      appearance: r.appearance || undefined,
+    });
+    setDeactivateForm(null);
+    setDeactivateMessage("");
+    toast.success("Deactivation page updated");
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 lg:p-10">
       {/* Header */}
@@ -482,7 +595,7 @@ export function FormManager() {
             Request Forms
           </h1>
           <p className="mt-1 text-sm sm:text-base text-muted-foreground">
-            Design custom forms to collect bot requests from your community
+            Design custom forms to collect submissions from your community
           </p>
         </div>
         <Button
@@ -524,6 +637,7 @@ export function FormManager() {
                     onEdit={() => setEditingForm(form)}
                     onDelete={() => setDeleteConfirmForm(form)}
                     onToggleActive={() => handleToggleActive(form)}
+                    onEditDeactivation={() => handleEditDeactivation(form)}
                     onCopyLink={() => handleCopyLink(form)}
                   />
                 ))}
@@ -558,6 +672,7 @@ export function FormManager() {
                     onEdit={() => setEditingForm(form)}
                     onDelete={() => setDeleteConfirmForm(form)}
                     onToggleActive={() => handleToggleActive(form)}
+                    onEditDeactivation={() => handleEditDeactivation(form)}
                     onCopyLink={() => handleCopyLink(form)}
                   />
                 ))}
@@ -589,7 +704,7 @@ export function FormManager() {
             <SheetDescription>
               {editingForm
                 ? "Update your form structure and settings (supports markdown in section titles and form description)"
-                : "Design a custom form to collect bot requests (supports markdown in section titles and form description)"}
+                : "Design a custom form to collect submissions (supports markdown in section titles and form description)"}
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6">
@@ -698,6 +813,113 @@ export function FormManager() {
         </DialogContent>
       </Dialog>
 
+      {/* Deactivation Dialog */}
+      <Dialog
+        open={!!deactivateForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeactivateForm(null);
+            setDeactivateMessage("");
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100%-1rem)] max-w-md sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {deactivateForm?.isActive
+                ? "Deactivate Form"
+                : "Edit Deactivation Page"}
+            </DialogTitle>
+            <DialogDescription>
+              {deactivateForm?.isActive
+                ? "Users who visit this form will see a custom message. Leave blank to show the default message."
+                : "Customize what visitors see when they access this deactivated form."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-2">
+              <Label className="text-sm">Custom Message (optional)</Label>
+              <Textarea
+                value={deactivateMessage}
+                onChange={(e) => setDeactivateMessage(e.target.value)}
+                placeholder="e.g. Commissions are currently closed. Follow me on Twitter for updates!"
+                rows={4}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Redirect Link (optional)</Label>
+              <Input
+                value={deactivateRedirectUrl}
+                onChange={(e) => setDeactivateRedirectUrl(e.target.value)}
+                placeholder="https://twitter.com/yourhandle"
+                className="h-9"
+              />
+              <p className="text-xs text-muted-foreground">
+                Add a link for visitors to follow (e.g. your social media,
+                profile, etc.)
+              </p>
+            </div>
+            {deactivateRedirectUrl && (
+              <div className="space-y-2">
+                <Label className="text-sm">Button Label</Label>
+                <Input
+                  value={deactivateRedirectLabel}
+                  onChange={(e) => setDeactivateRedirectLabel(e.target.value)}
+                  placeholder="Follow me on Twitter"
+                  className="h-9"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label className="text-sm">Accent Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={deactivateAccentColor}
+                  onChange={(e) => setDeactivateAccentColor(e.target.value)}
+                  className="h-9 w-9 rounded cursor-pointer border"
+                />
+                <Input
+                  value={deactivateAccentColor}
+                  onChange={(e) => setDeactivateAccentColor(e.target.value)}
+                  placeholder="#7c3aed"
+                  className="flex-1 h-9"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeactivateForm(null);
+                setDeactivateMessage("");
+              }}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant={deactivateForm?.isActive ? "destructive" : "default"}
+              onClick={() => {
+                if (deactivateForm) {
+                  if (deactivateForm.isActive) {
+                    doToggleActive(deactivateForm, false, deactivateMessage);
+                    setDeactivateForm(null);
+                    setDeactivateMessage("");
+                  } else {
+                    handleSaveDeactivation();
+                  }
+                }
+              }}
+              className="cursor-pointer"
+            >
+              {deactivateForm?.isActive ? "Deactivate Form" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={!!deleteConfirmForm}
@@ -705,13 +927,38 @@ export function FormManager() {
       >
         <DialogContent className="w-[calc(100%-1rem)] max-w-md sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Delete Form</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Form
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{deleteConfirmForm?.title}
-              &quot;? This will also delete all associated requests. This action
-              cannot be undone.
+              You are about to delete{" "}
+              <span className="font-semibold text-foreground">
+                "{deleteConfirmForm?.title}"
+              </span>
+              . This is a soft delete — the form and its submissions will be
+              hidden but preserved in the database.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm">
+            <p className="font-medium text-destructive">What happens:</p>
+            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+              <li>
+                The form will be deactivated and hidden from your dashboard
+              </li>
+              <li>
+                The public form link will no longer accept new submissions
+              </li>
+              <li>
+                Existing submissions are preserved but will be hidden from your
+                submissions view
+              </li>
+              <li>
+                If this form is linked on your creator page, it will no longer
+                be visible to visitors
+              </li>
+            </ul>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -725,7 +972,7 @@ export function FormManager() {
               onClick={handleDeleteForm}
               className="cursor-pointer"
             >
-              Delete
+              Delete Form
             </Button>
           </DialogFooter>
         </DialogContent>

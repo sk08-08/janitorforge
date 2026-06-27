@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { FeedbackActions } from "@/components/feedback/feedback-actions";
@@ -280,7 +281,9 @@ function RecentRequestCard({
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <p className="truncate text-sm font-medium">{formTitle}</p>
+            <div className="truncate text-sm font-medium rendered-markdown [&>*:last-child]:mb-0">
+              <MarkdownRenderer content={formTitle} />
+            </div>
             <p className="text-xs text-muted-foreground">
               {submitterName || "Anonymous submitter"}
             </p>
@@ -306,7 +309,9 @@ function RecentRequestCard({
             <Clock className="h-3 w-3" />
             {formatRelativeTime(createdAt)}
           </span>
-          <span className="truncate">{formTitle}</span>
+          <span className="truncate rendered-markdown [&>*:last-child]:mb-0">
+            <MarkdownRenderer content={formTitle} />
+          </span>
         </div>
       </CardContent>
     </Card>
@@ -418,6 +423,7 @@ interface ActivityItem {
     | "collaborator_joined";
   title: string;
   description: string;
+  formTitle?: string;
   timestamp: Date;
   icon: typeof Bot;
   accentColor: string;
@@ -436,9 +442,10 @@ function ActivityFeedItem({ item }: { item: ActivityItem }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{item.title}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {item.description}
-        </p>
+        <MarkdownRenderer
+          className="text-xs text-muted-foreground truncate"
+          content={item.description}
+        />
       </div>
       <span className="text-[11px] text-muted-foreground/60 shrink-0">
         {formatRelativeTime(item.timestamp)}
@@ -502,12 +509,12 @@ function OnboardingBanner({
       action: onCreateBot,
     },
     {
-      label: "Design a request form",
+      label: "Design a form",
       done: totalForms > 0,
       action: onCreateForm,
     },
     {
-      label: "Share and receive requests",
+      label: "Share and receive submissions",
       done: false,
       action: onCreateForm,
     },
@@ -801,7 +808,7 @@ export function DashboardHome() {
         <StatCard
           title="Active Forms"
           value={stats.activeForms}
-          description="Accepting requests"
+          description="Accepting submissions"
           icon={FileText}
           accentColor="bg-chart-2/20"
           trend={
@@ -818,13 +825,15 @@ export function DashboardHome() {
           onClick={() => setCurrentView("forms")}
         />
         <StatCard
-          title="Pending Requests"
+          title="Pending Submissions"
           value={stats.pendingRequests}
           description="Awaiting response"
           icon={Inbox}
           accentColor="bg-chart-3/20"
           trend={stats.pendingRequests > 0 ? "up" : "neutral"}
-          trendValue={stats.pendingRequests > 0 ? "needs attention" : undefined}
+          trendValue={
+            stats.pendingRequests > 0 ? " needs attention" : undefined
+          }
           footer={
             oldestPendingRequest
               ? `Oldest: ${formatDate(oldestPendingRequest.createdAt)}`
@@ -835,7 +844,7 @@ export function DashboardHome() {
         <StatCard
           title="Completed"
           value={stats.completedRequests}
-          description="Requests fulfilled"
+          description="Submissions fulfilled"
           icon={CheckCircle}
           accentColor="bg-success/20"
           trend={stats.completedRequests > 0 ? "up" : "neutral"}
@@ -852,10 +861,10 @@ export function DashboardHome() {
         <InsightCard
           title="Workspace health"
           value={`${responseRate}%`}
-          description="Share of requests already completed in this workspace."
+          description="Share of submissions already completed in this workspace."
           icon={Activity}
           accentClassName="bg-primary/10"
-          actionLabel="Open Requests"
+          actionLabel="Open Submissions"
           onAction={() => setCurrentView("requests")}
         />
         <InsightCard
@@ -874,7 +883,7 @@ export function DashboardHome() {
               ? `${stats.pendingRequests} open`
               : "Clear"
           }
-          description="Outstanding requests that need attention."
+          description="Outstanding submissions that need attention."
           icon={AlertTriangle}
           accentClassName="bg-chart-3/10"
           actionLabel="Review queue"
@@ -882,7 +891,7 @@ export function DashboardHome() {
         />
       </div>
 
-      {/* Two-column layout: Activity Feed + Recent Requests */}
+      {/* Two-column layout: Activity Feed + Recent Submissions */}
       <div className="mb-8 grid gap-6 lg:grid-cols-5">
         {/* Activity Feed */}
         <div className="lg:col-span-2">
@@ -918,11 +927,11 @@ export function DashboardHome() {
           </Card>
         </div>
 
-        {/* Recent Requests */}
+        {/* Recent Submissions */}
         <div className="lg:col-span-3">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold">Recent Requests</h2>
+              <h2 className="text-xl font-semibold">Recent Submissions</h2>
               <p className="text-sm text-muted-foreground">
                 The latest submissions across your active forms
               </p>
@@ -954,9 +963,9 @@ export function DashboardHome() {
             <Card>
               <EmptyState
                 icon={Inbox}
-                title="No requests yet"
-                description="Once people submit requests, the latest ones will show up here for quick triage."
-                actionLabel="Open Requests"
+                title="No submissions yet"
+                description="Once people submit submissions, the latest ones will show up here for quick triage."
+                actionLabel="Open Submissions"
                 onAction={() => setCurrentView("requests")}
               />
             </Card>
@@ -1159,11 +1168,11 @@ export function DashboardHome() {
                 <BarChart3 className="h-6 w-6 text-amber-500" />
               </div>
               <div>
-                <h3 className="font-medium">Review Requests</h3>
+                <h3 className="font-medium">Review Submissions</h3>
                 <p className="text-sm text-muted-foreground">
                   {stats.pendingRequests > 0
                     ? `${stats.pendingRequests} pending`
-                    : "View all requests"}
+                    : "View all submissions"}
                 </p>
               </div>
             </CardContent>

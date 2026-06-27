@@ -2244,7 +2244,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                       ) : (
                         <p className="text-sm text-muted-foreground">
                           No forms available. Create a form first in the
-                          Requests tab.
+                          Submissions tab.
                         </p>
                       )}
                     </div>
@@ -2252,7 +2252,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                       <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4 text-sm">
                         <p className="text-muted-foreground">
                           The selected form will be rendered on your creator
-                          page. Visitors can submit requests directly through
+                          page. Visitors can submit submissions directly through
                           it.
                         </p>
                       </div>

@@ -61,7 +61,7 @@ const feedbackLocationOptions = [
   "Login / Register",
   "Public form",
   "Dashboard",
-  "Requests",
+  "Submissions",
   "Forms",
   "Bots",
 ] as const;
@@ -287,7 +287,7 @@ export function FeedbackActions({
             <SelectItem value="Login / Register">Login / Register</SelectItem>
             <SelectItem value="Public form">Public form</SelectItem>
             <SelectItem value="Dashboard">Dashboard</SelectItem>
-            <SelectItem value="Requests">Requests / Kanban</SelectItem>
+            <SelectItem value="Submissions">Submissions / Kanban</SelectItem>
             <SelectItem value="Forms">Request Forms</SelectItem>
             <SelectItem value="Bots">Bot Manager</SelectItem>
             <SelectItem value="other">Other (specify)</SelectItem>

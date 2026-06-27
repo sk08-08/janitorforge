@@ -18,17 +18,64 @@ const geistMono = Geist_Mono({
 
 // SEO Metadata
 export const metadata: Metadata = {
-  title: "JanitorForge",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://janitorforge.vercel.app",
+  ),
+  title: {
+    default: "JanitorForge — The toolkit for character creators",
+    template: "%s | JanitorForge (Beta)",
+  },
   description:
-    "A powerful ecosystem of tools for Janitor AI bot creators. Manage bots, create request forms, and organize Atlas hubs for series, lore, and creator spaces.",
+    "Create, manage, and share your AI characters. Custom forms, visual boards, real collaboration — everything in one place for character creators.",
   keywords: [
     "Janitor AI",
     "bot creator",
     "character card",
     "AI chatbot",
     "bot manager",
+    "character creator",
+    "commission form",
+    "creator tools",
+    "character management",
+    "AI character editor",
   ],
   authors: [{ name: "JanitorForge" }],
+  creator: "JanitorForge",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "/",
+    siteName: "JanitorForge (Beta)",
+    title: "JanitorForge (Beta) — The toolkit for character creators",
+    description:
+      "Create, manage, and share your AI characters. Custom forms, visual boards, real collaboration — everything in one place.",
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: "JanitorForge (Beta) Logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "JanitorForge (Beta) — The toolkit for character creators",
+    description:
+      "Create, manage, and share your AI characters. Custom forms, visual boards, real collaboration — everything in one place.",
+    images: ["/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   icons: {
     icon: [
       { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },

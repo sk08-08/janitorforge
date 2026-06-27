@@ -14,6 +14,9 @@ import {
   Loader2,
   Inbox,
   Users,
+  ArrowUpRight,
+  FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +32,7 @@ import {
   deleteNotification,
   type Notification,
 } from "@/app/actions/notifications";
+import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -48,6 +52,7 @@ function getTimeAgo(dateStr: string): string {
 }
 
 export function NotificationBell() {
+  const { setCurrentView } = useStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -70,10 +75,68 @@ export function NotificationBell() {
   }, []);
 
   // Load count on mount and poll every 60s
+  // Also listen for real-time notification inserts
   useEffect(() => {
+    let mounted = true;
     refreshCount();
     const interval = setInterval(refreshCount, 60000);
-    return () => clearInterval(interval);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let channel: any = null;
+
+    const setupRealtime = async () => {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user || !mounted) return;
+
+      channel = supabase
+        .channel(`notifications-bell-${userData.user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${userData.user.id}`,
+          },
+          (payload) => {
+            const n = payload.new as Record<string, unknown>;
+            setNotifications((prev) => {
+              if (prev.some((p) => p.id === n.id)) return prev;
+              return [
+                {
+                  id: n.id as string,
+                  type: n.type as string,
+                  title: n.title as string,
+                  message: (n.message as string) || null,
+                  link: (n.link as string) || null,
+                  is_read: n.is_read as boolean,
+                  metadata: (n.metadata as Record<string, unknown>) || null,
+                  created_at: n.created_at as string,
+                },
+                ...prev,
+              ];
+            });
+            setUnreadCount((prev) => prev + 1);
+          },
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      if (channel) {
+        (async () => {
+          const { createClient } = await import("@/lib/supabase/client");
+          const supabase = createClient();
+          supabase.removeChannel(channel);
+        })();
+      }
+    };
   }, [refreshCount]);
 
   // Load full list when dropdown opens
@@ -108,6 +171,38 @@ export function NotificationBell() {
     if (result.success) {
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       if (wasUnread) setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "new_request":
+      case "new_submission":
+        return <Inbox className="h-3 w-3 text-blue-400" />;
+      case "new_follower":
+        return <Users className="h-3 w-3 text-green-400" />;
+      case "collaboration_invite":
+        return <Users className="h-3 w-3 text-purple-400" />;
+      case "flagged_submission":
+        return <AlertTriangle className="h-3 w-3 text-amber-400" />;
+      default:
+        return <FileText className="h-3 w-3 text-muted-foreground" />;
+    }
+  };
+
+  const getNotificationColor = (type: string) => {
+    switch (type) {
+      case "new_request":
+      case "new_submission":
+        return "border-l-blue-500/50";
+      case "new_follower":
+        return "border-l-green-500/50";
+      case "collaboration_invite":
+        return "border-l-purple-500/50";
+      case "flagged_submission":
+        return "border-l-amber-500/50";
+      default:
+        return "";
     }
   };
 
@@ -159,75 +254,137 @@ export function NotificationBell() {
             <Inbox className="h-8 w-8 mb-2 opacity-40" />
             <p className="text-sm">No notifications yet</p>
             <p className="text-xs text-muted-foreground/60">
-              You'll see new requests and activity here
+              You'll see new submissions and activity here
             </p>
           </div>
         ) : (
           <div className="divide-y divide-border/30">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={cn(
-                  "group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
-                  !notification.is_read && "bg-primary/[0.03]",
-                  notification.type === "collaboration_invite" &&
-                    "border-l-2 border-l-purple-500/50",
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {notification.type === "collaboration_invite" ? (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10 shrink-0">
-                        <Users className="h-3 w-3 text-purple-400" />
+            {notifications.map((notification) => {
+              const meta = notification.metadata as Record<
+                string,
+                unknown
+              > | null;
+
+              // Determine if the link is a real external page (profile, form)
+              // or a SPA-internal dashboard view that needs client-side navigation
+              const isDashboardLink =
+                notification.link && notification.link.startsWith("/dashboard");
+              const hasExternalLink =
+                notification.link &&
+                notification.link.startsWith("/") &&
+                !isDashboardLink;
+              const hasSpaAction =
+                (!notification.link || isDashboardLink) &&
+                (meta || isDashboardLink);
+
+              const handleClick = () => {
+                if (hasSpaAction) {
+                  if (meta?.request_id || meta?.form_id) {
+                    setCurrentView("requests");
+                  } else if (meta?.bot_id) {
+                    setCurrentView("bots");
+                  } else if (meta?.follower_id) {
+                    setCurrentView("profile");
+                  } else if (isDashboardLink) {
+                    // Parse ?view= param from dashboard links
+                    const url = new URL(
+                      notification.link!,
+                      window.location.origin,
+                    );
+                    const view = url.searchParams.get("view");
+                    if (
+                      view &&
+                      ["bots", "forms", "requests", "profile"].includes(view)
+                    ) {
+                      setCurrentView(
+                        view as "bots" | "forms" | "requests" | "profile",
+                      );
+                    } else {
+                      setCurrentView("bots");
+                    }
+                  }
+                  if (!notification.is_read) {
+                    handleMarkAsRead(notification.id);
+                  }
+                }
+              };
+
+              const Wrapper = hasExternalLink ? "a" : "button";
+              const wrapperProps = hasExternalLink
+                ? { href: notification.link, target: "_self" as const }
+                : { type: "button" as const, onClick: handleClick };
+
+              return (
+                <Wrapper
+                  key={notification.id}
+                  {...(wrapperProps as any)}
+                  className={cn(
+                    "group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
+                    !notification.is_read && "bg-primary/[0.03]",
+                    `border-l-2 ${getNotificationColor(notification.type)}`,
+                    notification.link && "cursor-pointer no-underline",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted shrink-0">
+                        {getNotificationIcon(notification.type)}
                       </div>
-                    ) : !notification.is_read ? (
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                    ) : null}
-                    <p
-                      className={cn(
-                        "text-sm font-medium truncate",
-                        !notification.is_read
-                          ? "text-foreground"
-                          : "text-muted-foreground",
+                      <p
+                        className={cn(
+                          "text-sm font-medium truncate",
+                          !notification.is_read
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {notification.title}
+                      </p>
+                      {notification.link && (
+                        <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />
                       )}
-                    >
-                      {notification.title}
+                    </div>
+                    {notification.message && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {notification.message}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">
+                      {getTimeAgo(notification.created_at)}
                     </p>
                   </div>
-                  {notification.message && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {notification.message}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">
-                    {getTimeAgo(notification.created_at)}
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  {!notification.is_read && (
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    {!notification.is_read && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 cursor-pointer"
+                        title="Mark as read"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleMarkAsRead(notification.id);
+                        }}
+                      >
+                        <Check className="h-3 w-3" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 cursor-pointer"
-                      title="Mark as read"
-                      onClick={() => handleMarkAsRead(notification.id)}
+                      className="h-6 w-6 cursor-pointer text-muted-foreground hover:text-destructive"
+                      title="Delete"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDelete(notification.id);
+                      }}
                     >
-                      <Check className="h-3 w-3" />
+                      <Trash2 className="h-3 w-3" />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 cursor-pointer text-muted-foreground hover:text-destructive"
-                    title="Delete"
-                    onClick={() => handleDelete(notification.id)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+                  </div>
+                </Wrapper>
+              );
+            })}
           </div>
         )}
       </DropdownMenuContent>

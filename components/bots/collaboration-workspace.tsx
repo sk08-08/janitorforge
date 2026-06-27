@@ -802,7 +802,9 @@ export function CollaborationWorkspace({
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs">Bot Name *</Label>
+                      <Label className="text-xs">
+                        Bot Name <span className="text-red-400">*</span>
+                      </Label>
                       {dirtyFields.name && (
                         <span className="text-[10px] text-amber-400 font-medium">
                           modified

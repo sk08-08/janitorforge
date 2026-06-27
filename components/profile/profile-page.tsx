@@ -710,7 +710,12 @@ export function ProfilePage() {
                   className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <p className="text-sm font-medium truncate">{form.title}</p>
+                    <p
+                      className="text-sm font-medium truncate rendered-markdown"
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdown(form.title),
+                      }}
+                    />
                     <Badge
                       variant={form.isActive ? "default" : "secondary"}
                       className="text-[10px] shrink-0"

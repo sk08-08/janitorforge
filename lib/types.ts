@@ -95,6 +95,10 @@ export interface RequestForm {
   appearance?: FormAppearance;
   shareableLink: string;
   isActive: boolean;
+  deactivatedMessage?: string;
+  deactivatedRedirectUrl?: string;
+  deactivatedRedirectLabel?: string;
+  deactivatedAccentColor?: string;
   securitySensitivity?: "low" | "medium" | "high" | "strict";
   createdAt: Date;
   updatedAt: Date;

@@ -1,6 +1,6 @@
 // ============================================================================
-// JanitorForge - Requests View
-// Kanban board view for managing incoming requests
+// JanitorForge - Submissions View
+// Kanban board view for managing incoming submissions
 // ============================================================================
 
 "use client";
@@ -46,7 +46,7 @@ function EmptyState() {
       </div>
       <h3 className="mt-6 text-xl font-semibold">No requests yet</h3>
       <p className="mt-2 max-w-sm text-muted-foreground">
-        Share your forms with your community to start receiving bot requests.
+        Share your forms with your community to start receiving submissions.
       </p>
       <Button
         className="mt-6 cursor-pointer"
@@ -200,10 +200,10 @@ export function RequestsView() {
     const form = forms.find((f) => f.id === formId);
     if (!form) return;
 
-    // Only export requests for this specific form
+    // Only export submissions for this specific form
     const formRequests = requests.filter((r) => r.formId === formId);
     if (formRequests.length === 0) {
-      toast.error("No requests to export for this form");
+      toast.error("No submissions to export for this form");
       return;
     }
 
@@ -231,7 +231,7 @@ export function RequestsView() {
     }
     setExportDialogOpen(false);
     toast.success(
-      `Exported ${data.length} requests as ${format.toUpperCase()}`,
+      `Exported ${data.length} submissions as ${format.toUpperCase()}`,
     );
   };
 
@@ -240,10 +240,10 @@ export function RequestsView() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Requests
+            Submissions
           </h1>
           <p className="mt-1 text-sm sm:text-base text-muted-foreground">
-            Manage incoming bot requests with the Kanban board
+            Manage incoming submissions with the Kanban board
           </p>
         </div>
 
@@ -301,9 +301,9 @@ export function RequestsView() {
             <section className="space-y-3">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold">My requests</h2>
+                  <h2 className="text-lg font-semibold">My submissions</h2>
                   <p className="text-sm text-muted-foreground">
-                    Requests that belong to your own forms.
+                    Submissions that belong to your own forms.
                   </p>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -334,7 +334,7 @@ export function RequestsView() {
                 <div>
                   <h2 className="text-lg font-semibold">Other accounts</h2>
                   <p className="text-sm text-muted-foreground">
-                    Requests from forms owned by other users.
+                    Submissions from forms owned by other users.
                   </p>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -348,11 +348,12 @@ export function RequestsView() {
                   onStatusChange={handleStatusChange}
                   onDelete={handleDelete}
                   collapseStateKey="kanban-collapsed-other-requests"
+                  isAdmin={true}
                 />
               ) : (
                 <Card>
                   <CardContent className="py-12 text-center text-muted-foreground">
-                    No requests from other accounts yet.
+                    No submissions from other accounts yet.
                   </CardContent>
                 </Card>
               )}
@@ -363,10 +364,10 @@ export function RequestsView() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">
-              No requests match the selected filter
+              No submissions match the selected filter
             </p>
             <Button variant="link" onClick={() => setFilterFormId("all")}>
-              View all requests
+              View all submissions
             </Button>
           </CardContent>
         </Card>
@@ -380,7 +381,7 @@ export function RequestsView() {
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
         <DialogContent className="w-[calc(100%-1rem)] max-w-md">
           <DialogHeader>
-            <DialogTitle>Export Requests</DialogTitle>
+            <DialogTitle>Export Submissions</DialogTitle>
             <DialogDescription>
               Select which form to export. Only your own forms are available.
             </DialogDescription>

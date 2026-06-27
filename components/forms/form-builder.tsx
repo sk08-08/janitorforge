@@ -1109,13 +1109,15 @@ export function FormBuilder({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="form-title">Form Title *</Label>
+            <Label htmlFor="form-title">
+              Form Title <span className="text-red-400">*</span>
+            </Label>
             <div>
               <Input
                 id="form-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Bot Request Form"
+                placeholder="e.g., Contact Form, Commission Request"
                 className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
               />
             </div>

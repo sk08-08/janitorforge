@@ -150,7 +150,29 @@ export async function deleteBotAction(id: string) {
   }
   if (!userId) return { success: false, error: "Unauthenticated" };
 
-  const { error } = await supabase.from("bots").delete().eq("id", id);
+  // Verify ownership before deleting
+  const { data: bot, error: fetchError } = await supabase
+    .from("bots")
+    .select("user_id")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+
+  if (fetchError || !bot) {
+    return { success: false, error: "Bot not found" };
+  }
+  if (bot.user_id !== userId) {
+    return {
+      success: false,
+      error: "You don't have permission to delete this bot",
+    };
+  }
+
+  const { error } = await supabase
+    .from("bots")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", userId);
   if (error) {
     return {
       success: false,

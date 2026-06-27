@@ -19,6 +19,7 @@ import {
   Users,
   GitFork,
   Zap,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -334,7 +335,7 @@ function BotCard({
               <span>tokens</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Clock className="h-4 w-4" />
+              <Clock className="h-4 w-4 text-primary" />
               <span>{bot.updatedAt.toLocaleDateString()}</span>
             </div>
           </div>
@@ -343,33 +344,36 @@ function BotCard({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
+                <MoreVertical className="h-4 w-4 text-primary" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit}>
-                <Pencil className="mr-2 h-4 w-4" />
+                <Pencil className="mr-2 h-4 w-4 text-primary" />
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onExport}>
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="mr-2 h-4 w-4 text-primary" />
                 Export Card V2
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onWorkspace}>
-                <Zap className="mr-2 h-4 w-4" />
+                <Zap className="mr-2 h-4 w-4 text-primary" />
                 Open Workspace
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onCollaborators}>
-                <Users className="mr-2 h-4 w-4" />
+                <Users className="mr-2 h-4 w-4 text-primary" />
                 Collaborators
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onFork}>
-                <GitFork className="mr-2 h-4 w-4" />
+                <GitFork className="mr-2 h-4 w-4 text-primary" />
                 Fork Bot
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onDelete} className="text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
+              <DropdownMenuItem
+                onClick={onDelete}
+                className="text-destructive hover:text-white"
+              >
+                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -413,38 +417,38 @@ function BotCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer shrink-0"
+                className="h-8 w-8 sm:opacity-0 opacity-100 transition-opacity group-hover:opacity-100 cursor-pointer shrink-0"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onEdit}>
-                <Pencil className="mr-2 h-4 w-4" />
+                <Pencil className="mr-2 h-4 w-4 text-primary" />
                 Edit
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onExport}>
-                <Download className="mr-2 h-4 w-4" />
+                <Download className="mr-2 h-4 w-4 text-primary" />
                 Export Card V2
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onWorkspace}>
-                <Zap className="mr-2 h-4 w-4" />
+                <Zap className="mr-2 h-4 w-4 text-primary" />
                 Open Workspace
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onCollaborators}>
-                <Users className="mr-2 h-4 w-4" />
+                <Users className="mr-2 h-4 w-4 text-primary" />
                 Collaborators
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onFork}>
-                <GitFork className="mr-2 h-4 w-4" />
+                <GitFork className="mr-2 h-4 w-4 text-primary" />
                 Fork Bot
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onDelete}
-                className="text-destructive cursor-pointer"
+                className="text-destructive hover:text-white"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -473,7 +477,7 @@ function BotCard({
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
           <span>{tokenCount.toLocaleString()} tokens</span>
           <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
+            <Clock className="h-3 w-3 text-primary" />
             {bot.updatedAt.toLocaleDateString()}
           </span>
         </div>
@@ -1017,12 +1021,31 @@ export function BotManager() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Bot</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Bot
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{deleteConfirmBot?.name}
-              "? This action cannot be undone.
+              You are about to delete{" "}
+              <span className="font-semibold text-foreground">
+                "{deleteConfirmBot?.name}"
+              </span>
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm">
+            <p className="font-medium text-destructive">What happens:</p>
+            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+              <li>
+                The bot will be deleted from your dashboard and public pages
+              </li>
+              <li>Collaborators will lose access to this bot's workspace</li>
+              <li>
+                If this bot is linked on your creator page, it will no longer be
+                visible to visitors
+              </li>
+              <li>Character card data is preserved for potential recovery</li>
+            </ul>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -1036,7 +1059,7 @@ export function BotManager() {
               onClick={handleDeleteBot}
               className="cursor-pointer"
             >
-              Delete
+              Delete Bot
             </Button>
           </DialogFooter>
         </DialogContent>

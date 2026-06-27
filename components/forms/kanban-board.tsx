@@ -52,6 +52,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { Request, RequestStatus } from "@/lib/types";
+import { MarkdownRenderer } from "./markdown-renderer";
 
 // ----------------------------------------------------------------------------
 // Column Configuration
@@ -110,6 +111,7 @@ interface RequestCardProps {
   onViewDetails: () => void;
   isSelected: boolean;
   onSelectionChange: (selected: boolean) => void;
+  isAdmin?: boolean;
   className?: string;
 }
 
@@ -121,6 +123,7 @@ function RequestCard({
   onViewDetails,
   isSelected,
   onSelectionChange,
+  isAdmin,
   className,
 }: RequestCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -221,12 +224,12 @@ function RequestCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={onViewDetails}>
-                <MessageSquare className="mr-2 h-4 w-4" />
+                <MessageSquare className="mr-2 h-4 w-4 text-primary" />
                 View Details
               </DropdownMenuItem>
               {nextStatus && (
                 <DropdownMenuItem onClick={() => onStatusChange(nextStatus)}>
-                  <ArrowRight className="mr-2 h-4 w-4" />
+                  <ArrowRight className="mr-2 h-4 w-4 text-success" />
                   Move to {columns.find((c) => c.id === nextStatus)?.title}
                 </DropdownMenuItem>
               )}
@@ -234,7 +237,7 @@ function RequestCard({
                 <DropdownMenuItem
                   onClick={() => onStatusChange(previousStatus)}
                 >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  <ArrowLeft className="mr-2 h-4 w-4 text-warning" />
                   Move back to{" "}
                   {columns.find((c) => c.id === previousStatus)?.title}
                 </DropdownMenuItem>
@@ -242,16 +245,16 @@ function RequestCard({
               {request.status !== "rejected" &&
                 request.status !== "completed" && (
                   <DropdownMenuItem onClick={() => onStatusChange("rejected")}>
-                    <XCircle className="mr-2 h-4 w-4" />
+                    <XCircle className="mr-2 h-4 w-4 text-destructive" />
                     Reject
                   </DropdownMenuItem>
                 )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onDelete}
-                className="text-destructive cursor-pointer"
+                className="text-destructive hover:text-white"
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -288,7 +291,7 @@ function RequestCard({
 
         {getOrderedResponseEntries(request).length > 2 && isExpanded && (
           <>
-            <div className="mt-2 space-y-1 rounded-md border border-dashed border-border/70 bg-muted/30 p-2">
+            <div className="mt-2 max-h-48 overflow-y-auto space-y-1 rounded-md border border-dashed border-border/70 bg-muted/30 p-2">
               {getOrderedResponseEntries(request)
                 .slice(2)
                 .map(([label, value]) => (
@@ -325,9 +328,16 @@ function RequestCard({
 
         {/* Footer */}
         <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <Badge variant="outline" className="text-xs">
-            {request.formTitle}
-          </Badge>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge variant="outline" className="text-xs">
+              <MarkdownRenderer content={request.formTitle} />
+            </Badge>
+            {isAdmin && request.ownerId && (
+              <Badge variant="secondary" className="text-[10px]">
+                Admin view
+              </Badge>
+            )}
+          </div>
         </div>
         <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-1">
@@ -362,6 +372,7 @@ interface KanbanColumnProps {
   onSelectAllInColumn: (requestIds: string[], selected: boolean) => void;
   isCollapsed: boolean;
   onToggleCollapsed: () => void;
+  isAdmin?: boolean;
 }
 
 function KanbanColumn({
@@ -376,6 +387,7 @@ function KanbanColumn({
   onSelectAllInColumn,
   isCollapsed,
   onToggleCollapsed,
+  isAdmin,
 }: KanbanColumnProps) {
   const Icon = config.icon;
   const selectedCount = requests.filter((request) =>
@@ -423,7 +435,7 @@ function KanbanColumn({
                 checked === true,
               )
             }
-            aria-label={`Select all requests in ${config.title}`}
+            aria-label={`Select all submissions in ${config.title}`}
             className="ml-2 cursor-pointer"
           />
         )}
@@ -465,12 +477,13 @@ function KanbanColumn({
                   onSelectionChange={(selected) =>
                     onToggleRequestSelection(request.id, selected)
                   }
+                  isAdmin={isAdmin}
                   className="w-[85vw] max-w-[18rem] shrink-0 sm:w-80"
                 />
               ))
             ) : (
               <div className="flex h-32 min-w-full items-center justify-center text-sm text-muted-foreground">
-                No requests
+                No submissions
               </div>
             )}
           </div>
@@ -492,6 +505,7 @@ interface RequestDetailsDialogProps {
   ) => Array<[string, string | string[]]>;
   onClose: () => void;
   onStatusChange: (status: RequestStatus, notes?: string) => void;
+  onSaveNotes: (notes: string) => void;
   onDelete: () => void;
 }
 
@@ -500,10 +514,18 @@ function RequestDetailsDialog({
   getOrderedResponseEntries,
   onClose,
   onStatusChange,
+  onSaveNotes,
   onDelete,
 }: RequestDetailsDialogProps) {
   const [notes, setNotes] = useState(request?.notes || "");
+  const [notesDirty, setNotesDirty] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Reset notes when request changes
+  useEffect(() => {
+    setNotes(request?.notes || "");
+    setNotesDirty(false);
+  }, [request?.id, request?.notes]);
 
   if (!request) return null;
 
@@ -548,12 +570,31 @@ function RequestDetailsDialog({
             {/* Notes */}
             <div className="space-y-2">
               <h4 className="font-medium">Notes</h4>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add notes about this request..."
-                rows={3}
-              />
+              <div className="flex items-center gap-2">
+                <Textarea
+                  value={notes}
+                  onChange={(e) => {
+                    setNotes(e.target.value);
+                    setNotesDirty(true);
+                  }}
+                  placeholder="Add notes about this request..."
+                  rows={3}
+                  className="flex-1"
+                />
+              </div>
+              {notesDirty && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={() => {
+                    onSaveNotes(notes);
+                    setNotesDirty(false);
+                  }}
+                >
+                  Save Notes
+                </Button>
+              )}
             </div>
           </div>
 
@@ -588,7 +629,6 @@ function RequestDetailsDialog({
             <div className="flex gap-2 ml-auto">
               <Button
                 variant="destructive"
-                className="cursor-pointer"
                 onClick={() => setShowDeleteConfirm(true)}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -655,6 +695,7 @@ interface KanbanBoardProps {
   ) => void;
   onDelete: (requestId: string) => void;
   collapseStateKey?: string;
+  isAdmin?: boolean;
 }
 
 // ----------------------------------------------------------------------------
@@ -666,8 +707,9 @@ export function KanbanBoard({
   onStatusChange,
   onDelete,
   collapseStateKey = "kanban-collapsed-columns",
+  isAdmin = false,
 }: KanbanBoardProps) {
-  const { forms } = useStore();
+  const { forms, updateRequestNotes } = useStore();
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [selectedRequestIds, setSelectedRequestIds] = useState<Set<string>>(
     () => new Set(),
@@ -929,6 +971,7 @@ export function KanbanBoard({
                 [column.id]: !prev[column.id],
               }))
             }
+            isAdmin={isAdmin}
           />
         ))}
       </div>
@@ -941,6 +984,11 @@ export function KanbanBoard({
           if (selectedRequest) {
             onStatusChange(selectedRequest.id, status, notes);
             setSelectedRequest(null);
+          }
+        }}
+        onSaveNotes={(notes) => {
+          if (selectedRequest) {
+            updateRequestNotes(selectedRequest.id, notes);
           }
         }}
         onDelete={() => {

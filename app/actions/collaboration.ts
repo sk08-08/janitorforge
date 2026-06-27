@@ -464,7 +464,12 @@ export async function getCollaborativeBots() {
     return { success: false, error: error.message, bots: [] };
   }
 
-  return { success: true, bots: data || [] };
+  // Client-side filter: exclude soft-deleted bots (backup until SQL migration runs)
+  const filtered = (data || []).filter(
+    (b: any) => b.deleted_at === null || b.deleted_at === undefined,
+  );
+
+  return { success: true, bots: filtered };
 }
 
 // ---------------------------------------------------------------------------
