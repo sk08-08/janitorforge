@@ -33,6 +33,7 @@ export default async function PublicFormPage({
           "id, user_id, title, description, sections, appearance, is_active, deactivated_message, deactivated_redirect_url, deactivated_redirect_label, deactivated_accent_color",
         )
         .eq("shareable_link", slugValue)
+        .is("deleted_at", null)
         .maybeSingle();
 
       if (!legacyError && legacyRow) {

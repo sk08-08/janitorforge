@@ -41,6 +41,8 @@ BEGIN
       deactivated_accent_color text
     )
     LANGUAGE sql
+    SECURITY DEFINER
+    SET search_path = public
     STABLE
     AS $$
       SELECT
@@ -57,7 +59,11 @@ BEGIN
         rf.deactivated_accent_color
       FROM request_forms rf
       WHERE rf.shareable_link = p_shareable_link
+        AND rf.deleted_at IS NULL
       LIMIT 1;
     $$;
+
+    -- Re-grant execution to anonymous and authenticated users
+    GRANT EXECUTE ON FUNCTION get_public_request_form(text) TO anon, authenticated;
   END IF;
 END $$;

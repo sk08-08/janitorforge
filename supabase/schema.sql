@@ -516,8 +516,9 @@ AS $$
   FROM public.request_forms
   WHERE shareable_link = p_shareable_link
     AND is_active = true
+    AND deleted_at IS NULL
   LIMIT 1;
-$$;
+$;
 
 GRANT EXECUTE ON FUNCTION public.get_public_request_form(text) TO anon, authenticated;
 
