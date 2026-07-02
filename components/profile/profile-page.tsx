@@ -521,7 +521,7 @@ export function ProfilePage() {
           />
 
           <ProfileCompletenessCard
-            profile={p as Record<string, unknown>}
+            profile={p}
             completeness={(p.profile_completeness as number) || 0}
             themeColor={primaryColor}
             hideNudge={hideCompletenessNudge}

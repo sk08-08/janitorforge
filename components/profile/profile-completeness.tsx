@@ -9,7 +9,19 @@ import { CheckCircle2, Pencil, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type ProfileSource = Record<string, unknown>;
+type ProfileCompletionSource = {
+  display_name?: string | null;
+  avatar_url?: string | null;
+  banner_url?: string | null;
+  tagline?: string | null;
+  bio?: string | null;
+  pronouns?: string | null;
+  location?: string | null;
+  website_url?: string | null;
+  specialties?: string[] | null;
+  featured_bot_ids?: string[] | null;
+  social_links?: Record<string, string> | null;
+};
 
 type CompletionItem = {
   key: string;
@@ -21,14 +33,14 @@ function hasText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function getSocialLinkCount(profile: ProfileSource) {
+function getSocialLinkCount(profile: ProfileCompletionSource) {
   const socialLinks = (profile.social_links as Record<string, string>) || {};
   return Object.values(socialLinks).filter((value) => value && value.trim())
     .length;
 }
 
 export function getProfileCompletionItems(
-  profile: ProfileSource,
+  profile: ProfileCompletionSource,
 ): CompletionItem[] {
   const specialties = (profile.specialties as string[]) || [];
   const featuredBotIds = (profile.featured_bot_ids as string[]) || [];
@@ -91,7 +103,7 @@ export function ProfileCompletenessCard({
   onEdit,
   className,
 }: {
-  profile: ProfileSource;
+  profile: ProfileCompletionSource;
   completeness: number;
   themeColor: string;
   hideNudge?: boolean;
