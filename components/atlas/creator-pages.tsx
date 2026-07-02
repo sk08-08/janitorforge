@@ -10,11 +10,11 @@ import {
   Layout,
   Plus,
   Trash2,
+  Copy,
   Pencil,
   Eye,
   EyeOff,
   ExternalLink,
-  GripVertical,
   ArrowLeft,
   Save,
   Loader2,
@@ -22,6 +22,13 @@ import {
   LayoutGrid,
   LayoutList,
   Layers,
+  Sparkles,
+  MessageCircle,
+  Image,
+  Minus,
+  Share2,
+  Type,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,20 +125,20 @@ const sectionKindLabels: Record<SectionKind, string> = {
 };
 
 const sectionKindIcons: Record<SectionKind, typeof Layout> = {
-  hero: Layout,
+  hero: Sparkles,
   bot_showcase: LayoutGrid,
   world_showcase: Globe,
-  text_block: LayoutList,
+  text_block: Type,
   lorebook_gallery: Layers,
-  banner: Layout,
+  banner: Image,
   bot_group: LayoutGrid,
-  form: Layout,
-  sticker: Layout,
-  divider: Layout,
-  social_links: Layout,
+  form: MessageCircle,
+  sticker: Image,
+  divider: Minus,
+  social_links: Share2,
   spacer: Layout,
   gallery: LayoutGrid,
-  embed: Layout,
+  embed: ExternalLink,
 };
 
 const layoutLabels: Record<CreatorPage["layout"], string> = {
@@ -421,7 +428,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
       const supabase = createClient();
       const { error } = await supabase
         .from("creator_pages")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", pageId)
         .eq("user_id", currentUserId);
 
@@ -461,6 +468,34 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
       toast.success("Section added");
     } catch (error: any) {
       toast.error(error.message || "Failed to add section");
+    }
+  };
+
+  // Duplicate section
+  const handleDuplicateSection = async (section: PageSection) => {
+    if (!editingPage) return;
+    try {
+      const supabase = createClient();
+      const pageSections = sections.filter((s) => s.page_id === editingPage.id);
+      const nextPosition = pageSections.length;
+
+      const { data, error } = await supabase
+        .from("creator_page_sections")
+        .insert({
+          page_id: editingPage.id,
+          kind: section.kind,
+          title: section.title + " (copy)",
+          config: section.config,
+          position: nextPosition,
+        })
+        .select("*")
+        .single();
+
+      if (error) throw error;
+      setSections((prev) => [...prev, data as PageSection]);
+      toast.success("Section duplicated");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to duplicate section");
     }
   };
 
@@ -1177,6 +1212,18 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
                           </p>
                         </div>
                         <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDuplicateSection(section);
+                          }}
+                          title="Duplicate section"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"

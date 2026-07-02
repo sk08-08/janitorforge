@@ -49,6 +49,8 @@ import {
 } from "@/app/actions/profile";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ProfileBadgesSection } from "./profile-badges";
+import { ProfileCompletenessCard } from "./profile-completeness";
 
 // ----------------------------------------------------------------------------
 // Types
@@ -161,7 +163,7 @@ function BannerDisplay({
         />
       )}
       {/* Gradient overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-t from-background/20 to-transparent" />
     </div>
   );
 }
@@ -438,32 +440,16 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
             </div>
           )}
 
-          {/* Badges */}
-          {showBadges && badges.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Badges
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {badges.map((badge) => (
-                  <div
-                    key={badge.id}
-                    className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 transition-colors hover:bg-muted/50"
-                    style={{ borderColor: badge.color || primaryColor }}
-                  >
-                    <Award
-                      className="h-3.5 w-3.5"
-                      style={{ color: badge.color || primaryColor }}
-                    />
-                    <span className="text-xs font-medium">{badge.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <ProfileBadgesSection
+            badges={badges}
+            themeColor={primaryColor}
+            showBadges={showBadges}
+            className="space-y-1.5"
+            emptyClassName="rounded-lg border border-dashed bg-muted/20 px-4 py-5"
+          />
 
           {/* Stats */}
-          {showStats && (
+          {showStats && completeness < 100 && (
             <div className="grid grid-cols-3 gap-2">
               <StatBox
                 value={`${completeness}%`}
@@ -486,46 +472,19 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
             </div>
           )}
 
-          {/* Completeness nudge */}
-          {completeness < 100 &&
-            !(
+          <ProfileCompletenessCard
+            profile={p}
+            completeness={completeness}
+            themeColor={primaryColor}
+            hideNudge={
               theme.hideCompletenessNudge === true ||
               theme.hideCompletenessNudge === "true"
-            ) && (
-              <div className="rounded-lg border border-dashed p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    Profile completeness
-                  </span>
-                  <span
-                    className="font-semibold"
-                    style={{ color: primaryColor }}
-                  >
-                    {completeness}%
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${completeness}%`,
-                      backgroundColor: primaryColor,
-                    }}
-                  />
-                </div>
-                {completeness < 100 && (
-                  <button
-                    className="text-xs text-primary hover:underline cursor-pointer"
-                    onClick={() => {
-                      onOpenChange(false);
-                      onEdit();
-                    }}
-                  >
-                    Complete your profile →
-                  </button>
-                )}
-              </div>
-            )}
+            }
+            onEdit={() => {
+              onOpenChange(false);
+              onEdit();
+            }}
+          />
         </div>
       </DialogContent>
     </Dialog>

@@ -22,8 +22,8 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || "https://janitorforge.vercel.app",
   ),
   title: {
-    default: "JanitorForge — The toolkit for character creators",
-    template: "%s | JanitorForge (Beta)",
+    default: "JanitorForge (Beta)",
+    template: "%s",
   },
   description:
     "Create, manage, and share your AI characters. Custom forms, visual boards, real collaboration — everything in one place for character creators.",

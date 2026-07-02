@@ -12,6 +12,7 @@ import {
   FileText,
   Inbox,
   Globe,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -58,7 +59,16 @@ interface NavItem {
   description: string;
 }
 
-const navItems: NavItem[] = [
+const resourceNavItems: NavItem[] = [
+  {
+    id: "workspace",
+    label: "Janitor Resources",
+    icon: BookOpen,
+    description: "Directory of Janitor resources and references",
+  },
+];
+
+const forgeNavItems: NavItem[] = [
   {
     id: "dashboard",
     label: "Dashboard",
@@ -221,6 +231,71 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
     }
   };
 
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon;
+    const isActive = currentView === item.id;
+    const showBadge = item.id === "requests" && newRequestsCount > 0;
+    const showModerationBadge =
+      item.id === "moderation" && pendingModerationCount > 0;
+    const badgeValue =
+      item.id === "requests"
+        ? newRequestsCount
+        : item.id === "moderation"
+          ? pendingModerationCount
+          : 0;
+
+    const button = (
+      <Button
+        key={item.id}
+        variant={isActive ? "secondary" : "ghost"}
+        className={cn(
+          "w-full justify-start gap-3 transition-all cursor-pointer",
+          isActive &&
+            "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
+          collapsed && "justify-center px-2",
+        )}
+        onClick={() => handleNavClick(item.id)}
+      >
+        <div className="relative">
+          <Icon className={cn("h-5 w-5", isActive && "text-primary")} />
+          {(showBadge || showModerationBadge) && (
+            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
+              {badgeValue}
+            </span>
+          )}
+        </div>
+        {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+      </Button>
+    );
+
+    if (collapsed) {
+      return (
+        <Tooltip key={item.id} delayDuration={0}>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent side="right" className="flex flex-col gap-1">
+            <span className="font-medium">{item.label}</span>
+            <span className="text-xs text-muted-foreground">
+              {item.description}
+            </span>
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return button;
+  };
+
+  const renderNavSection = (title: string, items: NavItem[]) => (
+    <div className="space-y-1">
+      {!collapsed && (
+        <p className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          {title}
+        </p>
+      )}
+      {items.map(renderNavItem)}
+    </div>
+  );
+
   return (
     <TooltipProvider>
       <div className="flex h-screen overflow-hidden">
@@ -259,97 +334,21 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-2">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentView === item.id;
-              const showBadge = item.id === "requests" && newRequestsCount > 0;
-              const showModerationBadge =
-                item.id === "moderation" && pendingModerationCount > 0;
-              const badgeValue =
-                item.id === "requests"
-                  ? newRequestsCount
-                  : item.id === "moderation"
-                    ? pendingModerationCount
-                    : 0;
-
-              const button = (
-                <Button
-                  key={item.id}
-                  variant={isActive ? "secondary" : "ghost"}
-                  className={cn(
-                    "w-full justify-start gap-3 transition-all cursor-pointer",
-                    isActive &&
-                      "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
-                    collapsed && "justify-center px-2",
-                  )}
-                  onClick={() => handleNavClick(item.id)}
-                >
-                  <div className="relative">
-                    <Icon
-                      className={cn("h-5 w-5", isActive && "text-primary")}
-                    />
-                    {(showBadge || showModerationBadge) && (
-                      <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-                        {badgeValue}
-                      </span>
-                    )}
-                  </div>
-                  {!collapsed && (
-                    <span className="flex-1 text-left">{item.label}</span>
-                  )}
-                </Button>
-              );
-
-              if (collapsed) {
-                return (
-                  <Tooltip key={item.id} delayDuration={0}>
-                    <TooltipTrigger asChild>{button}</TooltipTrigger>
-                    <TooltipContent
-                      side="right"
-                      className="flex flex-col gap-1"
-                    >
-                      <span className="font-medium">{item.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {item.description}
-                      </span>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              }
-
-              return button;
-            })}
-
+          <nav className="flex-1 space-y-3 p-2">
+            {renderNavSection("Resources", resourceNavItems)}
+            <div className="border-t border-sidebar-border/60 pt-2">
+              {renderNavSection("Forge", forgeNavItems)}
+            </div>
             {isAdmin && (
-              <div className="pt-3">
-                {!collapsed && (
-                  <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    Admin
-                  </p>
-                )}
-                <Button
-                  variant={currentView === "feedback" ? "secondary" : "ghost"}
-                  className={cn(
-                    "w-full justify-start gap-3 transition-all cursor-pointer",
-                    currentView === "feedback" &&
-                      "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
-                    collapsed && "justify-center px-2",
-                  )}
-                  onClick={() => handleNavClick("feedback")}
-                >
-                  <div className="relative">
-                    <MessageSquareMore
-                      className={cn(
-                        "h-5 w-5",
-                        currentView === "feedback" && "text-primary",
-                      )}
-                    />
-                  </div>
-                  {!collapsed && (
-                    <span className="flex-1 text-left">Feedback Inbox</span>
-                  )}
-                </Button>
+              <div className="border-t border-sidebar-border/60 pt-2">
+                {renderNavSection("Admin", [
+                  {
+                    id: "feedback",
+                    label: "Feedback Inbox",
+                    icon: MessageSquareMore,
+                    description: "Review admin feedback and suggestions",
+                  },
+                ])}
               </div>
             )}
           </nav>
@@ -459,66 +458,21 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                 </SheetHeader>
 
                 {/* Mobile Navigation */}
-                <nav className="flex-1 space-y-1 p-2">
-                  {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = currentView === item.id;
-                    const showBadge =
-                      item.id === "requests" && newRequestsCount > 0;
-
-                    return (
-                      <Button
-                        key={item.id}
-                        variant={isActive ? "secondary" : "ghost"}
-                        className={cn(
-                          "w-full justify-start gap-3 transition-all cursor-pointer",
-                          isActive &&
-                            "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
-                        )}
-                        onClick={() => handleNavClick(item.id)}
-                      >
-                        <div className="relative">
-                          <Icon
-                            className={cn(
-                              "h-5 w-5",
-                              isActive && "text-primary",
-                            )}
-                          />
-                          {showBadge && (
-                            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-                              {newRequestsCount}
-                            </span>
-                          )}
-                        </div>
-                        <span className="flex-1 text-left">{item.label}</span>
-                      </Button>
-                    );
-                  })}
-
+                <nav className="flex-1 space-y-3 p-2">
+                  {renderNavSection("Resources", resourceNavItems)}
+                  <div className="border-t border-sidebar-border/60 pt-2">
+                    {renderNavSection("Forge", forgeNavItems)}
+                  </div>
                   {isAdmin && (
-                    <div className="pt-3">
-                      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                        Admin
-                      </p>
-                      <Button
-                        variant={
-                          currentView === "feedback" ? "secondary" : "ghost"
-                        }
-                        className={cn(
-                          "w-full justify-start gap-3 transition-all cursor-pointer",
-                          currentView === "feedback" &&
-                            "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
-                        )}
-                        onClick={() => handleNavClick("feedback")}
-                      >
-                        <MessageSquareMore
-                          className={cn(
-                            "h-5 w-5",
-                            currentView === "feedback" && "text-primary",
-                          )}
-                        />
-                        <span className="flex-1 text-left">Feedback Inbox</span>
-                      </Button>
+                    <div className="border-t border-sidebar-border/60 pt-2">
+                      {renderNavSection("Admin", [
+                        {
+                          id: "feedback",
+                          label: "Feedback Inbox",
+                          icon: MessageSquareMore,
+                          description: "Review admin feedback and suggestions",
+                        },
+                      ])}
                     </div>
                   )}
                 </nav>

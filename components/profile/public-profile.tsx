@@ -16,7 +16,6 @@ import {
   Star,
   Users,
   MapPin,
-  Award,
   Heart,
 } from "lucide-react";
 import {
@@ -47,6 +46,7 @@ import {
 import { toast } from "sonner";
 import { FollowListModal } from "./follow-list-modal";
 import { BotDetailModal } from "@/components/bots/bot-detail-modal";
+import { ProfileBadgesSection } from "./profile-badges";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -206,7 +206,7 @@ function BotCard({
         boxShadow: `0 4px 6px -1px ${themeColor}11, 0 2px 4px -2px ${themeColor}08`,
       }}
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
+      <div className="relative aspect-16/10 w-full overflow-hidden bg-muted">
         {bot.image_url ? (
           <img
             src={bot.image_url}
@@ -218,11 +218,11 @@ function BotCard({
             }}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+          <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-primary/5 to-transparent">
             <Bot className="h-16 w-16 text-primary/30" />
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/60 to-transparent" />
         <Badge
           variant={bot.rating === "SFW" ? "secondary" : "destructive"}
           className="absolute top-3 right-3 backdrop-blur-sm shadow-sm"
@@ -522,29 +522,13 @@ export function PublicProfile({
               </div>
             )}
 
-            {/* Badges */}
-            {badges.length > 0 && (
-              <div className="mt-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Badges
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {badges.map((badge) => (
-                    <div
-                      key={badge.id}
-                      className="flex items-center gap-1.5 rounded-full border px-3 py-1"
-                      style={{ borderColor: badge.color || themeColor }}
-                    >
-                      <Award
-                        className="h-3.5 w-3.5"
-                        style={{ color: badge.color || themeColor }}
-                      />
-                      <span className="text-xs font-medium">{badge.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <ProfileBadgesSection
+              badges={badges}
+              themeColor={themeColor}
+              showBadges={true}
+              className="mt-4"
+              emptyClassName="rounded-lg border border-dashed bg-card/40 px-5 py-7"
+            />
           </div>
 
           {/* Actions */}

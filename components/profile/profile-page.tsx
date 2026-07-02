@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -25,7 +32,6 @@ import {
   Globe,
   Calendar,
   Loader2,
-  Award,
   ExternalLink,
   Users,
   Heart,
@@ -51,6 +57,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { ProfileEditor } from "./profile-editor";
 import { FollowListModal } from "./follow-list-modal";
+import { ProfileBadgesSection } from "./profile-badges";
+import { ProfileCompletenessCard } from "./profile-completeness";
 import { cn } from "@/lib/utils";
 
 interface ProfileBadge {
@@ -210,6 +218,9 @@ export function ProfilePage() {
     theme.hideCompletenessNudge === true ||
     theme.hideCompletenessNudge === "true";
   const featuredBotIds = p.featured_bot_ids || [];
+  const featuredBots = featuredBotIds
+    .map((id) => bots.find((b) => b.id === id))
+    .filter(Boolean);
   const ownForms = forms.filter(
     (f) => f.ownerId === (p.id as string) || f.ownerId === undefined,
   );
@@ -437,16 +448,14 @@ export function ProfilePage() {
           )}
 
           {/* Featured Bots */}
-          {showFeatured && featuredBotIds.length > 0 && (
+          {showFeatured && (
             <div className="mt-4">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
                 Featured Bots
               </p>
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                {featuredBotIds
-                  .map((id) => bots.find((b) => b.id === id))
-                  .filter(Boolean)
-                  .map((bot) => (
+              {featuredBots.length > 0 ? (
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                  {featuredBots.map((bot) => (
                     <div
                       key={bot!.id}
                       className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-primary/30 cursor-pointer"
@@ -484,52 +493,41 @@ export function ProfilePage() {
                       </Badge>
                     </div>
                   ))}
-              </div>
+                </div>
+              ) : (
+                <Empty className="rounded-lg border border-dashed bg-card/40 px-5 py-7">
+                  <EmptyContent>
+                    <EmptyMedia variant="icon">
+                      <Star className="h-5 w-5" />
+                    </EmptyMedia>
+                    <EmptyTitle>No featured bots yet</EmptyTitle>
+                    <EmptyDescription>
+                      Pick bots in the editor to highlight them here and make
+                      the profile feel more complete.
+                    </EmptyDescription>
+                  </EmptyContent>
+                </Empty>
+              )}
             </div>
           )}
 
-          {/* Badges */}
-          {showBadges && badges.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                Badges
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {badges.map((badge) => (
-                  <div
-                    key={badge.id}
-                    className="flex items-center gap-1.5 rounded-full border px-3 py-1"
-                    style={{ borderColor: badge.color || primaryColor }}
-                  >
-                    <Award
-                      className="h-3.5 w-3.5"
-                      style={{ color: badge.color || primaryColor }}
-                    />
-                    <span className="text-xs font-medium">{badge.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <ProfileBadgesSection
+            badges={badges}
+            themeColor={primaryColor}
+            showBadges={showBadges}
+            className="mt-4"
+            emptyClassName="rounded-lg border border-dashed bg-card/40 px-5 py-7"
+            emptyDescription="Badges will appear here once they are awarded."
+          />
 
-          {/* Completeness nudge — only show if < 50% and not hidden */}
-          {!hideCompletenessNudge &&
-            (p.profile_completeness as number) < 50 &&
-            (p.profile_completeness as number) > 0 && (
-              <div className="mt-4 rounded-lg border border-dashed p-3 text-xs text-muted-foreground text-center">
-                Your profile is{" "}
-                <span className="font-semibold">
-                  {(p.profile_completeness as number) || 0}%
-                </span>{" "}
-                complete.
-                <button
-                  className="ml-1 text-primary hover:underline cursor-pointer"
-                  onClick={() => setEditorOpen(true)}
-                >
-                  Complete your profile
-                </button>
-              </div>
-            )}
+          <ProfileCompletenessCard
+            profile={p as Record<string, unknown>}
+            completeness={(p.profile_completeness as number) || 0}
+            themeColor={primaryColor}
+            hideNudge={hideCompletenessNudge}
+            onEdit={() => setEditorOpen(true)}
+            className="mt-4"
+          />
         </CardContent>
       </Card>
 
@@ -560,7 +558,7 @@ export function ProfilePage() {
                 className="rounded-lg border overflow-hidden transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
                 onClick={() => setBotDetailBot(bot)}
               >
-                <div className="aspect-[16/9] bg-muted overflow-hidden">
+                <div className="aspect-video bg-muted overflow-hidden">
                   {bot.imageUrl ? (
                     <img
                       src={bot.imageUrl}
