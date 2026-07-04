@@ -43,6 +43,21 @@ import {
   Layers3,
   Sparkles,
   Shield,
+  Heart,
+  Star,
+  Info,
+  Search,
+  ShieldCheck,
+  UserRound,
+  CodeXml,
+  Brain,
+  Palette,
+  Bot,
+  PenLine,
+  AppWindow,
+  Folder,
+  Server,
+  Code,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -51,6 +66,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { MarkdownContent } from "./markdown-content";
 import {
   Select,
   SelectContent,
@@ -130,6 +146,21 @@ type DeleteTarget =
 
 const sectionIconOptions = [
   { value: "book-open", label: "Book", icon: BookOpen },
+  { value: "heart", label: "Heart", icon: Heart },
+  { value: "star", label: "Star", icon: Star },
+  { value: "info", label: "Info", icon: Info },
+  { value: "search", label: "Search", icon: Search },
+  { value: "shield-check", label: "Shield Check", icon: ShieldCheck },
+  { value: "user-round", label: "User Round", icon: UserRound },
+  { value: "code", label: "Code", icon: Code },
+  { value: "brain", label: "Brain", icon: Brain },
+  { value: "palette", label: "Palette", icon: Palette },
+  { value: "bot", label: "Bot", icon: Bot },
+  { value: "pen-line", label: "Pen Line", icon: PenLine },
+  { value: "app-window", label: "App Window", icon: AppWindow },
+  { value: "folder", label: "Folder", icon: Folder },
+  { value: "server", label: "Server", icon: Server },
+  { value: "lock", label: "Lock", icon: Lock },
   { value: "globe", label: "Globe", icon: Globe },
   { value: "notebook-text", label: "Notebook", icon: NotebookText },
   { value: "layers-3", label: "Layers", icon: Layers3 },
@@ -829,7 +860,7 @@ export function ResourcesHub() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid cursor-pointer gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {visibleEntries.map((entry, index) => {
                     const active = entry.id === selectedEntryId;
                     const sourceSection = sections.find(
@@ -870,9 +901,12 @@ export function ResourcesHub() {
                                 </Badge>
                               )}
                             </div>
-                            <p className="line-clamp-3 text-sm text-muted-foreground">
-                              {entry.summary || "No summary yet."}
-                            </p>
+                            <div className="max-h-24 overflow-hidden text-sm text-muted-foreground [&_p]:mb-0 [&_ul]:mb-0 [&_ol]:mb-0">
+                              <MarkdownContent
+                                content={entry.summary || "No summary yet."}
+                                className="prose-sm max-w-none"
+                              />
+                            </div>
                           </div>
                           <ExternalLink className="h-4 w-4 text-muted-foreground" />
                         </div>
@@ -1092,9 +1126,11 @@ export function ResourcesHub() {
                     <p className="text-sm font-medium text-muted-foreground">
                       Summary
                     </p>
-                    <p className="mt-2 text-sm leading-6 text-foreground/90">
-                      {selectedEntry.summary || "No summary yet."}
-                    </p>
+                    <div className="prose prose-sm mt-2 max-w-none leading-6 dark:prose-invert">
+                      <MarkdownContent
+                        content={selectedEntry.summary || "No summary yet."}
+                      />
+                    </div>
                   </div>
 
                   {selectedEntry.url && (
@@ -1368,8 +1404,12 @@ export function ResourcesHub() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Summary</label>
+              <p className="text-xs text-muted-foreground">
+                Markdown is supported in the summary.
+              </p>
               <Textarea
                 value={entryForm.summary}
+                className="overflow-y-auto max-h-[68vh]"
                 onChange={(event) =>
                   setEntryForm((prev) => ({
                     ...prev,
@@ -1435,10 +1475,18 @@ export function ResourcesHub() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEntryDialogOpen(false)}>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => setEntryDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={saveEntry} disabled={saving}>
+            <Button
+              onClick={saveEntry}
+              className="cursor-pointer"
+              disabled={saving}
+            >
               {saving ? "Saving..." : "Save entry"}
             </Button>
           </DialogFooter>

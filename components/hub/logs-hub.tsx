@@ -386,7 +386,7 @@ export function LogsHub() {
                               {post.title}
                             </h2>
                             <p className="line-clamp-3 text-sm text-muted-foreground">
-                              {post.excerpt || post.body || "No excerpt yet."}
+                              {post.excerpt || "No excerpt yet."}
                             </p>
                             {post.body && (
                               <div className="mt-3 max-h-40 overflow-hidden rounded-xl border border-border/70 bg-muted/20 p-3 text-sm text-foreground/90">
@@ -397,14 +397,11 @@ export function LogsHub() {
                               </div>
                             )}
                           </div>
-                          <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                            <Pin className="h-4 w-4 text-primary" />
-                            {post.source_name || "Log post"}
-                          </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                        <Pin className="h-4 w-4 text-primary" />
                         {post.source_name && <span>{post.source_name}</span>}
                         {post.published_at && (
                           <span>
@@ -641,14 +638,11 @@ export function LogsHub() {
         open={postDetailOpen && !!selectedPost}
         onOpenChange={setPostDetailOpen}
       >
-        <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-5xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-7xl">
           <DialogHeader>
             <DialogTitle className="text-2xl sm:text-3xl">
               {selectedPost?.title}
             </DialogTitle>
-            <DialogDescription>
-              Full log entry with markdown rendering.
-            </DialogDescription>
           </DialogHeader>
 
           {selectedPost && (
@@ -720,6 +714,7 @@ export function LogsHub() {
                     <p className="text-sm font-medium">Metadata</p>
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="outline">
+                        Created{" "}
                         {new Date(selectedPost.created_at).toLocaleDateString()}
                       </Badge>
                       {selectedPost.published_at && (
