@@ -26,6 +26,8 @@ import type {
 import { getCurrentUserAccess } from "./access";
 
 const validNavigationViews: NavigationView[] = [
+  "resources",
+  "logs",
   "dashboard",
   "bots",
   "forms",
@@ -114,9 +116,14 @@ const StoreContext = createContext<StoreState | null>(null);
 // ----------------------------------------------------------------------------
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  // Navigation state - load from localStorage or default to dashboard
-  const [currentView, setCurrentViewState] =
-    useState<NavigationView>("dashboard");
+  // Navigation state - hydrate from localStorage before the first paint.
+  const [currentView, setCurrentViewState] = useState<NavigationView>(() => {
+    if (typeof window === "undefined") return "dashboard";
+
+    const savedView = localStorage.getItem("currentView");
+    const normalizedSavedView = toNavigationView(savedView);
+    return normalizedSavedView ?? "dashboard";
+  });
 
   // Wrapper to persist navigation to localStorage
   const setCurrentView = useCallback((view: NavigationView) => {
@@ -133,17 +140,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   >([]);
   const [forms, setForms] = useState<RequestForm[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
-
-  // Load saved view from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedView = localStorage.getItem("currentView");
-      const normalizedSavedView = toNavigationView(savedView);
-      if (savedView) {
-        setCurrentViewState(normalizedSavedView ?? "dashboard");
-      }
-    }
-  }, []);
 
   // Try to load real data from Supabase on client mount. Fall back to sample data on error.
   useEffect(() => {

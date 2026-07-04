@@ -382,6 +382,8 @@ export interface DashboardStats {
 // ----------------------------------------------------------------------------
 
 export type NavigationView =
+  | "resources"
+  | "logs"
   | "dashboard"
   | "bots"
   | "forms"
@@ -389,8 +391,7 @@ export type NavigationView =
   | "moderation"
   | "feedback"
   | "atlas"
-  | "profile"
-  | "workspace";
+  | "profile";
 
 // ----------------------------------------------------------------------------
 // Change Request Types

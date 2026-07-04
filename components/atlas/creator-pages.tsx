@@ -156,6 +156,8 @@ interface CreatorPagesProps {
   onBack: () => void;
 }
 
+const CREATOR_PAGES_EDITOR_STORAGE_KEY = "creator-pages-editing-page-id";
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -239,6 +241,19 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (loading || editingPage || pages.length === 0) return;
+    if (typeof window === "undefined") return;
+
+    const savedPageId = localStorage.getItem(CREATOR_PAGES_EDITOR_STORAGE_KEY);
+    if (!savedPageId) return;
+
+    const savedPage = pages.find((page) => page.id === savedPageId);
+    if (savedPage) {
+      openEditor(savedPage);
+    }
+  }, [loading, editingPage, pages]);
+
   // Create new page
   const handleCreatePage = async () => {
     if (!currentUserId) return;
@@ -285,6 +300,10 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
     setEditAvatarSize((cfg as any).avatarSize || "large");
     setEditShowBackButton((cfg as any).showBackButton !== "false");
     setEditShowBadges((cfg as any).showBadges !== "false");
+  };
+
+  const closeEditor = () => {
+    setEditingPage(null);
   };
 
   // Debounced slug availability check for editor
@@ -537,6 +556,16 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
   const [availableWorlds, setAvailableWorlds] = useState<
     Array<{ id: string; title: string }>
   >([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (editingPage) {
+      localStorage.setItem(CREATOR_PAGES_EDITOR_STORAGE_KEY, editingPage.id);
+    } else {
+      localStorage.removeItem(CREATOR_PAGES_EDITOR_STORAGE_KEY);
+    }
+  }, [editingPage]);
 
   const loadAvailableForms = async () => {
     try {
@@ -875,7 +904,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
               variant="ghost"
               size="icon"
               className="cursor-pointer"
-              onClick={() => setEditingPage(null)}
+              onClick={closeEditor}
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>

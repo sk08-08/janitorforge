@@ -119,6 +119,10 @@ import {
   isAtlasPackage,
 } from "./atlas-utils";
 
+const ATLAS_SELECTED_WORLD_STORAGE_KEY = "atlas-selected-world-id";
+const ATLAS_WORLD_PAGE_STORAGE_KEY = "atlas-world-page";
+const ATLAS_SHOW_CREATOR_PAGES_STORAGE_KEY = "atlas-show-creator-pages";
+
 function HubCard({
   title,
   description,
@@ -197,7 +201,52 @@ export function AtlasHub() {
   const [accessLoaded, setAccessLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [showCreatorPages, setShowCreatorPages] = useState(false);
+  const [showCreatorPages, setShowCreatorPages] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      localStorage.getItem(ATLAS_SHOW_CREATOR_PAGES_STORAGE_KEY) === "true"
+    );
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(
+      ATLAS_SHOW_CREATOR_PAGES_STORAGE_KEY,
+      String(showCreatorPages),
+    );
+  }, [showCreatorPages]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedWorldId = localStorage.getItem(ATLAS_SELECTED_WORLD_STORAGE_KEY);
+    const savedPage = localStorage.getItem(ATLAS_WORLD_PAGE_STORAGE_KEY);
+
+    if (savedWorldId) {
+      setSelectedWorldId(savedWorldId);
+      setWorldDetailsOpen(true);
+    }
+
+    if (savedPage) {
+      const parsedPage = Number(savedPage);
+      if (!Number.isNaN(parsedPage)) {
+        setWorldPage(parsedPage);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (selectedWorldId) {
+      localStorage.setItem(ATLAS_SELECTED_WORLD_STORAGE_KEY, selectedWorldId);
+    } else {
+      localStorage.removeItem(ATLAS_SELECTED_WORLD_STORAGE_KEY);
+    }
+  }, [selectedWorldId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(ATLAS_WORLD_PAGE_STORAGE_KEY, String(worldPage));
+  }, [worldPage]);
 
   useEffect(() => {
     let mounted = true;
@@ -415,6 +464,10 @@ export function AtlasHub() {
   };
 
   const clearWorldSelection = () => setSelectedWorldIds(new Set());
+  const closeWorldDetails = () => {
+    setWorldDetailsOpen(false);
+    setSelectedWorldId(null);
+  };
 
   const selectedWorlds = useMemo(
     () => worlds.filter((w) => selectedWorldIds.has(w.id)),
@@ -1203,7 +1256,13 @@ export function AtlasHub() {
 
   // Show Creator Pages if active
   if (showCreatorPages) {
-    return <CreatorPages onBack={() => setShowCreatorPages(false)} />;
+    return (
+      <CreatorPages
+        onBack={() => {
+          setShowCreatorPages(false);
+        }}
+      />
+    );
   }
 
   if (!accessLoaded) {
@@ -1548,7 +1607,16 @@ export function AtlasHub() {
         </div>
       </div>
 
-      <Dialog open={worldDetailsOpen} onOpenChange={setWorldDetailsOpen}>
+      <Dialog
+        open={worldDetailsOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeWorldDetails();
+          } else {
+            setWorldDetailsOpen(true);
+          }
+        }}
+      >
         <DialogContent className="h-[92vh] max-w-[calc(100vw-1rem)] overflow-hidden p-0 sm:h-[90vh] sm:max-w-4xl">
           <div className="flex h-full min-h-0 flex-col">
             <DialogHeader className="border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5">

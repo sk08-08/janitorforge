@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  Logs,
   LogOut,
   User,
   Shield,
@@ -59,12 +60,23 @@ interface NavItem {
   description: string;
 }
 
-const resourceNavItems: NavItem[] = [
+type NavSectionId = "hub" | "forge" | "admin";
+
+const NAV_SECTION_STORAGE_KEY = "dashboard-nav-section-collapsed";
+
+const hubNavItems: NavItem[] = [
   {
-    id: "workspace",
-    label: "Janitor Resources",
+    id: "resources",
+    label: "Resources",
     icon: BookOpen,
     description: "Directory of Janitor resources and references",
+  },
+  {
+    id: "logs",
+    label: "Logs",
+    icon: Logs,
+    description:
+      "Visit a list of records about the platform's errors, lack of communication, and other issues",
   },
 ];
 
@@ -119,6 +131,9 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const { currentView, setCurrentView, requests, forms } = useStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<
+    Record<NavSectionId, boolean>
+  >({ hub: false, forge: false, admin: false });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -127,6 +142,34 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const saved = localStorage.getItem(NAV_SECTION_STORAGE_KEY);
+    if (!saved) return;
+
+    try {
+      const parsed = JSON.parse(saved) as Partial<
+        Record<NavSectionId, boolean>
+      >;
+      setCollapsedSections((prev) => ({
+        hub: parsed.hub ?? prev.hub,
+        forge: parsed.forge ?? prev.forge,
+        admin: parsed.admin ?? prev.admin,
+      }));
+    } catch {
+      // Ignore malformed persisted state.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(
+      NAV_SECTION_STORAGE_KEY,
+      JSON.stringify(collapsedSections),
+    );
+  }, [collapsedSections]);
 
   // Load profile avatar on mount
   useEffect(() => {
@@ -285,14 +328,51 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
     return button;
   };
 
-  const renderNavSection = (title: string, items: NavItem[]) => (
+  const toggleSection = (sectionId: NavSectionId) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }));
+  };
+
+  const renderNavSection = (
+    sectionId: NavSectionId,
+    title: string,
+    items: NavItem[],
+  ) => (
     <div className="space-y-1">
       {!collapsed && (
-        <p className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          {title}
-        </p>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => toggleSection(sectionId)}
+          aria-expanded={!collapsedSections[sectionId]}
+        >
+          <span>{title}</span>
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 transition-transform",
+              !collapsedSections[sectionId] && "rotate-90",
+            )}
+          />
+        </button>
       )}
-      {items.map(renderNavItem)}
+      {collapsed && (
+        <button
+          type="button"
+          className="flex w-full items-center justify-center px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => toggleSection(sectionId)}
+          aria-expanded={!collapsedSections[sectionId]}
+        >
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 transition-transform",
+              !collapsedSections[sectionId] && "rotate-90",
+            )}
+          />
+        </button>
+      )}
+      {!collapsedSections[sectionId] && items.map(renderNavItem)}
     </div>
   );
 
@@ -335,13 +415,13 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-3 p-2">
-            {renderNavSection("Resources", resourceNavItems)}
+            {renderNavSection("hub", "Hub", hubNavItems)}
             <div className="border-t border-sidebar-border/60 pt-2">
-              {renderNavSection("Forge", forgeNavItems)}
+              {renderNavSection("forge", "Forge", forgeNavItems)}
             </div>
             {isAdmin && (
               <div className="border-t border-sidebar-border/60 pt-2">
-                {renderNavSection("Admin", [
+                {renderNavSection("admin", "Admin", [
                   {
                     id: "feedback",
                     label: "Feedback Inbox",
@@ -459,13 +539,13 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
                 {/* Mobile Navigation */}
                 <nav className="flex-1 space-y-3 p-2">
-                  {renderNavSection("Resources", resourceNavItems)}
+                  {renderNavSection("hub", "Hub", hubNavItems)}
                   <div className="border-t border-sidebar-border/60 pt-2">
-                    {renderNavSection("Forge", forgeNavItems)}
+                    {renderNavSection("forge", "Forge", forgeNavItems)}
                   </div>
                   {isAdmin && (
                     <div className="border-t border-sidebar-border/60 pt-2">
-                      {renderNavSection("Admin", [
+                      {renderNavSection("admin", "Admin", [
                         {
                           id: "feedback",
                           label: "Feedback Inbox",
