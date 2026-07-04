@@ -54,7 +54,8 @@ const PROFILE_COLUMNS =
 const discoveryTracks = [
   {
     title: "Top",
-    description: "Profiles with a strong presence and recent activity rise to the top.",
+    description:
+      "Profiles with a strong presence and recent activity rise to the top.",
     icon: Star,
   },
   {
@@ -64,7 +65,8 @@ const discoveryTracks = [
   },
   {
     title: "Structured",
-    description: "Profiles arranged for featured picks, lists, and themed collections.",
+    description:
+      "Profiles arranged for featured picks, lists, and themed collections.",
     icon: SlidersHorizontal,
   },
 ];
@@ -126,7 +128,7 @@ export function ProfilesHub() {
 
       try {
         const supabase = createClient();
-        let query = supabase
+        let query: any = supabase
           .from("profiles")
           .select(PROFILE_COLUMNS, { count: "exact" })
           .not("username", "is", null)
@@ -257,7 +259,9 @@ export function ProfilesHub() {
                   <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                     Community
                   </p>
-                  <p className="mt-2 text-2xl font-semibold">{totalCount || "--"}</p>
+                  <p className="mt-2 text-2xl font-semibold">
+                    {totalCount || "--"}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-border/70 bg-background/60 p-4 shadow-sm">
                   <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
@@ -269,7 +273,9 @@ export function ProfilesHub() {
                   <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                     Featured
                   </p>
-                  <p className="mt-2 text-2xl font-semibold">{featuredProfiles.length}</p>
+                  <p className="mt-2 text-2xl font-semibold">
+                    {featuredProfiles.length}
+                  </p>
                 </div>
               </div>
             </div>
@@ -322,12 +328,14 @@ export function ProfilesHub() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Sort</label>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
-                      {([
-                        ["discover", "Discover"],
-                        ["top", "Top"],
-                        ["new", "Newest"],
-                        ["alpha", "A-Z"],
-                      ] as Array<[SortMode, string]>).map(([value, label]) => (
+                      {(
+                        [
+                          ["discover", "Discover"],
+                          ["top", "Top"],
+                          ["new", "Newest"],
+                          ["alpha", "A-Z"],
+                        ] as Array<[SortMode, string]>
+                      ).map(([value, label]) => (
                         <Button
                           key={value}
                           type="button"
@@ -343,12 +351,14 @@ export function ProfilesHub() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {([
-                    ["all", "All profiles"],
-                    ["avatar", "With avatar"],
-                    ["bio", "With bio"],
-                    ["complete", "Most complete"],
-                  ] as Array<[FilterMode, string]>).map(([value, label]) => (
+                  {(
+                    [
+                      ["all", "All profiles"],
+                      ["avatar", "With avatar"],
+                      ["bio", "With bio"],
+                      ["complete", "Most complete"],
+                    ] as Array<[FilterMode, string]>
+                  ).map(([value, label]) => (
                     <Button
                       key={value}
                       type="button"
@@ -392,7 +402,10 @@ export function ProfilesHub() {
                 <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3">
                   {profiles.map((profile) => {
                     const handle = profile.username || profile.id;
-                    const displayName = profile.display_name || profile.username || "Unnamed user";
+                    const displayName =
+                      profile.display_name ||
+                      profile.username ||
+                      "Unnamed user";
                     const initials = displayName
                       .split(" ")
                       .map((part) => part[0])
@@ -412,7 +425,9 @@ export function ProfilesHub() {
                               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.10),transparent_38%)]" />
                               <div className="relative flex items-start gap-3 sm:gap-4">
                                 <Avatar className="h-14 w-14 shrink-0 border border-border/70 shadow-sm">
-                                  <AvatarImage src={profile.avatar_url || undefined} />
+                                  <AvatarImage
+                                    src={profile.avatar_url || undefined}
+                                  />
                                   <AvatarFallback>
                                     {initials || "U"}
                                   </AvatarFallback>
@@ -424,8 +439,13 @@ export function ProfilesHub() {
                                       {displayName}
                                     </h3>
                                     {profile.profile_completeness != null && (
-                                      <Badge variant="outline" className="shrink-0">
-                                        {formatCompleteness(profile.profile_completeness)}
+                                      <Badge
+                                        variant="outline"
+                                        className="shrink-0"
+                                      >
+                                        {formatCompleteness(
+                                          profile.profile_completeness,
+                                        )}
                                       </Badge>
                                     )}
                                   </div>
@@ -443,7 +463,7 @@ export function ProfilesHub() {
                               </div>
                             </div>
 
-                              <div className="space-y-2 text-sm text-muted-foreground">
+                            <div className="space-y-2 text-sm text-muted-foreground">
                               {profile.status_message && (
                                 <p className="line-clamp-3 italic">
                                   {profile.status_message}
@@ -451,7 +471,9 @@ export function ProfilesHub() {
                               )}
                               <div className="flex flex-wrap gap-2">
                                 {profile.pronouns && (
-                                  <Badge variant="secondary">{profile.pronouns}</Badge>
+                                  <Badge variant="secondary">
+                                    {profile.pronouns}
+                                  </Badge>
                                 )}
                                 {profile.location && (
                                   <Badge variant="outline" className="gap-1">
@@ -474,23 +496,30 @@ export function ProfilesHub() {
                               </p>
                             )}
 
-                            {profile.specialties && profile.specialties.length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {profile.specialties.slice(0, 3).map((specialty) => (
-                                  <Badge key={specialty} variant="outline">
-                                    {specialty}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
+                            {profile.specialties &&
+                              profile.specialties.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {profile.specialties
+                                    .slice(0, 3)
+                                    .map((specialty) => (
+                                      <Badge key={specialty} variant="outline">
+                                        {specialty}
+                                      </Badge>
+                                    ))}
+                                </div>
+                              )}
 
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <span className="inline-flex items-center gap-1">
                                 <Calendar className="h-3.5 w-3.5" />
-                                Joined {new Date(profile.created_at).toLocaleDateString()}
+                                Joined{" "}
+                                {new Date(
+                                  profile.created_at,
+                                ).toLocaleDateString()}
                               </span>
                               <span className="inline-flex items-center gap-1 font-medium text-primary">
-                                View profile <ArrowRight className="h-3.5 w-3.5" />
+                                View profile{" "}
+                                <ArrowRight className="h-3.5 w-3.5" />
                               </span>
                             </div>
                           </CardContent>
@@ -502,7 +531,8 @@ export function ProfilesHub() {
 
                 <div className="flex flex-col items-center gap-3 py-4">
                   <p className="text-sm text-muted-foreground">
-                    Showing {visibleCount} of {totalCount || visibleCount} profiles
+                    Showing {visibleCount} of {totalCount || visibleCount}{" "}
+                    profiles
                   </p>
                   {hasMore && (
                     <Button
