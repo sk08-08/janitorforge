@@ -16,6 +16,7 @@ import { ProfilePage } from "@/components/profile/profile-page";
 import { FeedbackInbox } from "@/components/dashboard/feedback-inbox";
 import ModerationPageContent from "@/app/dashboard/moderation/content";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ProfilesHub } from "@/components/hub/profiles-hub";
 import { ResourcesHub } from "@/components/hub/resources-hub";
 import { LogsHub } from "@/components/hub/logs-hub";
 
@@ -50,6 +51,8 @@ function ViewRouter() {
       return <FeedbackInbox />;
     case "atlas":
       return <AtlasHub />;
+    case "profiles":
+      return <ProfilesHub />;
     case "resources":
       return <ResourcesHubView />;
     case "logs":

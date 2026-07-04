@@ -37,6 +37,8 @@ import {
   Pin,
   Trash2,
   Logs,
+  PenLineIcon,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -479,14 +481,14 @@ export function LogsHub() {
       </div>
 
       <Dialog open={postDialogOpen} onOpenChange={setPostDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingPostId ? "Edit post" : "New post"}
             </DialogTitle>
             <DialogDescription>Create or update a log entry.</DialogDescription>
           </DialogHeader>
-          <div className="max-h-[68vh] space-y-4 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             <div className="space-y-2">
               <label className="text-sm font-medium">Title</label>
               <Input
@@ -567,7 +569,7 @@ export function LogsHub() {
                 placeholder="https://..."
               />
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border/70 px-4 py-3">
+            <div className="mt-4 flex items-center justify-between rounded-xl border border-border/70 px-4 py-3">
               <div>
                 <p className="text-sm font-medium">Published</p>
                 <p className="text-xs text-muted-foreground">
@@ -716,6 +718,7 @@ export function LogsHub() {
                       <Badge variant="outline">
                         Created{" "}
                         {new Date(selectedPost.created_at).toLocaleDateString()}
+                        <PenLineIcon className="ml-2 h-4 w-4" />
                       </Badge>
                       {selectedPost.published_at && (
                         <Badge variant="outline">
@@ -723,6 +726,7 @@ export function LogsHub() {
                           {new Date(
                             selectedPost.published_at,
                           ).toLocaleDateString()}
+                          <Upload className="ml-2 h-4 w-4" />
                         </Badge>
                       )}
                     </div>

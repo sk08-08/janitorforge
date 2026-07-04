@@ -382,6 +382,7 @@ export interface DashboardStats {
 // ----------------------------------------------------------------------------
 
 export type NavigationView =
+  | "profiles"
   | "resources"
   | "logs"
   | "dashboard"

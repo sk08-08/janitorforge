@@ -26,6 +26,7 @@ import type {
 import { getCurrentUserAccess } from "./access";
 
 const validNavigationViews: NavigationView[] = [
+  "profiles",
   "resources",
   "logs",
   "dashboard",

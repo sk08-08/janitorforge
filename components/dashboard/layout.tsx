@@ -13,6 +13,7 @@ import {
   Inbox,
   Globe,
   BookOpen,
+  Users,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -65,6 +66,12 @@ type NavSectionId = "hub" | "forge" | "admin";
 const NAV_SECTION_STORAGE_KEY = "dashboard-nav-section-collapsed";
 
 const hubNavItems: NavItem[] = [
+  {
+    id: "profiles",
+    label: "People",
+    icon: Users,
+    description: "Browse creator profiles and discover new accounts",
+  },
   {
     id: "resources",
     label: "Resources",

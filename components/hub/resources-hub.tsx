@@ -58,6 +58,8 @@ import {
   Folder,
   Server,
   Code,
+  PenLineIcon,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -831,7 +833,7 @@ export function ResourcesHub() {
               id={`resources-entries-${selectedSectionId || "none"}`}
               style={{ scrollMarginTop: "6rem" }}
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold tracking-tight">
                     {selectedSection?.title || "Section entries"}
@@ -860,12 +862,24 @@ export function ResourcesHub() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid cursor-pointer gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 xl:grid-cols-3">
                   {visibleEntries.map((entry, index) => {
                     const active = entry.id === selectedEntryId;
                     const sourceSection = sections.find(
                       (candidate) => candidate.id === entry.section_id,
                     );
+                    const sectionAccent =
+                      sourceSection?.accent_color || "#7c3aed";
+                    const cardBorder = entry.is_platform_pinned
+                      ? "border-amber-400/60"
+                      : active
+                        ? "border-primary"
+                        : undefined;
+                    const cardBackground = entry.is_platform_pinned
+                      ? "bg-amber-50/20 dark:bg-amber-500/5"
+                      : active
+                        ? "bg-primary/5"
+                        : "bg-background/60";
 
                     return (
                       <div
@@ -874,15 +888,23 @@ export function ResourcesHub() {
                         role="button"
                         tabIndex={0}
                         className={cn(
-                          "group rounded-2xl border p-4 text-left transition-all",
-                          active
-                            ? "border-primary bg-primary/5 shadow-sm"
-                            : "border-border/70 bg-background/60 hover:border-primary/40",
-                          entry.is_platform_pinned &&
-                            "border-amber-400/60 bg-amber-50/20 dark:border-amber-400/40 dark:bg-amber-500/5",
+                          "group w-full min-w-0 overflow-hidden rounded-2xl border p-4 text-left transition-all",
+                          cardBorder,
+                          cardBackground,
+                          !entry.is_platform_pinned &&
+                            !active &&
+                            "hover:border-primary/40",
+                          entry.is_platform_pinned && "shadow-sm",
                         )}
+                        style={{
+                          borderColor: entry.is_platform_pinned
+                            ? undefined
+                            : active
+                              ? sectionAccent
+                              : `${sectionAccent}40`,
+                        }}
                       >
-                        <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start justify-between gap-3">
                           <div className="min-w-0 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
                               <h3 className="truncate font-semibold">
@@ -901,7 +923,7 @@ export function ResourcesHub() {
                                 </Badge>
                               )}
                             </div>
-                            <div className="max-h-24 overflow-hidden text-sm text-muted-foreground [&_p]:mb-0 [&_ul]:mb-0 [&_ol]:mb-0">
+                            <div className="max-h-24 overflow-hidden text-sm text-muted-foreground [&_p]:mb-0 [&_ul]:mb-0 [&_ol]:mb-0 [&_ol]:pl-5 [&_ul]:pl-5">
                               <MarkdownContent
                                 content={entry.summary || "No summary yet."}
                                 className="prose-sm max-w-none"
@@ -913,7 +935,14 @@ export function ResourcesHub() {
 
                         <div className="mt-4 flex flex-wrap items-center gap-2">
                           {sourceSection && (
-                            <Badge variant="outline">
+                            <Badge
+                              variant="outline"
+                              className="border-current/20"
+                              style={{
+                                color: sectionAccent,
+                                borderColor: sectionAccent,
+                              }}
+                            >
                               {sourceSection.title}
                             </Badge>
                           )}
@@ -921,18 +950,6 @@ export function ResourcesHub() {
                             <Badge variant="outline">{entry.label}</Badge>
                           )}
                         </div>
-
-                        {entry.url && (
-                          <a
-                            href={entry.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            Open link <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
 
                         {isAdmin && (
                           <Collapsible className="mt-4" defaultOpen={false}>
@@ -1092,7 +1109,7 @@ export function ResourcesHub() {
         open={entryDetailOpen && !!selectedEntry}
         onOpenChange={setEntryDetailOpen}
       >
-        <DialogContent className="max-w-5xl overflow-hidden sm:max-w-5xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle className="text-2xl sm:text-3xl">
               {selectedEntry?.title}
@@ -1132,21 +1149,17 @@ export function ResourcesHub() {
                       />
                     </div>
                   </div>
-
-                  {selectedEntry.url && (
-                    <a
-                      href={selectedEntry.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                    >
-                      Open link <ExternalLink className="h-4 w-4" />
-                    </a>
-                  )}
                 </div>
               </ScrollArea>
 
-              <div className="space-y-4 rounded-2xl border border-border/70 bg-background p-4">
+              <div
+                className="space-y-4 rounded-2xl border p-4"
+                style={{
+                  borderColor: selectedEntry.is_platform_pinned
+                    ? "#f59e0b"
+                    : selectedSection.accent_color || "#7c3aed",
+                }}
+              >
                 <div>
                   <p className="text-sm font-medium">Section</p>
                   <p className="text-sm text-muted-foreground">
@@ -1154,10 +1167,34 @@ export function ResourcesHub() {
                   </p>
                 </div>
                 <div>
+                  <p className="text-sm font-medium">Source</p>
+                  {selectedEntry.url ? (
+                    <a
+                      href={selectedEntry.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        color: selectedEntry.is_platform_pinned
+                          ? "#f59e0b"
+                          : selectedSection.accent_color || "#7c3aed",
+                      }}
+                      className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
+                    >
+                      Open source <ExternalLink className="h-4 w-4" />
+                    </a>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No source link yet.
+                    </p>
+                  )}
+                </div>
+                <div>
                   <p className="text-sm font-medium">Metadata</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Badge variant="outline">
+                      Created{" "}
                       {new Date(selectedEntry.created_at).toLocaleDateString()}
+                      <PenLineIcon className="ml-2 h-4 w-4" />
                     </Badge>
                     {selectedEntry.updated_at && (
                       <Badge variant="outline">
@@ -1165,6 +1202,7 @@ export function ResourcesHub() {
                         {new Date(
                           selectedEntry.updated_at,
                         ).toLocaleDateString()}
+                        <Upload className="ml-2 h-4 w-4" />
                       </Badge>
                     )}
                   </div>

@@ -25,7 +25,7 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
   let currentLines: string[] = [];
 
   const pushBlock = () => {
-    const blockContent = currentLines.join("\n").trim();
+    const blockContent = currentLines.join("\n");
     if (blockContent) {
       blocks.push({ alignment: currentAlignment, content: blockContent });
     }
@@ -83,6 +83,15 @@ function renderMarkdown(markdown: string, alignment: MarkdownBlockAlignment) {
             {children}
           </a>
         ),
+        p: ({ children }) => {
+          // If the paragraph is empty, render a line break so it takes up vertical space
+          if (!children || (Array.isArray(children) && children.length === 0)) {
+            return <br />;
+          }
+          return (
+            <p className="mb-3 last:mb-0 whitespace-pre-wrap">{children}</p>
+          );
+        },
         h1: ({ children }) => (
           <h1 className="mb-3 text-2xl font-bold tracking-tight">{children}</h1>
         ),
@@ -97,7 +106,6 @@ function renderMarkdown(markdown: string, alignment: MarkdownBlockAlignment) {
         h4: ({ children }) => (
           <h4 className="mb-3 text-base font-semibold">{children}</h4>
         ),
-        p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
         ul: ({ children }) => (
           <ul className="mb-3 list-disc space-y-1 pl-6">{children}</ul>
         ),
@@ -105,7 +113,7 @@ function renderMarkdown(markdown: string, alignment: MarkdownBlockAlignment) {
           <ol className="mb-3 list-decimal space-y-1 pl-6">{children}</ol>
         ),
         li: ({ children }) => (
-          <li className="marker:text-muted-foreground">{children}</li>
+          <li className="marker:text-primary">{children}</li>
         ),
         hr: () => <hr className="my-4 border-border/70" />,
         pre: ({ children }) => (
