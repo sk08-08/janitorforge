@@ -49,13 +49,13 @@ import {
   Search,
   ShieldCheck,
   UserRound,
-  CodeXml,
   Brain,
   Palette,
   Bot,
   PenLine,
   AppWindow,
   Folder,
+  Lock,
   Server,
   Code,
   PenLineIcon,
@@ -626,7 +626,7 @@ export function ResourcesHub() {
   return (
     <div className="min-h-full p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-8">
-        <Card className="border-border/70 bg-card/95 shadow-xl">
+        <Card className="border-border/70 bg-card/95 shadow-lg">
           <CardContent className="flex flex-col gap-5 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-3">
               <div className="space-y-2">

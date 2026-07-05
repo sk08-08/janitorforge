@@ -139,6 +139,71 @@ export async function logout() {
   return { success: true };
 }
 
+export async function changePin(
+  username: string,
+  currentPin: string,
+  newPin: string,
+) {
+  const clean = username.toLowerCase().trim();
+  const usernameError = validateUsername(clean);
+  if (usernameError) return { success: false, error: usernameError };
+
+  const currentPinError = validatePin(currentPin);
+  if (currentPinError) return { success: false, error: currentPinError };
+
+  const newPinError = validatePin(newPin);
+  if (newPinError) return { success: false, error: newPinError };
+
+  if (currentPin === newPin) {
+    return {
+      success: false,
+      error: "New PIN must be different from the current PIN",
+    };
+  }
+
+  const supabase = await createClient();
+  const email = `${clean}@janitorforge.local`;
+  const currentPassword = `${currentPin}${clean}`;
+  const nextPassword = `${newPin}${clean}`;
+
+  const { data: signInData, error: signInError } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password: currentPassword,
+    });
+
+  if (signInError || !signInData?.user) {
+    return { success: false, error: "Incorrect username or current PIN" };
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: nextPassword,
+  });
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(
+    "janitorforge_session",
+    JSON.stringify({
+      userId: signInData.user.id,
+      username: clean,
+      loggedInAt: new Date().toISOString(),
+    }),
+    {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    },
+  );
+
+  return { success: true };
+}
+
 export async function getSession() {
   const cookieStore = await cookies();
   const session = cookieStore.get("janitorforge_session");

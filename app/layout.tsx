@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "@/components/ui/sonner";
 import { CustomScrollbar } from "@/components/ui/custom-scrollbar";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 // Font configuration
@@ -93,20 +94,39 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// Inline script to prevent FOUC — runs before React hydration
+const themeScript = `
+  (function() {
+    try {
+      var t = localStorage.getItem('theme');
+      var d = t === 'light' ? 'light' : t === 'dark' ? 'dark' : t === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : 'dark';
+      document.documentElement.classList.remove('light', 'dark');
+      document.documentElement.classList.add(d);
+    } catch(e) {}
+  })()
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark bg-background">
+    <html lang="en" className="dark bg-background" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <CustomScrollbar />
-        {children}
-        <Toaster />
-        {process.env.NODE_ENV === "production" && <Analytics />}
+        <ThemeProvider defaultTheme="dark">
+          <CustomScrollbar />
+          {children}
+          <Toaster />
+          {process.env.NODE_ENV === "production" && <Analytics />}
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -7,7 +7,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Users,
   Check,
   X,
   Loader2,
@@ -16,7 +15,7 @@ import {
   Pencil,
   Inbox,
   Bot as BotIcon,
-  User,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,12 +78,12 @@ export function PendingInvites() {
 
   if (loading) {
     return (
-      <Card className="border-border/70">
-        <CardContent className="flex items-center justify-center py-6 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          Loading invites...
-        </CardContent>
-      </Card>
+      <div className="flex min-h-[20vh] items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm">Loading invites…</p>
+        </div>
+      </div>
     );
   }
 
@@ -161,7 +160,7 @@ export function PendingInvites() {
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <User className="h-3 w-3 text-primary p-0.5" />
+                          <UserRound className="h-3 w-3 text-primary p-0.5" />
                         )}
                       </div>
                       <span className="text-[10px] text-muted-foreground">

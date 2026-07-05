@@ -311,6 +311,7 @@ export async function forkBot(originalBotId: string, reason?: string) {
     .from("bots")
     .select("*")
     .eq("id", originalBotId)
+    .is("deleted_at", null)
     .single();
 
   if (!originalBot) {

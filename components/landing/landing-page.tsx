@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
@@ -27,6 +28,8 @@ import {
   X,
   Quote,
   Maximize2,
+  Moon,
+  Sun,
 } from "lucide-react";
 
 // ============================================================================
@@ -109,6 +112,25 @@ function FadeIn({
   );
 }
 
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon-sm"
+      className="cursor-pointer border-border/60 bg-background/80"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={`Switch to ${isDark ? "light" : "dark"} theme`}
+      title={`Switch to ${isDark ? "light" : "dark"} theme`}
+    >
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </Button>
+  );
+}
+
 // ============================================================================
 // Noise Texture + Background
 // ============================================================================
@@ -183,7 +205,7 @@ function Navbar() {
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
         scrolled
-          ? "bg-background/70 backdrop-blur-2xl border-b border-white/[0.06] shadow-2xl shadow-black/20"
+          ? "bg-background/78 backdrop-blur-2xl border-b border-border/60 shadow-2xl shadow-black/10"
           : "bg-transparent",
         scrollDir === "down" && scrolled
           ? "-translate-y-full"
@@ -229,6 +251,7 @@ function Navbar() {
               Sign in
             </Button>
           </Link>
+          <ThemeToggle />
           <Link href="/login">
             <Button
               size="sm"
@@ -255,7 +278,7 @@ function Navbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="border-t border-white/[0.06] bg-background/95 backdrop-blur-2xl px-5 py-4 md:hidden">
+        <div className="border-t border-border/60 bg-background/95 backdrop-blur-2xl px-5 py-4 md:hidden">
           <div className="flex flex-col gap-3">
             <a
               href="#features"
@@ -278,7 +301,8 @@ function Navbar() {
             >
               Showcase
             </a>
-            <div className="flex gap-2 pt-2">
+            <div className="flex items-center gap-2 pt-2">
+              <ThemeToggle />
               <Link href="/login" className="flex-1">
                 <Button variant="outline" className="w-full cursor-pointer">
                   Sign in
@@ -376,23 +400,23 @@ function Hero() {
         <FadeIn delay={0.45} className="mt-16 sm:mt-20">
           <div className="relative mx-auto max-w-4xl">
             {/* Ambient glow behind */}
-            <div className="absolute -inset-x-12 top-12 -bottom-8 rounded-[2rem] bg-gradient-to-b from-violet-600/8 via-purple-600/5 to-transparent blur-2xl" />
+            <div className="absolute -inset-x-12 top-12 -bottom-8 rounded-4xl bg-linear-to-b from-violet-600/8 via-purple-600/5 to-transparent blur-2xl" />
 
-            <div className="relative rounded-2xl border border-white/[0.08] bg-[#0c0a12]/90 p-1.5 shadow-[0_0_80px_-12px_rgba(124,58,237,0.3)] backdrop-blur-sm">
+            <div className="relative rounded-2xl border border-border/60 bg-card/90 p-1.5 shadow-[0_0_80px_-12px_rgba(124,58,237,0.18)] backdrop-blur-xl">
               {/* Browser chrome */}
-              <div className="flex items-center gap-2 rounded-t-xl border-b border-white/[0.06] bg-white/[0.02] px-4 py-3">
+              <div className="flex items-center gap-2 rounded-t-xl border-b border-border/60 bg-background/70 px-4 py-3">
                 <div className="flex gap-1.5">
                   <div className="h-3 w-3 rounded-full bg-[#ff5f57]/80" />
                   <div className="h-3 w-3 rounded-full bg-[#febc2e]/80" />
                   <div className="h-3 w-3 rounded-full bg-[#28c840]/80" />
                 </div>
-                <div className="ml-3 flex-1 rounded-md bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground/60 font-mono">
+                <div className="ml-3 flex-1 rounded-md bg-muted/70 px-3 py-1 text-xs text-muted-foreground font-mono">
                   janitorforge.vercel.app/dashboard
                 </div>
               </div>
 
               {/* Mockup content */}
-              <div className="rounded-b-xl bg-gradient-to-br from-white/[0.02] to-transparent p-4 sm:p-6 md:p-8">
+              <div className="rounded-b-xl bg-gradient-to-br from-background/80 to-transparent p-4 sm:p-6 md:p-8">
                 <div className="grid gap-4 md:grid-cols-3">
                   {[
                     {
@@ -419,10 +443,10 @@ function Hero() {
                   ].map((stat) => (
                     <div
                       key={stat.label}
-                      className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-left"
+                      className="rounded-xl border border-border/60 bg-background/75 p-4 text-left"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground/60">
+                        <span className="text-xs text-muted-foreground">
                           {stat.label}
                         </span>
                         <div
@@ -465,7 +489,7 @@ function Hero() {
                   ].map((req) => (
                     <div
                       key={req.name}
-                      className="flex items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3"
+                      className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/75 p-3"
                     >
                       <div
                         className={cn(
@@ -479,7 +503,7 @@ function Hero() {
                         <p className="text-sm font-medium truncate">
                           {req.name}
                         </p>
-                        <p className="text-xs text-muted-foreground/60 truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {req.form}
                         </p>
                       </div>
@@ -499,13 +523,13 @@ function Hero() {
 
             {/* Floating badges */}
             <div className="absolute -top-4 -right-4 hidden sm:block">
-              <div className="rounded-full border border-white/[0.08] bg-[#0c0a12]/90 px-3.5 py-1.5 text-xs font-medium shadow-xl backdrop-blur-md">
+              <div className="rounded-full border border-border/60 bg-background/85 px-3.5 py-1.5 text-xs font-medium shadow-xl backdrop-blur-md">
                 <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                 Live
               </div>
             </div>
             <div className="absolute -bottom-4 -left-4 hidden sm:block">
-              <div className="rounded-full border border-white/[0.08] bg-[#0c0a12]/90 px-3.5 py-1.5 text-xs font-medium shadow-xl backdrop-blur-md">
+              <div className="rounded-full border border-border/60 bg-background/85 px-3.5 py-1.5 text-xs font-medium shadow-xl backdrop-blur-md">
                 <Heart className="mr-1 inline-block h-3 w-3 text-red-400" />
                 89 submissions
               </div>
@@ -756,8 +780,8 @@ function FeatureCard({
     <FadeIn delay={index * 0.08} className="h-full">
       <div
         className={cn(
-          "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-500",
-          "hover:border-white/[0.12] hover:bg-white/[0.04] hover:shadow-2xl hover:ring-1",
+          "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-6 transition-all duration-500",
+          "hover:border-border/80 hover:bg-card hover:shadow-2xl hover:ring-1",
           accent.glow,
           accent.ring,
         )}
@@ -775,7 +799,7 @@ function FeatureCard({
           <button
             type="button"
             onClick={onImageClick}
-            className="relative mb-4 h-40 rounded-xl border border-white/[0.06] overflow-hidden bg-white/[0.02] cursor-pointer group/image"
+            className="relative mb-4 h-40 overflow-hidden rounded-xl border border-border/60 bg-background/70 cursor-pointer group/image"
           >
             <Image
               src={`/landing/feature-${feature.accent}.jpg`}
@@ -819,13 +843,13 @@ function Features() {
   return (
     <section id="features" className="relative py-24 sm:py-32">
       {/* Divider */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-xl h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+      <div className="absolute top-0 left-1/2 h-px w-[80%] max-w-xl -translate-x-1/2 bg-linear-to-r from-transparent via-white/8 to-transparent" />
 
       <div className="mx-auto max-w-6xl px-5">
         <FadeIn className="text-center">
           <Badge
             variant="outline"
-            className="mb-4 border-violet-500/30 bg-violet-500/[0.08] text-violet-400 text-xs tracking-wide uppercase"
+            className="mb-4 border-violet-500/30 bg-violet-500/8 text-xs uppercase tracking-wide text-violet-400"
           >
             <Sparkles className="mr-1 h-3 w-3" />
             Everything you need
@@ -907,7 +931,7 @@ function HowItWorks() {
       {/* Background accent */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[800px] opacity-[0.04]"
+          className="absolute left-1/2 top-1/2 h-150 w-200 -translate-x-1/2 -translate-y-1/2 opacity-[0.04]"
           style={{
             background: "radial-gradient(ellipse, #06b6d4 0%, transparent 60%)",
             filter: "blur(60px)",
@@ -916,13 +940,13 @@ function HowItWorks() {
       </div>
 
       {/* Top divider */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-xl h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+      <div className="absolute top-0 left-1/2 h-px w-[80%] max-w-xl -translate-x-1/2 bg-linear-to-r from-transparent via-white/8 to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-5">
         <FadeIn className="text-center">
           <Badge
             variant="outline"
-            className="mb-4 border-cyan-500/30 bg-cyan-500/[0.08] text-cyan-400 text-xs tracking-wide uppercase"
+            className="mb-4 border-cyan-500/30 bg-cyan-500/8 text-xs uppercase tracking-wide text-cyan-400"
           >
             <ArrowRight className="mr-1 h-3 w-3" />
             Three steps
@@ -941,17 +965,17 @@ function HowItWorks() {
             <FadeIn key={step.num} delay={i * 0.12} className="relative">
               {/* Connector */}
               {i < steps.length - 1 && (
-                <div className="absolute left-[calc(50%+2.5rem)] top-8 hidden h-[1px] w-[calc(100%-5rem)] bg-gradient-to-r from-white/[0.1] to-transparent md:block" />
+                <div className="absolute left-[calc(50%+2.5rem)] top-8 hidden h-px w-[calc(100%-5rem)] bg-linear-to-r from-border/70 to-transparent md:block" />
               )}
 
               <div className="flex flex-col items-center text-center">
                 <div className="relative mb-6">
                   <div
                     className={cn(
-                      "flex h-16 w-16 items-center justify-center rounded-2xl border border-white/[0.08]",
-                      step.accent === "violet" && "bg-violet-500/[0.08]",
-                      step.accent === "cyan" && "bg-cyan-500/[0.08]",
-                      step.accent === "amber" && "bg-amber-500/[0.08]",
+                      "flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60",
+                      step.accent === "violet" && "bg-violet-500/8",
+                      step.accent === "cyan" && "bg-cyan-500/8",
+                      step.accent === "amber" && "bg-amber-500/8",
                     )}
                   >
                     <step.icon
@@ -962,7 +986,7 @@ function HowItWorks() {
                       })}
                     />
                   </div>
-                  <span className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.06] text-[11px] font-bold text-muted-foreground/60 border border-white/[0.08]">
+                  <span className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-background/90 text-[11px] font-bold text-muted-foreground">
                     {step.num}
                   </span>
                 </div>
@@ -989,7 +1013,7 @@ function Showcase() {
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute -top-40 left-1/2 -translate-x-1/2 h-[700px] w-[900px] opacity-[0.06]"
+          className="absolute -top-40 left-1/2 h-175 w-225 -translate-x-1/2 opacity-[0.06]"
           style={{
             background: "radial-gradient(ellipse, #7c3aed 0%, transparent 55%)",
             filter: "blur(80px)",
@@ -998,13 +1022,13 @@ function Showcase() {
       </div>
 
       {/* Top divider */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-xl h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+      <div className="absolute top-0 left-1/2 h-px w-[80%] max-w-xl -translate-x-1/2 bg-linear-to-r from-transparent via-white/8 to-transparent" />
 
       <div className="relative mx-auto max-w-6xl px-5">
         <FadeIn className="text-center">
           <Badge
             variant="outline"
-            className="mb-4 border-amber-500/30 bg-amber-500/[0.08] text-amber-400 text-xs tracking-wide uppercase"
+            className="mb-4 border-amber-500/30 bg-amber-500/8 text-xs uppercase tracking-wide text-amber-400"
           >
             <Eye className="mr-1 h-3 w-3" />
             See it live
@@ -1021,20 +1045,20 @@ function Showcase() {
         <div className="mt-16 grid gap-6 lg:grid-cols-2">
           {/* Public form mockup */}
           <FadeIn direction="left">
-            <div className="group overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0c0a12]/80 shadow-[0_0_60px_-16px_rgba(124,58,237,0.15)] transition-all duration-500 hover:shadow-[0_0_80px_-12px_rgba(124,58,237,0.25)]">
-              <div className="flex items-center gap-2 border-b border-white/[0.06] bg-white/[0.02] px-4 py-3">
+            <div className="group overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-[0_0_60px_-16px_rgba(124,58,237,0.12)] transition-all duration-500 hover:shadow-[0_0_80px_-12px_rgba(124,58,237,0.2)]">
+              <div className="flex items-center gap-2 border-b border-border/60 bg-background/70 px-4 py-3">
                 <div className="flex gap-1.5">
                   <div className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/60" />
                   <div className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/60" />
                   <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]/60" />
                 </div>
-                <span className="ml-2 text-[11px] text-muted-foreground/50 font-mono">
+                <span className="ml-2 font-mono text-[11px] text-muted-foreground">
                   janitorforge.vercel.app/form/open-commissions
                 </span>
               </div>
               <div className="p-6">
                 <h3 className="text-xl font-bold">Open Commissions</h3>
-                <p className="mt-1 text-sm text-muted-foreground/60">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Fill out this form to request a commission. Please read the
                   rules before submitting.
                 </p>
@@ -1048,8 +1072,8 @@ function Showcase() {
                       <label className="text-sm font-medium">
                         {field.label}
                       </label>
-                      <div className="h-10 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 flex items-center">
-                        <span className="text-sm text-muted-foreground/40">
+                      <div className="h-10 rounded-lg border border-border/60 bg-background/70 px-3 flex items-center">
+                        <span className="text-sm text-muted-foreground/50">
                           {field.value}
                         </span>
                       </div>
@@ -1057,8 +1081,8 @@ function Showcase() {
                   ))}
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Description</label>
-                    <div className="h-20 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2">
-                      <span className="text-sm text-muted-foreground/40 leading-relaxed">
+                    <div className="h-20 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
+                      <span className="text-sm text-muted-foreground/50 leading-relaxed">
                         I'd like a portrait of my OC with a sunset background,
                         anime style...
                       </span>
@@ -1074,23 +1098,23 @@ function Showcase() {
 
           {/* Creator page mockup */}
           <FadeIn direction="right">
-            <div className="group overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0c0a12]/80 shadow-[0_0_60px_-16px_rgba(16,185,129,0.1)] transition-all duration-500 hover:shadow-[0_0_80px_-12px_rgba(16,185,129,0.18)]">
-              <div className="flex items-center gap-2 border-b border-white/[0.06] bg-white/[0.02] px-4 py-3">
+            <div className="group overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-[0_0_60px_-16px_rgba(16,185,129,0.08)] transition-all duration-500 hover:shadow-[0_0_80px_-12px_rgba(16,185,129,0.14)]">
+              <div className="flex items-center gap-2 border-b border-border/60 bg-background/70 px-4 py-3">
                 <div className="flex gap-1.5">
                   <div className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/60" />
                   <div className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/60" />
                   <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]/60" />
                 </div>
-                <span className="ml-2 text-[11px] text-muted-foreground/50 font-mono">
+                <span className="ml-2 font-mono text-[11px] text-muted-foreground">
                   janitorforge.vercel.app/luna-creates
                 </span>
               </div>
               <div className="p-6">
                 {/* Banner placeholder */}
-                <div className="mb-4 flex h-28 items-center justify-center rounded-xl border border-dashed border-white/[0.08] bg-gradient-to-br from-violet-500/[0.06] via-fuchsia-500/[0.04] to-cyan-500/[0.06] overflow-hidden">
+                <div className="mb-4 flex h-28 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border/60 bg-linear-to-br from-violet-500/6 via-fuchsia-500/4 to-cyan-500/6">
                   <div className="text-center">
-                    <Palette className="mx-auto h-5 w-5 text-muted-foreground/25" />
-                    <p className="mt-1 text-[10px] text-muted-foreground/25 font-mono">
+                    <Palette className="mx-auto h-5 w-5 text-muted-foreground/30" />
+                    <p className="mt-1 font-mono text-[10px] text-muted-foreground/30">
                       [Creator banner image]
                     </p>
                   </div>
@@ -1102,12 +1126,12 @@ function Showcase() {
                   </div>
                   <div>
                     <h3 className="font-bold">Luna Creates</h3>
-                    <p className="text-xs text-muted-foreground/50">
+                    <p className="text-xs text-muted-foreground">
                       Digital artist & character designer
                     </p>
                   </div>
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground/70">
+                <p className="mt-3 text-sm text-muted-foreground">
                   I make characters and digital commissions. If you want to work
                   with me, fill out the form below ✨
                 </p>
@@ -1125,13 +1149,13 @@ function Showcase() {
                   {["Aria", "Kai", "Nova"].map((name) => (
                     <div
                       key={name}
-                      className="flex h-20 flex-col items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02]"
+                      className="flex h-20 flex-col items-center justify-center rounded-lg border border-border/60 bg-background/70"
                     >
                       {/* Image placeholder for bot thumbnails */}
-                      <span className="text-[10px] text-muted-foreground/30 font-mono">
+                      <span className="font-mono text-[10px] text-muted-foreground/40">
                         [Bot]
                       </span>
-                      <span className="mt-1 text-[9px] text-muted-foreground/20">
+                      <span className="mt-1 text-[9px] text-muted-foreground/30">
                         {name}
                       </span>
                     </div>
@@ -1190,7 +1214,7 @@ function CTA() {
       {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[700px] opacity-[0.08]"
+          className="absolute left-1/2 top-1/2 h-125 w-175 -translate-x-1/2 -translate-y-1/2 opacity-[0.08]"
           style={{
             background: "radial-gradient(ellipse, #7c3aed 0%, transparent 50%)",
             filter: "blur(60px)",
@@ -1199,7 +1223,7 @@ function CTA() {
       </div>
 
       {/* Top divider */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] max-w-xl h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+      <div className="absolute top-0 left-1/2 h-px w-[80%] max-w-xl -translate-x-1/2 bg-linear-to-r from-transparent via-white/8 to-transparent" />
 
       <FadeIn className="relative mx-auto max-w-3xl px-5 text-center">
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
@@ -1213,7 +1237,7 @@ function CTA() {
           <Link href="/login">
             <Button
               size="lg"
-              className="group cursor-pointer bg-gradient-to-r from-violet-600 to-purple-600 px-8 text-base shadow-2xl shadow-violet-600/25 hover:from-violet-500 hover:to-purple-500 transition-all duration-300"
+              className="group cursor-pointer bg-linear-to-r from-violet-600 to-purple-600 px-8 text-base shadow-2xl shadow-violet-600/25 transition-all duration-300 hover:from-violet-500 hover:to-purple-500"
             >
               Create my account
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -1234,7 +1258,7 @@ function CTA() {
 
 function Footer() {
   return (
-    <footer className="border-t border-white/[0.06] bg-white/[0.01]">
+    <footer className="border-t border-border/60 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto max-w-6xl px-5 py-12">
         <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
           <div className="flex items-center gap-2.5">
@@ -1248,7 +1272,7 @@ function Footer() {
             <span className="font-semibold text-sm">JanitorForge (Beta)</span>
           </div>
 
-          <div className="flex gap-6 text-sm text-muted-foreground/60">
+          <div className="flex gap-6 text-sm text-muted-foreground">
             <a
               href="#features"
               className="transition-colors hover:text-foreground"
@@ -1269,19 +1293,17 @@ function Footer() {
           <div className="flex items-center gap-4 text-xs text-muted-foreground/40">
             <Link
               href="/terms"
-              className="transition-colors hover:text-muted-foreground/70"
+              className="transition-colors hover:text-foreground"
             >
               Terms
             </Link>
             <Link
               href="/privacy"
-              className="transition-colors hover:text-muted-foreground/70"
+              className="transition-colors hover:text-foreground"
             >
               Privacy
             </Link>
-            <span>
-              © {new Date().getFullYear()} JanitorForge (Beta).
-            </span>
+            <span>© {new Date().getFullYear()} JanitorForge (Beta).</span>
           </div>
         </div>
       </div>
@@ -1295,7 +1317,7 @@ function Footer() {
 
 export function LandingPage() {
   return (
-    <div className="relative min-h-screen bg-[#08060e] text-foreground antialiased">
+    <div className="relative min-h-screen bg-background text-foreground antialiased">
       <NoiseOverlay />
       <Navbar />
       <main className="relative z-[2]">

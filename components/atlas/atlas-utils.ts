@@ -56,16 +56,6 @@ export const entryKindBadges: Record<AtlasEntryKind, string> = {
 // ---------------------------------------------------------------------------
 
 export const WORLDS_PER_PAGE = 4;
-export const WORLD_CARD_HEIGHT = 88;
-export const WORLD_LIST_GAP = 12;
-export const WORLD_LIST_PADDING = 24;
-export const WORLD_LIST_MAX_HEIGHT = 560;
-export const WORLD_LIST_MIN_HEIGHT = 160;
-export const PAGINATION_HEIGHT = 56;
-export const LOREBOOK_LIST_HEIGHT = 288;
-export const LOREBOOK_CARD_HEIGHT = 140;
-export const LOREBOOK_LIST_GAP = 8;
-export const LOREBOOK_LIST_PADDING = 12;
 
 export const LEGACY_ATLAS_STORAGE_KEY = "janitorforge-atlas-worlds";
 

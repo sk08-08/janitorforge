@@ -7,17 +7,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  User,
   Pencil,
   MapPin,
   Globe,
@@ -28,8 +21,9 @@ import {
   ExternalLink,
   MessageCircle,
   Users,
-  Bot,
   Heart,
+  UserRound,
+  UsersRound,
 } from "lucide-react";
 import {
   TwitterIcon,
@@ -126,7 +120,7 @@ function AvatarDisplay({
           className="h-full w-full flex items-center justify-center"
           style={{ backgroundColor: `${color}22` }}
         >
-          <User className={iconSizes[size]} style={{ color }} />
+          <UserRound className={iconSizes[size]} style={{ color }} />
         </div>
       )}
     </div>
@@ -343,12 +337,13 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
           {/* Follow counts */}
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1.5">
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <UsersRound className="h-4 w-4 text-muted-foreground" />
               <span className="font-semibold">{followCounts.followers}</span>
               <span className="text-muted-foreground text-xs">followers</span>
             </div>
             <div className="w-px h-4 bg-border" />
             <div className="flex items-center gap-1.5">
+              <UserRound className="h-4 w-4 text-muted-foreground" />
               <span className="font-semibold">{followCounts.following}</span>
               <span className="text-muted-foreground text-xs">following</span>
             </div>
@@ -611,7 +606,7 @@ export function PublicProfileCard({
         {/* Stats row */}
         <div className="flex items-center gap-3 mt-2.5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <Users className="h-3 w-3" />
+            <UsersRound className="h-3 w-3" />
             <span className="font-medium text-foreground">
               {counts.followers}
             </span>{" "}

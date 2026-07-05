@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  User,
   Share2,
   Palette,
   Star,
@@ -44,6 +43,8 @@ import {
   Eye,
   EyeOff,
   Image as ImageIcon,
+  UsersRound,
+  UserRound,
 } from "lucide-react";
 import { getOwnProfile, updateProfile } from "@/app/actions/profile";
 import { useStore } from "@/lib/store";
@@ -380,7 +381,7 @@ export function ProfileEditor({
                 value="general"
                 className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
               >
-                <User className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+                <UserRound className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
                 General
               </TabsTrigger>
               <TabsTrigger
@@ -458,12 +459,12 @@ export function ProfileEditor({
                     alt="Avatar preview"
                     aspectRatio="square"
                     fallback={
-                      <User className="h-8 w-8 text-muted-foreground/40" />
+                      <UserRound className="h-8 w-8 text-muted-foreground/40" />
                     }
                   />
                   <div className="flex-1 space-y-1.5 min-w-0">
                     <Label className="text-xs flex items-center gap-1">
-                      <User className="h-3 w-3" /> Avatar URL
+                      <UserRound className="h-3 w-3" /> Avatar URL
                     </Label>
                     <Input
                       value={avatarUrl}
@@ -883,7 +884,7 @@ export function ProfileEditor({
                     </SelectItem>
                     <SelectItem value="followers">
                       <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-amber-500" />
+                        <UsersRound className="h-3.5 w-3.5 text-amber-500" />
                         Followers Only
                       </div>
                     </SelectItem>
@@ -910,9 +911,10 @@ export function ProfileEditor({
               >
                 {visibility === "public" && (
                   <>
-                    <p className="font-medium text-emerald-600">
-                      🌐 Public Profile
-                    </p>
+                    <div className="flex items-center gap-2 text-emerald-600">
+                      <Eye className="h-3.5 w-3.5 inline" />
+                      <p className="font-medium">Public Profile</p>
+                    </div>
                     <p className="text-muted-foreground">
                       Anyone can view your profile, including search engines.
                       Your profile will appear in the public creator directory.
@@ -921,9 +923,10 @@ export function ProfileEditor({
                 )}
                 {visibility === "followers" && (
                   <>
-                    <p className="font-medium text-amber-600">
-                      👥 Followers Only
-                    </p>
+                    <div className="flex items-center gap-2 text-amber-600">
+                      <UsersRound className="h-3.5 w-3.5 inline" />
+                      <p className="font-medium">Followers Only</p>
+                    </div>
                     <p className="text-muted-foreground">
                       Only users who follow you can see your full profile.
                       Non-followers will see a limited preview.
@@ -932,7 +935,10 @@ export function ProfileEditor({
                 )}
                 {visibility === "private" && (
                   <>
-                    <p className="font-medium text-red-600">🔒 Private</p>
+                    <div className="flex items-center gap-2 text-red-600">
+                      <EyeOff className="h-3.5 w-3.5 inline" />
+                      <p className="font-medium">Private</p>
+                    </div>
                     <p className="text-muted-foreground">
                       Your profile is hidden from everyone except you. It won't
                       appear in directories or search results.

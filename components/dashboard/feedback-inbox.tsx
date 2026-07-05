@@ -559,14 +559,11 @@ export function FeedbackInbox() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <MessageSquareMore className="h-5 w-5 text-primary" />
-          </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
               Feedback Inbox
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="mt-1 text-sm sm:text-base text-muted-foreground">
               Review and manage user suggestions and bug reports.
             </p>
           </div>

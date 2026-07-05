@@ -12,12 +12,10 @@ import {
   Inbox,
   CheckCircle,
   Clock,
-  TrendingUp,
   Activity,
   ArrowRight,
   AlertTriangle,
   Sparkles,
-  Users,
   Upload,
   Star,
   Calendar,
@@ -26,6 +24,7 @@ import {
   BarChart3,
   ChevronRight,
   MessageSquare,
+  UsersRound,
 } from "lucide-react";
 import {
   Card,
@@ -389,7 +388,7 @@ function RecentBotCard({
             </span>
             {collaboratorCount && collaboratorCount > 0 && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Users className="h-3 w-3" />
+                <UsersRound className="h-3 w-3" />
                 {collaboratorCount}
               </span>
             )}
@@ -979,7 +978,7 @@ export function DashboardHome() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
+                <UsersRound className="h-5 w-5 text-primary" />
                 Shared With You
               </h2>
               <p className="text-sm text-muted-foreground">
@@ -1017,7 +1016,7 @@ export function DashboardHome() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Users className="h-3 w-3" />
+                    <UsersRound className="h-3 w-3" />
                     <span>
                       by{" "}
                       {bot.owner_display_name ||

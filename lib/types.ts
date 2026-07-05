@@ -392,6 +392,7 @@ export type NavigationView =
   | "moderation"
   | "feedback"
   | "atlas"
+  | "creator-pages"
   | "profile";
 
 // ----------------------------------------------------------------------------

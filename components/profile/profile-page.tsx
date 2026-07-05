@@ -26,20 +26,18 @@ import {
 import { BotDetailModal } from "@/components/bots/bot-detail-modal";
 import { renderMarkdown } from "@/lib/markdown";
 import {
-  User,
   Pencil,
   MapPin,
   Globe,
   Calendar,
-  Loader2,
   ExternalLink,
-  Users,
-  Heart,
   Star,
   Layout,
-  Layers,
   Inbox,
-  Plus,
+  Bot,
+  AppWindow,
+  FileText,
+  UserRound,
 } from "lucide-react";
 import {
   TwitterIcon,
@@ -164,6 +162,7 @@ export function ProfilePage() {
             .from("atlas_worlds")
             .select("id, title, slug, kind, description, bot_ids")
             .eq("user_id", result.profile.id)
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
         ]);
         if (pages) setCreatorPages(pages);
@@ -182,24 +181,21 @@ export function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6 md:p-8 lg:p-10">
-        <Card>
-          <CardContent className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </CardContent>
-        </Card>
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm">Loading your profile…</p>
+        </div>
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="p-4 sm:p-6 md:p-8 lg:p-10">
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-muted-foreground">Failed to load profile.</p>
-          </CardContent>
-        </Card>
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <p className="text-sm">Failed to load profile.</p>
+        </div>
       </div>
     );
   }
@@ -267,7 +263,10 @@ export function ProfilePage() {
                 className="h-full w-full flex items-center justify-center"
                 style={{ backgroundColor: `${primaryColor}22` }}
               >
-                <User className="h-10 w-10" style={{ color: primaryColor }} />
+                <UserRound
+                  className="h-10 w-10"
+                  style={{ color: primaryColor }}
+                />
               </div>
             )}
           </div>
@@ -475,7 +474,9 @@ export function ProfilePage() {
                           >
                             <Star
                               className="h-5 w-5"
-                              style={{ color: primaryColor }}
+                              style={{
+                                color: primaryColor,
+                              }}
                             />
                           </div>
                         )}
@@ -498,7 +499,12 @@ export function ProfilePage() {
                 <Empty className="rounded-lg border border-dashed bg-card/40 px-5 py-7">
                   <EmptyContent>
                     <EmptyMedia variant="icon">
-                      <Star className="h-5 w-5" />
+                      <Star
+                        className="h-5 w-5"
+                        style={{
+                          color: primaryColor,
+                        }}
+                      />
                     </EmptyMedia>
                     <EmptyTitle>No featured bots yet</EmptyTitle>
                     <EmptyDescription>
@@ -547,7 +553,7 @@ export function ProfilePage() {
       {bots.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <Star className="h-5 w-5" style={{ color: primaryColor }} />
+            <Bot className="h-5 w-5" style={{ color: primaryColor }} />
             <h2 className="text-lg font-semibold">Bots</h2>
             <Badge variant="outline">{bots.length}</Badge>
           </div>
@@ -567,7 +573,12 @@ export function ProfilePage() {
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center">
-                      <Star className="h-8 w-8 text-muted-foreground" />
+                      <Bot
+                        className="h-8 w-8"
+                        style={{
+                          color: primaryColor,
+                        }}
+                      />
                     </div>
                   )}
                 </div>
@@ -600,7 +611,7 @@ export function ProfilePage() {
       {/* Creator Pages */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <Layout className="h-5 w-5" style={{ color: primaryColor }} />
+          <AppWindow className="h-5 w-5" style={{ color: primaryColor }} />
           <h2 className="text-lg font-semibold">Creator Pages</h2>
           <Badge variant="outline">{creatorPages.length}</Badge>
         </div>
@@ -687,10 +698,10 @@ export function ProfilePage() {
         <hr className="border-t" style={{ borderColor: `${primaryColor}33` }} />
       </div>
 
-      {/* Request Forms — only user's own forms */}
+      {/* Forms — only user's own forms */}
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <Inbox className="h-5 w-5" style={{ color: primaryColor }} />
+          <FileText className="h-5 w-5" style={{ color: primaryColor }} />
           <h2 className="text-lg font-semibold">Request Forms</h2>
           <Badge variant="outline">{ownForms.length}</Badge>
         </div>

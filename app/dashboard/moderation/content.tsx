@@ -105,12 +105,11 @@ export default function ModerationPageContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-shield/10">
-            <Shield className="h-6 w-6 text-shield" />
-          </div>
           <div>
-            <h1 className="text-2xl font-bold">Form Moderation</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Form Moderation
+            </h1>
+            <p className="mt-1 text-sm sm:text-base text-muted-foreground">
               Review and manage flagged submissions
             </p>
           </div>
@@ -128,11 +127,12 @@ export default function ModerationPageContent() {
 
       {/* Form Selector */}
       {loading ? (
-        <Card>
-          <CardContent className="p-6 text-center text-muted-foreground">
-            Loading your forms...
-          </CardContent>
-        </Card>
+        <div className="flex min-h-[60vh] items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm">Loading your forms…</p>
+          </div>
+        </div>
       ) : forms.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-center">

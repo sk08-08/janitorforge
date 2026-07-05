@@ -13,10 +13,10 @@ import {
   Trash2,
   Loader2,
   Inbox,
-  Users,
   ArrowUpRight,
   FileText,
   AlertTriangle,
+  UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,7 @@ import {
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 function getTimeAgo(dateStr: string): string {
   const now = Date.now();
@@ -180,9 +181,9 @@ export function NotificationBell() {
       case "new_submission":
         return <Inbox className="h-3 w-3 text-blue-400" />;
       case "new_follower":
-        return <Users className="h-3 w-3 text-green-400" />;
+        return <UsersRound className="h-3 w-3 text-green-400" />;
       case "collaboration_invite":
-        return <Users className="h-3 w-3 text-purple-400" />;
+        return <UsersRound className="h-3 w-3 text-purple-400" />;
       case "flagged_submission":
         return <AlertTriangle className="h-3 w-3 text-amber-400" />;
       default:

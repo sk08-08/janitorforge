@@ -13,9 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { User, Loader2, Users } from "lucide-react";
+import { Loader2, UserRound, UsersRound } from "lucide-react";
 import { getFollowers, getFollowing } from "@/app/actions/profile";
 import Link from "next/link";
 
@@ -136,7 +134,7 @@ export function FollowListModal({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <User
+                        <UserRound
                           className="h-5 w-5"
                           style={{ color: themeColor }}
                         />
@@ -157,7 +155,7 @@ export function FollowListModal({
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-3">
-                <Users className="h-6 w-6 text-muted-foreground" />
+                <UsersRound className="h-6 w-6 text-muted-foreground" />
               </div>
               <p className="text-sm font-medium">
                 {activeTab === "followers"

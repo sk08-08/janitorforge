@@ -16,13 +16,13 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   Logs,
   LogOut,
-  User,
+  UserRound,
   Shield,
   Menu,
   MessageSquareMore,
+  AppWindow,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/app/actions/auth";
@@ -49,6 +49,8 @@ import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { getOwnProfile } from "@/app/actions/profile";
 import { NotificationBell } from "./notification-bell";
+import { SettingsDialog } from "./settings-dialog";
+import { Settings } from "lucide-react";
 
 // ----------------------------------------------------------------------------
 // Navigation Configuration
@@ -124,6 +126,12 @@ const forgeNavItems: NavItem[] = [
     icon: Globe,
     description: "Organize series, lore, and creator spaces",
   },
+  {
+    id: "creator-pages",
+    label: "Creator Pages",
+    icon: AppWindow,
+    description: "Design and manage public creator pages",
+  },
 ];
 
 // ----------------------------------------------------------------------------
@@ -148,6 +156,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   const [accessLoaded, setAccessLoaded] = useState(false);
   const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -280,6 +289,52 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
       setMobileMenuOpen(false);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || !event.altKey) return;
+      if (
+        document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement ||
+        document.activeElement instanceof HTMLSelectElement ||
+        (document.activeElement instanceof HTMLElement &&
+          document.activeElement.isContentEditable)
+      ) {
+        return;
+      }
+
+      const nextView: NavigationView | null =
+        event.key === "1"
+          ? "profiles"
+          : event.key === "2"
+            ? "resources"
+            : event.key === "3"
+              ? "logs"
+              : event.key === "4"
+                ? "dashboard"
+                : event.key === "5"
+                  ? "bots"
+                  : event.key === "6"
+                    ? "forms"
+                    : event.key === "7"
+                      ? "requests"
+                      : event.key === "8"
+                        ? "moderation"
+                        : event.key === "9"
+                          ? "atlas"
+                          : event.key === "0"
+                            ? "creator-pages"
+                            : null;
+
+      if (!nextView) return;
+
+      event.preventDefault();
+      handleNavClick(nextView);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleNavClick]);
 
   const renderNavItem = (item: NavItem) => {
     const Icon = item.icon;
@@ -421,7 +476,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-3 p-2">
+          <nav className="flex-1 min-h-0 space-y-3 overflow-y-auto p-2 pr-1">
             {renderNavSection("hub", "Hub", hubNavItems)}
             <div className="border-t border-sidebar-border/60 pt-2">
               {renderNavSection("forge", "Forge", forgeNavItems)}
@@ -458,7 +513,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <User className="h-4 w-4 text-primary" />
+                  <UserRound className="h-4 w-4 text-primary" />
                 )}
               </div>
               {!collapsed && (
@@ -466,8 +521,29 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                   <span className="flex-1 text-sm font-medium truncate">
                     {userDisplayName || username}
                   </span>
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <NotificationBell />
+                  <div
+                    className="flex items-center gap-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="cursor-pointer h-7 w-7"
+                          onClick={() => setSettingsOpen(true)}
+                        >
+                          <Settings className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Settings</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <NotificationBell />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">Notifications</TooltipContent>
+                    </Tooltip>
                   </div>
                 </>
               )}
@@ -545,7 +621,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                 </SheetHeader>
 
                 {/* Mobile Navigation */}
-                <nav className="flex-1 space-y-3 p-2">
+                <nav className="flex-1 min-h-0 space-y-3 overflow-y-auto p-2 pr-1">
                   {renderNavSection("hub", "Hub", hubNavItems)}
                   <div className="border-t border-sidebar-border/60 pt-2">
                     {renderNavSection("forge", "Forge", forgeNavItems)}
@@ -581,13 +657,25 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <User className="h-4 w-4 text-primary" />
+                        <UserRound className="h-4 w-4 text-primary" />
                       )}
                     </div>
                     <span className="flex-1 text-sm font-medium truncate">
                       {userDisplayName || username}
                     </span>
                   </button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full cursor-pointer justify-start gap-2"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setSettingsOpen(true);
+                    }}
+                  >
+                    <Settings className="h-4 w-4 text-muted-foreground" />
+                    <span>Settings</span>
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -603,6 +691,9 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
           )}
 
           <div className="h-full pt-16 md:pt-0">{children}</div>
+
+          {/* Settings Dialog — mounted at root so it's accessible from anywhere */}
+          <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         </main>
       </div>
     </TooltipProvider>

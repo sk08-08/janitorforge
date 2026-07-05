@@ -11,13 +11,6 @@ import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
@@ -32,6 +25,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -39,7 +42,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Pagination,
   PaginationContent,
@@ -54,7 +56,6 @@ import {
   BookOpen,
   Bot,
   Download,
-  Globe,
   Layers3,
   LibraryBig,
   NotebookText,
@@ -65,13 +66,11 @@ import {
   Upload,
   X,
   Trash2,
-  Layout,
-  Users,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Bot as BotType } from "@/lib/types";
 import { toast } from "sonner";
-import { CreatorPages } from "./creator-pages";
 import type {
   AtlasWorld,
   AtlasWorldRow,
@@ -90,18 +89,7 @@ import {
   worldKindLabels,
   worldKindBadges,
   entryKindLabels,
-  entryKindBadges,
   WORLDS_PER_PAGE,
-  WORLD_CARD_HEIGHT,
-  WORLD_LIST_GAP,
-  WORLD_LIST_PADDING,
-  WORLD_LIST_MAX_HEIGHT,
-  WORLD_LIST_MIN_HEIGHT,
-  PAGINATION_HEIGHT,
-  LOREBOOK_LIST_HEIGHT,
-  LOREBOOK_CARD_HEIGHT,
-  LOREBOOK_LIST_GAP,
-  LOREBOOK_LIST_PADDING,
   LEGACY_ATLAS_STORAGE_KEY,
   slugify,
   mapWorldRow,
@@ -110,9 +98,7 @@ import {
   buildWorldRow,
   createEmptyWorldEditorState,
   createEmptyEntryEditorState,
-  createLorebookPackage,
   createJanitorLorebookExport,
-  mapEntryKindToJanitorCategory,
   mapJanitorCategoryToEntryKind,
   buildImportedEntryBody,
   stripImportedMetadataBlock,
@@ -121,58 +107,6 @@ import {
 
 const ATLAS_SELECTED_WORLD_STORAGE_KEY = "atlas-selected-world-id";
 const ATLAS_WORLD_PAGE_STORAGE_KEY = "atlas-world-page";
-const ATLAS_SHOW_CREATOR_PAGES_STORAGE_KEY = "atlas-show-creator-pages";
-
-function HubCard({
-  title,
-  description,
-  icon: Icon,
-  badge,
-  actionLabel,
-  onAction,
-}: {
-  title: string;
-  description: string;
-  icon: typeof BookOpen;
-  badge?: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75 transition-all hover:border-primary/40 hover:shadow-md">
-      <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-inset ring-border/50">
-                <Icon className="h-5 w-5 text-primary" />
-              </div>
-              <CardTitle className="text-base font-semibold">{title}</CardTitle>
-            </div>
-            <CardDescription>{description}</CardDescription>
-          </div>
-          {badge && (
-            <Badge variant="secondary" className="shrink-0 self-start">
-              {badge}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
-      {actionLabel && onAction && (
-        <CardContent className="pt-0">
-          <Button
-            variant="ghost"
-            className="w-full justify-between px-2 text-xs"
-            onClick={onAction}
-          >
-            {actionLabel}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </CardContent>
-      )}
-    </Card>
-  );
-}
 
 export function AtlasHub() {
   const { bots } = useStore();
@@ -201,21 +135,7 @@ export function AtlasHub() {
   const [accessLoaded, setAccessLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [showCreatorPages, setShowCreatorPages] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return (
-      localStorage.getItem(ATLAS_SHOW_CREATOR_PAGES_STORAGE_KEY) === "true"
-    );
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(
-      ATLAS_SHOW_CREATOR_PAGES_STORAGE_KEY,
-      String(showCreatorPages),
-    );
-  }, [showCreatorPages]);
-
+  const [mobileTab, setMobileTab] = useState<"worlds" | "lorebooks">("worlds");
   useEffect(() => {
     if (typeof window === "undefined") return;
     const savedWorldId = localStorage.getItem(ATLAS_SELECTED_WORLD_STORAGE_KEY);
@@ -223,7 +143,6 @@ export function AtlasHub() {
 
     if (savedWorldId) {
       setSelectedWorldId(savedWorldId);
-      setWorldDetailsOpen(true);
     }
 
     if (savedPage) {
@@ -276,16 +195,19 @@ export function AtlasHub() {
             .from("atlas_worlds")
             .select("*")
             .eq("user_id", userId)
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
           supabase
             .from("atlas_lorebooks")
             .select("*")
             .eq("user_id", userId)
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
           supabase
             .from("atlas_entries")
             .select("*")
             .eq("user_id", userId)
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
         ]);
 
@@ -544,20 +466,6 @@ export function AtlasHub() {
     return items;
   }, [worldPage, worldPageCount]);
 
-  const worldListHeight = useMemo(() => {
-    const itemCount = paginatedWorlds.length;
-    const estimatedHeight =
-      itemCount * WORLD_CARD_HEIGHT +
-      Math.max(itemCount - 1, 0) * WORLD_LIST_GAP +
-      WORLD_LIST_PADDING;
-    const extra = worldPageCount > 1 ? PAGINATION_HEIGHT : 0;
-    const total = estimatedHeight + extra;
-    return Math.max(
-      WORLD_LIST_MIN_HEIGHT,
-      Math.min(total, WORLD_LIST_MAX_HEIGHT),
-    );
-  }, [paginatedWorlds, worldPageCount]);
-
   const selectedWorld = useMemo(
     () => sortedWorlds.find((world) => world.id === selectedWorldId) ?? null,
     [sortedWorlds, selectedWorldId],
@@ -580,6 +488,19 @@ export function AtlasHub() {
     [entries, selectedWorldId],
   );
 
+  const worldById = useMemo(
+    () => new Map(worlds.map((world) => [world.id, world])),
+    [worlds],
+  );
+
+  const lorebookEntryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    entries.forEach((entry) => {
+      counts.set(entry.lorebookId, (counts.get(entry.lorebookId) || 0) + 1);
+    });
+    return counts;
+  }, [entries]);
+
   const selectedWorldLorebooks = useMemo(
     () =>
       lorebooks
@@ -598,17 +519,6 @@ export function AtlasHub() {
       .filter((lorebook): lorebook is AtlasLorebook => Boolean(lorebook));
   }, [lorebooks, selectedWorld]);
 
-  const pinnedLorebooksHeight = useMemo(() => {
-    if (featuredLorebooks.length <= 2) return null;
-
-    const estimatedHeight =
-      featuredLorebooks.length * LOREBOOK_CARD_HEIGHT +
-      Math.max(featuredLorebooks.length - 1, 0) * LOREBOOK_LIST_GAP +
-      LOREBOOK_LIST_PADDING;
-
-    return Math.min(estimatedHeight, LOREBOOK_LIST_HEIGHT);
-  }, [featuredLorebooks]);
-
   const linkedBotCount = worlds.reduce(
     (total, world) => total + world.botIds.length,
     0,
@@ -618,6 +528,8 @@ export function AtlasHub() {
     0,
   );
   const totalEntries = entries.length;
+  const selectedWorldLorebookCount = selectedWorldLorebooks.length;
+  const selectedWorldBotCount = selectedWorld?.botIds.length || 0;
 
   const entryEditorLorebooks = useMemo(
     () =>
@@ -794,7 +706,7 @@ export function AtlasHub() {
       const supabase = createClient();
       const { error } = await supabase
         .from("atlas_worlds")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", worldId)
         .eq("user_id", currentUserId);
 
@@ -864,7 +776,7 @@ export function AtlasHub() {
       const supabase = createClient();
       const { error } = await supabase
         .from("atlas_lorebooks")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", lorebookId)
         .eq("user_id", currentUserId);
 
@@ -1105,7 +1017,6 @@ export function AtlasHub() {
             return {
               id: crypto.randomUUID(),
               user_id: currentUserId,
-              world_id: targetWorldId,
               lorebook_id: importedLorebook.id,
               title: title || "Imported entry",
               kind: atlasEntry.kind ?? "note",
@@ -1212,7 +1123,7 @@ export function AtlasHub() {
       const supabase = createClient();
       const { error } = await supabase
         .from("atlas_entries")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", entryId)
         .eq("user_id", currentUserId);
 
@@ -1254,481 +1165,651 @@ export function AtlasHub() {
     });
   };
 
-  // Show Creator Pages if active
-  if (showCreatorPages) {
-    return (
-      <CreatorPages
-        onBack={() => {
-          setShowCreatorPages(false);
-        }}
-      />
-    );
-  }
-
   if (!accessLoaded) {
     return (
-      <div className="p-4 sm:p-6 md:p-8 lg:p-10">
-        <Card className="border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75 xl:sticky xl:top-6">
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Loading Atlas worlds...
-          </CardContent>
-        </Card>
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm">Loading Atlas…</p>
+        </div>
       </div>
     );
   }
 
+  const isEmpty =
+    worlds.length === 0 && lorebooks.length === 0 && entries.length === 0;
+
   return (
-    <div className="mx-auto max-w-7xl p-4 sm:p-6 md:p-8 lg:p-10">
-      <div className="mb-8 sm:mb-10">
-        <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Atlas
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm sm:text-base text-muted-foreground">
-              A workspace for series, universes, and lorebooks. Organize bots,
-              canon, and worldbuilding notes in one place.
-            </p>
-          </div>
-          <Button
-            onClick={() => openWorldEditor()}
-            className="w-full cursor-pointer sm:w-auto md:self-start"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New world
-          </Button>
-        </div>
-      </div>
-
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          {
-            label: "Worlds",
-            value: worlds.length,
-            description: "Series, universes, locations, and timelines",
-          },
-          {
-            label: "Linked bots",
-            value: linkedBotCount,
-            description: "Bots organized inside Atlas worlds",
-          },
-          {
-            label: "Lore entries",
-            value: totalEntries,
-            description: "Canon notes, characters, locations, and timelines",
-          },
-          {
-            label: "Lorebooks",
-            value: lorebooks.length,
-            description: "Imported lorebooks across all worlds",
-          },
-        ].map((stat) => (
-          <Card
-            key={stat.label}
-            className="border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75"
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="text-2xl font-bold tracking-tight sm:text-3xl">
-                {stat.value}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {stat.description}
+    <div className="mx-auto w-full max-w-7xl space-y-8 p-4 pb-16 sm:p-6 md:p-8 lg:p-10">
+      {/* ─── Hero ─────────────────────────────────────────────────── */}
+      <section className="relative isolate overflow-hidden rounded-3xl border border-border/60 bg-card shadow-lg">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,rgba(124,58,237,0.18),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(16,185,129,0.14),transparent_50%),linear-gradient(160deg,rgba(255,255,255,0.03),transparent_60%)]" />
+        <div className="flex flex-col gap-8 p-6 sm:p-8 lg:flex-row lg:items-start lg:gap-12">
+          {/* Copy */}
+          <div className="flex-1 space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3.5 py-1.5 text-xs font-semibold text-primary">
+              <Globe className="h-3.5 w-3.5" />
+              Workspace
+            </div>
+            <div className="space-y-3">
+              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-[2.75rem]">
+                Worlds & Lorebooks
+              </h1>
+              <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+                Build immersive worlds, organize canon into lorebooks, and keep
+                every bot in your series anchored to the same universe.
               </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="space-y-6">
-        <Card className="border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
-          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <LibraryBig className="h-4 w-4 text-primary" />
-                Worlds
-              </CardTitle>
-              <CardDescription className="max-w-2xl">
-                Create series or universes and attach bots and featured
-                lorebooks to them. This panel fills the page width so the list
-                can breathe when the collection grows.
-              </CardDescription>
             </div>
-            <div className="flex w-full flex-wrap items-center gap-2 self-start sm:w-auto sm:flex-nowrap">
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <SearchInput
-                  value={search}
-                  onChange={(v) => {
-                    setSearch(v);
-                    setWorldPage(0);
-                  }}
-                  placeholder="Search worlds, lorebooks, entries..."
-                  shortcutKey="/"
-                  className="w-full sm:w-64"
-                />
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{sortedWorlds.length} total</Badge>
-                  <div className="text-sm text-muted-foreground">
-                    Matches: {filteredWorlds.length} worlds ·{" "}
-                    {filteredLorebooks.length} lorebooks ·{" "}
-                    {filteredEntries.length} entries
-                  </div>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full cursor-pointer sm:w-auto"
-                onClick={() => openWorldEditor()}
+          </div>
+          {/* Stats grid */}
+          <div className="grid w-full shrink-0 grid-cols-2 gap-3 sm:gap-4 lg:w-auto lg:min-w-70">
+            {[
+              { label: "Worlds", value: worlds.length, icon: LibraryBig },
+              {
+                label: "Lorebooks",
+                value: lorebooks.length,
+                icon: NotebookText,
+              },
+              { label: "Entries", value: totalEntries, icon: BookOpen },
+              { label: "Linked bots", value: linkedBotCount, icon: Bot },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-2xl border border-border/60 bg-background/60 p-4 backdrop-blur"
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Add
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {selectedWorldIds.size > 0 && (
-              <Card className="mb-4 border-primary/30 bg-primary/5">
-                <CardContent className="flex items-center justify-between gap-3 p-3">
-                  <div className="text-sm font-medium">
-                    {selectedWorldIds.size} world
-                    {selectedWorldIds.size === 1 ? "" : "s"} selected
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleBulkExport}
-                      className="cursor-pointer"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Export selected
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setShowBulkDeleteConfirm(true)}
-                      className="cursor-pointer"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete selected
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearWorldSelection}
-                      className="cursor-pointer"
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <div
-              className="space-y-3"
-              style={{ height: `${worldListHeight}px` }}
-            >
-              <div className="flex flex-col h-full">
-                <ScrollArea className="flex-1 pr-2">
-                  <div className="space-y-3">
-                    {paginatedWorlds.length > 0 ? (
-                      paginatedWorlds.map((world) => {
-                        const botCount = world.botIds.length;
-                        const loreCount = world.featuredLorebookIds.length;
-                        const isSelected = world.id === selectedWorldId;
+                <stat.icon className="mb-2 h-4 w-4 text-muted-foreground" />
+                <p className="text-2xl font-bold tracking-tight">
+                  {stat.value}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-                        return (
-                          <div
-                            key={world.id}
-                            className={cn(
-                              "group w-full rounded-xl border p-4 text-left transition-all hover:border-primary/40 hover:shadow-sm sm:p-5 flex items-start gap-3",
-                              isSelected
-                                ? "border-primary bg-primary/5 shadow-sm"
-                                : "border-border/70 bg-background/50",
-                            )}
-                          >
-                            <div className="pt-1">
-                              <Checkbox
-                                className="cursor-pointer"
-                                checked={selectedWorldIds.has(world.id)}
-                                onCheckedChange={(val) => {
-                                  // prevent parent click
-                                  toggleWorldSelection(world.id, val === true);
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                aria-label={`Select world ${world.title}`}
-                              />
-                            </div>
-                            <div
-                              className="flex-1"
-                              onClick={() => openWorldDetails(world.id)}
-                            >
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                                <div className="min-w-0 space-y-2">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <h3 className="truncate font-semibold">
-                                      {world.title}
-                                    </h3>
-                                    <Badge
-                                      variant="secondary"
-                                      className={cn(
-                                        "border-0",
-                                        worldKindBadges[world.kind],
-                                      )}
-                                    >
-                                      {worldKindLabels[world.kind]}
-                                    </Badge>
-                                    <Badge
-                                      variant={
-                                        world.status === "active"
-                                          ? "default"
-                                          : "outline"
-                                      }
-                                    >
-                                      {world.status}
-                                    </Badge>
-                                  </div>
-                                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                                    {world.description || "No description yet."}
-                                  </p>
-                                </div>
-                                <div className="shrink-0 text-left text-xs text-muted-foreground sm:text-right">
-                                  <div>{botCount} bots</div>
-                                  <div>{loreCount} lorebooks</div>
-                                </div>
+      {/* ─── Empty state ──────────────────────────────────────────── */}
+      {isEmpty && (
+        <section className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-8 text-center sm:p-12">
+          <div className="mx-auto max-w-md space-y-4">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+              <LibraryBig className="h-6 w-6 text-primary" />
+            </div>
+            <h2 className="text-xl font-semibold">Start your first world</h2>
+            <p className="text-sm text-muted-foreground">
+              Create a world to organize your bots, attach lorebooks, and build
+              canon that stays consistent across your entire series.
+            </p>
+            <Button
+              onClick={() => openWorldEditor()}
+              className="cursor-pointer"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create a world
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {/* ─── Toolbar ──────────────────────────────────────────────── */}
+      {!isEmpty && (
+        <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-1 items-center gap-3">
+            <SearchInput
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setWorldPage(0);
+              }}
+              placeholder="Search worlds, lorebooks, entries…"
+              shortcutKey="/"
+              className="w-full sm:max-w-xl"
+            />
+            {debouncedSearch && (
+              <Badge
+                variant="outline"
+                className="hidden shrink-0 sm:inline-flex"
+              >
+                {filteredWorlds.length} worlds · {filteredLorebooks.length}{" "}
+                lorebooks · {filteredEntries.length} entries
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={openImportDialog}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={handleExportClick}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+            <Button
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => openWorldEditor()}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New world
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {/* ─── Mobile tab switcher ──────────────────────────────────── */}
+      {!isEmpty && (
+        <div className="flex rounded-xl border border-border/60 bg-muted/30 p-1 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileTab("worlds")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+              mobileTab === "worlds"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <LibraryBig className="h-4 w-4" />
+            Worlds ({worlds.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("lorebooks")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+              mobileTab === "lorebooks"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <NotebookText className="h-4 w-4" />
+            Lorebooks ({lorebooks.length})
+          </button>
+        </div>
+      )}
+
+      {/* ─── Bulk selection bar ───────────────────────────────────── */}
+      {selectedWorldIds.size > 0 && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3">
+          <span className="text-sm font-medium">
+            {selectedWorldIds.size} world
+            {selectedWorldIds.size === 1 ? "" : "s"} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkExport}
+              className="cursor-pointer"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              className="cursor-pointer"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearWorldSelection}
+              className="cursor-pointer"
+            >
+              Clear
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {/* ─── Main content grid ────────────────────────────────────── */}
+      {!isEmpty && (
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          {/* ── Worlds column ── */}
+          <div
+            className={cn(
+              "space-y-4",
+              mobileTab === "lorebooks" && "hidden lg:block",
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Globe className="h-5 w-5 text-primary" />
+                Worlds
+              </h2>
+              <Badge variant="secondary">{filteredWorlds.length}</Badge>
+            </div>
+
+            <div className="space-y-3">
+              {paginatedWorlds.length > 0 ? (
+                paginatedWorlds.map((world) => {
+                  const botCount = world.botIds.length;
+                  const loreCount = world.featuredLorebookIds.length;
+                  const isSelected = world.id === selectedWorldId;
+
+                  return (
+                    <div
+                      key={world.id}
+                      className={cn(
+                        "group rounded-2xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg sm:p-5",
+                        isSelected
+                          ? "border-primary/50 bg-primary/5 shadow-md ring-1 ring-primary/20"
+                          : "border-border/60 bg-card hover:border-primary/30",
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="pt-0.5">
+                          <Checkbox
+                            className="cursor-pointer"
+                            checked={selectedWorldIds.has(world.id)}
+                            onCheckedChange={(val) =>
+                              toggleWorldSelection(world.id, val === true)
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={`Select ${world.title}`}
+                          />
+                        </div>
+                        <div
+                          className="min-w-0 flex-1 cursor-pointer"
+                          onClick={() => openWorldDetails(world.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") openWorldDetails(world.id);
+                          }}
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-base font-semibold">
+                                  {world.title}
+                                </h3>
+                                <Badge
+                                  variant="secondary"
+                                  className={cn(
+                                    "border-0 text-[11px]",
+                                    worldKindBadges[world.kind],
+                                  )}
+                                >
+                                  {worldKindLabels[world.kind]}
+                                </Badge>
+                                <Badge
+                                  variant={
+                                    world.status === "active"
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  className="text-[11px]"
+                                >
+                                  {world.status}
+                                </Badge>
                               </div>
+                              <p className="line-clamp-2 text-sm text-muted-foreground">
+                                {world.description || "No description yet."}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Bot className="h-3 w-3" />
+                                {botCount}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <NotebookText className="h-3 w-3" />
+                                {loreCount}
+                              </span>
                             </div>
                           </div>
-                        );
-                      })
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-                        No worlds yet. Create your first series or universe to
-                        start organizing your bots and lore.
+
+                          {isSelected && (
+                            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] font-medium text-primary">
+                              <Sparkles className="h-3 w-3" />
+                              Active · {selectedWorldBotCount} bots ·{" "}
+                              {selectedWorldLorebookCount} lorebooks
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+                  {debouncedSearch
+                    ? "No worlds match your search."
+                    : "No worlds yet. Create one to get started."}
+                </div>
+              )}
+            </div>
+
+            {worldPageCount > 1 && (
+              <div className="pt-2">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setWorldPage((p) => Math.max(0, p - 1));
+                        }}
+                        className={cn(
+                          worldPage === 0 && "pointer-events-none opacity-50",
+                        )}
+                      />
+                    </PaginationItem>
+                    {paginationItems.map((item) =>
+                      item.type === "ellipsis" ? (
+                        <PaginationItem key={item.key}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={item.key}>
+                          <PaginationLink
+                            href="#"
+                            isActive={item.index === worldPage}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setWorldPage(item.index);
+                            }}
+                          >
+                            {item.index + 1}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ),
                     )}
-                  </div>
-                </ScrollArea>
-
-                {worldPageCount > 1 && (
-                  <div className="pt-2">
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            href="#"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              setWorldPage((prev) => Math.max(0, prev - 1));
-                            }}
-                            className={cn(
-                              worldPage === 0 &&
-                                "pointer-events-none opacity-50",
-                            )}
-                          />
-                        </PaginationItem>
-
-                        {paginationItems.map((item) => {
-                          if (item.type === "ellipsis") {
-                            return (
-                              <PaginationItem key={item.key}>
-                                <PaginationEllipsis />
-                              </PaginationItem>
-                            );
-                          }
-
-                          const isCurrent = item.index === worldPage;
-
-                          return (
-                            <PaginationItem key={item.key}>
-                              <PaginationLink
-                                href="#"
-                                size="default"
-                                isActive={isCurrent}
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  setWorldPage(item.index);
-                                }}
-                              >
-                                {item.index + 1}
-                              </PaginationLink>
-                            </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setWorldPage((p) =>
+                            Math.min(worldPageCount - 1, p + 1),
                           );
-                        })}
+                        }}
+                        className={cn(
+                          worldPage === worldPageCount - 1 &&
+                            "pointer-events-none opacity-50",
+                        )}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </div>
 
-                        <PaginationItem>
-                          <PaginationNext
-                            href="#"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              setWorldPage((prev) =>
-                                Math.min(worldPageCount - 1, prev + 1),
-                              );
-                            }}
+          {/* ── Lorebooks column ── */}
+          <div
+            className={cn(
+              "space-y-4",
+              mobileTab === "worlds" && "hidden lg:block",
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <LibraryBig className="h-5 w-5 text-primary" />
+                Lorebooks
+              </h2>
+              <Badge variant="secondary">{filteredLorebooks.length}</Badge>
+            </div>
+
+            {filteredLorebooks.length > 0 ? (
+              <div className="space-y-3">
+                {filteredLorebooks.map((lorebook) => {
+                  const world = worldById.get(lorebook.worldId);
+                  const entryCount = lorebookEntryCounts.get(lorebook.id) || 0;
+
+                  return (
+                    <div
+                      key={lorebook.id}
+                      className="group rounded-2xl border border-border/60 bg-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <h3 className="text-base font-semibold">
+                            {lorebook.title}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            {world?.title || "Unknown world"}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 text-[11px]"
+                        >
+                          {entryCount} entries
+                        </Badge>
+                      </div>
+                      <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                        {lorebook.summary || "No summary yet."}
+                      </p>
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                        {world && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full cursor-pointer sm:w-auto"
+                            onClick={() => openWorldDetails(world.id)}
+                          >
+                            View world
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="w-full cursor-pointer sm:w-auto"
+                        >
+                          <Link href={`/lorebooks/${lorebook.id}`}>
+                            Open full page
+                          </Link>
+                        </Button>
+                      </div>
+                      {world && (
+                        <div className="mt-3 flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                          <span className="truncate">{world.title}</span>
+                          <Badge
+                            variant="secondary"
                             className={cn(
-                              worldPage === worldPageCount - 1 &&
-                                "pointer-events-none opacity-50",
+                              "border-0 text-[10px]",
+                              worldKindBadges[world.kind],
                             )}
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
+                          >
+                            {worldKindLabels[world.kind]}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
+                {debouncedSearch
+                  ? "No lorebooks match your search."
+                  : "No lorebooks yet. Import one or create an entry."}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ─── Bots by world shortcut ───────────────────────────────── */}
+      {!isEmpty && (
+        <section className="rounded-2xl border border-border/60 bg-card p-5 transition-all hover:border-primary/30 hover:shadow-md sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <Layers3 className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold">Bots by world</h3>
+                <p className="text-sm text-muted-foreground">
+                  See all your bots organized by their Atlas world for quick
+                  coverage review.
+                </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 cursor-pointer"
+              onClick={() => {
+                window.location.href = "/atlas/bot-series";
+              }}
+            >
+              Open page
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </section>
+      )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <HubCard
-            title="Bots by world"
-            description="Open a visual page that groups your bots by Atlas worlds so you can review coverage quickly."
-            icon={Layers3}
-            badge={`${bots.length} available`}
-            actionLabel="Open world bot page"
-            onAction={() => {
-              window.location.href = "/atlas/bot-series";
-            }}
-          />
-          <HubCard
-            title="Creator Pages"
-            description="Build your public creator page. Showcase your bots, group them into worlds, and customize the look and feel."
-            icon={Layout}
-            badge="New"
-            actionLabel="Open Creator Pages"
-            onAction={() => setShowCreatorPages(true)}
-          />
-        </div>
-      </div>
+      {/* ═══ Dialogs ═══════════════════════════════════════════════ */}
 
+      {/* ── World details ── */}
       <Dialog
         open={worldDetailsOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            closeWorldDetails();
-          } else {
-            setWorldDetailsOpen(true);
-          }
+          if (!open) closeWorldDetails();
+          else setWorldDetailsOpen(true);
         }}
       >
-        <DialogContent className="h-[92vh] max-w-[calc(100vw-1rem)] overflow-hidden p-0 sm:h-[90vh] sm:max-w-4xl">
-          <div className="flex h-full min-h-0 flex-col">
-            <DialogHeader className="border-b border-border/70 px-4 py-4 sm:px-6 sm:py-5">
-              <DialogTitle className="flex items-center gap-2 text-base">
-                <PanelsTopLeft className="h-4 w-4 text-primary" />
-                World Details
+        <DialogContent className="max-h-[92vh] w-[calc(100vw-1rem)] overflow-hidden p-0 sm:max-w-4xl">
+          <div className="flex h-full max-h-[92vh] flex-col">
+            <DialogHeader className="shrink-0 border-b border-border/60 px-5 py-4 sm:px-6">
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <PanelsTopLeft className="h-5 w-5 text-primary" />
+                {selectedWorld?.title || "World details"}
               </DialogTitle>
               <DialogDescription>
-                View the selected world, its linked bots, and its lorebook
-                summary in a dedicated modal.
+                Lorebooks, bots, and canon for this world.
               </DialogDescription>
             </DialogHeader>
 
-            <ScrollArea className="min-h-0 flex-1 px-4 py-4 sm:px-6 sm:py-5">
-              <div className="space-y-5 pr-2">
-                {selectedWorld ? (
-                  <>
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold">
-                          {selectedWorld.title}
-                        </h3>
-                        <Badge
-                          className={cn(
-                            "border-0",
-                            worldKindBadges[selectedWorld.kind],
-                          )}
-                        >
-                          {worldKindLabels[selectedWorld.kind]}
-                        </Badge>
-                        <Badge
-                          variant={
-                            selectedWorld.status === "active"
-                              ? "default"
-                              : "outline"
-                          }
-                        >
-                          {selectedWorld.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {selectedWorld.description || "No description yet."}
-                      </p>
+            <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+              {selectedWorld ? (
+                <div className="space-y-6">
+                  {/* Header */}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        className={cn(
+                          "border-0",
+                          worldKindBadges[selectedWorld.kind],
+                        )}
+                      >
+                        {worldKindLabels[selectedWorld.kind]}
+                      </Badge>
+                      <Badge
+                        variant={
+                          selectedWorld.status === "active"
+                            ? "default"
+                            : "outline"
+                        }
+                      >
+                        {selectedWorld.status}
+                      </Badge>
                     </div>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {selectedWorld.description || "No description yet."}
+                    </p>
+                  </div>
 
-                    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-4">
+                  {/* Lore summary */}
+                  {selectedWorld.loreSummary && (
+                    <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-4">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <Sparkles className="h-4 w-4 text-primary" />
                         Lore summary
                       </div>
-                      <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                        {selectedWorld.loreSummary ||
-                          "Add world lore, canon notes, timelines, or important references here."}
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                        {selectedWorld.loreSummary}
                       </p>
                     </div>
+                  )}
 
-                    <div className="space-y-4 rounded-xl border border-border/70 bg-muted/20 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          <NotebookText className="h-4 w-4 text-primary" />
-                          Lorebooks in this world
-                        </div>
-                        <div className="text-2xl font-bold tracking-tight sm:text-3xl">
-                          {featuredLorebooks.length}
-                        </div>
+                  {/* Lorebooks */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <NotebookText className="h-4 w-4 text-primary" />
+                        Pinned lorebooks
                       </div>
+                      <Badge variant="secondary">
+                        {featuredLorebooks.length}
+                      </Badge>
+                    </div>
 
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="cursor-pointer justify-start"
-                          onClick={openImportDialog}
-                        >
-                          <Upload className="mr-2 h-4 w-4" />
-                          Import
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="cursor-pointer justify-start"
-                          onClick={handleExportClick}
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Export
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="cursor-pointer justify-start"
-                          onClick={() => openEntryEditor()}
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Add
-                        </Button>
-                      </div>
-
-                      <ScrollArea
-                        style={{
-                          height: pinnedLorebooksHeight
-                            ? `${pinnedLorebooksHeight}px`
-                            : "auto",
-                        }}
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-auto cursor-pointer justify-start rounded-xl p-3"
+                        onClick={openImportDialog}
                       >
-                        <div className="space-y-2">
-                          {featuredLorebooks.length > 0 ? (
-                            featuredLorebooks.map((lorebook) => (
-                              <div
-                                key={lorebook.id}
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => {
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-auto cursor-pointer justify-start rounded-xl p-3"
+                        onClick={handleExportClick}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Export
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-auto cursor-pointer justify-start rounded-xl p-3"
+                        onClick={() => openEntryEditor()}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        New entry
+                      </Button>
+                    </div>
+
+                    {featuredLorebooks.length > 0 ? (
+                      <div className="space-y-2">
+                        {featuredLorebooks.map((lorebook) => {
+                          const loreEntryCount = entries.filter(
+                            (e) => e.lorebookId === lorebook.id,
+                          ).length;
+                          return (
+                            <div
+                              key={lorebook.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => {
+                                setEntryEditorState(
+                                  createEmptyEntryEditorState(
+                                    selectedWorld.id,
+                                    lorebook.id,
+                                  ),
+                                );
+                                setEntryEditorOpen(true);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
                                   setEntryEditorState(
                                     createEmptyEntryEditorState(
                                       selectedWorld.id,
@@ -1736,134 +1817,121 @@ export function AtlasHub() {
                                     ),
                                   );
                                   setEntryEditorOpen(true);
-                                }}
-                                onKeyDown={(event) => {
-                                  if (
-                                    event.key === "Enter" ||
-                                    event.key === " "
-                                  ) {
-                                    event.preventDefault();
-                                    setEntryEditorState(
-                                      createEmptyEntryEditorState(
-                                        selectedWorld.id,
-                                        lorebook.id,
-                                      ),
-                                    );
-                                    setEntryEditorOpen(true);
-                                  }
-                                }}
-                                className="w-full rounded-xl border border-border/70 bg-background/70 p-3 text-left transition-colors hover:border-primary/40 hover:bg-background/90"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 space-y-1">
-                                    <div className="truncate text-sm font-medium">
-                                      {lorebook.title}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {
-                                        entries.filter(
-                                          (entry) =>
-                                            entry.lorebookId === lorebook.id,
-                                        ).length
-                                      }{" "}
-                                      entries
-                                    </div>
+                                }
+                              }}
+                              className="rounded-xl border border-border/60 bg-background/60 p-4 transition-colors hover:border-primary/30 hover:bg-background/80"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 space-y-1">
+                                  <div className="text-sm font-medium">
+                                    {lorebook.title}
                                   </div>
-                                  <div className="flex shrink-0 items-center gap-1">
-                                    <Badge variant="outline">pinned</Badge>
-                                    <Button
-                                      type="button"
-                                      size="icon-sm"
-                                      variant="ghost"
-                                      className="cursor-pointer"
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        void removeFeaturedLorebook(
-                                          lorebook.id,
-                                        );
-                                      }}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
+                                  <div className="text-xs text-muted-foreground">
+                                    {loreEntryCount} entries
                                   </div>
                                 </div>
-                                <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                                  {lorebook.summary || "No summary yet."}
-                                </p>
-                                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                  <Button
-                                    type="button"
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <Badge
                                     variant="outline"
-                                    size="sm"
-                                    asChild
-                                    className="w-full cursor-pointer sm:w-auto"
-                                    onClick={(event) => event.stopPropagation()}
+                                    className="text-[10px]"
                                   >
-                                    <Link href={`/lorebooks/${lorebook.id}`}>
-                                      Open full page
-                                    </Link>
-                                  </Button>
+                                    pinned
+                                  </Badge>
                                   <Button
                                     type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    className="w-full cursor-pointer sm:w-auto"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      void deleteLorebook(lorebook.id);
+                                    size="icon-sm"
+                                    variant="ghost"
+                                    className="cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void removeFeaturedLorebook(lorebook.id);
                                     }}
                                   >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete lorebook
+                                    <X className="h-4 w-4" />
                                   </Button>
                                 </div>
                               </div>
-                            ))
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-border/70 bg-background/70 p-6 text-center text-sm text-muted-foreground">
-                              No lorebooks yet.
+                              <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                                {lorebook.summary || "No summary yet."}
+                              </p>
+                              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                  className="w-full cursor-pointer sm:w-auto"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Link href={`/lorebooks/${lorebook.id}`}>
+                                    Open full page
+                                  </Link>
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  size="sm"
+                                  className="w-full cursor-pointer sm:w-auto"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void deleteLorebook(lorebook.id);
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </Button>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="text-sm font-medium">Linked bots</div>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedWorld.botIds.length > 0 ? (
-                          selectedWorld.botIds.map((botId) => {
-                            const bot = botMap.get(botId);
-                            return (
-                              <Badge key={botId} variant="secondary">
-                                {bot?.name || botId}
-                              </Badge>
-                            );
-                          })
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            No bots linked yet.
-                          </p>
-                        )}
+                          );
+                        })}
                       </div>
-                    </div>
-
-                    <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-6 text-sm text-muted-foreground">
-                      Imported lorebooks are pinned automatically so they appear
-                      here immediately.
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex min-h-72 items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-                    Create a world to see its imported lorebooks, linked bots,
-                    and canon here.
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                        No pinned lorebooks yet. Import one to see it here.
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </ScrollArea>
 
-            {selectedWorld ? (
-              <div className="border-t border-border/70 px-4 py-4 sm:px-6">
+                  {/* Linked bots */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Bot className="h-4 w-4 text-primary" />
+                      Linked bots
+                      <Badge variant="secondary" className="ml-auto">
+                        {selectedWorld.botIds.length}
+                      </Badge>
+                    </div>
+                    {selectedWorld.botIds.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedWorld.botIds.map((botId) => {
+                          const bot = botMap.get(botId);
+                          return (
+                            <Badge
+                              key={botId}
+                              variant="secondary"
+                              className={cn(!bot && "opacity-60 italic")}
+                            >
+                              {bot?.name || "Unknown bot"}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No bots linked yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex min-h-48 items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                  Select a world to see its details.
+                </div>
+              )}
+            </div>
+
+            {selectedWorld && (
+              <div className="shrink-0 border-t border-border/60 px-5 py-4 sm:px-6">
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button
                     variant="outline"
@@ -1871,7 +1939,7 @@ export function AtlasHub() {
                     onClick={() => openWorldEditor(selectedWorld)}
                   >
                     <Pencil className="mr-2 h-4 w-4" />
-                    Edit
+                    Edit world
                   </Button>
                   <Button
                     variant="destructive"
@@ -1879,24 +1947,25 @@ export function AtlasHub() {
                     onClick={() => deleteWorld(selectedWorld.id)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    Delete world
                   </Button>
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* ── World editor ── */}
       <Dialog open={worldEditorOpen} onOpenChange={setWorldEditorOpen}>
-        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-4xl">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               {worldEditorState.id ? "Edit world" : "New world"}
             </DialogTitle>
             <DialogDescription>
               Create a series, universe, location, or timeline and attach bots
-              and lorebooks to it.
+              and lorebooks.
             </DialogDescription>
           </DialogHeader>
 
@@ -1959,27 +2028,25 @@ export function AtlasHub() {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="atlas-status">Status</Label>
-                  <Select
-                    value={worldEditorState.status}
-                    onValueChange={(value) =>
-                      setWorldEditorState((prev) => ({
-                        ...prev,
-                        status: value as AtlasWorldStatus,
-                      }))
-                    }
-                  >
-                    <SelectTrigger id="atlas-status" className="w-full">
-                      <SelectValue placeholder="Select a status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="atlas-status">Status</Label>
+                <Select
+                  value={worldEditorState.status}
+                  onValueChange={(value) =>
+                    setWorldEditorState((prev) => ({
+                      ...prev,
+                      status: value as AtlasWorldStatus,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="atlas-status" className="w-full">
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -2016,100 +2083,94 @@ export function AtlasHub() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
+              <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <Bot className="h-4 w-4 text-primary" />
                   Link bots
                 </div>
-                <ScrollArea className="mt-3 h-48 pr-3">
-                  <div className="space-y-2">
-                    {bots.length > 0 ? (
-                      bots.map((bot: BotType) => (
+                <div className="mt-3 max-h-60 space-y-2 overflow-y-auto pr-1">
+                  {bots.length > 0 ? (
+                    bots.map((bot: BotType) => (
+                      <label
+                        key={bot.id}
+                        className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/60 p-3 text-sm transition-colors hover:border-primary/30"
+                      >
+                        <Checkbox
+                          checked={worldEditorState.botIds.includes(bot.id)}
+                          onCheckedChange={() =>
+                            toggleSelection("botIds", bot.id)
+                          }
+                        />
+                        <span className="min-w-0">
+                          <span className="block font-medium">{bot.name}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {bot.shortDescription || "No description"}
+                          </span>
+                        </span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No bots available yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <NotebookText className="h-4 w-4 text-primary" />
+                  Featured lorebooks
+                </div>
+                <div className="mt-3 max-h-60 space-y-2 overflow-y-auto pr-1">
+                  {worldEditorState.id ? (
+                    selectedWorldLorebooks.length > 0 ? (
+                      selectedWorldLorebooks.map((lorebook) => (
                         <label
-                          key={bot.id}
-                          className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/70 p-3 text-sm"
+                          key={lorebook.id}
+                          className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/60 p-3 text-sm transition-colors hover:border-primary/30"
                         >
                           <Checkbox
-                            checked={worldEditorState.botIds.includes(bot.id)}
+                            checked={worldEditorState.featuredLorebookIds.includes(
+                              lorebook.id,
+                            )}
                             onCheckedChange={() =>
-                              toggleSelection("botIds", bot.id)
+                              toggleSelection(
+                                "featuredLorebookIds",
+                                lorebook.id,
+                              )
                             }
                           />
                           <span className="min-w-0">
                             <span className="block font-medium">
-                              {bot.name}
+                              {lorebook.title}
                             </span>
                             <span className="block text-xs text-muted-foreground">
-                              {bot.shortDescription || "No description"}
+                              {lorebook.summary || "No summary"}
                             </span>
                           </span>
                         </label>
                       ))
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        No bots available yet.
+                        No lorebooks available yet for this world.
                       </p>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <NotebookText className="h-4 w-4 text-primary" />
-                  Featured lorebooks
+                    )
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Save the world first, then feature its lorebooks.
+                    </p>
+                  )}
                 </div>
-                <ScrollArea className="mt-3 h-48 pr-3">
-                  <div className="space-y-2">
-                    {worldEditorState.id ? (
-                      selectedWorldLorebooks.length > 0 ? (
-                        selectedWorldLorebooks.map((lorebook) => (
-                          <label
-                            key={lorebook.id}
-                            className="flex items-start gap-3 rounded-lg border border-border/70 bg-background/70 p-3 text-sm"
-                          >
-                            <Checkbox
-                              checked={worldEditorState.featuredLorebookIds.includes(
-                                lorebook.id,
-                              )}
-                              onCheckedChange={() =>
-                                toggleSelection(
-                                  "featuredLorebookIds",
-                                  lorebook.id,
-                                )
-                              }
-                            />
-                            <span className="min-w-0">
-                              <span className="block font-medium">
-                                {lorebook.title}
-                              </span>
-                              <span className="block text-xs text-muted-foreground">
-                                {lorebook.summary || "No summary"}
-                              </span>
-                            </span>
-                          </label>
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No lorebooks available yet for this world.
-                        </p>
-                      )
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Save the world first, then feature its lorebooks.
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
               </div>
             </div>
           </div>
 
           <DialogFooter>
             <Button
-              className="w-full cursor-pointer sm:w-auto"
               variant="outline"
               onClick={() => setWorldEditorOpen(false)}
+              className="w-full cursor-pointer sm:w-auto"
             >
               Cancel
             </Button>
@@ -2118,23 +2179,21 @@ export function AtlasHub() {
               className="w-full cursor-pointer sm:w-auto"
               disabled={!worldEditorState.title.trim()}
             >
-              Save world
+              {worldEditorState.id ? "Save changes" : "Create world"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* ── Entry editor ── */}
       <Dialog open={entryEditorOpen} onOpenChange={setEntryEditorOpen}>
-        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {entryEditorState.id
-                ? "Edit lorebook entry"
-                : "New lorebook entry"}
+              {entryEditorState.id ? "Edit entry" : "New lorebook entry"}
             </DialogTitle>
             <DialogDescription>
-              Add or update a lore note, character profile, location sheet, or
-              timeline block in the selected world.
+              Add a lore note, character profile, location, or timeline block.
             </DialogDescription>
           </DialogHeader>
 
@@ -2146,8 +2205,7 @@ export function AtlasHub() {
                   value={entryEditorState.worldId || selectedWorldId || ""}
                   onValueChange={(value) => {
                     const nextLorebookId =
-                      lorebooks.find((lorebook) => lorebook.worldId === value)
-                        ?.id ?? "";
+                      lorebooks.find((l) => l.worldId === value)?.id ?? "";
                     setEntryEditorState((prev) => ({
                       ...prev,
                       worldId: value,
@@ -2270,8 +2328,8 @@ export function AtlasHub() {
               Cancel
             </Button>
             <Button
-              className="w-full cursor-pointer sm:w-auto"
               onClick={saveEntry}
+              className="w-full cursor-pointer sm:w-auto"
             >
               {entryEditorState.id ? "Save changes" : "Save entry"}
             </Button>
@@ -2279,69 +2337,67 @@ export function AtlasHub() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Import dialog ── */}
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-1rem)] overflow-hidden sm:max-w-3xl">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] overflow-hidden sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Import lorebook</DialogTitle>
             <DialogDescription>
-              Name the lorebook first, then paste a Janitor AI JSON export or
-              load a file. If the package includes world metadata, Atlas will
-              create that world and import the entries.
+              Paste a Janitor AI JSON export or load a file. If the package
+              includes world metadata, Atlas creates that world automatically.
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="max-h-[65vh] pr-3">
-            <div className="space-y-4 pb-2">
-              <div className="space-y-2">
-                <Label htmlFor="lorebook-name">Lorebook name</Label>
-                <Input
-                  id="lorebook-name"
-                  value={importName}
-                  onChange={(event) => setImportName(event.target.value)}
-                  placeholder="Lorebook"
-                />
-              </div>
+          <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+            <div className="space-y-2">
+              <Label htmlFor="lorebook-name">Lorebook name</Label>
+              <Input
+                id="lorebook-name"
+                value={importName}
+                onChange={(e) => setImportName(e.target.value)}
+                placeholder="Lorebook"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="lorebook-file">JSON file</Label>
-                <div
-                  className="rounded-md border border-dashed border-border/60 p-3 text-sm text-muted-foreground"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    void handleDrop(e.dataTransfer.files);
-                  }}
-                >
-                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-xs sm:text-sm">
-                      Drag & drop a JSON file here, or
-                    </div>
-                    <Input
-                      id="lorebook-file"
-                      type="file"
-                      accept="application/json,.json"
-                      onChange={(event) => {
-                        void handleImportFile(event.target.files?.[0] ?? null);
-                      }}
-                      className="w-full sm:w-auto"
-                    />
-                  </div>
+            <div className="space-y-2">
+              <Label htmlFor="lorebook-file">JSON file</Label>
+              <div
+                className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  void handleDrop(e.dataTransfer.files);
+                }}
+              >
+                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-xs sm:text-sm">
+                    Drag & drop a JSON file here, or
+                  </span>
+                  <Input
+                    id="lorebook-file"
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={(e) => {
+                      void handleImportFile(e.target.files?.[0] ?? null);
+                    }}
+                    className="w-full sm:w-auto"
+                  />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lorebook-json">Lorebook JSON</Label>
-                <Textarea
-                  id="lorebook-json"
-                  value={importText}
-                  onChange={(event) => setImportText(event.target.value)}
-                  placeholder='{"version":1,"world":{"title":"..."},"entries":[...]}'
-                  rows={12}
-                  className="min-h-72"
-                />
-              </div>
             </div>
-          </ScrollArea>
+
+            <div className="space-y-2">
+              <Label htmlFor="lorebook-json">Lorebook JSON</Label>
+              <Textarea
+                id="lorebook-json"
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder='{"version":1,"world":{"title":"..."},"entries":[...]}'
+                rows={12}
+                className="min-h-60"
+              />
+            </div>
+          </div>
 
           <DialogFooter>
             <Button
@@ -2352,14 +2408,43 @@ export function AtlasHub() {
               Cancel
             </Button>
             <Button
-              className="w-full cursor-pointer sm:w-auto"
               onClick={importLorebook}
+              className="w-full cursor-pointer sm:w-auto"
             >
               Import lorebook
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Bulk delete confirmation ── */}
+      <AlertDialog
+        open={showBulkDeleteConfirm}
+        onOpenChange={setShowBulkDeleteConfirm}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedWorldIds.size} worlds?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the worlds, all their lorebooks, and all entries
+              permanently. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete all
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

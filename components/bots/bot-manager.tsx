@@ -20,6 +20,7 @@ import {
   GitFork,
   Zap,
   AlertTriangle,
+  UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -178,7 +179,7 @@ function CollaborativeBotCard({
                 Open Workspace
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onCollaborators}>
-                <Users className="mr-2 h-4 w-4" />
+                <UsersRound className="mr-2 h-4 w-4" />
                 View Collaborators
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -217,7 +218,7 @@ function CollaborativeBotCard({
           variant="secondary"
           className="absolute top-2.5 left-2.5 backdrop-blur-sm text-[10px]"
         >
-          <Users className="h-2.5 w-2.5 mr-0.5" />
+          <UsersRound className="h-2.5 w-2.5 mr-0.5" />
           Shared
         </Badge>
       </div>
@@ -248,7 +249,7 @@ function CollaborativeBotCard({
                 Open Workspace
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onCollaborators}>
-                <Users className="mr-2 h-4 w-4" />
+                <UsersRound className="mr-2 h-4 w-4" />
                 View Collaborators
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -361,7 +362,7 @@ function BotCard({
                 Open Workspace
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onCollaborators}>
-                <Users className="mr-2 h-4 w-4 text-primary" />
+                <UsersRound className="mr-2 h-4 w-4 text-primary" />
                 Collaborators
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onFork}>
@@ -436,7 +437,7 @@ function BotCard({
                 Open Workspace
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onCollaborators}>
-                <Users className="mr-2 h-4 w-4 text-primary" />
+                <UsersRound className="mr-2 h-4 w-4 text-primary" />
                 Collaborators
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onFork}>

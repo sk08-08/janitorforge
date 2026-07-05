@@ -6,7 +6,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { User, Loader2, Search } from "lucide-react";
+import { Loader2, Search, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -196,7 +196,7 @@ export function UserSearchInput({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <User className="h-4 w-4 text-primary" />
+                      <UserRound className="h-4 w-4 text-primary" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">

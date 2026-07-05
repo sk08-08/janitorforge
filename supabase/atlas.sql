@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS public.atlas_worlds (
   description TEXT NOT NULL DEFAULT '',
   lore_summary TEXT NOT NULL DEFAULT '',
   bot_ids UUID[] NOT NULL DEFAULT '{}',
-  form_ids UUID[] NOT NULL DEFAULT '{}',
   featured_lorebook_ids UUID[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -29,6 +29,7 @@ import {
   Share2,
   Type,
   GripVertical,
+  AppWindow,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -152,9 +153,7 @@ const layoutLabels: Record<CreatorPage["layout"], string> = {
 // Props
 // ---------------------------------------------------------------------------
 
-interface CreatorPagesProps {
-  onBack: () => void;
-}
+interface CreatorPagesProps {}
 
 const CREATOR_PAGES_EDITOR_STORAGE_KEY = "creator-pages-editing-page-id";
 
@@ -162,7 +161,7 @@ const CREATOR_PAGES_EDITOR_STORAGE_KEY = "creator-pages-editing-page-id";
 // Component
 // ---------------------------------------------------------------------------
 
-export function CreatorPages({ onBack }: CreatorPagesProps) {
+export function CreatorPages() {
   const [pages, setPages] = useState<CreatorPage[]>([]);
   const [sections, setSections] = useState<PageSection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -303,7 +302,11 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
   };
 
   const closeEditor = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(CREATOR_PAGES_EDITOR_STORAGE_KEY);
+    }
     setEditingPage(null);
+    setEditingSection(null);
   };
 
   // Debounced slug availability check for editor
@@ -595,6 +598,7 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
         .from("bots")
         .select("id, name, image_url")
         .eq("user_id", currentUserId)
+        .is("deleted_at", null)
         .order("name");
       if (data) setAvailableBots(data);
     } catch (error) {
@@ -879,13 +883,11 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6 md:p-8 lg:p-10">
-        <Card>
-          <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            Loading Creator Pages...
-          </CardContent>
-        </Card>
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm">Loading your pages…</p>
+        </div>
       </div>
     );
   }
@@ -2750,20 +2752,11 @@ export function CreatorPages({ onBack }: CreatorPagesProps) {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="cursor-pointer"
-            onClick={onBack}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Layout className="h-5 w-5 text-primary" />
-          </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Creator Pages</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Creator Pages
+            </h1>
+            <p className="mt-1 text-sm sm:text-base text-muted-foreground">
               Build and customize your public creator page.
             </p>
           </div>

@@ -40,6 +40,8 @@ import {
   Hash,
   Tag,
   ImageIcon,
+  UsersRound,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -692,7 +694,7 @@ export function CollaborationWorkspace({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <Users className="h-6 w-6 text-primary" />
+                <UsersRound className="h-6 w-6 text-primary" />
               )}
             </div>
             <div className="min-w-0">
@@ -701,7 +703,7 @@ export function CollaborationWorkspace({
               </h1>
               <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
                 <span className="flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5" />
+                  <UsersRound className="h-3.5 w-3.5" />
                   {activeCollabs.length + 1} members
                 </span>
                 <span className="text-muted-foreground/40">•</span>
@@ -905,7 +907,7 @@ export function CollaborationWorkspace({
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <User className="h-4 w-4" /> Character Definition
+                  <UserRound className="h-4 w-4" /> Character Definition
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -1118,7 +1120,7 @@ export function CollaborationWorkspace({
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <Users className="h-4 w-4" /> Team
+                  <UsersRound className="h-4 w-4" /> Team
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -1138,7 +1140,7 @@ export function CollaborationWorkspace({
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <User className="h-2.5 w-2.5 text-primary" />
+                          <UserRound className="h-2.5 w-2.5 text-primary" />
                         )}
                       </div>
                       <span className="truncate flex-1">
@@ -1447,7 +1449,7 @@ export function CollaborationWorkspace({
                   value={inviteRole}
                   onValueChange={(v) => setInviteRole(v as CollaboratorRole)}
                 >
-                  <SelectTrigger className="w-full sm:w-[130px]">
+                  <SelectTrigger className="w-full sm:w-32.5">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1643,7 +1645,7 @@ export function CollaborationWorkspace({
               )}
               {collaborators.length === 0 && (
                 <div className="rounded-lg border border-dashed border-border/70 p-8 text-center">
-                  <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                  <UsersRound className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">
                     No collaborators yet
                   </p>
@@ -1676,7 +1678,7 @@ export function CollaborationWorkspace({
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <User className="h-3.5 w-3.5 text-primary" />
+                      <UserRound className="h-3.5 w-3.5 text-primary" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -1759,7 +1761,7 @@ export function CollaborationWorkspace({
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <User className="h-3 w-3 text-primary" />
+                          <UserRound className="h-3 w-3 text-primary" />
                         )}
                       </div>
                       <span className="text-xs font-medium">

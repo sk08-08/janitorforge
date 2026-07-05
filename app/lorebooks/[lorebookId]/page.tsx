@@ -1,18 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,7 +29,22 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, Plus, Search, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  ChevronDown,
+  Clock,
+  LibraryBig,
+  MapPin,
+  NotebookText,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  User,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 type AtlasEntryKind = "lore" | "character" | "location" | "timeline" | "note";
@@ -64,6 +83,22 @@ const entryKindLabels: Record<AtlasEntryKind, string> = {
   location: "Location",
   timeline: "Timeline",
   note: "Note",
+};
+
+const entryKindBadges: Record<AtlasEntryKind, string> = {
+  lore: "bg-primary/10 text-primary",
+  character: "bg-chart-2/10 text-chart-2",
+  location: "bg-chart-4/10 text-chart-4",
+  timeline: "bg-success/10 text-success",
+  note: "bg-muted text-muted-foreground",
+};
+
+const entryKindIcons: Record<AtlasEntryKind, React.ReactNode> = {
+  lore: <BookOpen className="h-5 w-5 text-primary" />,
+  character: <UserRound className="h-5 w-5 text-chart-2" />,
+  location: <MapPin className="h-5 w-5 text-chart-4" />,
+  timeline: <Clock className="h-5 w-5 text-success" />,
+  note: <NotebookText className="h-5 w-5 text-muted-foreground" />,
 };
 
 const entryKinds: AtlasEntryKind[] = [
@@ -122,6 +157,7 @@ function parseSearchQuery(rawQuery: string) {
 
 export default function LorebookPage() {
   const params = useParams<{ lorebookId: string }>();
+  const router = useRouter();
   const lorebookId = params?.lorebookId;
 
   const [loading, setLoading] = useState(true);
@@ -144,6 +180,10 @@ export default function LorebookPage() {
   const [entryKindFilter, setEntryKindFilter] = useState<
     "all" | AtlasEntryKind
   >("all");
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAddEntry, setShowAddEntry] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -169,6 +209,7 @@ export default function LorebookPage() {
           .select("*")
           .eq("id", lorebookId)
           .eq("user_id", userId)
+          .is("deleted_at", null)
           .single();
 
         if (lorebookError) throw lorebookError;
@@ -185,12 +226,14 @@ export default function LorebookPage() {
             .select("id,title,slug")
             .eq("id", nextLorebook.world_id)
             .eq("user_id", userId)
+            .is("deleted_at", null)
             .single(),
           supabase
             .from("atlas_entries")
             .select("*")
             .eq("lorebook_id", lorebookId)
             .eq("user_id", userId)
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
         ]);
 
@@ -223,6 +266,14 @@ export default function LorebookPage() {
     () => `${entries.length} entries`,
     [entries.length],
   );
+
+  const entryKindCounts = useMemo(() => {
+    const counts: Partial<Record<AtlasEntryKind, number>> = {};
+    entries.forEach((e) => {
+      counts[e.kind] = (counts[e.kind] || 0) + 1;
+    });
+    return counts;
+  }, [entries]);
 
   const filteredEntries = useMemo(() => {
     const { tokens, kindTokens, hasQuery } = parseSearchQuery(entrySearch);
@@ -425,7 +476,7 @@ export default function LorebookPage() {
       const supabase = createClient();
       const { error } = await supabase
         .from("atlas_entries")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", entryId)
         .eq("user_id", currentUserId);
 
@@ -482,7 +533,7 @@ export default function LorebookPage() {
 
       const { error } = await supabase
         .from("atlas_lorebooks")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", lorebook.id)
         .eq("user_id", currentUserId);
 
@@ -498,111 +549,218 @@ export default function LorebookPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-350 p-4 sm:p-6 md:p-8 lg:p-10">
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Loading lorebook...
-          </CardContent>
-        </Card>
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm">Loading lorebook…</p>
+        </div>
       </div>
     );
   }
 
   if (!lorebook) {
     return (
-      <div className="mx-auto max-w-350 p-4 sm:p-6 md:p-8 lg:p-10">
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Lorebook not found.
-          </CardContent>
-        </Card>
+      <div className="flex min-h-[60vh] items-center justify-center p-6">
+        <div className="mx-auto max-w-md space-y-4 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/30">
+            <NotebookText className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-semibold">Lorebook not found</h2>
+          <p className="text-sm text-muted-foreground">
+            This lorebook may have been deleted or you don't have access.
+          </p>
+          <Button asChild variant="outline" className="cursor-pointer">
+            <Link href="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to hub
+            </Link>
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-350 space-y-6 p-4 sm:p-6 md:p-8 lg:p-10">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button asChild variant="outline" className="cursor-pointer">
+    <div className="mx-auto w-full max-w-5xl space-y-8 p-4 pb-16 sm:p-6 md:p-8 lg:p-10">
+      {/* ─── Back + breadcrumb ──────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="cursor-pointer -ml-2"
+        >
           <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Atlas
           </Link>
         </Button>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-          <Badge variant="secondary">{world?.title || "Unknown world"}</Badge>
-          <Badge variant="outline">{entryCountLabel}</Badge>
-          <Badge variant="outline">
-            Updated {new Date(lorebook.updated_at).toLocaleDateString()}
-          </Badge>
-        </div>
+        {world && (
+          <>
+            <span className="text-muted-foreground">/</span>
+            <Badge variant="secondary" className="rounded-full">
+              <LibraryBig className="mr-1 h-3 w-3" />
+              {world.title}
+            </Badge>
+          </>
+        )}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Lorebook details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      {/* ─── Hero ────────────────────────────────────────────────── */}
+      <section className="relative isolate overflow-hidden rounded-3xl border border-border/60 bg-card shadow-lg">
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_left,rgba(124,58,237,0.14),transparent_50%),radial-gradient(ellipse_at_bottom_right,rgba(16,185,129,0.1),transparent_50%)]" />
+        <div className="flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-start lg:gap-10">
+          <div className="flex-1 space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3.5 py-1.5 text-xs font-semibold text-primary">
+              <NotebookText className="h-3.5 w-3.5" />
+              Lorebook
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              {lorebook.title}
+            </h1>
+            {lorebook.summary && (
+              <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+                {lorebook.summary}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary" className="rounded-full px-3 py-1">
+                {entries.length} entries
+              </Badge>
+              {Object.entries(entryKindCounts).map(([kind, count]) => (
+                <Badge
+                  key={kind}
+                  variant="outline"
+                  className="rounded-full px-3 py-1"
+                >
+                  {entryKindIcons[kind as AtlasEntryKind]} {count}{" "}
+                  {entryKindLabels[kind as AtlasEntryKind].toLowerCase()}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => setEditingDetails(true)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit details
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => setShowAddEntry(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add entry
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Edit details (collapsible) ──────────────────────────── */}
+      {editingDetails && (
+        <section className="rounded-2xl border border-primary/30 bg-primary/5 p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="text-base font-semibold">Edit lorebook details</h2>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="cursor-pointer"
+              onClick={() => setEditingDetails(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="lorebook-title">Title</Label>
               <Input
                 id="lorebook-title"
                 value={titleDraft}
-                onChange={(event) => setTitleDraft(event.target.value)}
+                onChange={(e) => setTitleDraft(e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="lorebook-summary">Summary</Label>
               <Textarea
                 id="lorebook-summary"
-                rows={5}
+                rows={4}
                 value={summaryDraft}
-                onChange={(event) => setSummaryDraft(event.target.value)}
+                onChange={(e) => setSummaryDraft(e.target.value)}
               />
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2">
               <Button
-                className="w-full cursor-pointer sm:w-auto"
-                onClick={saveLorebook}
+                className="cursor-pointer"
+                onClick={() => {
+                  saveLorebook();
+                  setEditingDetails(false);
+                }}
               >
-                Save lorebook
+                Save changes
               </Button>
               <Button
-                variant="destructive"
-                className="w-full cursor-pointer sm:w-auto"
-                onClick={deleteLorebook}
+                variant="outline"
+                className="cursor-pointer"
+                onClick={() => {
+                  setTitleDraft(lorebook.title);
+                  setSummaryDraft(lorebook.summary || "");
+                  setEditingDetails(false);
+                }}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete lorebook
+                Cancel
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Add entry</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+      {/* ─── Add entry (collapsible) ─────────────────────────────── */}
+      {showAddEntry && (
+        <section className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="text-base font-semibold">Add new entry</h2>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="cursor-pointer"
+              onClick={() => setShowAddEntry(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
               <div className="space-y-2">
                 <Label htmlFor="new-entry-title">Title</Label>
                 <Input
                   id="new-entry-title"
                   value={newEntryTitle}
-                  onChange={(event) => setNewEntryTitle(event.target.value)}
+                  onChange={(e) => setNewEntryTitle(e.target.value)}
+                  placeholder="Entry title"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-entry-kind">Type</Label>
                 <Select
                   value={newEntryKind}
-                  onValueChange={(value) =>
-                    setNewEntryKind(value as AtlasEntryKind)
-                  }
+                  onValueChange={(v) => setNewEntryKind(v as AtlasEntryKind)}
                 >
-                  <SelectTrigger id="new-entry-kind">
+                  <SelectTrigger id="new-entry-kind" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -621,220 +779,321 @@ export default function LorebookPage() {
                 id="new-entry-body"
                 rows={5}
                 value={newEntryBody}
-                onChange={(event) => setNewEntryBody(event.target.value)}
+                onChange={(e) => setNewEntryBody(e.target.value)}
+                placeholder="Write the lore, character info, location details…"
               />
             </div>
             <Button
-              className="w-full cursor-pointer sm:w-auto"
-              onClick={addEntry}
+              className="cursor-pointer"
+              onClick={() => {
+                addEntry();
+              }}
+              disabled={!newEntryTitle.trim() || !newEntryBody.trim()}
             >
               <Plus className="mr-2 h-4 w-4" />
               Add entry
             </Button>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </section>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Entries</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={entrySearch}
-                onChange={(event) => setEntrySearch(event.target.value)}
-                placeholder='Search title/body, e.g. "red moon" or kind:character'
-                className="pl-9"
-              />
+      {/* ─── Search & filter toolbar ─────────────────────────────── */}
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={entrySearch}
+            onChange={(e) => setEntrySearch(e.target.value)}
+            placeholder='Search entries… e.g. "red moon" or kind:character'
+            className="pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Select
+            value={entryKindFilter}
+            onValueChange={(v) =>
+              setEntryKindFilter(v as "all" | AtlasEntryKind)
+            }
+          >
+            <SelectTrigger className="w-37.5">
+              <SelectValue placeholder="All kinds" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All kinds</SelectItem>
+              {Object.entries(entryKindLabels).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Badge variant="outline" className="shrink-0">
+            {filteredEntries.length} of {entries.length}
+          </Badge>
+        </div>
+      </section>
+
+      {/* ─── Entries list ────────────────────────────────────────── */}
+      {filteredEntries.length === 0 ? (
+        <section className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-8 text-center sm:p-12">
+          <div className="mx-auto max-w-md space-y-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/30">
+              <BookOpen className="h-5 w-5 text-muted-foreground" />
             </div>
-            <Select
-              value={entryKindFilter}
-              onValueChange={(value) =>
-                setEntryKindFilter(value as "all" | AtlasEntryKind)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by kind" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All kinds</SelectItem>
-                {Object.entries(entryKindLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="text-xs text-muted-foreground">
-            Search supports quoted phrases and kind filters like
-            <span className="font-medium"> kind:lore</span> or
-            <span className="font-medium"> #timeline</span>.
-          </div>
-
-          <div className="text-xs text-muted-foreground">
-            Showing {filteredEntries.length} of {entries.length} entries
-          </div>
-
-          {filteredEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No entries yet.</p>
-          ) : (
-            <div ref={parentRef} className="max-h-[60vh] overflow-auto">
-              <div
-                style={{
-                  height: `${virtualizer.getTotalSize()}px`,
-                  position: "relative",
-                }}
+            <h3 className="text-base font-semibold">
+              {entries.length === 0 ? "No entries yet" : "No matches"}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {entries.length === 0
+                ? "Add your first lore entry, character profile, or location note."
+                : "Try a different search term or clear the kind filter."}
+            </p>
+            {entries.length === 0 && (
+              <Button
+                className="cursor-pointer"
+                onClick={() => setShowAddEntry(true)}
               >
-                {virtualItems.map((virtualRow) => {
-                  const entry = filteredEntries[virtualRow.index];
-                  return (
-                    <div
-                      key={entry.id}
-                      data-index={virtualRow.index}
-                      ref={(el) => {
-                        if (el) {
-                          virtualizer.measureElement(el);
-                        }
-                        return undefined;
-                      }}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        transform: `translateY(${virtualRow.start}px)`,
-                        paddingBottom: "0.75rem",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <Collapsible
-                        open={expandedEntries[entry.id] ?? false}
-                        onOpenChange={(open) =>
-                          setExpandedEntries((prev) => ({
-                            ...prev,
-                            [entry.id]: open,
-                          }))
-                        }
-                        className="rounded-xl border border-border/70"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                          <div className="min-w-0 space-y-1">
-                            <div className="truncate text-sm font-medium">
-                              {entry.title || "Untitled entry"}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {entryKindLabels[entry.kind]}
-                            </div>
-                          </div>
-                          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                <Plus className="mr-2 h-4 w-4" />
+                Add first entry
+              </Button>
+            )}
+          </div>
+        </section>
+      ) : (
+        <div ref={parentRef} className="max-h-[65vh] overflow-auto rounded-xl">
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              position: "relative",
+            }}
+          >
+            {virtualItems.map((virtualRow) => {
+              const entry = filteredEntries[virtualRow.index];
+              const isExpanded = expandedEntries[entry.id] ?? false;
+
+              return (
+                <div
+                  key={entry.id}
+                  data-index={virtualRow.index}
+                  ref={(el) => {
+                    if (el) virtualizer.measureElement(el);
+                    return undefined;
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start}px)`,
+                    paddingBottom: "0.75rem",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <div
+                    className={cn(
+                      "rounded-2xl border transition-all duration-200",
+                      isExpanded
+                        ? "border-primary/30 bg-card shadow-md"
+                        : "border-border/60 bg-card hover:border-primary/20 hover:shadow-sm",
+                    )}
+                  >
+                    {/* Header row */}
+                    <div className="flex items-start gap-3 px-4 py-3 sm:px-5">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/30 text-base">
+                        {entryKindIcons[entry.kind]}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="truncate text-sm font-semibold">
+                            {entry.title || "Untitled entry"}
+                          </h3>
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "border-0 text-[11px]",
+                              entryKindBadges[entry.kind],
+                            )}
+                          >
+                            {entryKindLabels[entry.kind]}
+                          </Badge>
+                        </div>
+                        {!isExpanded && (
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            {entry.body || "Empty body"}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="cursor-pointer"
+                          onClick={() =>
+                            setExpandedEntries((prev) => ({
+                              ...prev,
+                              [entry.id]: !prev[entry.id],
+                            }))
+                          }
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 transition-transform",
+                              isExpanded && "rotate-180",
+                            )}
+                          />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Expanded editor */}
+                    {isExpanded && (
+                      <div className="space-y-4 border-t border-border/60 px-4 py-4 sm:px-5">
+                        <div className="grid gap-3 sm:grid-cols-[1fr_160px]">
+                          <Input
+                            value={entry.title}
+                            onChange={(e) =>
+                              setEntries((prev) =>
+                                prev.map((item) =>
+                                  item.id === entry.id
+                                    ? { ...item, title: e.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                            placeholder="Entry title"
+                          />
+                          <Select
+                            value={entry.kind}
+                            onValueChange={(v) =>
+                              setEntries((prev) =>
+                                prev.map((item) =>
+                                  item.id === entry.id
+                                    ? { ...item, kind: v as AtlasEntryKind }
+                                    : item,
+                                ),
+                              )
+                            }
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(entryKindLabels).map(
+                                ([value, label]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {label}
+                                  </SelectItem>
+                                ),
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <Textarea
+                          rows={8}
+                          value={entry.body}
+                          onChange={(e) =>
+                            setEntries((prev) =>
+                              prev.map((item) =>
+                                item.id === entry.id
+                                  ? { ...item, body: e.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="Write the lore, character info, location details…"
+                        />
+
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            Last updated{" "}
+                            {new Date(entry.updated_at).toLocaleDateString()}
+                          </p>
+                          <div className="flex gap-2">
                             <Button
-                              className="w-full cursor-pointer sm:w-auto"
                               size="sm"
+                              className="cursor-pointer"
                               onClick={() => saveEntry(entry)}
                             >
-                              Save
+                              Save changes
                             </Button>
                             <Button
-                              variant="destructive"
+                              variant="outline"
                               size="sm"
-                              className="w-full cursor-pointer sm:w-auto"
-                              onClick={() => deleteEntry(entry.id)}
+                              className="cursor-pointer"
+                              onClick={() => setDeletingEntryId(entry.id)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
                             </Button>
-                            <CollapsibleTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="icon-sm"
-                                className="cursor-pointer"
-                              >
-                                <ChevronDown
-                                  className={cn(
-                                    "h-4 w-4 transition-transform",
-                                    (expandedEntries[entry.id] ?? false) &&
-                                      "rotate-180",
-                                  )}
-                                />
-                              </Button>
-                            </CollapsibleTrigger>
                           </div>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-                        <CollapsibleContent>
-                          <div className="space-y-3 border-t border-border/70 px-4 py-4">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <Input
-                                value={entry.title}
-                                onChange={(event) =>
-                                  setEntries((prev) =>
-                                    prev.map((item) =>
-                                      item.id === entry.id
-                                        ? { ...item, title: event.target.value }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              />
-                              <Select
-                                value={entry.kind}
-                                onValueChange={(value) =>
-                                  setEntries((prev) =>
-                                    prev.map((item) =>
-                                      item.id === entry.id
-                                        ? {
-                                            ...item,
-                                            kind: value as AtlasEntryKind,
-                                          }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Object.entries(entryKindLabels).map(
-                                    ([value, label]) => (
-                                      <SelectItem key={value} value={value}>
-                                        {label}
-                                      </SelectItem>
-                                    ),
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
+      {/* ─── Delete lorebook confirmation ────────────────────────── */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{lorebook.title}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the lorebook and all {entries.length} entries
+              permanently. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteLorebook}
+              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete lorebook
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-                            <Textarea
-                              rows={8}
-                              value={entry.body}
-                              onChange={(event) =>
-                                setEntries((prev) =>
-                                  prev.map((item) =>
-                                    item.id === entry.id
-                                      ? { ...item, body: event.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* ─── Delete entry confirmation ───────────────────────────── */}
+      <AlertDialog
+        open={deletingEntryId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingEntryId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This entry will be permanently removed from the lorebook.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingEntryId) {
+                  deleteEntry(deletingEntryId);
+                  setDeletingEntryId(null);
+                }
+              }}
+              className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete entry
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

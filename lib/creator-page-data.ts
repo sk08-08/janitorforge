@@ -104,7 +104,9 @@ export async function fetchCreatorPageData(
       .order("position", { ascending: true }),
     supabase
       .from("bots")
-      .select("id, name, short_description, tags, rating, image_url, created_at")
+      .select(
+        "id, name, short_description, tags, rating, image_url, created_at",
+      )
       .eq("user_id", creatorPage.user_id)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -120,6 +122,7 @@ export async function fetchCreatorPageData(
       .select("id, title, slug, kind, status, description, bot_ids")
       .eq("user_id", creatorPage.user_id)
       .eq("status", "active")
+      .is("deleted_at", null)
       .order("updated_at", { ascending: false }),
   ]);
 
@@ -168,7 +171,11 @@ export async function fetchCreatorPageData(
  */
 export function buildCreatorPageMeta(
   creatorPage: { title: string; description: string },
-  profile: { display_name: string | null; username: string | null; avatar_url: string | null } | null,
+  profile: {
+    display_name: string | null;
+    username: string | null;
+    avatar_url: string | null;
+  } | null,
   slug: string,
 ) {
   const title = creatorPage.title || profile?.display_name || slug;

@@ -12,6 +12,7 @@ import { BotManager } from "@/components/bots/bot-manager";
 import { FormManager } from "@/components/forms/form-manager";
 import { RequestsView } from "@/components/forms/requests-view";
 import { AtlasHub } from "@/components/atlas/atlas-hub";
+import { CreatorPages } from "@/components/creator-pages/creator-pages";
 import { ProfilePage } from "@/components/profile/profile-page";
 import { FeedbackInbox } from "@/components/dashboard/feedback-inbox";
 import ModerationPageContent from "@/app/dashboard/moderation/content";
@@ -51,6 +52,8 @@ function ViewRouter() {
       return <FeedbackInbox />;
     case "atlas":
       return <AtlasHub />;
+    case "creator-pages":
+      return <CreatorPages />;
     case "profiles":
       return <ProfilesHub />;
     case "resources":

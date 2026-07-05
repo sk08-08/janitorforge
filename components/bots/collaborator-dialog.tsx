@@ -8,7 +8,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Users,
-  User,
   UserPlus,
   Trash2,
   Loader2,
@@ -25,12 +24,11 @@ import {
   GitBranch,
   FileText,
   Download,
-  ExternalLink,
   Lock,
-  Star,
+  UserRound,
   Zap,
-  ArrowRight,
   CheckCircle2,
+  UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -341,7 +339,7 @@ export function CollaboratorDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-              <Users className="h-4 w-4 text-primary" />
+              <UsersRound className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
               <span className="block truncate text-base">Collaborators</span>
@@ -667,7 +665,7 @@ export function CollaboratorDialog({
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted shrink-0">
-                              <User className="h-4 w-4 text-muted-foreground" />
+                              <UserRound className="h-4 w-4 text-muted-foreground" />
                             </div>
                             <p className="text-sm truncate">
                               {collab.profile?.display_name ||
@@ -692,7 +690,7 @@ export function CollaboratorDialog({
 
                   {collaborators.length === 0 && (
                     <div className="rounded-lg border border-dashed border-border/70 p-8 text-center">
-                      <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                      <UsersRound className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
                       <p className="text-sm text-muted-foreground">
                         No collaborators yet
                       </p>
@@ -730,7 +728,7 @@ export function CollaboratorDialog({
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <User className="h-3.5 w-3.5 text-primary" />
+                          <UserRound className="h-3.5 w-3.5 text-primary" />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -824,7 +822,7 @@ export function CollaboratorDialog({
                                 className="h-full w-full object-cover"
                               />
                             ) : (
-                              <User className="h-3 w-3 text-primary" />
+                              <UserRound className="h-3 w-3 text-primary" />
                             )}
                           </div>
                           <span className="text-xs font-medium">

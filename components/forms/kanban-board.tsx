@@ -15,13 +15,13 @@ import {
   ChevronsRight,
   MessageSquare,
   Clock,
-  User,
   CheckCircle,
   XCircle,
   Inbox,
   Loader2,
   ChevronDown,
   ChevronUp,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -205,7 +205,7 @@ function RequestCard({
             />
             {request.submitterName && (
               <div className="flex items-center gap-1.5 text-sm">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="min-w-0 truncate font-medium">
                   {request.submitterName}
                 </span>

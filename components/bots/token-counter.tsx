@@ -10,8 +10,8 @@ import {
   AlertCircle,
   CheckCircle,
   Hash,
-  User,
   Bot as BotIcon,
+  UserRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { validateVariables, countTokens } from "@/lib/bot-utils";
@@ -93,7 +93,7 @@ export function TokenCounter({
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-muted-foreground">
-            <User className="h-3.5 w-3.5" />
+            <UserRound className="h-3.5 w-3.5" />
             <span>
               {"{{user}}"}: {validation.userVariableCount}
             </span>

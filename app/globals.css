@@ -3,47 +3,46 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* JanitorForge Dark Theme - Purple/Neon Accents */
+/* JanitorForge Light Theme */
 :root {
-  --background: oklch(0.13 0.01 280);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.16 0.012 280);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.14 0.01 280);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.65 0.25 295);
+  --background: oklch(0.98 0.005 280);
+  --foreground: oklch(0.15 0.01 280);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.01 280);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.01 280);
+  --primary: oklch(0.5 0.22 295);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.22 0.02 280);
-  --secondary-foreground: oklch(0.9 0 0);
-  --muted: oklch(0.2 0.015 280);
-  --muted-foreground: oklch(0.65 0.02 280);
-  --accent: oklch(0.55 0.28 295);
+  --secondary: oklch(0.93 0.01 280);
+  --secondary-foreground: oklch(0.2 0.01 280);
+  --muted: oklch(0.94 0.008 280);
+  --muted-foreground: oklch(0.45 0.02 280);
+  --accent: oklch(0.48 0.25 295);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.36 0.03 280);
-  --input: oklch(0.28 0.03 280);
-  --ring: oklch(0.65 0.25 295);
-  --chart-1: oklch(0.65 0.25 295);
-  --chart-2: oklch(0.6 0.2 180);
-  --chart-3: oklch(0.7 0.18 80);
-  --chart-4: oklch(0.55 0.22 330);
-  --chart-5: oklch(0.6 0.15 220);
+  --border: oklch(0.88 0.015 280);
+  --input: oklch(0.9 0.01 280);
+  --ring: oklch(0.5 0.22 295);
+  --chart-1: oklch(0.5 0.22 295);
+  --chart-2: oklch(0.55 0.18 180);
+  --chart-3: oklch(0.6 0.15 80);
+  --chart-4: oklch(0.5 0.2 330);
+  --chart-5: oklch(0.5 0.13 220);
   --radius: 0.5rem;
-  --sidebar: oklch(0.11 0.01 280);
-  --sidebar-foreground: oklch(0.9 0 0);
-  --sidebar-primary: oklch(0.65 0.25 295);
+  --sidebar: oklch(0.96 0.008 280);
+  --sidebar-foreground: oklch(0.15 0.01 280);
+  --sidebar-primary: oklch(0.5 0.22 295);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.2 0.02 280);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.22 0.015 280);
-  --sidebar-ring: oklch(0.65 0.25 295);
-  /* Custom tokens for JanitorForge */
-  --success: oklch(0.6 0.18 145);
+  --sidebar-accent: oklch(0.92 0.015 280);
+  --sidebar-accent-foreground: oklch(0.15 0.01 280);
+  --sidebar-border: oklch(0.88 0.015 280);
+  --sidebar-ring: oklch(0.5 0.22 295);
+  --success: oklch(0.55 0.18 145);
   --success-foreground: oklch(0.98 0 0);
-  --warning: oklch(0.75 0.18 85);
+  --warning: oklch(0.7 0.16 85);
   --warning-foreground: oklch(0.15 0 0);
-  --neon-glow: oklch(0.7 0.3 295);
+  --neon-glow: oklch(0.55 0.28 295);
 }
 
 /* Hide number input spinners globally */

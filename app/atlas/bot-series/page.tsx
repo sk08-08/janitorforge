@@ -76,11 +76,13 @@ export default function AtlasBotSeriesPage() {
             .from("atlas_worlds")
             .select("id,title,kind,description,bot_ids,updated_at")
             .eq("user_id", userId)
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
           supabase
             .from("bots")
             .select("id,name,short_description,rating,tags,updated_at")
             .eq("user_id", userId)
+            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
         ]);
 

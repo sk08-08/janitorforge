@@ -14,9 +14,9 @@ import {
   Layout,
   ArrowLeft,
   Star,
-  Users,
   MapPin,
   Heart,
+  UsersRound,
 } from "lucide-react";
 import {
   TwitterIcon,
@@ -181,7 +181,7 @@ function FollowButton({
         </>
       ) : (
         <>
-          <Users className="h-4 w-4 mr-1" /> Follow
+          <UsersRound className="h-4 w-4 mr-1" /> Follow
         </>
       )}
     </Button>

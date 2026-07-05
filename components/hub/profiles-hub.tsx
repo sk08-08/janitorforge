@@ -226,7 +226,7 @@ export function ProfilesHub() {
   return (
     <div className="min-h-full p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-8">
-        <Card className="relative isolate overflow-hidden border-border/70 bg-card/95 shadow-xl">
+        <Card className="relative isolate overflow-hidden border-border/70 bg-card/95 shadow-lg">
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.18),transparent_42%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_34%),linear-gradient(to_br,rgba(255,255,255,0.02),transparent_40%)]" />
           <CardContent className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
             <div className="space-y-4">
@@ -236,9 +236,6 @@ export function ProfilesHub() {
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Users className="h-5 w-5" />
-                </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
                     Hub
@@ -340,7 +337,8 @@ export function ProfilesHub() {
                           key={value}
                           type="button"
                           variant={sortMode === value ? "default" : "outline"}
-                          className="justify-center rounded-full"
+                          data-state={sortMode === value ? "on" : "off"}
+                          className="justify-center rounded-full data-[state=off]:cursor-pointer data-[state=on]:cursor-default"
                           onClick={() => setSortMode(value)}
                         >
                           {label}
@@ -363,8 +361,9 @@ export function ProfilesHub() {
                       key={value}
                       type="button"
                       variant={filterMode === value ? "secondary" : "ghost"}
+                      data-state={filterMode === value ? "on" : "off"}
                       size="sm"
-                      className="rounded-full"
+                      className="rounded-full data-[state=off]:cursor-pointer data-[state=on]:cursor-default"
                       onClick={() => setFilterMode(value)}
                     >
                       {label}

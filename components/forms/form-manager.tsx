@@ -609,11 +609,12 @@ export function FormManager() {
 
       {/* Form List */}
       {!accessLoaded ? (
-        <Card className="border-dashed">
-          <CardContent className="p-6 text-center text-muted-foreground">
-            Loading form access...
-          </CardContent>
-        </Card>
+        <div className="flex min-h-[60vh] items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm">Loading Forms…</p>
+          </div>
+        </div>
       ) : forms.length > 0 ? (
         <div className="space-y-8">
           <section className="space-y-4">

@@ -290,11 +290,12 @@ export function RequestsView() {
       </div>
 
       {!accessLoaded ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            Loading request access...
-          </CardContent>
-        </Card>
+        <div className="flex min-h-[60vh] items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm">Loading submissions…</p>
+          </div>
+        </div>
       ) : hasVisibleRequests ? (
         <div className="space-y-8">
           {showOwnRequestsSection && (

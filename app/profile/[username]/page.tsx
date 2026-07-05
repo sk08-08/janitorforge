@@ -94,6 +94,7 @@ export default async function UserProfilePage({ params }: PageProps) {
     .from("bots")
     .select("id, name, short_description, tags, rating, image_url, created_at")
     .eq("user_id", profile.id)
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .limit(20);
 
@@ -103,6 +104,7 @@ export default async function UserProfilePage({ params }: PageProps) {
     .select("id, title, slug, kind, status, description, bot_ids")
     .eq("user_id", profile.id)
     .eq("status", "active")
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false });
 
   // Fetch follow counts
