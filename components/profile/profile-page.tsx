@@ -702,7 +702,7 @@ export function ProfilePage() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <FileText className="h-5 w-5" style={{ color: primaryColor }} />
-          <h2 className="text-lg font-semibold">Request Forms</h2>
+          <h2 className="text-lg font-semibold">Forms</h2>
           <Badge variant="outline">{ownForms.length}</Badge>
         </div>
         {ownForms.length > 0 ? (
@@ -751,9 +751,7 @@ export function ProfilePage() {
         ) : (
           <div className="rounded-lg border border-dashed p-6 text-center">
             <Inbox className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              No request forms yet
-            </p>
+            <p className="text-sm text-muted-foreground">No forms yet</p>
           </div>
         )}
       </div>

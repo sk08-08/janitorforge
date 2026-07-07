@@ -288,7 +288,7 @@ export function FeedbackActions({
             <SelectItem value="Public form">Public form</SelectItem>
             <SelectItem value="Dashboard">Dashboard</SelectItem>
             <SelectItem value="Submissions">Submissions / Kanban</SelectItem>
-            <SelectItem value="Forms">Request Forms</SelectItem>
+            <SelectItem value="Forms">Forms</SelectItem>
             <SelectItem value="Bots">Bot Manager</SelectItem>
             <SelectItem value="other">Other (specify)</SelectItem>
           </SelectContent>

@@ -1,6 +1,6 @@
 // ============================================================================
 // JanitorForge - Form Manager View
-// Interface for managing request forms
+// Interface for managing forms
 // ============================================================================
 
 "use client";
@@ -592,7 +592,7 @@ export function FormManager() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Request Forms
+            Forms
           </h1>
           <p className="mt-1 text-sm sm:text-base text-muted-foreground">
             Design custom forms to collect submissions from your community
@@ -697,15 +697,15 @@ export function FormManager() {
           }
         }}
       >
-        <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+        <SheetContent className="w-full overflow-x-hidden overflow-y-auto sm:max-w-2xl">
           <SheetHeader className="p-4 lg:p-6">
             <SheetTitle>
               {editingForm ? "Edit Form" : "Create New Form"}
             </SheetTitle>
             <SheetDescription>
               {editingForm
-                ? "Update your form structure and settings (supports markdown in section titles and form description)"
-                : "Design a custom form to collect submissions (supports markdown in section titles and form description)"}
+                ? "Update your form structure and settings"
+                : "Design a custom form to collect submissions"}
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6">

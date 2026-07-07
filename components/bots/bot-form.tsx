@@ -6,7 +6,21 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { X, Plus, Upload, Download, Save, Trash2 } from "lucide-react";
+import {
+  X,
+  Plus,
+  Upload,
+  Download,
+  Save,
+  Trash2,
+  ChevronDown,
+  Info,
+  Bold,
+  Italic,
+  Link as LinkIcon,
+  Pencil,
+  Eye,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +32,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
@@ -77,6 +97,9 @@ export function BotForm({
   });
   const [selectedInitialMessageIndex, setSelectedInitialMessageIndex] =
     useState(0);
+  const [initialMessageMode, setInitialMessageMode] = useState<
+    "edit" | "preview"
+  >("edit");
   const [scenario, setScenario] = useState(initialData?.scenario || "");
   const [exampleDialogues, setExampleDialogues] = useState(
     initialData?.exampleDialogues || "",
@@ -152,6 +175,10 @@ export function BotForm({
       Math.min(current, Math.max(initialMessages.length - 1, 0)),
     );
   }, [initialMessages.length]);
+
+  useEffect(() => {
+    setInitialMessageMode("edit");
+  }, [selectedInitialMessageIndex]);
 
   const normalizeInitialMessages = useCallback(
     () => initialMessages.map((message) => message.trim()).filter(Boolean),
@@ -285,7 +312,10 @@ export function BotForm({
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 p-4 lg:p-6">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 overflow-hidden p-4 lg:p-6"
+    >
       {/* Header Actions */}
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -303,7 +333,7 @@ export function BotForm({
           onClick={() => document.getElementById("import-card")?.click()}
         >
           <Upload className="mr-2 h-4 w-4" />
-          Import Card V2
+          <span className="truncate">Import Card V2</span>
         </Button>
         <Button
           type="button"
@@ -314,9 +344,79 @@ export function BotForm({
           disabled={!name.trim()}
         >
           <Download className="mr-2 h-4 w-4" />
-          Export Card V2
+          <span className="truncate">Export Card V2</span>
         </Button>
       </div>
+
+      {/* Markdown Help */}
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/50 cursor-pointer"
+          >
+            <span className="flex items-center gap-2 font-medium">
+              <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
+              You can use Markdown in Name, Description, and Initial Messages
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-2 rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3 text-sm">
+            <div>
+              <p className="font-medium mb-1">What you can use:</p>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <Bold className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>
+                    <code className="bg-muted px-1 rounded">**bold**</code> →{" "}
+                    <strong>bold</strong>
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Italic className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>
+                    <code className="bg-muted px-1 rounded">*italic*</code> →{" "}
+                    <em>italic</em>
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <LinkIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>
+                    <code className="bg-muted px-1 rounded">
+                      [link text](https://url.com)
+                    </code>{" "}
+                    → clickable links
+                  </span>
+                </li>
+                <li>
+                  <code className="bg-muted px-1 rounded">- item</code> or{" "}
+                  <code className="bg-muted px-1 rounded">1. item</code> → lists
+                </li>
+                <li>Line breaks work normally — just press Enter</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium mb-1">Current limitations:</p>
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>
+                  Headings (
+                  <code className="bg-muted px-1 rounded"># Heading</code>) are
+                  not rendered in bot names, so keep that field as plain text
+                </li>
+                <li>Images and tables are not supported</li>
+                <li>Code blocks render as plain text</li>
+                <li>
+                  Markdown only applies where JanitorForge renders it, such as
+                  previews and public pages; Janitor AI itself may display it
+                  differently
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Basic Info */}
       <Card>
@@ -326,7 +426,7 @@ export function BotForm({
             Core details about your bot character
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="overflow-hidden space-y-4">
           {/* Name */}
           <div className="space-y-2">
             <Label htmlFor="name">Name *</Label>
@@ -386,9 +486,12 @@ export function BotForm({
 
           {/* Image URL */}
           <div className="space-y-2">
-            <Label htmlFor="image-url">
-              Image URL
-              <span className="ml-1 text-xs text-muted-foreground font-normal">
+            <Label
+              htmlFor="image-url"
+              className="flex flex-wrap items-center gap-1"
+            >
+              <span>Image URL</span>
+              <span className="text-xs text-muted-foreground font-normal">
                 (optional)
               </span>
             </Label>
@@ -421,6 +524,7 @@ export function BotForm({
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleTagKeyDown}
                 placeholder="Add a tag..."
+                className="min-w-0"
               />
               <Button
                 type="button"
@@ -459,7 +563,7 @@ export function BotForm({
             and {"{{user}}"} variables.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="overflow-hidden space-y-6">
           {/* Personality */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -480,7 +584,7 @@ export function BotForm({
 
           {/* Initial Messages */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Label>Initial Messages</Label>
               <TokenCounter
                 text={initialMessages}
@@ -488,77 +592,136 @@ export function BotForm({
               />
             </div>
             <div className="space-y-3 rounded-lg border p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex flex-1 flex-wrap gap-2">
-                  {initialMessages.map((_, index) => {
-                    const isActive = index === selectedInitialMessageIndex;
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap gap-2">
+                    {initialMessages.map((_, index) => {
+                      const isActive = index === selectedInitialMessageIndex;
 
-                    return (
-                      <Button
-                        key={index}
-                        type="button"
-                        variant={isActive ? "secondary" : "outline"}
-                        size="sm"
-                        className="h-8 cursor-pointer px-3"
-                        onClick={() => setSelectedInitialMessageIndex(index)}
-                      >
-                        Message {index + 1}
-                      </Button>
-                    );
-                  })}
+                      return (
+                        <Button
+                          key={index}
+                          type="button"
+                          variant={isActive ? "secondary" : "outline"}
+                          size="sm"
+                          className="h-8 cursor-pointer px-3"
+                          onClick={() => setSelectedInitialMessageIndex(index)}
+                        >
+                          Message {index + 1}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Janitor AI supports up to {MAX_INITIAL_MESSAGES} initial
+                    messages total.
+                  </p>
                 </div>
                 <Button
                   type="button"
                   variant="outline"
-                  className="cursor-pointer"
+                  className="w-full cursor-pointer sm:w-auto"
                   onClick={addInitialMessage}
                   disabled={initialMessages.length >= MAX_INITIAL_MESSAGES}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add
                 </Button>
-                <p className="w-full text-xs text-muted-foreground">
-                  Janitor AI supports up to {MAX_INITIAL_MESSAGES} initial
-                  messages total.
-                </p>
               </div>
 
-              <div className="space-y-2 rounded-md bg-muted/30 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <Label
-                    htmlFor={`initial-message-${selectedInitialMessageIndex}`}
-                  >
-                    Message {selectedInitialMessageIndex + 1} of{" "}
-                    {initialMessages.length}
-                  </Label>
-                  {initialMessages.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-destructive cursor-pointer"
-                      onClick={() =>
-                        removeInitialMessage(selectedInitialMessageIndex)
-                      }
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3 sm:p-4">
+                <div className="flex flex-col gap-3 border-b border-border/60 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <Label
+                      className="block text-sm font-medium"
+                      htmlFor={`initial-message-${selectedInitialMessageIndex}`}
                     >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Remove
-                    </Button>
+                      Message {selectedInitialMessageIndex + 1} of{" "}
+                      {initialMessages.length}
+                    </Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Markdown is rendered in this message.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="inline-flex w-full rounded-md border bg-background p-1 sm:w-auto">
+                      <Button
+                        type="button"
+                        variant={
+                          initialMessageMode === "edit" ? "secondary" : "ghost"
+                        }
+                        size="sm"
+                        className="h-8 flex-1 gap-2 px-3 cursor-pointer sm:flex-none"
+                        onClick={() => setInitialMessageMode("edit")}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={
+                          initialMessageMode === "preview"
+                            ? "secondary"
+                            : "ghost"
+                        }
+                        size="sm"
+                        className="h-8 flex-1 gap-2 px-3 cursor-pointer sm:flex-none"
+                        onClick={() => setInitialMessageMode("preview")}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Preview
+                      </Button>
+                    </div>
+                    {initialMessages.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-full px-2 text-destructive cursor-pointer sm:w-auto"
+                        onClick={() =>
+                          removeInitialMessage(selectedInitialMessageIndex)
+                        }
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-3">
+                  {initialMessageMode === "edit" ? (
+                    <Textarea
+                      id={`initial-message-${selectedInitialMessageIndex}`}
+                      value={initialMessages[selectedInitialMessageIndex] || ""}
+                      onChange={(e) =>
+                        updateInitialMessage(
+                          selectedInitialMessageIndex,
+                          e.target.value,
+                        )
+                      }
+                      placeholder="The opening message {{char}} sends to {{user}}..."
+                      rows={7}
+                      className="min-h-36 font-mono text-sm max-h-60 overflow-auto resize-y"
+                    />
+                  ) : (
+                    <div className="min-h-36 max-h-60 overflow-auto rounded-md border border-border/60 bg-background p-3">
+                      {initialMessages[selectedInitialMessageIndex]?.trim() ? (
+                        <MarkdownRenderer
+                          content={
+                            initialMessages[selectedInitialMessageIndex] || ""
+                          }
+                          className="text-sm"
+                        />
+                      ) : (
+                        <p className="text-sm italic text-muted-foreground">
+                          No message content yet. Switch to Edit to add
+                          markdown.
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
-                <Textarea
-                  id={`initial-message-${selectedInitialMessageIndex}`}
-                  value={initialMessages[selectedInitialMessageIndex] || ""}
-                  onChange={(e) =>
-                    updateInitialMessage(
-                      selectedInitialMessageIndex,
-                      e.target.value,
-                    )
-                  }
-                  placeholder="The opening message {{char}} sends to {{user}}..."
-                  rows={6}
-                  className="font-mono text-sm max-h-56 overflow-auto resize-y"
-                />
               </div>
             </div>
           </div>

@@ -332,7 +332,7 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
         setOtherValue(current);
       }
       return (
-        <div>
+        <div className="min-w-0">
           <RadioGroup
             value={
               otherActive
@@ -353,20 +353,23 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
             }}
           >
             {field.options?.map((option: string) => (
-              <div key={option} className="flex items-center space-x-2">
+              <div key={option} className="flex items-start gap-2">
                 <RadioGroupItem value={option} id={`${field.id}-${option}`} />
                 <Label
                   htmlFor={`${field.id}-${option}`}
-                  className="cursor-pointer"
+                  className="cursor-pointer wrap-break-word"
                 >
                   {option}
                 </Label>
               </div>
             ))}
             {field.allowOther && (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-start gap-2">
                 <RadioGroupItem value="__other__" id={`${field.id}-other`} />
-                <Label htmlFor={`${field.id}-other`} className="cursor-pointer">
+                <Label
+                  htmlFor={`${field.id}-other`}
+                  className="cursor-pointer wrap-break-word"
+                >
                   Other
                 </Label>
               </div>
@@ -391,7 +394,7 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
       return (
         <div className="space-y-2">
           {field.options?.map((option: string) => (
-            <div key={option} className="flex items-center space-x-2">
+            <div key={option} className="flex items-start gap-2">
               <Checkbox
                 id={`${field.id}-${option}`}
                 checked={Array.isArray(value) && value.includes(option)}
@@ -406,7 +409,7 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
               />
               <Label
                 htmlFor={`${field.id}-${option}`}
-                className="cursor-pointer"
+                className="cursor-pointer wrap-break-word"
               >
                 {option}
               </Label>
@@ -419,17 +422,23 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
         <RadioGroup
           value={value as string}
           onValueChange={onChange}
-          className="flex gap-4"
+          className="flex flex-wrap gap-4"
         >
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <RadioGroupItem value="SFW" id={`${field.id}-sfw`} />
-            <Label htmlFor={`${field.id}-sfw`} className="cursor-pointer">
+            <Label
+              htmlFor={`${field.id}-sfw`}
+              className="cursor-pointer wrap-break-word"
+            >
               <Badge variant="secondary">SFW</Badge>
             </Label>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <RadioGroupItem value="NSFW" id={`${field.id}-nsfw`} />
-            <Label htmlFor={`${field.id}-nsfw`} className="cursor-pointer">
+            <Label
+              htmlFor={`${field.id}-nsfw`}
+              className="cursor-pointer wrap-break-word"
+            >
               <Badge variant="destructive">NSFW</Badge>
             </Label>
           </div>
@@ -438,16 +447,22 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
     case "tags":
       return (
         <div className="space-y-2">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               placeholder={field.placeholder}
+              className="min-w-0 flex-1"
               onKeyDown={(e) =>
                 e.key === "Enter" && (e.preventDefault(), addTag())
               }
             />
-            <Button type="button" variant="secondary" onClick={addTag}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={addTag}
+              className="w-full cursor-pointer sm:w-auto"
+            >
               Add
             </Button>
           </div>
@@ -457,7 +472,7 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
                 <Badge
                   key={tag}
                   variant="outline"
-                  className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                  className="max-w-full cursor-pointer whitespace-normal wrap-break-word hover:bg-destructive hover:text-destructive-foreground"
                   onClick={() => removeTag(tag)}
                 >
                   {tag} ×
@@ -504,7 +519,7 @@ function SectionRenderer({
             />
             {section.description && (
               <div
-                className="text-xs text-muted-foreground mt-1 rendered-markdown"
+                className="mt-1 text-xs text-muted-foreground rendered-markdown wrap-break-word"
                 dangerouslySetInnerHTML={{
                   __html: renderMarkdown(section.description),
                 }}
@@ -516,7 +531,7 @@ function SectionRenderer({
               <div key={field.id} className={appearance.density.fieldGroup}>
                 <Label className="flex items-center gap-1 flex-nowrap">
                   <span
-                    className="inline whitespace-nowrap rendered-markdown"
+                    className="inline min-w-0 whitespace-normal wrap-break-word rendered-markdown"
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdownInline(field.label),
                     }}
@@ -524,7 +539,7 @@ function SectionRenderer({
                 </Label>
                 {field.description && (
                   <div
-                    className="text-xs text-muted-foreground text-left rendered-markdown"
+                    className="text-left text-xs text-muted-foreground rendered-markdown wrap-break-word"
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(field.description),
                     }}
@@ -561,8 +576,9 @@ function SectionRenderer({
   return (
     <Card className={appearance.sectionCard}>
       <CardHeader>
-        <CardTitle className={alignClass}>
+        <CardTitle className={`${alignClass} wrap-break-word`}>
           <span
+            className="block wrap-break-word"
             dangerouslySetInnerHTML={{
               __html:
                 renderMarkdownInline(section.title) +
@@ -574,7 +590,7 @@ function SectionRenderer({
         </CardTitle>
         {section.description && (
           <div
-            className="text-xs text-muted-foreground text-left"
+            className="text-left text-xs text-muted-foreground wrap-break-word"
             dangerouslySetInnerHTML={{
               __html: renderMarkdown(section.description),
             }}
@@ -586,7 +602,7 @@ function SectionRenderer({
           <div key={field.id} className={appearance.density.fieldGroup}>
             <Label className="flex items-center gap-1 flex-nowrap">
               <span
-                className="inline whitespace-nowrap"
+                className="inline min-w-0 whitespace-normal wrap-break-word"
                 dangerouslySetInnerHTML={{
                   __html: renderMarkdownInline(field.label),
                 }}
@@ -594,7 +610,7 @@ function SectionRenderer({
             </Label>
             {field.description && (
               <div
-                className="text-xs text-muted-foreground text-left"
+                className="text-left text-xs text-muted-foreground wrap-break-word"
                 dangerouslySetInnerHTML={{
                   __html: renderMarkdown(field.description),
                 }}

@@ -427,7 +427,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] overflow-hidden p-0 sm:max-w-3xl">
-          <div className="flex h-full max-h-[85vh] flex-col sm:flex-row">
+          <div className="flex h-full max-h-[85vh] flex-col overflow-hidden sm:flex-row">
             {/* ── Sidebar nav ── */}
             <nav className="shrink-0 border-b border-border/60 bg-muted/30 p-3 sm:border-b-0 sm:border-r sm:w-48 sm:p-4">
               <DialogHeader className="mb-3 sm:mb-4">
@@ -461,7 +461,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             </nav>
 
             {/* ── Content ── */}
-            <div className="flex-1 overflow-y-auto p-5 sm:p-6">
+            <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-6">
               {/* Appearance */}
               {activeSection === "appearance" && (
                 <div className="space-y-6">
@@ -553,7 +553,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         key={item.key}
                         className="flex items-center justify-between gap-4 rounded-xl border border-border/60 p-4"
                       >
-                        <div className="space-y-0.5">
+                        <div className="min-w-0 space-y-0.5">
                           <p className="text-sm font-medium">{item.label}</p>
                           <p className="text-xs text-muted-foreground">
                             {item.description}
@@ -585,7 +585,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   {/* Full export */}
                   <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="space-y-1">
+                      <div className="min-w-0 space-y-1">
                         <p className="text-sm font-medium">Export everything</p>
                         <p className="text-xs text-muted-foreground">
                           Download all your bots, forms, submissions, and atlas
@@ -652,9 +652,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           key={item.table}
                           className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-4 py-3"
                         >
-                          <div className="flex items-center gap-3">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{item.label}</span>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <span className="text-sm truncate">
+                              {item.label}
+                            </span>
                           </div>
                           <Button
                             variant="outline"
@@ -701,12 +703,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                           {group.items.map((item) => (
                             <div
                               key={item.description}
-                              className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-muted/30"
+                              className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/30"
                             >
-                              <span className="text-sm">
+                              <span className="text-sm min-w-0">
                                 {item.description}
                               </span>
-                              <div className="flex items-center gap-1">
+                              <div className="flex shrink-0 items-center gap-1">
                                 {item.keys.map((key, i) => (
                                   <span key={i}>
                                     <kbd className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-border/60 bg-muted/50 px-1.5 text-[11px] font-medium text-muted-foreground">
@@ -747,14 +749,17 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Account</Label>
                     <div className="rounded-xl border border-border/60 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 space-y-0.5">
                           <p className="text-sm font-medium">Username</p>
                           <p className="text-xs text-muted-foreground">
                             This is your login identifier.
                           </p>
                         </div>
-                        <Badge variant="secondary">
+                        <Badge
+                          variant="secondary"
+                          className="shrink-0 truncate max-w-40"
+                        >
                           {username || "Loading..."}
                         </Badge>
                       </div>
@@ -764,7 +769,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Change PIN</Label>
                     <div className="rounded-xl border border-border/60 p-4 space-y-4">
-                      <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                         <div className="space-y-2">
                           <Label
                             htmlFor="security-username"
@@ -827,7 +832,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground min-w-0">
                           Use your username and current PIN to authorize the
                           change.
                         </p>
@@ -849,9 +854,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     <Label className="text-sm font-medium">Sessions</Label>
                     <div className="rounded-xl border border-border/60 p-4">
                       <div className="flex items-center justify-between gap-4">
-                        <div className="space-y-0.5">
+                        <div className="min-w-0 space-y-0.5">
                           <p className="text-sm font-medium">Current session</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground break-all">
                             {sessionInfo
                               ? `Signed in as @${sessionInfo.username} · ${new Date(sessionInfo.loggedInAt).toLocaleString()}`
                               : "No active session found"}
@@ -864,6 +869,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         <Badge
                           variant="default"
                           className={cn(
+                            "shrink-0",
                             sessionInfo
                               ? "bg-success/10 text-success"
                               : "bg-muted text-muted-foreground",
@@ -882,7 +888,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     </Label>
                     <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="space-y-1">
+                        <div className="min-w-0 space-y-1">
                           <p className="text-sm font-medium text-destructive">
                             Delete account
                           </p>

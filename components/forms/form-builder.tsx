@@ -1,6 +1,6 @@
 // ============================================================================
 // JanitorForge - Form Builder Component
-// Visual form designer for creating custom request forms
+// Visual form designer for creating custom forms
 // ============================================================================
 
 "use client";
@@ -36,6 +36,8 @@ import {
   ArrowUp,
   ArrowDown,
   Sparkles,
+  Info,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +65,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { v4 as uuidv4 } from "uuid";
@@ -409,25 +416,28 @@ function FieldEditor({
   const needsOptions = ["select", "radio", "checkbox"].includes(field.type);
 
   return (
-    <Card className="border-border/50">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
+    <Card className="border-border/50 overflow-hidden">
+      <CardContent className="p-4 overflow-hidden">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           {/* Drag handle placeholder */}
-          <div className="mt-2 cursor-grab text-muted-foreground">
+          <div className="cursor-grab self-start text-muted-foreground sm:mt-2">
             <GripVertical className="h-5 w-5" />
           </div>
 
-          <div className="flex-1 space-y-3">
+          <div className="min-w-0 flex-1 space-y-3">
             {/* Field header */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <div className="flex h-8 w-8 items-center justify-center rounded bg-muted">
                 <Icon className="h-4 w-4" />
               </div>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="max-w-full truncate text-xs">
                 {fieldConfig?.label || field.type}
               </Badge>
               {field.required && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge
+                  variant="secondary"
+                  className="max-w-full truncate text-xs"
+                >
                   Required
                 </Badge>
               )}
@@ -477,11 +487,12 @@ function FieldEditor({
             {needsOptions && (
               <div className="space-y-2">
                 <Label className="text-xs">Options</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
                     value={optionInput}
                     onChange={(e) => setOptionInput(e.target.value)}
                     placeholder="Add an option..."
+                    className="min-w-0 flex-1"
                     onKeyDown={(e) =>
                       e.key === "Enter" && (e.preventDefault(), addOption())
                     }
@@ -491,7 +502,7 @@ function FieldEditor({
                     variant="secondary"
                     size="sm"
                     onClick={addOption}
-                    className="cursor-pointer"
+                    className="cursor-pointer sm:self-auto self-end"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -499,13 +510,16 @@ function FieldEditor({
                 {field.options && field.options.length > 0 && (
                   <div className="space-y-2">
                     {field.options.map((option, index) => (
-                      <div key={index} className="flex items-center gap-2">
+                      <div
+                        key={index}
+                        className="flex flex-col gap-2 sm:flex-row sm:items-center"
+                      >
                         <Input
                           value={option}
                           onChange={(e) => updateOption(index, e.target.value)}
-                          className="flex-1"
+                          className="min-w-0 flex-1"
                         />
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1 self-end sm:self-auto">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -579,8 +593,8 @@ function FieldEditor({
 
             {/* Conditional display */}
             {allFields.length > 1 && (
-              <div className="space-y-2 rounded-lg border border-dashed p-3">
-                <div className="flex items-center justify-between">
+              <div className="space-y-2 rounded-lg border border-dashed p-3 overflow-hidden">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <Label className="text-xs font-medium">
                     Conditional Display
                   </Label>
@@ -612,7 +626,7 @@ function FieldEditor({
                     {field.conditions.map((cond, idx) => (
                       <div
                         key={idx}
-                        className="flex flex-wrap items-center gap-1.5 text-xs"
+                        className="flex flex-col gap-2 rounded-md border bg-background/50 p-2 text-xs sm:flex-row sm:flex-wrap sm:items-center"
                       >
                         <span className="text-muted-foreground">Show when</span>
                         <Select
@@ -623,7 +637,7 @@ function FieldEditor({
                             onUpdate({ ...field, conditions: newConds });
                           }}
                         >
-                          <SelectTrigger className="h-7 w-36 text-xs">
+                          <SelectTrigger className="h-7 w-full text-xs sm:w-36">
                             <SelectValue placeholder="Select field..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -647,7 +661,7 @@ function FieldEditor({
                             onUpdate({ ...field, conditions: newConds });
                           }}
                         >
-                          <SelectTrigger className="h-7 w-32 text-xs">
+                          <SelectTrigger className="h-7 w-full text-xs sm:w-32">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -672,14 +686,14 @@ function FieldEditor({
                               onUpdate({ ...field, conditions: newConds });
                             }}
                             placeholder="value"
-                            className="h-7 w-28 text-xs"
+                            className="h-7 w-full text-xs sm:w-28"
                           />
                         )}
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-destructive cursor-pointer"
+                          className="h-6 w-6 self-end text-destructive cursor-pointer sm:self-auto"
                           onClick={() => {
                             const newConds = field.conditions!.filter(
                               (_, i) => i !== idx,
@@ -796,9 +810,9 @@ function SectionEditor({
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 space-y-2">
+      <CardHeader className="pb-3 overflow-hidden">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1 space-y-2">
             <div>
               <Input
                 id={`section-title-${section.id}`}
@@ -807,7 +821,7 @@ function SectionEditor({
                   onUpdate({ ...section, title: e.target.value })
                 }
                 placeholder="Section Title"
-                className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
+                className="w-full min-w-0 text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
               />
             </div>
             <div>
@@ -822,7 +836,7 @@ function SectionEditor({
               />
             </div>
             {/* Section customization */}
-            <div className="flex items-center gap-3 mt-2">
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Label className="text-xs">Header alignment</Label>
               <Select
                 value={section.custom?.headerAlignment || "left"}
@@ -836,7 +850,7 @@ function SectionEditor({
                   })
                 }
               >
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -866,14 +880,14 @@ function SectionEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-destructive cursor-pointer"
+            className="self-start text-muted-foreground hover:text-destructive cursor-pointer"
             onClick={onDelete}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 overflow-hidden">
         {/* Fields */}
         {section.fields.map((field) => (
           <FieldEditor
@@ -1066,7 +1080,7 @@ export function FormBuilder({
   const appearanceClasses = getFormAppearanceClasses(appearance);
 
   return (
-    <div className="space-y-6 p-4 lg:p-6">
+    <div className="space-y-6 overflow-x-hidden p-4 lg:p-6">
       <Dialog
         open={linkModalOpen}
         onOpenChange={(open) => setLinkModalOpen(open)}
@@ -1099,6 +1113,72 @@ export function FormBuilder({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50 cursor-pointer"
+          >
+            <span className="flex items-center gap-2 font-medium">
+              <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
+              Markdown support in forms
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-2 space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4 text-sm">
+            <p className="text-muted-foreground">
+              Markdown is rendered in form title, form description, section
+              titles, section descriptions, field labels, and field
+              descriptions.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md border bg-background/70 p-3">
+                <p className="mb-1 flex items-center gap-2 font-medium">
+                  <Bold className="h-4 w-4 text-muted-foreground" />
+                  Bold
+                </p>
+                <code className="block rounded bg-muted px-2 py-1 text-xs">
+                  **important**
+                </code>
+              </div>
+              <div className="rounded-md border bg-background/70 p-3">
+                <p className="mb-1 flex items-center gap-2 font-medium">
+                  <Italic className="h-4 w-4 text-muted-foreground" />
+                  Italic
+                </p>
+                <code className="block rounded bg-muted px-2 py-1 text-xs">
+                  *note*
+                </code>
+              </div>
+              <div className="rounded-md border bg-background/70 p-3">
+                <p className="mb-1 flex items-center gap-2 font-medium">
+                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                  Links
+                </p>
+                <code className="block rounded bg-muted px-2 py-1 text-xs">
+                  [text](https://example.com)
+                </code>
+              </div>
+            </div>
+            <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+              <li>
+                Use plain text for anything that should stay compact inside
+                badges or button labels.
+              </li>
+              <li>
+                Images, tables, and code blocks are not supported in these
+                fields.
+              </li>
+              <li>
+                Long titles or tags will wrap instead of overflowing off the
+                card.
+              </li>
+            </ul>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
       {/* Form Details */}
       <Card className={appearanceClasses.preset.shell}>
         <CardHeader>
@@ -1231,13 +1311,13 @@ export function FormBuilder({
 
       {/* Sections */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-semibold">Form Sections</h3>
           <Button
             variant="outline"
             size="sm"
             onClick={addSection}
-            className="cursor-pointer"
+            className="cursor-pointer w-full sm:w-auto"
           >
             <Plus className="mr-2 h-4 w-4" />
             Add Section
@@ -1296,16 +1376,16 @@ export function ShareableLinkDisplay({
 
   return (
     <Card className={cn(!isActive && "opacity-60")}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 min-w-0">
+      <CardContent className="space-y-3 p-4 overflow-hidden">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground mb-1">Shareable Link</p>
-            <code className="text-sm truncate block bg-muted px-2 py-1 rounded">
+            <code className="block rounded bg-muted px-2 py-1 text-sm break-all whitespace-normal">
               {fullUrl}
             </code>
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
