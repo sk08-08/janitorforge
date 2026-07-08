@@ -57,6 +57,7 @@ export interface Database {
           tags: string[];
           rating: "SFW" | "NSFW";
           image_url: string | null;
+          hide_sensitive_fields: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -73,6 +74,7 @@ export interface Database {
           tags?: string[];
           rating?: "SFW" | "NSFW";
           image_url?: string | null;
+          hide_sensitive_fields?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -89,6 +91,7 @@ export interface Database {
           tags?: string[];
           rating?: "SFW" | "NSFW";
           image_url?: string | null;
+          hide_sensitive_fields?: boolean;
           created_at?: string;
           updated_at?: string;
         };

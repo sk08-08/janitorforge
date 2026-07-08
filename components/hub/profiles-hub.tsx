@@ -71,6 +71,16 @@ const discoveryTracks = [
   },
 ];
 
+type ProfilesCacheEntry = {
+  expiresAt: number;
+  profiles: ProfileCard[];
+  totalCount: number;
+  hasMore: boolean;
+};
+
+const PROFILES_CACHE_TTL_MS = 15_000;
+const profilesHubCache = new Map<string, ProfilesCacheEntry>();
+
 export function ProfilesHub() {
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
@@ -118,6 +128,26 @@ export function ProfilesHub() {
     async (replace = false) => {
       const requestId = ++requestIdRef.current;
       const offset = replace ? 0 : profilesLengthRef.current;
+      const cacheKey = [
+        currentUserId || "anonymous",
+        search.trim().toLowerCase(),
+        sortMode,
+        filterMode,
+        String(offset),
+        String(PAGE_SIZE),
+      ].join("|");
+
+      const cached = profilesHubCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        setTotalCount(cached.totalCount);
+        setProfiles((prev) =>
+          replace ? cached.profiles : [...prev, ...cached.profiles],
+        );
+        setHasMore(cached.hasMore);
+        setLoadingInitial(false);
+        setLoadingMore(false);
+        return;
+      }
 
       if (replace) {
         setLoadingInitial(true);
@@ -186,6 +216,13 @@ export function ProfilesHub() {
         const nextProfiles = ((data || []) as ProfileCard[]).filter(
           (profile) => !!profile.username,
         );
+
+        profilesHubCache.set(cacheKey, {
+          expiresAt: Date.now() + PROFILES_CACHE_TTL_MS,
+          profiles: nextProfiles,
+          totalCount: count || 0,
+          hasMore: nextProfiles.length === PAGE_SIZE,
+        });
 
         setTotalCount(count || 0);
         setProfiles((prev) =>

@@ -14,6 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,37 +103,69 @@ function ColorPickerField({
   return (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
-      <div className="flex items-center gap-2">
-        <div className="relative">
-          <input
-            type="color"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-9 w-9 rounded-full cursor-pointer border-2 border-border appearance-none [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0"
-          />
-        </div>
-        <Input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex-1 font-mono text-xs h-9"
-          maxLength={7}
-        />
-      </div>
-      <div className="flex gap-1 mt-1">
-        {accentPresets.slice(0, 6).map((preset) => (
-          <button
-            key={preset.value}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
             type="button"
-            className={cn(
-              "h-5 w-5 rounded-full border cursor-pointer transition-transform hover:scale-110",
-              value === preset.value && "ring-2 ring-primary ring-offset-1",
-            )}
-            style={{ backgroundColor: preset.value }}
-            onClick={() => onChange(preset.value)}
-            title={preset.label}
-          />
-        ))}
-      </div>
+            variant="outline"
+            className="h-10 w-full justify-start gap-3 px-3 cursor-pointer"
+          >
+            <span
+              className="h-5 w-5 rounded-full border shadow-sm"
+              style={{ backgroundColor: value }}
+            />
+            <span className="flex flex-1 flex-col items-start text-left">
+              <span className="text-sm font-medium">{label}</span>
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {value.toUpperCase()}
+              </span>
+            </span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-4" align="start">
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">Suggested colors</p>
+              <p className="text-xs text-muted-foreground">
+                Pick a clean base, then fine-tune with a hex value.
+              </p>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {accentPresets.map((preset) => (
+                <button
+                  key={preset.value}
+                  type="button"
+                  data-state={value === preset.value ? "on" : "off"}
+                  className={cn(
+                    "group flex flex-col items-center gap-1 data-[state=off]:cursor-pointer data-[state=on]:cursor-default rounded-xl border p-2 transition-all hover:-translate-y-0.5 hover:border-primary/40",
+                    value.toLowerCase() === preset.value &&
+                      "border-primary bg-primary/5",
+                  )}
+                  onClick={() => onChange(preset.value)}
+                >
+                  <span
+                    className="h-7 w-7 rounded-full border shadow-sm transition-transform group-hover:scale-105"
+                    style={{ backgroundColor: preset.value }}
+                  />
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {preset.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Custom hex</Label>
+              <Input
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="h-9 font-mono text-xs uppercase"
+                maxLength={7}
+                spellCheck={false}
+              />
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
@@ -231,6 +268,10 @@ export function ProfileEditor({
   const [showStats, setShowStats] = useState(true);
   const [showBadges, setShowBadges] = useState(true);
   const [showFeatured, setShowFeatured] = useState(true);
+  const [showBots, setShowBots] = useState(true);
+  const [showCreatorPages, setShowCreatorPages] = useState(true);
+  const [showWorlds, setShowWorlds] = useState(true);
+  const [showForms, setShowForms] = useState(true);
   const [hideCompletenessNudge, setHideCompletenessNudge] = useState(false);
 
   // Privacy
@@ -277,6 +318,15 @@ export function ProfileEditor({
         setShowFeatured(
           theme.showFeatured === true || theme.showFeatured === "true",
         );
+        setShowBots(theme.showBots !== false && theme.showBots !== "false");
+        setShowCreatorPages(
+          theme.showCreatorPages !== false &&
+            theme.showCreatorPages !== "false",
+        );
+        setShowWorlds(
+          theme.showWorlds !== false && theme.showWorlds !== "false",
+        );
+        setShowForms(theme.showForms !== false && theme.showForms !== "false");
         setHideCompletenessNudge(
           theme.hideCompletenessNudge === true ||
             theme.hideCompletenessNudge === "true",
@@ -321,6 +371,10 @@ export function ProfileEditor({
           showStats,
           showBadges,
           showFeatured,
+          showBots,
+          showCreatorPages,
+          showWorlds,
+          showForms,
           hideCompletenessNudge,
         },
       });
@@ -766,6 +820,26 @@ export function ProfileEditor({
                       label: "Show Featured Bots",
                       value: showFeatured,
                       onChange: setShowFeatured,
+                    },
+                    {
+                      label: "Show Bots",
+                      value: showBots,
+                      onChange: setShowBots,
+                    },
+                    {
+                      label: "Show Creator Pages",
+                      value: showCreatorPages,
+                      onChange: setShowCreatorPages,
+                    },
+                    {
+                      label: "Show Worlds",
+                      value: showWorlds,
+                      onChange: setShowWorlds,
+                    },
+                    {
+                      label: "Show Forms",
+                      value: showForms,
+                      onChange: setShowForms,
                     },
                     {
                       label: "Hide Completeness Nudge",

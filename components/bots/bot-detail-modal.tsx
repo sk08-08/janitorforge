@@ -22,6 +22,7 @@ interface BotDetailData {
   personality?: string;
   firstMessage?: string;
   scenario?: string;
+  exampleDialogues?: string;
   tags?: string[];
   rating?: string;
   imageUrl?: string;
@@ -132,6 +133,17 @@ export function BotDetailModal({
               </p>
               <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
                 {bot.scenario}
+              </p>
+            </div>
+          )}
+
+          {!hideSensitive && bot.exampleDialogues && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
+                Example Dialogues
+              </p>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
+                {bot.exampleDialogues}
               </p>
             </div>
           )}

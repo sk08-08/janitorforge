@@ -8,6 +8,7 @@
 import { useState } from "react";
 import {
   Award,
+  Badge,
   BadgeCheck,
   Crown,
   Gem,
@@ -234,14 +235,10 @@ export function ProfileBadgesSection({
 
   return (
     <div className={className}>
-      <p
-        className={
-          titleClassName ||
-          "text-xs font-medium text-muted-foreground uppercase tracking-wider"
-        }
-      >
-        Badges
-      </p>
+      <div className="flex items-center gap-3 mb-4">
+        <Award className="h-5 w-5" style={{ color: themeColor }} />
+        <h2 className="text-lg font-semibold">Badges</h2>
+      </div>
 
       {badges.length > 0 ? (
         <div className={listClassName || "flex flex-wrap gap-2 mt-2"}>
@@ -263,7 +260,12 @@ export function ProfileBadgesSection({
         >
           <EmptyContent>
             <EmptyMedia variant="icon">
-              <Award className="h-5 w-5" />
+              <Award
+                className="h-5 w-5"
+                style={{
+                  color: themeColor,
+                }}
+              />
             </EmptyMedia>
             <EmptyTitle>{emptyTitle}</EmptyTitle>
             <EmptyDescription>{emptyDescription}</EmptyDescription>

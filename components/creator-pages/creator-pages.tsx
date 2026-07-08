@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
+import { cachedBrowserRequest } from "@/lib/browser-request-cache";
 import { checkSlugAvailability } from "@/app/actions/slug-check";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -198,34 +199,57 @@ export function CreatorPages() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const supabase = createClient();
-      const access = await getCurrentUserAccess(supabase);
-      if (!access.user) {
-        setLoading(false);
+      const result = await cachedBrowserRequest(
+        "creator-pages:load",
+        15_000,
+        async () => {
+          const supabase = createClient();
+          const access = await getCurrentUserAccess(supabase);
+
+          if (!access.user) {
+            return {
+              pages: [] as CreatorPage[],
+              sections: [] as PageSection[],
+              userId: null as string | null,
+            };
+          }
+
+          const [
+            { data: pageData, error: pageError },
+            { data: sectionData, error: sectionError },
+          ] = await Promise.all([
+            supabase
+              .from("creator_pages")
+              .select("*")
+              .eq("user_id", access.user.id)
+              .order("updated_at", { ascending: false }),
+            supabase
+              .from("creator_page_sections")
+              .select("*")
+              .order("position", { ascending: true }),
+          ]);
+
+          if (pageError) throw pageError;
+          if (sectionError) throw sectionError;
+
+          return {
+            pages: (pageData || []) as CreatorPage[],
+            sections: (sectionData || []) as PageSection[],
+            userId: access.user.id,
+          };
+        },
+      );
+
+      if (!result.userId) {
+        setCurrentUserId(null);
+        setPages([]);
+        setSections([]);
         return;
       }
-      setCurrentUserId(access.user.id);
 
-      const [
-        { data: pageData, error: pageError },
-        { data: sectionData, error: sectionError },
-      ] = await Promise.all([
-        supabase
-          .from("creator_pages")
-          .select("*")
-          .eq("user_id", access.user.id)
-          .order("updated_at", { ascending: false }),
-        supabase
-          .from("creator_page_sections")
-          .select("*")
-          .order("position", { ascending: true }),
-      ]);
-
-      if (pageError) throw pageError;
-      if (sectionError) throw sectionError;
-
-      setPages((pageData || []) as CreatorPage[]);
-      setSections((sectionData || []) as PageSection[]);
+      setCurrentUserId(result.userId);
+      setPages(result.pages);
+      setSections(result.sections);
     } catch (error: any) {
       console.error("Failed to load creator pages:", error);
       // Tables might not exist yet - show empty state

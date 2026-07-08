@@ -46,6 +46,7 @@ export async function createBotAction(data: BotFormData) {
     tags: data.tags,
     rating: data.rating,
     image_url: data.imageUrl || null,
+    hide_sensitive_fields: data.hideSensitiveFields === true,
   };
 
   const { data: inserted, error } = await supabase
@@ -107,6 +108,8 @@ export async function updateBotAction(id: string, data: Partial<BotFormData>) {
   if (data.tags !== undefined) payload.tags = data.tags;
   if (data.rating !== undefined) payload.rating = data.rating;
   if (data.imageUrl !== undefined) payload.image_url = data.imageUrl;
+  if (data.hideSensitiveFields !== undefined)
+    payload.hide_sensitive_fields = data.hideSensitiveFields;
 
   const { data: updated, error } = await supabase
     .from("bots")

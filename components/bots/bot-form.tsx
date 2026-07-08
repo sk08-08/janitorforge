@@ -41,6 +41,7 @@ import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { TokenCounter, TokenSummary } from "./token-counter";
 import { cn } from "@/lib/utils";
 import type { BotFormData } from "@/lib/types";
@@ -50,6 +51,7 @@ import {
   characterCardToBot,
 } from "@/lib/bot-utils";
 import { toast } from "sonner";
+import { EyeOff } from "lucide-react";
 
 // ----------------------------------------------------------------------------
 // Bot Form Props
@@ -109,6 +111,9 @@ export function BotForm({
     initialData?.rating || "SFW",
   );
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
+  const [hideSensitiveFields, setHideSensitiveFields] = useState(
+    initialData?.hideSensitiveFields || false,
+  );
   const [tagInput, setTagInput] = useState("");
 
   // Tag management
@@ -214,6 +219,7 @@ export function BotForm({
         tags,
         rating,
         imageUrl: imageUrl.trim() || undefined,
+        hideSensitiveFields,
       });
     },
     [
@@ -227,6 +233,7 @@ export function BotForm({
       tags,
       rating,
       imageUrl,
+      hideSensitiveFields,
       onSubmit,
     ],
   );
@@ -357,7 +364,7 @@ export function BotForm({
           >
             <span className="flex items-center gap-2 font-medium">
               <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-              You can use Markdown in Name, Description, and Initial Messages
+              You can use Markdown in Name, Description, and Initial Message(s)
             </span>
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
           </button>
@@ -582,13 +589,13 @@ export function BotForm({
 
           <Separator />
 
-          {/* Initial Messages */}
+          {/* Initial Message */}
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label>Initial Messages</Label>
+              <Label>Initial Message(s)</Label>
               <TokenCounter
                 text={initialMessages}
-                fieldName="Initial Messages"
+                fieldName="Initial Messages(s)"
               />
             </div>
             <div className="space-y-3 rounded-lg border p-3">
@@ -762,6 +769,36 @@ export function BotForm({
               placeholder="{{user}}: Hello!\n{{char}}: *smiles* Hello there, {{user}}!"
               rows={8}
               className="font-mono text-sm max-h-72 overflow-auto resize-y"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <EyeOff className="h-4 w-4" />
+            Profile Privacy
+          </CardTitle>
+          <CardDescription>
+            Hide prompt internals when this bot is shown in profiles and other
+            public previews.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">
+                Hide sensitive fields
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Personality, Initial Message(s), Scenario, and Example Dialogues
+                stay hidden in the detail modal.
+              </p>
+            </div>
+            <Switch
+              checked={hideSensitiveFields}
+              onCheckedChange={setHideSensitiveFields}
             />
           </div>
         </CardContent>

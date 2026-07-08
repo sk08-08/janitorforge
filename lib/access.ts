@@ -1,5 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+type CurrentUserAccess = {
+  user:
+    | Awaited<ReturnType<SupabaseClient["auth"]["getUser"]>>["data"]["user"]
+    | null;
+  isAdmin: boolean;
+  profile: UserProfile | null;
+};
+
+type CachedAccessEntry = {
+  expiresAt: number;
+  promise: Promise<CurrentUserAccess>;
+};
+
+const ACCESS_CACHE_TTL_MS = 10_000;
+const browserAccessCache = new Map<string, CachedAccessEntry>();
+
 export interface UserProfile {
   id: string;
   username: string | null;
@@ -9,7 +25,9 @@ export interface UserProfile {
   is_admin: boolean | null;
 }
 
-export async function getCurrentUserAccess(supabase: SupabaseClient) {
+async function loadCurrentUserAccess(
+  supabase: SupabaseClient,
+): Promise<CurrentUserAccess> {
   const {
     data: { user },
     error,
@@ -33,4 +51,44 @@ export async function getCurrentUserAccess(supabase: SupabaseClient) {
   const isAdmin = !!profile?.is_admin;
 
   return { user, isAdmin, profile };
+}
+
+function getAccessCacheKey(sessionToken: string | null | undefined) {
+  return sessionToken || "anonymous";
+}
+
+export async function getCurrentUserAccess(supabase: SupabaseClient) {
+  if (typeof window === "undefined") {
+    return loadCurrentUserAccess(supabase);
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  // Never cache the anonymous path. A session may be restored shortly after
+  // hydration or a focus/refresh event, and we do not want to pin a stale
+  // "no user" result in memory.
+  if (!session?.access_token) {
+    return loadCurrentUserAccess(supabase);
+  }
+
+  const cacheKey = getAccessCacheKey(session?.access_token);
+
+  const cached = browserAccessCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.promise;
+  }
+
+  const promise = loadCurrentUserAccess(supabase).catch((error) => {
+    browserAccessCache.delete(cacheKey);
+    throw error;
+  });
+
+  browserAccessCache.set(cacheKey, {
+    promise,
+    expiresAt: Date.now() + ACCESS_CACHE_TTL_MS,
+  });
+
+  return promise;
 }

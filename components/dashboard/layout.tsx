@@ -406,14 +406,14 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
       {!collapsed && (
         <button
           type="button"
-          className="flex w-full items-center justify-between px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
+          className="flex w-full items-center cursor-pointer justify-between px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => toggleSection(sectionId)}
           aria-expanded={!collapsedSections[sectionId]}
         >
           <span>{title}</span>
           <ChevronRight
             className={cn(
-              "h-3.5 w-3.5 transition-transform",
+              "h-3.5 w-3.5 transition-transform duration-300 ease-out",
               !collapsedSections[sectionId] && "rotate-90",
             )}
           />
@@ -428,13 +428,30 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
         >
           <ChevronRight
             className={cn(
-              "h-3.5 w-3.5 transition-transform",
+              "h-3.5 w-3.5 transition-transform duration-300 ease-out",
               !collapsedSections[sectionId] && "rotate-90",
             )}
           />
         </button>
       )}
-      {!collapsedSections[sectionId] && items.map(renderNavItem)}
+      <div
+        className={cn(
+          "overflow-hidden transition-[max-height,opacity] duration-300 ease-out",
+          collapsedSections[sectionId] ? "opacity-0" : "opacity-100",
+        )}
+        style={{
+          maxHeight: collapsedSections[sectionId] ? 0 : 600,
+        }}
+      >
+        <div
+          className={cn(
+            "space-y-1 pt-1 transition-opacity duration-300 ease-out",
+            collapsedSections[sectionId] && "pointer-events-none",
+          )}
+        >
+          {items.map(renderNavItem)}
+        </div>
+      </div>
     </div>
   );
 
@@ -690,7 +707,14 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
             </Sheet>
           )}
 
-          <div className="h-full pt-16 md:pt-0">{children}</div>
+          <div className="h-full pt-16 md:pt-0">
+            <div
+              key={currentView}
+              className="h-full animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-out"
+            >
+              {children}
+            </div>
+          </div>
 
           {/* Settings Dialog — mounted at root so it's accessible from anywhere */}
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />

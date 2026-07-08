@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
+import { cachedBrowserRequest } from "@/lib/browser-request-cache";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -172,122 +173,141 @@ export function AtlasHub() {
 
     (async () => {
       try {
-        const supabase = createClient();
-        const access = await getCurrentUserAccess(supabase);
-        if (!mounted) return;
+        const result = await cachedBrowserRequest(
+          "atlas-hub:load",
+          15_000,
+          async () => {
+            const supabase = createClient();
+            const access = await getCurrentUserAccess(supabase);
+            const userId = access.user?.id ?? null;
 
-        const userId = access.user?.id ?? null;
-        setCurrentUserId(userId);
+            if (!userId) {
+              return {
+                userId: null as string | null,
+                worlds: [] as AtlasWorld[],
+                lorebooks: [] as AtlasLorebook[],
+                entries: [] as AtlasEntry[],
+              };
+            }
 
-        if (!userId) {
-          setWorlds([]);
-          setLorebooks([]);
-          setEntries([]);
-          return;
-        }
-
-        const [
-          { data: worldData, error: worldError },
-          { data: lorebookData, error: lorebookError },
-          { data: entryData, error: entryError },
-        ] = await Promise.all([
-          supabase
-            .from("atlas_worlds")
-            .select("*")
-            .eq("user_id", userId)
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false }),
-          supabase
-            .from("atlas_lorebooks")
-            .select("*")
-            .eq("user_id", userId)
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false }),
-          supabase
-            .from("atlas_entries")
-            .select("*")
-            .eq("user_id", userId)
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false }),
-        ]);
-
-        if (!mounted) return;
-        if (worldError) throw worldError;
-        if (lorebookError) throw lorebookError;
-        if (entryError) throw entryError;
-
-        const nextWorlds = Array.isArray(worldData)
-          ? worldData.map((row) => mapWorldRow(row as AtlasWorldRow))
-          : [];
-        const nextLorebooks = Array.isArray(lorebookData)
-          ? lorebookData.map((row) => mapLorebookRow(row as AtlasLorebookRow))
-          : [];
-        const nextEntries = Array.isArray(entryData)
-          ? entryData.map((row) => mapEntryRow(row as AtlasEntryRow))
-          : [];
-
-        const normalizedEntries = nextEntries.map((entry) => ({
-          ...entry,
-          body: stripImportedMetadataBlock(entry.body),
-        }));
-
-        const entriesToNormalize = normalizedEntries.filter(
-          (entry, index) => entry.body !== nextEntries[index]?.body,
-        );
-
-        if (nextWorlds.length > 0) {
-          setWorlds(nextWorlds);
-        } else if (typeof window !== "undefined") {
-          const legacySaved = localStorage.getItem(LEGACY_ATLAS_STORAGE_KEY);
-          if (legacySaved) {
-            const legacyWorlds = JSON.parse(legacySaved) as AtlasWorld[];
-            if (Array.isArray(legacyWorlds) && legacyWorlds.length > 0) {
-              const migrationPayload = legacyWorlds.map((world) =>
-                buildWorldRow(world, userId),
-              );
-
-              const { data: migratedData, error: migrateError } = await supabase
+            const [
+              { data: worldData, error: worldError },
+              { data: lorebookData, error: lorebookError },
+              { data: entryData, error: entryError },
+            ] = await Promise.all([
+              supabase
                 .from("atlas_worlds")
-                .upsert(migrationPayload, { onConflict: "id" })
                 .select("*")
-                .order("updated_at", { ascending: false });
+                .eq("user_id", userId)
+                .is("deleted_at", null)
+                .order("updated_at", { ascending: false }),
+              supabase
+                .from("atlas_lorebooks")
+                .select("*")
+                .eq("user_id", userId)
+                .is("deleted_at", null)
+                .order("updated_at", { ascending: false }),
+              supabase
+                .from("atlas_entries")
+                .select("*")
+                .eq("user_id", userId)
+                .is("deleted_at", null)
+                .order("updated_at", { ascending: false }),
+            ]);
 
-              if (migrateError) throw migrateError;
-              localStorage.removeItem(LEGACY_ATLAS_STORAGE_KEY);
-              setWorlds(
-                Array.isArray(migratedData)
-                  ? migratedData.map((row) => mapWorldRow(row as AtlasWorldRow))
-                  : [],
+            if (worldError) throw worldError;
+            if (lorebookError) throw lorebookError;
+            if (entryError) throw entryError;
+
+            const nextWorlds = Array.isArray(worldData)
+              ? worldData.map((row) => mapWorldRow(row as AtlasWorldRow))
+              : [];
+            const nextLorebooks = Array.isArray(lorebookData)
+              ? lorebookData.map((row) =>
+                  mapLorebookRow(row as AtlasLorebookRow),
+                )
+              : [];
+            const nextEntries = Array.isArray(entryData)
+              ? entryData.map((row) => mapEntryRow(row as AtlasEntryRow))
+              : [];
+
+            const normalizedEntries = nextEntries.map((entry) => ({
+              ...entry,
+              body: stripImportedMetadataBlock(entry.body),
+            }));
+
+            const entriesToNormalize = normalizedEntries.filter(
+              (entry, index) => entry.body !== nextEntries[index]?.body,
+            );
+
+            if (entriesToNormalize.length > 0) {
+              await Promise.all(
+                entriesToNormalize.map(async (entry) => {
+                  const { error: normalizeError } = await supabase
+                    .from("atlas_entries")
+                    .update({ body: entry.body })
+                    .eq("id", entry.id)
+                    .eq("user_id", userId);
+
+                  if (normalizeError) {
+                    console.error(
+                      "Failed to normalize imported metadata block:",
+                      normalizeError,
+                    );
+                  }
+                }),
               );
             }
-          } else {
-            setWorlds([]);
-          }
-        } else {
-          setWorlds([]);
-        }
 
-        setLorebooks(nextLorebooks);
-        setEntries(normalizedEntries);
+            if (nextWorlds.length === 0 && typeof window !== "undefined") {
+              const legacySaved = localStorage.getItem(
+                LEGACY_ATLAS_STORAGE_KEY,
+              );
+              if (legacySaved) {
+                const legacyWorlds = JSON.parse(legacySaved) as AtlasWorld[];
+                if (Array.isArray(legacyWorlds) && legacyWorlds.length > 0) {
+                  const migrationPayload = legacyWorlds.map((world) =>
+                    buildWorldRow(world, userId),
+                  );
 
-        if (entriesToNormalize.length > 0) {
-          await Promise.all(
-            entriesToNormalize.map(async (entry) => {
-              const { error: normalizeError } = await supabase
-                .from("atlas_entries")
-                .update({ body: entry.body })
-                .eq("id", entry.id)
-                .eq("user_id", userId);
+                  const { data: migratedData, error: migrateError } =
+                    await supabase
+                      .from("atlas_worlds")
+                      .upsert(migrationPayload, { onConflict: "id" })
+                      .select("*")
+                      .order("updated_at", { ascending: false });
 
-              if (normalizeError) {
-                console.error(
-                  "Failed to normalize imported metadata block:",
-                  normalizeError,
-                );
+                  if (migrateError) throw migrateError;
+                  localStorage.removeItem(LEGACY_ATLAS_STORAGE_KEY);
+
+                  return {
+                    userId,
+                    worlds: Array.isArray(migratedData)
+                      ? migratedData.map((row) =>
+                          mapWorldRow(row as AtlasWorldRow),
+                        )
+                      : [],
+                    lorebooks: nextLorebooks,
+                    entries: normalizedEntries,
+                  };
+                }
               }
-            }),
-          );
-        }
+            }
+
+            return {
+              userId,
+              worlds: nextWorlds,
+              lorebooks: nextLorebooks,
+              entries: normalizedEntries,
+            };
+          },
+        );
+
+        if (!mounted) return;
+        setCurrentUserId(result.userId);
+        setWorlds(result.worlds);
+        setLorebooks(result.lorebooks);
+        setEntries(result.entries);
       } catch (error) {
         console.error("Failed to load Atlas worlds:", error);
         toast.error("Could not load Atlas worlds");

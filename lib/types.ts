@@ -23,6 +23,7 @@ export interface Bot {
   createdAt: Date;
   updatedAt: Date;
   imageUrl?: string;
+  hideSensitiveFields?: boolean;
 }
 
 export interface BotFormData {
@@ -37,6 +38,7 @@ export interface BotFormData {
   tags: string[];
   rating: "SFW" | "NSFW";
   imageUrl?: string;
+  hideSensitiveFields?: boolean;
 }
 
 // ----------------------------------------------------------------------------
@@ -495,6 +497,7 @@ export interface BotPreview {
   rating: string;
   image_url: string | null;
   created_at: string;
+  hide_sensitive_fields?: boolean;
 }
 
 export interface WorldPreview {

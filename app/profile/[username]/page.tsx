@@ -107,6 +107,11 @@ export default async function UserProfilePage({ params }: PageProps) {
     .is("deleted_at", null)
     .order("updated_at", { ascending: false });
 
+  // Fetch public forms for this profile
+  const { data: forms } = await supabase.rpc("get_public_profile_forms", {
+    p_user_id: profile.id,
+  });
+
   // Fetch follow counts
   const [{ count: followers }, { count: following }] = await Promise.all([
     supabase
@@ -152,6 +157,15 @@ export default async function UserProfilePage({ params }: PageProps) {
         status: w.status,
         description: w.description,
         bot_ids: w.bot_ids || [],
+      }))}
+      forms={(forms || []).map((form: any) => ({
+        id: form.id,
+        title: form.title,
+        description: form.description,
+        shareable_link: form.shareable_link,
+        is_active: form.is_active,
+        sections: form.sections || [],
+        responses_count: Number(form.responses_count || 0),
       }))}
     />
   );

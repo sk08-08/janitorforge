@@ -82,6 +82,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
+import { cachedBrowserRequest } from "@/lib/browser-request-cache";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -274,31 +275,37 @@ export function FeedbackInbox() {
   const [deleting, setDeleting] = useState(false);
 
   // Load data
-  const loadFeedback = useCallback(async () => {
+  const loadFeedback = useCallback(async (force = false) => {
     setLoading(true);
     try {
-      const supabase = createClient();
-      const access = await getCurrentUserAccess(supabase);
-      setIsAdmin(access.isAdmin);
+      const result = await cachedBrowserRequest(
+        "feedback-inbox:load",
+        10_000,
+        async () => {
+          const supabase = createClient();
+          const access = await getCurrentUserAccess(supabase);
 
-      if (!access.user || !access.isAdmin) {
-        setItems([]);
-        return;
-      }
+          if (!access.user || !access.isAdmin) {
+            return { items: [] as FeedbackItem[], isAdmin: access.isAdmin };
+          }
 
-      const { data, error } = await supabase
-        .from("feedback_submissions")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
+          const { data, error } = await supabase
+            .from("feedback_submissions")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(200);
 
-      if (error) {
-        console.error("Failed to load feedback:", error);
-        setItems([]);
-        return;
-      }
+          if (error) {
+            throw error;
+          }
 
-      setItems((data ?? []) as FeedbackItem[]);
+          return { items: (data ?? []) as FeedbackItem[], isAdmin: true };
+        },
+        force,
+      );
+
+      setIsAdmin(result.isAdmin);
+      setItems(result.items);
     } catch (error) {
       console.error("Error loading feedback inbox:", error);
       setItems([]);
@@ -574,7 +581,7 @@ export function FeedbackInbox() {
             variant="outline"
             size="sm"
             className="cursor-pointer"
-            onClick={loadFeedback}
+            onClick={() => loadFeedback(true)}
             disabled={loading}
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -652,7 +659,7 @@ export function FeedbackInbox() {
                 value={typeFilter}
                 onValueChange={(v) => setTypeFilter(v as any)}
               >
-                <SelectTrigger className="w-[130px] h-8 text-xs">
+                <SelectTrigger className="w-32.5 h-8 text-xs">
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -666,7 +673,7 @@ export function FeedbackInbox() {
                 value={statusFilter}
                 onValueChange={(v) => setStatusFilter(v as any)}
               >
-                <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectTrigger className="w-35 h-8 text-xs">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -683,7 +690,7 @@ export function FeedbackInbox() {
                   value={priorityFilter}
                   onValueChange={(v) => setPriorityFilter(v as any)}
                 >
-                  <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectTrigger className="w-35 h-8 text-xs">
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                   <SelectContent>
@@ -839,7 +846,7 @@ export function FeedbackInbox() {
                   <div className="flex items-start gap-3">
                     {/* Checkbox */}
                     <button
-                      className="mt-1 flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                      className="mt-1 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleSelect(item.id);
@@ -863,7 +870,7 @@ export function FeedbackInbox() {
                         >
                           {item.subject}
                         </h3>
-                        <span className="text-[11px] text-muted-foreground whitespace-nowrap flex-shrink-0">
+                        <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
                           {timeAgo(item.created_at)}
                         </span>
                       </div>
@@ -936,7 +943,7 @@ export function FeedbackInbox() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 cursor-pointer"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <MoreHorizontal className="h-4 w-4" />
@@ -1154,7 +1161,7 @@ export function FeedbackInbox() {
                     <DialogTitle className="text-xl leading-snug">
                       {selectedItem.subject}
                     </DialogTitle>
-                    <DialogDescription className="break-words">
+                    <DialogDescription className="wrap-break-word">
                       {selectedItem.source_label || "Unknown source"} ·{" "}
                       {formatDate(selectedItem.created_at)}
                       {selectedItem.is_read ? (
@@ -1175,7 +1182,7 @@ export function FeedbackInbox() {
                         handleStatusChange(selectedItem.id, v as FeedbackStatus)
                       }
                     >
-                      <SelectTrigger className="w-[150px] h-8 text-xs">
+                      <SelectTrigger className="w-37.5 h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1199,7 +1206,7 @@ export function FeedbackInbox() {
                           )
                         }
                       >
-                        <SelectTrigger className="w-[150px] h-8 text-xs">
+                        <SelectTrigger className="w-37.5 h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1239,7 +1246,7 @@ export function FeedbackInbox() {
                           <p className="text-xs uppercase tracking-wide text-muted-foreground">
                             Source page
                           </p>
-                          <p className="break-words">
+                          <p className="wrap-break-word">
                             {selectedItem.source_page || "-"}
                           </p>
                         </div>

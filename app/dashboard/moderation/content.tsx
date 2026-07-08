@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ModerationPanel } from "@/components/dashboard/moderation-panel";
 import type { RequestForm } from "@/lib/types";
 import { getCurrentUserAccess } from "@/lib/access";
+import { cachedBrowserRequest } from "@/lib/browser-request-cache";
 
 export default function ModerationPageContent() {
   const [forms, setForms] = useState<RequestForm[]>([]);
@@ -37,47 +38,64 @@ export default function ModerationPageContent() {
     loadForms();
   }, []);
 
-  const loadForms = async () => {
+  const loadForms = async (force = false) => {
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { user, isAdmin } = await getCurrentUserAccess(supabase);
-      const activeUserId = user?.id ?? null;
+      const result = await cachedBrowserRequest(
+        "moderation:forms",
+        10_000,
+        async () => {
+          const supabase = createClient();
+          const { user, isAdmin } = await getCurrentUserAccess(supabase);
+          const activeUserId = user?.id ?? null;
 
-      if (!user) {
+          if (!user) {
+            return {
+              ownedForms: [] as RequestForm[],
+              activeUserId: null as string | null,
+            };
+          }
+
+          const query = supabase
+            .from("request_forms")
+            .select("*")
+            .order("created_at", { ascending: false });
+
+          const { data, error } = isAdmin
+            ? await query
+            : await query.eq("user_id", user.id);
+
+          if (error) {
+            throw error;
+          }
+
+          return {
+            ownedForms: (data || []).map((form: any) => ({
+              ...form,
+              createdAt: new Date(form.created_at),
+              updatedAt: new Date(form.updated_at),
+            })) as RequestForm[],
+            activeUserId,
+          };
+        },
+        force,
+      );
+
+      if (!result.activeUserId) {
         setForms([]);
         setSelectedFormId(null);
         setCurrentUserId(null);
         return;
       }
 
-      setCurrentUserId(activeUserId);
+      setCurrentUserId(result.activeUserId);
+      setForms(result.ownedForms);
 
-      const query = supabase
-        .from("request_forms")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      const { data, error } = isAdmin
-        ? await query
-        : await query.eq("user_id", user.id);
-
-      if (error) {
-        console.error("Failed to load forms:", error);
-        return;
-      }
-
-      const ownedForms = (data || []).map((form: any) => ({
-        ...form,
-        createdAt: new Date(form.created_at),
-        updatedAt: new Date(form.updated_at),
-      }));
-
-      setForms(ownedForms);
-
-      const ownForms = activeUserId
-        ? ownedForms.filter((form) => form.ownerId === activeUserId)
-        : ownedForms;
+      const ownForms = result.activeUserId
+        ? result.ownedForms.filter(
+            (form) => form.ownerId === result.activeUserId,
+          )
+        : result.ownedForms;
 
       setSelectedFormId((currentSelected) => {
         if (
@@ -87,7 +105,7 @@ export default function ModerationPageContent() {
           return currentSelected;
         }
 
-        return ownForms[0]?.id || ownedForms[0]?.id || null;
+        return ownForms[0]?.id || result.ownedForms[0]?.id || null;
       });
     } catch (error) {
       console.error("Error loading forms:", error);
@@ -118,7 +136,7 @@ export default function ModerationPageContent() {
           variant="outline"
           size="icon"
           className="cursor-pointer"
-          onClick={loadForms}
+          onClick={() => loadForms(true)}
           disabled={loading}
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />

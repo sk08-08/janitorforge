@@ -182,6 +182,7 @@ import {
   getFormFieldFocusClasses,
 } from "@/lib/form-appearance";
 import { FeedbackActions } from "@/components/feedback/feedback-actions";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PublicFormProps {
   form: {
@@ -743,7 +744,7 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
           );
         } else {
           toast.error(
-            result.error || "Failed to submit request. Please try again.",
+            result.error || "Failed to submit submission. Please try again.",
           );
         }
         setIsSubmitting(false);
@@ -756,12 +757,12 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
         );
       }
 
-      console.log("Request saved:", result.requestId);
+      console.log("Submission saved:", result.requestId);
       setIsSubmitting(false);
       setIsSubmitted(true);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to submit request. Please try again.");
+      toast.error("Failed to submit submission. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -798,10 +799,10 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/20">
               <CheckCircle className="h-10 w-10 text-success" />
             </div>
-            <h2 className="mt-6 text-2xl font-bold">Request Submitted!</h2>
+            <h2 className="mt-6 text-2xl font-bold">Submission Submitted!</h2>
             <p className="mt-2 max-w-sm text-muted-foreground">
               Thank you for your submission! The creator will review your
-              request soon.
+              submission soon.
             </p>
             <Link href="/">
               <Button variant="outline" className="mt-6 cursor-pointer">
@@ -816,133 +817,144 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
   }
 
   return (
-    <div className={appearance.wrapper} style={appearance.wrapperStyle}>
-      <div className={cn("container px-4 sm:px-6", appearance.preset.layout)}>
-        {isEditorial ? (
-          <aside
-            className={cn("order-1 md:order-0", appearance.preset.sidebar)}
-          >
-            <div className={cn("space-y-5", appearance.density.headerSpacing)}>
-              <div className="flex justify-start">
-                <div className={appearance.heroIcon}>
-                  <Sparkles className={cn("h-6 w-6", appearance.accent.text)} />
-                </div>
-              </div>
-              <h1 className={cn("font-bold", appearance.title)}>
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(form.title),
-                  }}
-                />
-              </h1>
-              {form.description && (
-                <div
-                  className="text-sm sm:text-base text-muted-foreground text-left leading-relaxed"
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(form.description),
-                  }}
-                />
-              )}
-            </div>
-          </aside>
-        ) : (
-          <div className={cn("mx-auto w-full", appearance.preset.layout)}>
-            <div
-              className={cn("text-center", appearance.density.headerSpacing)}
+    <ScrollArea className="h-screen w-full">
+      <div className={appearance.wrapper} style={appearance.wrapperStyle}>
+        <div className={cn("container px-4 sm:px-6", appearance.preset.layout)}>
+          {isEditorial ? (
+            <aside
+              className={cn("order-1 md:order-0", appearance.preset.sidebar)}
             >
-              <div className="mb-4 flex justify-center">
-                <div className={appearance.heroIcon}>
-                  <Sparkles className={cn("h-6 w-6", appearance.accent.text)} />
-                </div>
-              </div>
-              <h1 className={cn("font-bold", appearance.title)}>
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(form.title),
-                  }}
-                />
-              </h1>
-              {form.description && (
-                <div
-                  className="mt-2 text-sm sm:text-base text-muted-foreground text-left"
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(form.description),
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        <Card className={appearance.surface}>
-          <CardContent className="p-4 sm:p-6 md:p-8">
-            <form
-              onSubmit={handleSubmit}
-              className={appearance.density.formGap}
-            >
-              {form.sections.map((section) => (
-                <SectionRenderer
-                  key={section.id}
-                  section={section}
-                  values={values}
-                  errors={errors}
-                  appearance={appearance}
-                  onChange={(id: string, label: string, v: any) =>
-                    handleChange(id, label, v)
-                  }
-                />
-              ))}
-
-              <Button
-                type="submit"
-                className={cn("w-full cursor-pointer", appearance.submitButton)}
-                style={appearance.submitButtonStyle}
-                size="lg"
-                disabled={isSubmitting}
+              <div
+                className={cn("space-y-5", appearance.density.headerSpacing)}
               >
-                {isSubmitting ? (
-                  <>Submitting...</>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Submit Request
-                  </>
+                <div className="flex justify-start">
+                  <div className={appearance.heroIcon}>
+                    <Sparkles
+                      className={cn("h-6 w-6", appearance.accent.text)}
+                    />
+                  </div>
+                </div>
+                <h1 className={cn("font-bold", appearance.title)}>
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(form.title),
+                    }}
+                  />
+                </h1>
+                {form.description && (
+                  <div
+                    className="text-sm sm:text-base text-muted-foreground text-left leading-relaxed"
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(form.description),
+                    }}
+                  />
                 )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <div className="mt-6 sm:mt-8 flex w-full">
-          <Card className="w-full border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
-            <CardContent className="p-4 sm:p-5">
-              <div className="mb-3 space-y-1">
-                <p className="text-sm font-medium">
-                  Need to tell us something?
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Send a suggestion or report a bug without interrupting the
-                  form above.
-                </p>
               </div>
-              <FeedbackActions
-                compact
-                context={
-                  feedbackContext ?? {
-                    sourcePage: form.title,
-                    sourceLabel: "Public form",
-                    relatedId: form.id,
-                  }
-                }
-              />
+            </aside>
+          ) : (
+            <div className={cn("mx-auto w-full", appearance.preset.layout)}>
+              <div
+                className={cn("text-center", appearance.density.headerSpacing)}
+              >
+                <div className="mb-4 flex justify-center">
+                  <div className={appearance.heroIcon}>
+                    <Sparkles
+                      className={cn("h-6 w-6", appearance.accent.text)}
+                    />
+                  </div>
+                </div>
+                <h1 className={cn("font-bold", appearance.title)}>
+                  <div
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(form.title),
+                    }}
+                  />
+                </h1>
+                {form.description && (
+                  <div
+                    className="mt-2 text-sm sm:text-base text-muted-foreground text-left"
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(form.description),
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          <Card className={appearance.surface}>
+            <CardContent className="p-4 sm:p-6 md:p-8">
+              <form
+                onSubmit={handleSubmit}
+                className={appearance.density.formGap}
+              >
+                {form.sections.map((section) => (
+                  <SectionRenderer
+                    key={section.id}
+                    section={section}
+                    values={values}
+                    errors={errors}
+                    appearance={appearance}
+                    onChange={(id: string, label: string, v: any) =>
+                      handleChange(id, label, v)
+                    }
+                  />
+                ))}
+
+                <Button
+                  type="submit"
+                  className={cn(
+                    "w-full cursor-pointer",
+                    appearance.submitButton,
+                  )}
+                  style={appearance.submitButtonStyle}
+                  size="lg"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>Submitting...</>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Submit Request
+                    </>
+                  )}
+                </Button>
+              </form>
             </CardContent>
           </Card>
-        </div>
 
-        <p className="mt-8 text-center text-xs text-muted-foreground">
-          Powered by JanitorForge
-        </p>
+          <div className="mt-6 sm:mt-8 flex w-full">
+            <Card className="w-full border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+              <CardContent className="p-4 sm:p-5">
+                <div className="mb-3 space-y-1">
+                  <p className="text-sm font-medium">
+                    Need to tell us something?
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Send a suggestion or report a bug without interrupting the
+                    form above.
+                  </p>
+                </div>
+                <FeedbackActions
+                  compact
+                  context={
+                    feedbackContext ?? {
+                      sourcePage: form.title,
+                      sourceLabel: "Public form",
+                      relatedId: form.id,
+                    }
+                  }
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            Powered by JanitorForge
+          </p>
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 }

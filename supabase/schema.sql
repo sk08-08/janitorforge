@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS public.bots (
   tags TEXT[] DEFAULT '{}' NOT NULL,
   rating TEXT CHECK (rating IN ('SFW', 'NSFW')) DEFAULT 'SFW' NOT NULL,
   image_url TEXT,
+  hide_sensitive_fields BOOLEAN DEFAULT false NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );

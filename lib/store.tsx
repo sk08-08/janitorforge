@@ -11,6 +11,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -24,6 +25,7 @@ import type {
   CollaborativeBot,
 } from "./types";
 import { getCurrentUserAccess } from "./access";
+import { createClient } from "@/lib/supabase/client";
 
 const validNavigationViews: NavigationView[] = [
   "profiles",
@@ -146,142 +148,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Try to load real data from Supabase on client mount. Fall back to sample data on error.
   useEffect(() => {
     let mounted = true;
+    let supabase = createClient();
+    let activeRequestsChannel: { remove: () => void } | null = null;
+    let loadVersion = 0;
 
-    async function load() {
-      try {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
+    const clearPrivateData = () => {
+      setBots([]);
+      setCollaborativeBots([]);
+      setForms([]);
+      setRequests([]);
+    };
 
-        // Get current authenticated user; if not authenticated, do not fetch private data.
-        const { user, isAdmin } = await getCurrentUserAccess(supabase);
+    const removeRequestsChannel = () => {
+      activeRequestsChannel?.remove();
+      activeRequestsChannel = null;
+    };
 
-        if (!mounted) return;
-
-        if (!user) {
-          // Not signed in: don't fetch or expose any user-scoped lists.
-          setBots([]);
-          setCollaborativeBots([]);
-          setForms([]);
-          setRequests([]);
-          return;
-        }
-
-        // Fetch collaborative bots (shared with this user)
-        const { getCollaborativeBots } =
-          await import("@/app/actions/collaboration");
-        const collabResult = await getCollaborativeBots();
-        if (mounted && collabResult.success) {
-          setCollaborativeBots((collabResult.bots || []) as CollaborativeBot[]);
-        }
-
-        // Fetch only data belonging to the authenticated user
-        const formsQuery = isAdmin
-          ? supabase.from("request_forms").select("*")
-          : supabase.from("request_forms").select("*").eq("user_id", user.id);
-        const requestsQuery = isAdmin
-          ? supabase.from("requests").select("*")
-          : supabase.from("requests").select("*").eq("user_id", user.id);
-        const [
-          { data: botsData, error: botsError },
-          { data: formsData, error: formsError },
-          { data: requestsData, error: requestsError },
-        ] = await Promise.all([
-          supabase
-            .from("bots")
-            .select("*")
-            .eq("user_id", user.id)
-            .is("deleted_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(20),
-          formsQuery.is("deleted_at", null),
-          requestsQuery,
-        ]);
-
-        if (botsError) throw botsError;
-        if (formsError) throw formsError;
-        if (requestsError) throw requestsError;
-
-        // Map rows to app types
-        if (Array.isArray(botsData) && botsData.length > 0) {
-          setBots(
-            botsData.map((r: any) => ({
-              id: r.id,
-              ownerId: r.user_id || undefined,
-              name: r.name,
-              chatName: r.chat_name || undefined,
-              shortDescription: r.short_description || "",
-              personality: r.personality || "",
-              firstMessage: r.first_message || "",
-              alternateGreetings: Array.isArray(r.alternate_greetings)
-                ? r.alternate_greetings
-                : [],
-              scenario: r.scenario || "",
-              exampleDialogues: r.example_dialogues || "",
-              tags: Array.isArray(r.tags) ? r.tags : [],
-              rating: r.rating === "NSFW" ? "NSFW" : "SFW",
-              imageUrl: r.image_url || undefined,
-              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-            })),
-          );
-        }
-
-        if (Array.isArray(formsData) && formsData.length > 0) {
-          setForms(
-            formsData.map((r: any) => ({
-              id: r.id,
-              ownerId: r.user_id || undefined,
-              title: r.title,
-              description: r.description || "",
-              sections: r.sections || [],
-              appearance: r.appearance || undefined,
-              shareableLink: r.shareable_link || "",
-              isActive: !!r.is_active,
-              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-            })),
-          );
-        }
-
-        if (Array.isArray(requestsData) && requestsData.length > 0) {
-          setRequests(
-            requestsData.map((r: any) => ({
-              id: r.id,
-              formId: r.form_id,
-              ownerId: r.user_id || undefined,
-              formTitle: r.form_title,
-              status: r.status,
-              submitterName: r.submitter_name,
-              responses: r.responses || {},
-              responseLabels: r.response_labels || {},
-              notes: r.notes,
-              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-            })),
-          );
-        }
-      } catch (err: unknown) {
-        // If anything goes wrong (no env, network, or permissions), log and leave store empty
-        const msg =
-          typeof err === "object" && err !== null && "message" in err
-            ? (err as any).message
-            : String(err);
-        console.info("Supabase load failed:", msg);
-        setBots([]);
-        setForms([]);
-        setRequests([]);
-      }
-    }
-
-    load();
-
-    // Real-time subscription for requests
-    let channelRef: { remove: () => void } | null = null;
-    (async () => {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user || !mounted) return;
+    const setUpRequestsChannel = async (userId: string) => {
+      removeRequestsChannel();
 
       const ch = supabase
         .channel("requests-changes")
@@ -291,7 +175,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             event: "*",
             schema: "public",
             table: "requests",
-            filter: `user_id=eq.${userData.user.id}`,
+            filter: `user_id=eq.${userId}`,
           },
           (payload) => {
             if (payload.eventType === "INSERT") {
@@ -348,16 +232,194 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           },
         )
         .subscribe();
-      channelRef = {
+
+      activeRequestsChannel = {
         remove: () => {
           supabase.removeChannel(ch);
         },
       };
-    })();
+    };
+
+    async function load() {
+      const currentLoad = ++loadVersion;
+      try {
+        // Get current authenticated user; if not authenticated, do not fetch private data.
+        const { user, isAdmin } = await getCurrentUserAccess(supabase);
+
+        if (!mounted || currentLoad !== loadVersion) return;
+
+        if (!user) {
+          // Not signed in: don't fetch or expose any user-scoped lists.
+          clearPrivateData();
+          removeRequestsChannel();
+          return;
+        }
+
+        // Fetch collaborative bots (shared with this user)
+        const { getCollaborativeBots } =
+          await import("@/app/actions/collaboration");
+        const collabResult = await getCollaborativeBots();
+        if (mounted && currentLoad === loadVersion && collabResult.success) {
+          setCollaborativeBots((collabResult.bots || []) as CollaborativeBot[]);
+        }
+
+        // Fetch only data belonging to the authenticated user
+        const formsQuery = isAdmin
+          ? supabase.from("request_forms").select("*")
+          : supabase.from("request_forms").select("*").eq("user_id", user.id);
+        const requestsQuery = isAdmin
+          ? supabase.from("requests").select("*")
+          : supabase.from("requests").select("*").eq("user_id", user.id);
+        const [
+          { data: botsData, error: botsError },
+          { data: formsData, error: formsError },
+          { data: requestsData, error: requestsError },
+        ] = await Promise.all([
+          supabase
+            .from("bots")
+            .select("*")
+            .eq("user_id", user.id)
+            .is("deleted_at", null)
+            .order("updated_at", { ascending: false })
+            .limit(20),
+          formsQuery.is("deleted_at", null),
+          requestsQuery,
+        ]);
+
+        if (botsError) throw botsError;
+        if (formsError) throw formsError;
+        if (requestsError) throw requestsError;
+
+        if (!mounted || currentLoad !== loadVersion) return;
+
+        // Map rows to app types
+        if (Array.isArray(botsData) && botsData.length > 0) {
+          setBots(
+            botsData.map((r: any) => ({
+              id: r.id,
+              ownerId: r.user_id || undefined,
+              name: r.name,
+              chatName: r.chat_name || undefined,
+              shortDescription: r.short_description || "",
+              personality: r.personality || "",
+              firstMessage: r.first_message || "",
+              alternateGreetings: Array.isArray(r.alternate_greetings)
+                ? r.alternate_greetings
+                : [],
+              scenario: r.scenario || "",
+              exampleDialogues: r.example_dialogues || "",
+              tags: Array.isArray(r.tags) ? r.tags : [],
+              rating: r.rating === "NSFW" ? "NSFW" : "SFW",
+              imageUrl: r.image_url || undefined,
+              hideSensitiveFields: r.hide_sensitive_fields === true,
+              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+            })),
+          );
+        }
+
+        if (Array.isArray(formsData) && formsData.length > 0) {
+          setForms(
+            formsData.map((r: any) => ({
+              id: r.id,
+              ownerId: r.user_id || undefined,
+              title: r.title,
+              description: r.description || "",
+              sections: r.sections || [],
+              appearance: r.appearance || undefined,
+              shareableLink: r.shareable_link || "",
+              isActive: !!r.is_active,
+              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+            })),
+          );
+        }
+
+        if (Array.isArray(requestsData) && requestsData.length > 0) {
+          setRequests(
+            requestsData.map((r: any) => ({
+              id: r.id,
+              formId: r.form_id,
+              ownerId: r.user_id || undefined,
+              formTitle: r.form_title,
+              status: r.status,
+              submitterName: r.submitter_name,
+              responses: r.responses || {},
+              responseLabels: r.response_labels || {},
+              notes: r.notes,
+              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+            })),
+          );
+        }
+
+        await setUpRequestsChannel(user.id);
+      } catch (err: unknown) {
+        // If anything goes wrong (no env, network, or permissions), log and leave store empty
+        const msg =
+          typeof err === "object" && err !== null && "message" in err
+            ? (err as any).message
+            : String(err);
+        console.info("Supabase load failed:", msg);
+        if (mounted && currentLoad === loadVersion) {
+          clearPrivateData();
+          removeRequestsChannel();
+        }
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      void (async () => {
+        try {
+          await supabase.auth.refreshSession();
+        } catch {
+          // Ignore refresh failures and let the next load decide.
+        }
+        await load();
+      })();
+    };
+
+    const handleWindowFocus = () => {
+      void (async () => {
+        try {
+          await supabase.auth.refreshSession();
+        } catch {
+          // Ignore refresh failures and let the next load decide.
+        }
+        await load();
+      })();
+    };
+
+    const authListener = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      if (event === "SIGNED_OUT" || !session?.user) {
+        clearPrivateData();
+        removeRequestsChannel();
+        return;
+      }
+
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "INITIAL_SESSION"
+      ) {
+        void load();
+      }
+    });
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    void load();
 
     return () => {
       mounted = false;
-      channelRef?.remove();
+      removeRequestsChannel();
+      authListener.data.subscription.unsubscribe();
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
