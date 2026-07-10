@@ -27,6 +27,12 @@ export function renderMarkdown(md?: string | null): string {
     return `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(txt)}</a>`;
   });
 
+  // Color fragments: [text]{#ff00aa}
+  out = out.replace(
+    /\[([^\]]+)\]\{(#[0-9a-fA-F]{3,6})\}/g,
+    (_m, txt, color) => `<span style="color:${color}">${txt}</span>`,
+  );
+
   // Bold
   out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
@@ -84,6 +90,11 @@ export function renderMarkdownInline(md?: string | null): string {
     if (/^\s*(javascript:|data:)/i.test(safe)) return escapeHtml(txt);
     return `<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(txt)}</a>`;
   });
+
+  out = out.replace(
+    /\[([^\]]+)\]\{(#[0-9a-fA-F]{3,6})\}/g,
+    (_m, txt, color) => `<span style="color:${color}">${txt}</span>`,
+  );
 
   out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");

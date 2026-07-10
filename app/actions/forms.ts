@@ -6,19 +6,29 @@ import type { RequestForm } from "@/lib/types";
 import { friendlySupabaseError, ensureShareableLink } from "@/lib/error-utils";
 import { v4 as uuidv4 } from "uuid";
 import { resolveFormAppearance } from "@/lib/form-appearance";
+import {
+  FORM_ASSETS_BUCKET,
+  extractFormAssetPathsFromSections,
+  getFormAssetPublicUrl,
+} from "@/lib/form-assets";
 
-export async function createFormAction(
-  form: Omit<RequestForm, "id" | "createdAt" | "updatedAt">,
-) {
+const ALLOWED_FORM_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+];
+const MAX_FORM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+async function resolveUserIdForActions() {
   const supabase = await createClient();
-
-  // Determine user id via supabase auth or fallback to janitorforge_session cookie
   let userId: string | undefined;
+
   try {
     const { data: userData } = await supabase.auth.getUser();
     userId = userData?.user?.id || undefined;
-  } catch (e) {
-    // ignore error when checking supabase auth session
+  } catch {
     userId = undefined;
   }
 
@@ -29,11 +39,108 @@ export async function createFormAction(
       try {
         const parsed = JSON.parse(session);
         userId = parsed?.userId;
-      } catch (e) {
-        // ignore malformed session cookie
+      } catch {
+        userId = undefined;
       }
     }
   }
+
+  return { supabase, userId };
+}
+
+async function removeFormAssetsByPath(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  paths: string[],
+) {
+  const deduped = Array.from(
+    new Set(paths.map((p) => String(p || "").trim()).filter(Boolean)),
+  );
+
+  if (deduped.length === 0) return;
+  await supabase.storage.from(FORM_ASSETS_BUCKET).remove(deduped);
+}
+
+export async function uploadFormSectionImageAction(formData: FormData) {
+  const { supabase, userId } = await resolveUserIdForActions();
+  if (!userId) return { success: false, error: "Unauthenticated" };
+
+  const file = formData.get("file");
+  const existingPath = String(formData.get("existingPath") || "").trim();
+
+  if (!(file instanceof File)) {
+    return { success: false, error: "No image file provided" };
+  }
+
+  if (!ALLOWED_FORM_IMAGE_TYPES.includes(file.type)) {
+    return {
+      success: false,
+      error: "Unsupported image type. Use PNG, JPG, WEBP or AVIF",
+    };
+  }
+
+  if (file.size > MAX_FORM_IMAGE_SIZE_BYTES) {
+    return { success: false, error: "Image is too large (max 5MB)" };
+  }
+
+  const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+  const path = `${userId}/${Date.now()}-${uuidv4()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(FORM_ASSETS_BUCKET)
+    .upload(path, file, {
+      upsert: false,
+      contentType: file.type,
+      cacheControl: "3600",
+    });
+
+  if (uploadError) {
+    return {
+      success: false,
+      error: friendlySupabaseError(uploadError, "Failed to upload image"),
+      raw: uploadError,
+    };
+  }
+
+  if (existingPath && existingPath.startsWith(`${userId}/`)) {
+    await removeFormAssetsByPath(supabase, [existingPath]);
+  }
+
+  return {
+    success: true,
+    path,
+    publicUrl: getFormAssetPublicUrl(path),
+  };
+}
+
+export async function removeFormSectionImageAction(path: string) {
+  const { supabase, userId } = await resolveUserIdForActions();
+  if (!userId) return { success: false, error: "Unauthenticated" };
+
+  const target = String(path || "").trim();
+  if (!target) return { success: true };
+
+  if (!target.startsWith(`${userId}/`)) {
+    return { success: false, error: "Forbidden" };
+  }
+
+  const { error } = await supabase.storage
+    .from(FORM_ASSETS_BUCKET)
+    .remove([target]);
+  if (error) {
+    return {
+      success: false,
+      error: friendlySupabaseError(error, "Failed to remove image"),
+      raw: error,
+    };
+  }
+
+  return { success: true };
+}
+
+export async function createFormAction(
+  form: Omit<RequestForm, "id" | "createdAt" | "updatedAt">,
+) {
+  const { supabase, userId } = await resolveUserIdForActions();
 
   if (!userId) return { success: false, error: "Unauthenticated" };
 
@@ -64,30 +171,25 @@ export async function createFormAction(
 }
 
 export async function updateFormAction(id: string, data: Partial<RequestForm>) {
-  const supabase = await createClient();
-
-  // Ensure authenticated (supabase auth or janitorforge_session)
-  let userId: string | undefined;
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    userId = userData?.user?.id || undefined;
-  } catch (e) {
-    // ignore error when checking supabase auth session
-    userId = undefined;
-  }
-  if (!userId) {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("janitorforge_session")?.value;
-    if (session) {
-      try {
-        const parsed = JSON.parse(session);
-        userId = parsed?.userId;
-      } catch (e) {
-        // ignore malformed session cookie
-      }
-    }
-  }
+  const { supabase, userId } = await resolveUserIdForActions();
   if (!userId) return { success: false, error: "Unauthenticated" };
+
+  const { data: existingForm, error: existingError } = await supabase
+    .from("request_forms")
+    .select("id, user_id, sections")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+
+  if (existingError || !existingForm) {
+    return { success: false, error: "Form not found" };
+  }
+  if (existingForm.user_id !== userId) {
+    return {
+      success: false,
+      error: "You don't have permission to update this form",
+    };
+  }
 
   const payload: Record<string, unknown> = {};
   if (data.title !== undefined) payload.title = data.title;
@@ -122,32 +224,21 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
       raw: error,
     };
   }
+
+  if (data.sections !== undefined) {
+    const beforePaths = extractFormAssetPathsFromSections(
+      existingForm.sections,
+    );
+    const afterPaths = extractFormAssetPathsFromSections(data.sections);
+    const removedPaths = beforePaths.filter((p) => !afterPaths.includes(p));
+    await removeFormAssetsByPath(supabase, removedPaths);
+  }
+
   return { success: true, form: updated };
 }
 
 export async function deleteFormAction(id: string) {
-  const supabase = await createClient();
-  // Ensure authenticated (supabase auth or janitorforge_session)
-  let userId: string | undefined;
-  try {
-    const { data: userData } = await supabase.auth.getUser();
-    userId = userData?.user?.id || undefined;
-  } catch (e) {
-    // ignore error when checking supabase auth session
-    userId = undefined;
-  }
-  if (!userId) {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("janitorforge_session")?.value;
-    if (session) {
-      try {
-        const parsed = JSON.parse(session);
-        userId = parsed?.userId;
-      } catch (e) {
-        // ignore malformed session cookie
-      }
-    }
-  }
+  const { supabase, userId } = await resolveUserIdForActions();
   if (!userId) return { success: false, error: "Unauthenticated" };
 
   // Verify ownership before deleting

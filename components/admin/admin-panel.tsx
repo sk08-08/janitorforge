@@ -100,6 +100,9 @@ import {
   getSubmissionById,
   getBotById,
   getFormById,
+  softDeleteSubmission,
+  softDeleteForm,
+  softDeleteBot,
   hardDeleteSubmission,
   hardDeleteForm,
   hardDeleteBot,
@@ -836,6 +839,46 @@ function SubmissionsTab({
                     </div>
                   )}
 
+                  {!selectedItem.deleted_at && (
+                    <div className="pt-4 border-t">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Soft delete this submission to hide it from regular
+                        views while keeping it recoverable.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="cursor-pointer"
+                        onClick={async () => {
+                          const result = await softDeleteSubmission(
+                            selectedItem.id,
+                          );
+                          if (!result.success) {
+                            toast.error(result.error ?? "Failed");
+                            return;
+                          }
+                          const deletedAt =
+                            (result as any).deleted_at ??
+                            new Date().toISOString();
+                          toast.success("Submission soft-deleted");
+                          setSelectedItem((prev: any) =>
+                            prev ? { ...prev, deleted_at: deletedAt } : prev,
+                          );
+                          setItems((prev) =>
+                            prev.map((i) =>
+                              i.id === selectedItem.id
+                                ? { ...i, deleted_at: deletedAt }
+                                : i,
+                            ),
+                          );
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Soft Delete
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Hard delete */}
                   {selectedItem.deleted_at && (
                     <div className="pt-4 border-t">
@@ -1202,6 +1245,44 @@ function FormsTab() {
                         </div>
                       </div>
                     )}
+
+                  {!selectedItem.deleted_at && (
+                    <div className="pt-4 border-t">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Soft delete this form to hide it from regular views
+                        while keeping it recoverable.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="cursor-pointer"
+                        onClick={async () => {
+                          const result = await softDeleteForm(selectedItem.id);
+                          if (!result.success) {
+                            toast.error(result.error ?? "Failed");
+                            return;
+                          }
+                          const deletedAt =
+                            (result as any).deleted_at ??
+                            new Date().toISOString();
+                          toast.success("Form soft-deleted");
+                          setSelectedItem((prev: any) =>
+                            prev ? { ...prev, deleted_at: deletedAt } : prev,
+                          );
+                          setItems((prev) =>
+                            prev.map((i) =>
+                              i.id === selectedItem.id
+                                ? { ...i, deleted_at: deletedAt }
+                                : i,
+                            ),
+                          );
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Soft Delete
+                      </Button>
+                    </div>
+                  )}
 
                   {selectedItem.deleted_at && (
                     <div className="pt-4 border-t">
@@ -1597,6 +1678,44 @@ function BotsTab() {
                       <p className="text-sm bg-muted rounded p-2 max-h-32 overflow-y-auto">
                         {selectedItem.scenario}
                       </p>
+                    </div>
+                  )}
+
+                  {!selectedItem.deleted_at && (
+                    <div className="pt-4 border-t">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Soft delete this bot to hide it from regular views while
+                        keeping it recoverable.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="cursor-pointer"
+                        onClick={async () => {
+                          const result = await softDeleteBot(selectedItem.id);
+                          if (!result.success) {
+                            toast.error(result.error ?? "Failed");
+                            return;
+                          }
+                          const deletedAt =
+                            (result as any).deleted_at ??
+                            new Date().toISOString();
+                          toast.success("Bot soft-deleted");
+                          setSelectedItem((prev: any) =>
+                            prev ? { ...prev, deleted_at: deletedAt } : prev,
+                          );
+                          setItems((prev) =>
+                            prev.map((i) =>
+                              i.id === selectedItem.id
+                                ? { ...i, deleted_at: deletedAt }
+                                : i,
+                            ),
+                          );
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Soft Delete
+                      </Button>
                     </div>
                   )}
 

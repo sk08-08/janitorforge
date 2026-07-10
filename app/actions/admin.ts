@@ -1,6 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  FORM_ASSETS_BUCKET,
+  extractFormAssetPathsFromSections,
+} from "@/lib/form-assets";
 
 // ============================================================================
 // Helper
@@ -643,6 +647,88 @@ export async function getFormById(id: string) {
 }
 
 // ============================================================================
+// Soft delete
+// ============================================================================
+
+export async function softDeleteSubmission(id: string) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error };
+
+  const { data: existing } = await supabase
+    .from("requests")
+    .select("id, deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) return { success: false, error: "Not found" };
+  if ((existing as any).deleted_at) {
+    return { success: true, deleted_at: (existing as any).deleted_at };
+  }
+
+  const deletedAt = new Date().toISOString();
+  const { error: dbError } = await supabase
+    .from("requests")
+    .update({ deleted_at: deletedAt })
+    .eq("id", id)
+    .is("deleted_at", null);
+
+  if (dbError) return { success: false, error: dbError.message };
+  return { success: true, deleted_at: deletedAt };
+}
+
+export async function softDeleteForm(id: string) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error };
+
+  const { data: existing } = await supabase
+    .from("request_forms")
+    .select("id, deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) return { success: false, error: "Not found" };
+  if ((existing as any).deleted_at) {
+    return { success: true, deleted_at: (existing as any).deleted_at };
+  }
+
+  const deletedAt = new Date().toISOString();
+  const { error: dbError } = await supabase
+    .from("request_forms")
+    .update({ deleted_at: deletedAt })
+    .eq("id", id)
+    .is("deleted_at", null);
+
+  if (dbError) return { success: false, error: dbError.message };
+  return { success: true, deleted_at: deletedAt };
+}
+
+export async function softDeleteBot(id: string) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error };
+
+  const { data: existing } = await supabase
+    .from("bots")
+    .select("id, deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) return { success: false, error: "Not found" };
+  if ((existing as any).deleted_at) {
+    return { success: true, deleted_at: (existing as any).deleted_at };
+  }
+
+  const deletedAt = new Date().toISOString();
+  const { error: dbError } = await supabase
+    .from("bots")
+    .update({ deleted_at: deletedAt })
+    .eq("id", id)
+    .is("deleted_at", null);
+
+  if (dbError) return { success: false, error: dbError.message };
+  return { success: true, deleted_at: deletedAt };
+}
+
+// ============================================================================
 // Hard delete (only for already soft-deleted records)
 // ============================================================================
 
@@ -672,11 +758,16 @@ export async function hardDeleteForm(id: string) {
 
   const { data: existing } = await supabase
     .from("request_forms")
-    .select("id, deleted_at")
+    .select("id, deleted_at, sections")
     .eq("id", id)
     .maybeSingle();
   if (!(existing as any)?.deleted_at)
     return { success: false, error: "Record is not soft-deleted" };
+
+  const assetPaths = extractFormAssetPathsFromSections((existing as any).sections);
+  if (assetPaths.length > 0) {
+    await supabase.storage.from(FORM_ASSETS_BUCKET).remove(assetPaths);
+  }
 
   const { error: dbError } = await supabase
     .from("request_forms")

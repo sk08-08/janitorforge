@@ -53,6 +53,11 @@ function renderMarkdown(md?: string | null) {
       txt,
     )}</a>`;
   });
+  // Color fragments: [text]{#ff00aa}
+  out = out.replace(
+    /\[([^\]]+)\]\{(#[0-9a-fA-F]{3,6})\}/g,
+    (_m, txt, color) => `<span style="color:${color}">${txt}</span>`,
+  );
   // Bold **text** or __text__
   out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
@@ -138,6 +143,10 @@ function renderMarkdownInline(md?: string | null) {
       txt,
     )}</a>`;
   });
+  out = out.replace(
+    /\[([^\]]+)\]\{(#[0-9a-fA-F]{3,6})\}/g,
+    (_m, txt, color) => `<span style="color:${color}">${txt}</span>`,
+  );
   out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
   out = out.replace(/\*(.+?)\*/g, "<em>$1</em>");
@@ -183,6 +192,7 @@ import {
 } from "@/lib/form-appearance";
 import { FeedbackActions } from "@/components/feedback/feedback-actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getFormAssetPublicUrl } from "@/lib/form-assets";
 
 interface PublicFormProps {
   form: {
@@ -495,6 +505,28 @@ function SectionRenderer({
   onChange,
   appearance,
 }: any) {
+  const sectionTextColor = String(section?.custom?.textColor || "").trim();
+  const sectionTextStyle = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(
+    sectionTextColor,
+  )
+    ? { color: sectionTextColor }
+    : undefined;
+  const sectionImageUrl = getFormAssetPublicUrl(
+    section?.custom?.imageAssetPath,
+  );
+  const externalSectionImageUrl = String(
+    section?.custom?.imageUrl || "",
+  ).trim();
+  const safeExternalSectionImageUrl = /^https?:\/\//i.test(
+    externalSectionImageUrl,
+  )
+    ? externalSectionImageUrl
+    : "";
+  const resolvedSectionImageUrl =
+    sectionImageUrl || safeExternalSectionImageUrl;
+  const gifUrl = String(section?.custom?.gifUrl || "").trim();
+  const safeGifUrl = /^https?:\/\//i.test(gifUrl) ? gifUrl : "";
+
   const alignClass =
     section?.custom?.headerAlignment === "center"
       ? "text-center"
@@ -510,6 +542,7 @@ function SectionRenderer({
           <summary className={`cursor-pointer p-4 ${alignClass}`}>
             <span
               className="rendered-markdown"
+              style={sectionTextStyle}
               dangerouslySetInnerHTML={{
                 __html:
                   renderMarkdownInline(section.title) +
@@ -521,10 +554,32 @@ function SectionRenderer({
             {section.description && (
               <div
                 className="mt-1 text-xs text-muted-foreground rendered-markdown wrap-break-word"
+                style={sectionTextStyle}
                 dangerouslySetInnerHTML={{
                   __html: renderMarkdown(section.description),
                 }}
               />
+            )}
+
+            {(resolvedSectionImageUrl || safeGifUrl) && (
+              <div className="mt-3 grid gap-3">
+                {resolvedSectionImageUrl && (
+                  <img
+                    src={resolvedSectionImageUrl}
+                    alt="Section visual"
+                    className="max-h-72 w-full rounded-md border object-cover"
+                    loading="lazy"
+                  />
+                )}
+                {safeGifUrl && (
+                  <img
+                    src={safeGifUrl}
+                    alt="Section gif"
+                    className="max-h-72 w-full rounded-md border object-cover"
+                    loading="lazy"
+                  />
+                )}
+              </div>
             )}
           </summary>
           <CardContent className={appearance.density.sectionContent}>
@@ -580,6 +635,7 @@ function SectionRenderer({
         <CardTitle className={`${alignClass} wrap-break-word`}>
           <span
             className="block wrap-break-word"
+            style={sectionTextStyle}
             dangerouslySetInnerHTML={{
               __html:
                 renderMarkdownInline(section.title) +
@@ -592,10 +648,32 @@ function SectionRenderer({
         {section.description && (
           <div
             className="text-left text-xs text-muted-foreground wrap-break-word"
+            style={sectionTextStyle}
             dangerouslySetInnerHTML={{
               __html: renderMarkdown(section.description),
             }}
           />
+        )}
+
+        {(resolvedSectionImageUrl || safeGifUrl) && (
+          <div className="mt-2 grid gap-3">
+            {resolvedSectionImageUrl && (
+              <img
+                src={resolvedSectionImageUrl}
+                alt="Section visual"
+                className="max-h-72 w-full rounded-md border object-cover"
+                loading="lazy"
+              />
+            )}
+            {safeGifUrl && (
+              <img
+                src={safeGifUrl}
+                alt="Section gif"
+                className="max-h-72 w-full rounded-md border object-cover"
+                loading="lazy"
+              />
+            )}
+          </div>
         )}
       </CardHeader>
       <CardContent className={appearance.density.sectionContent}>
@@ -647,6 +725,20 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const formTitleColor = String(
+    (form as any)?.appearance?.titleColor || "",
+  ).trim();
+  const formDescriptionColor = String(
+    (form as any)?.appearance?.descriptionColor || "",
+  ).trim();
+  const formTitleStyle = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(formTitleColor)
+    ? { color: formTitleColor }
+    : undefined;
+  const formDescriptionStyle = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(
+    formDescriptionColor,
+  )
+    ? { color: formDescriptionColor }
+    : undefined;
 
   const handleChange = (
     fieldId: string,
@@ -834,7 +926,10 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                     />
                   </div>
                 </div>
-                <h1 className={cn("font-bold", appearance.title)}>
+                <h1
+                  className={cn("font-bold", appearance.title)}
+                  style={formTitleStyle}
+                >
                   <div
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(form.title),
@@ -844,6 +939,7 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                 {form.description && (
                   <div
                     className="text-sm sm:text-base text-muted-foreground text-left leading-relaxed"
+                    style={formDescriptionStyle}
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(form.description),
                     }}
@@ -863,7 +959,10 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                     />
                   </div>
                 </div>
-                <h1 className={cn("font-bold", appearance.title)}>
+                <h1
+                  className={cn("font-bold", appearance.title)}
+                  style={formTitleStyle}
+                >
                   <div
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(form.title),
@@ -873,6 +972,7 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                 {form.description && (
                   <div
                     className="mt-2 text-sm sm:text-base text-muted-foreground text-left"
+                    style={formDescriptionStyle}
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(form.description),
                     }}

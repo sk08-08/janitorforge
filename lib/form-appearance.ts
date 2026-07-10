@@ -140,6 +140,8 @@ export function resolveFormAppearance(
     preset: appearance?.preset ?? defaultFormAppearance.preset,
     accent: appearance?.accent ?? defaultFormAppearance.accent,
     density: appearance?.density ?? defaultFormAppearance.density,
+    titleColor: appearance?.titleColor,
+    descriptionColor: appearance?.descriptionColor,
   };
 }
 

@@ -38,6 +38,8 @@ import {
   Sparkles,
   Info,
   ChevronDown,
+  Image as ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +92,12 @@ import {
 import { toast } from "sonner";
 import { MarkdownRenderer } from "./markdown-renderer";
 import type { FieldCondition, ConditionOperator } from "@/lib/types";
+import {
+  removeFormSectionImageAction,
+  uploadFormSectionImageAction,
+} from "@/app/actions/forms";
+import { getFormAssetPublicUrl } from "@/lib/form-assets";
+import { CustomColorPicker } from "@/components/ui/custom-color-picker";
 
 function sanitizeUrl(input: string) {
   const url = String(input || "").trim();
@@ -744,6 +752,8 @@ function SectionEditor({
   openLinkModal,
 }: SectionEditorProps) {
   const descRef = useRef<any>(null);
+  const sectionImageInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const addField = (type: FormFieldType) => {
     const newField: FormField = {
       id: uuidv4(),
@@ -770,6 +780,62 @@ function SectionEditor({
       ...section,
       fields: section.fields.filter((f) => f.id !== fieldId),
     });
+  };
+
+  const handleSectionImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (section.custom?.imageAssetPath) {
+        formData.append("existingPath", section.custom.imageAssetPath);
+      }
+
+      const result = await uploadFormSectionImageAction(formData);
+      if (!result.success || !result.path) {
+        toast.error(result.error ?? "Failed to upload image");
+        return;
+      }
+
+      onUpdate({
+        ...section,
+        custom: {
+          ...(section.custom || {}),
+          imageAssetPath: result.path,
+        },
+      });
+      toast.success("Section image uploaded");
+    } finally {
+      setIsUploadingImage(false);
+      if (sectionImageInputRef.current) {
+        sectionImageInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveSectionImage = async () => {
+    const imagePath = String(section.custom?.imageAssetPath || "").trim();
+    if (!imagePath) return;
+
+    const result = await removeFormSectionImageAction(imagePath);
+    if (!result.success) {
+      toast.error(result.error ?? "Failed to remove image");
+      return;
+    }
+
+    onUpdate({
+      ...section,
+      custom: {
+        ...(section.custom || {}),
+        imageAssetPath: undefined,
+      },
+    });
+    toast.success("Section image removed");
   };
 
   // Wrap selection for inputs inside this section by element id
@@ -835,32 +901,36 @@ function SectionEditor({
                 className="text-sm text-muted-foreground"
               />
             </div>
-            {/* Section customization */}
-            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <Label className="text-xs">Header alignment</Label>
-              <Select
-                value={section.custom?.headerAlignment || "left"}
-                onValueChange={(val) =>
-                  onUpdate({
-                    ...section,
-                    custom: {
-                      ...(section.custom || {}),
-                      headerAlignment: val as any,
-                    },
-                  })
-                }
-              >
-                <SelectTrigger className="w-full sm:w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="left">Left</SelectItem>
-                  <SelectItem value="center">Center</SelectItem>
-                  <SelectItem value="right">Right</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Section layout */}
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <Label className="text-xs text-muted-foreground shrink-0">
+                  Alignment
+                </Label>
+                <Select
+                  value={section.custom?.headerAlignment || "left"}
+                  onValueChange={(val) =>
+                    onUpdate({
+                      ...section,
+                      custom: {
+                        ...(section.custom || {}),
+                        headerAlignment: val as any,
+                      },
+                    })
+                  }
+                >
+                  <SelectTrigger className="h-8 w-28 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="left">Left</SelectItem>
+                    <SelectItem value="center">Center</SelectItem>
+                    <SelectItem value="right">Right</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-auto">
                 <Switch
                   checked={!!section.custom?.collapsible}
                   onCheckedChange={(checked) =>
@@ -873,7 +943,137 @@ function SectionEditor({
                     })
                   }
                 />
-                <Label className="cursor-pointer">Collapsible</Label>
+                <Label className="cursor-pointer text-xs text-muted-foreground">
+                  Collapsible
+                </Label>
+              </div>
+            </div>
+
+            {/* Media & Styling */}
+            <div className="rounded-lg border bg-muted/20 divide-y">
+              <div className="px-3 py-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Media &amp; Styling
+                </p>
+              </div>
+
+              {/* Text color */}
+              <div className="p-3">
+                <CustomColorPicker
+                  label="Section text color"
+                  value={section.custom?.textColor || "#e5e7eb"}
+                  onChange={(nextColor) =>
+                    onUpdate({
+                      ...section,
+                      custom: {
+                        ...(section.custom || {}),
+                        textColor: nextColor,
+                      },
+                    })
+                  }
+                />
+              </div>
+
+              {/* Image */}
+              <div className="p-3 space-y-3">
+                <p className="text-xs font-medium">Image</p>
+                <input
+                  ref={sectionImageInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+                  onChange={handleSectionImageUpload}
+                  className="hidden"
+                />
+
+                {/* Preview */}
+                {(section.custom?.imageAssetPath ||
+                  section.custom?.imageUrl) && (
+                  <div className="rounded-md border overflow-hidden">
+                    <img
+                      src={
+                        section.custom?.imageAssetPath
+                          ? getFormAssetPublicUrl(section.custom.imageAssetPath)
+                          : section.custom?.imageUrl
+                      }
+                      alt="Section image preview"
+                      className="max-h-44 w-full object-cover"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="cursor-pointer"
+                    disabled={isUploadingImage}
+                    onClick={() => sectionImageInputRef.current?.click()}
+                  >
+                    {isUploadingImage ? (
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ImageIcon className="mr-2 h-3.5 w-3.5" />
+                    )}
+                    {section.custom?.imageAssetPath
+                      ? "Replace uploaded"
+                      : "Upload file"}
+                  </Button>
+                  {section.custom?.imageAssetPath && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="cursor-pointer text-destructive"
+                      onClick={handleRemoveSectionImage}
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Or paste an image URL
+                  </Label>
+                  <Input
+                    value={section.custom?.imageUrl || ""}
+                    onChange={(e) =>
+                      onUpdate({
+                        ...section,
+                        custom: {
+                          ...(section.custom || {}),
+                          imageUrl: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="https://example.com/image.jpg"
+                    className="text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Uploaded files take priority over URL if both are set.
+                  </p>
+                </div>
+              </div>
+
+              {/* GIF */}
+              <div className="p-3 space-y-1.5">
+                <Label className="text-xs font-medium">GIF URL</Label>
+                <Input
+                  value={section.custom?.gifUrl || ""}
+                  onChange={(e) =>
+                    onUpdate({
+                      ...section,
+                      custom: {
+                        ...(section.custom || {}),
+                        gifUrl: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="https://media.giphy.com/media/…/giphy.gif"
+                  className="text-sm"
+                />
               </div>
             </div>
           </div>
@@ -1167,9 +1367,10 @@ export function FormBuilder({
                 Use plain text for anything that should stay compact inside
                 badges or button labels.
               </li>
+              <li>Tables and code blocks are not supported in these fields.</li>
               <li>
-                Images, tables, and code blocks are not supported in these
-                fields.
+                Color only part of a text using <code>[text]{`{#ff4d4f}`}</code>
+                , for example <code>[A]{`{#ff0000}`}</code>.
               </li>
               <li>
                 Long titles or tags will wrap instead of overflowing off the
@@ -1188,122 +1389,165 @@ export function FormBuilder({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Identity */}
           <div className="space-y-2">
             <Label htmlFor="form-title">
               Form Title <span className="text-red-400">*</span>
             </Label>
-            <div>
-              <Input
-                id="form-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Contact Form, Commission Request"
-                className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
-              />
-            </div>
+            <Input
+              id="form-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Contact Form, Commission Request"
+              className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="form-description">Description</Label>
-            <div>
-              <Textarea
-                id="form-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe what this form is for..."
-                rows={4}
-                className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent w-full"
-              />
-            </div>
+            <Textarea
+              id="form-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe what this form is for…"
+              rows={3}
+              className="resize-none border-none px-0 focus-visible:ring-0 bg-transparent w-full text-sm"
+            />
           </div>
 
           <Separator />
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Preset</Label>
-              <Select
-                value={appearance.preset}
-                onValueChange={(value) =>
-                  setAppearance((prev) => ({ ...prev, preset: value as any }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a preset" />
-                </SelectTrigger>
-                <SelectContent>
-                  {formAppearancePresets.map((preset) => (
-                    <SelectItem key={preset.value} value={preset.value}>
-                      {preset.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Appearance */}
+          <div className="space-y-4">
+            <p className="text-sm font-medium leading-none">Appearance</p>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Preset</Label>
+                <Select
+                  value={appearance.preset}
+                  onValueChange={(value) =>
+                    setAppearance((prev) => ({ ...prev, preset: value as any }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Preset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formAppearancePresets.map((preset) => (
+                      <SelectItem key={preset.value} value={preset.value}>
+                        {preset.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Accent</Label>
+                <Select
+                  value={appearance.accent}
+                  onValueChange={(value) =>
+                    setAppearance((prev) => ({ ...prev, accent: value as any }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Accent" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formAppearanceAccents.map((accent) => (
+                      <SelectItem key={accent.value} value={accent.value}>
+                        {accent.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Density</Label>
+                <Select
+                  value={appearance.density}
+                  onValueChange={(value) =>
+                    setAppearance((prev) => ({
+                      ...prev,
+                      density: value as any,
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Density" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formAppearanceDensityOptions.map((density) => (
+                      <SelectItem key={density.value} value={density.value}>
+                        {density.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Accent</Label>
-              <Select
-                value={appearance.accent}
-                onValueChange={(value) =>
-                  setAppearance((prev) => ({ ...prev, accent: value as any }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose an accent" />
-                </SelectTrigger>
-                <SelectContent>
-                  {formAppearanceAccents.map((accent) => (
-                    <SelectItem key={accent.value} value={accent.value}>
-                      {accent.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Density</Label>
-              <Select
-                value={appearance.density}
-                onValueChange={(value) =>
-                  setAppearance((prev) => ({ ...prev, density: value as any }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose density" />
-                </SelectTrigger>
-                <SelectContent>
-                  {formAppearanceDensityOptions.map((density) => (
-                    <SelectItem key={density.value} value={density.value}>
-                      {density.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div
-            className={cn(
-              "rounded-lg border p-4",
-              appearanceClasses.preset.shell,
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <div className={appearanceClasses.heroIcon}>
-                <Sparkles
-                  className={cn("h-5 w-5", appearanceClasses.accent.text)}
+            {/* Text colors */}
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium leading-none">Text Colors</p>
+              <p className="text-xs text-muted-foreground">
+                Override the accent color for the form title and description.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                <CustomColorPicker
+                  label="Title color"
+                  value={appearance.titleColor || "#f8fafc"}
+                  onChange={(value) =>
+                    setAppearance((prev) => ({ ...prev, titleColor: value }))
+                  }
+                />
+                <CustomColorPicker
+                  label="Description color"
+                  value={appearance.descriptionColor || "#94a3b8"}
+                  onChange={(value) =>
+                    setAppearance((prev) => ({
+                      ...prev,
+                      descriptionColor: value,
+                    }))
+                  }
                 />
               </div>
-              <div className="min-w-0">
+            </div>
+
+            {/* Preview pill */}
+            <div
+              className={cn(
+                "flex items-center gap-3 rounded-lg border px-4 py-3",
+                appearanceClasses.preset.shell,
+              )}
+            >
+              <div className={appearanceClasses.heroIcon}>
+                <Sparkles
+                  className={cn("h-4 w-4", appearanceClasses.accent.text)}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">
-                  {appearanceClasses.resolved.preset} preset
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {appearanceClasses.resolved.accent} accent ·{" "}
-                  {appearanceClasses.resolved.density} density
+                  {appearanceClasses.resolved.preset} ·{" "}
+                  {appearanceClasses.resolved.accent} ·{" "}
+                  {appearanceClasses.resolved.density}
                 </p>
               </div>
+              {appearance.titleColor && (
+                <span
+                  className="h-4 w-4 rounded-full border shadow-sm"
+                  style={{ backgroundColor: appearance.titleColor }}
+                  title={`Title: ${appearance.titleColor}`}
+                />
+              )}
+              {appearance.descriptionColor && (
+                <span
+                  className="h-4 w-4 rounded-full border shadow-sm"
+                  style={{ backgroundColor: appearance.descriptionColor }}
+                  title={`Description: ${appearance.descriptionColor}`}
+                />
+              )}
             </div>
           </div>
         </CardContent>

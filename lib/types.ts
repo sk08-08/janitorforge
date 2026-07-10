@@ -74,6 +74,8 @@ export interface FormAppearance {
   preset: FormPreset;
   accent: FormAccent;
   density: FormDensity;
+  titleColor?: string;
+  descriptionColor?: string;
 }
 
 export interface FormSection {
@@ -85,6 +87,10 @@ export interface FormSection {
   custom?: {
     headerAlignment?: "left" | "center" | "right";
     collapsible?: boolean;
+    textColor?: string;
+    imageAssetPath?: string;
+    imageUrl?: string;
+    gifUrl?: string;
   };
 }
 
