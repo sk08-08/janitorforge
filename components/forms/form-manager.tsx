@@ -60,7 +60,7 @@ import {
   updateFormAction,
   deleteFormAction,
 } from "@/app/actions/forms";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import type { RequestForm, FormTemplate, FormSection } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
@@ -275,7 +275,7 @@ function FormCard({
         <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            Updated {form.updatedAt.toLocaleDateString()}
+            Updated {formatDateTime(form.updatedAt)}
           </span>
           <Button
             variant="ghost"
@@ -400,9 +400,6 @@ export function FormManager() {
   const ownedForms = currentUserId
     ? forms.filter((form) => !form.ownerId || form.ownerId === currentUserId)
     : forms;
-  const otherForms = currentUserId
-    ? forms.filter((form) => form.ownerId && form.ownerId !== currentUserId)
-    : [];
 
   // Handlers
   const handleCreateForm = (
@@ -651,35 +648,6 @@ export function FormManager() {
               </Card>
             )}
           </section>
-
-          {otherForms.length > 0 && (
-            <section className="space-y-4">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold">Other accounts</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Forms that belong to other users.
-                  </p>
-                </div>
-                <Badge variant="outline">{otherForms.length}</Badge>
-              </div>
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {otherForms.map((form) => (
-                  <FormCard
-                    key={form.id}
-                    form={form}
-                    requestCount={getRequestsByFormId(form.id).length}
-                    ownerLabel="Other account"
-                    onEdit={() => setEditingForm(form)}
-                    onDelete={() => setDeleteConfirmForm(form)}
-                    onToggleActive={() => handleToggleActive(form)}
-                    onEditDeactivation={() => handleEditDeactivation(form)}
-                    onCopyLink={() => handleCopyLink(form)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
         </div>
       ) : (
         <Card>

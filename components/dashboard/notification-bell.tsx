@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type MouseEvent } from "react";
 import {
   Bell,
   Check,
@@ -278,7 +278,17 @@ export function NotificationBell() {
                 (!notification.link || isDashboardLink) &&
                 (meta || isDashboardLink);
 
-              const handleClick = () => {
+              const handleClick = async (
+                event?: MouseEvent<HTMLButtonElement | HTMLAnchorElement>,
+              ) => {
+                if (hasExternalLink && event) {
+                  event.preventDefault();
+                }
+
+                if (!notification.is_read) {
+                  await handleMarkAsRead(notification.id);
+                }
+
                 if (hasSpaAction) {
                   if (meta?.request_id || meta?.form_id) {
                     setCurrentView("requests");
@@ -304,15 +314,18 @@ export function NotificationBell() {
                       setCurrentView("bots");
                     }
                   }
-                  if (!notification.is_read) {
-                    handleMarkAsRead(notification.id);
-                  }
+                } else if (hasExternalLink && notification.link) {
+                  window.location.href = notification.link;
                 }
               };
 
               const Wrapper = hasExternalLink ? "a" : "button";
               const wrapperProps = hasExternalLink
-                ? { href: notification.link, target: "_self" as const }
+                ? {
+                    href: notification.link,
+                    target: "_self" as const,
+                    onClick: handleClick,
+                  }
                 : { type: "button" as const, onClick: handleClick };
 
               return (

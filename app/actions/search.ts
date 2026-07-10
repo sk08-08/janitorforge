@@ -280,7 +280,8 @@ export async function searchRequests(
   let countQuery = supabase
     .from("requests")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .is("deleted_at", null);
   if (query.trim()) {
     const escaped = query.replace(/[,()]/g, " ").trim();
     countQuery = countQuery.or(
@@ -298,6 +299,7 @@ export async function searchRequests(
       "id, form_id, form_title, submitter_name, status, responses, response_labels, notes, created_at, updated_at",
     )
     .eq("user_id", userId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

@@ -28,7 +28,13 @@ import type { RequestForm } from "@/lib/types";
 import { getCurrentUserAccess } from "@/lib/access";
 import { cachedBrowserRequest } from "@/lib/browser-request-cache";
 
-export default function ModerationPageContent() {
+interface ModerationPageContentProps {
+  adminView?: boolean;
+}
+
+export default function ModerationPageContent({
+  adminView = false,
+}: ModerationPageContentProps) {
   const [forms, setForms] = useState<RequestForm[]>([]);
   const [selectedFormId, setSelectedFormId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -42,40 +48,57 @@ export default function ModerationPageContent() {
     setLoading(true);
     try {
       const result = await cachedBrowserRequest(
-        "moderation:forms",
+        adminView ? "moderation:forms:admin" : "moderation:forms:owned",
         10_000,
         async () => {
           const supabase = createClient();
           const { user, isAdmin } = await getCurrentUserAccess(supabase);
           const activeUserId = user?.id ?? null;
+          const canSeeAllForms = adminView && isAdmin;
 
           if (!user) {
             return {
-              ownedForms: [] as RequestForm[],
+              forms: [] as RequestForm[],
               activeUserId: null as string | null,
             };
           }
 
-          const query = supabase
+          let query = supabase
             .from("request_forms")
             .select("*")
+            .is("deleted_at", null)
             .order("created_at", { ascending: false });
 
-          const { data, error } = isAdmin
-            ? await query
-            : await query.eq("user_id", user.id);
+          if (!canSeeAllForms) {
+            query = query.eq("user_id", user.id);
+          }
+
+          const { data, error } = await query;
 
           if (error) {
             throw error;
           }
 
           return {
-            ownedForms: (data || []).map((form: any) => ({
-              ...form,
-              createdAt: new Date(form.created_at),
-              updatedAt: new Date(form.updated_at),
+            forms: (data || []).map((form: any) => ({
+              id: form.id,
+              ownerId: form.user_id || undefined,
+              title: form.title,
+              description: form.description || "",
+              sections: form.sections || [],
+              appearance: form.appearance || undefined,
+              shareableLink: form.shareable_link || "",
+              isActive: !!form.is_active,
+              securitySensitivity: form.security_sensitivity || undefined,
+              createdAt: form.created_at
+                ? new Date(form.created_at)
+                : new Date(),
+              updatedAt: form.updated_at
+                ? new Date(form.updated_at)
+                : new Date(),
             })) as RequestForm[],
             activeUserId,
+            canSeeAllForms,
           };
         },
         force,
@@ -89,23 +112,23 @@ export default function ModerationPageContent() {
       }
 
       setCurrentUserId(result.activeUserId);
-      setForms(result.ownedForms);
+      setForms(result.forms);
 
       const ownForms = result.activeUserId
-        ? result.ownedForms.filter(
-            (form) => form.ownerId === result.activeUserId,
-          )
-        : result.ownedForms;
+        ? result.forms.filter((form) => form.ownerId === result.activeUserId)
+        : result.forms;
+
+      const preferredForms = result.canSeeAllForms ? result.forms : ownForms;
 
       setSelectedFormId((currentSelected) => {
         if (
           currentSelected &&
-          ownForms.some((form) => form.id === currentSelected)
+          preferredForms.some((form) => form.id === currentSelected)
         ) {
           return currentSelected;
         }
 
-        return ownForms[0]?.id || result.ownedForms[0]?.id || null;
+        return preferredForms[0]?.id || null;
       });
     } catch (error) {
       console.error("Error loading forms:", error);
@@ -148,7 +171,9 @@ export default function ModerationPageContent() {
         <div className="flex min-h-[60vh] items-center justify-center p-6">
           <div className="flex flex-col items-center gap-3 text-muted-foreground">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <p className="text-sm">Loading your forms…</p>
+            <p className="text-sm">
+              {adminView ? "Loading forms…" : "Loading your forms…"}
+            </p>
           </div>
         </div>
       ) : forms.length === 0 ? (

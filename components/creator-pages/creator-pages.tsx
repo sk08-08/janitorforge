@@ -222,10 +222,12 @@ export function CreatorPages() {
               .from("creator_pages")
               .select("*")
               .eq("user_id", access.user.id)
+              .is("deleted_at", null)
               .order("updated_at", { ascending: false }),
             supabase
               .from("creator_page_sections")
               .select("*")
+              .is("deleted_at", null)
               .order("position", { ascending: true }),
           ]);
 
@@ -415,6 +417,7 @@ export function CreatorPages() {
           layout: editLayout,
           config: pageConfig,
         })
+        .is("deleted_at", null)
         .eq("id", editingPage.id)
         .eq("user_id", currentUserId);
 
@@ -448,6 +451,7 @@ export function CreatorPages() {
       const { error } = await supabase
         .from("creator_pages")
         .update({ is_published: newPublished })
+        .is("deleted_at", null)
         .eq("id", page.id)
         .eq("user_id", currentUserId);
 
@@ -475,6 +479,7 @@ export function CreatorPages() {
       const { error } = await supabase
         .from("creator_pages")
         .update({ deleted_at: new Date().toISOString() })
+        .is("deleted_at", null)
         .eq("id", pageId)
         .eq("user_id", currentUserId);
 
@@ -601,6 +606,7 @@ export function CreatorPages() {
         .from("request_forms")
         .select("id, title, shareable_link")
         .eq("user_id", currentUserId)
+        .is("deleted_at", null)
         .order("title");
       if (data)
         setAvailableForms(
@@ -686,6 +692,7 @@ export function CreatorPages() {
         supabase
           .from("creator_page_sections")
           .update({ position: s.position })
+          .is("deleted_at", null)
           .eq("id", s.id),
       );
       await Promise.all(updates);
@@ -822,6 +829,7 @@ export function CreatorPages() {
           title: sectionTitleEdit.trim() || editingSection.title,
           config,
         })
+        .is("deleted_at", null)
         .eq("id", editingSection.id);
 
       if (error) throw error;
@@ -846,7 +854,8 @@ export function CreatorPages() {
       const supabase = createClient();
       const { error } = await supabase
         .from("creator_page_sections")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
+        .is("deleted_at", null)
         .eq("id", sectionId);
 
       if (error) throw error;
@@ -886,6 +895,7 @@ export function CreatorPages() {
         supabase
           .from("creator_page_sections")
           .update({ position: s.position })
+          .is("deleted_at", null)
           .eq("id", s.id),
       );
       await Promise.all(updates);

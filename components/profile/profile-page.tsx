@@ -155,6 +155,7 @@ export function ProfilePage() {
               .from("creator_pages")
               .select("id, title, slug, description, is_published")
               .eq("user_id", ownProfileResult.profile.id)
+              .is("deleted_at", null)
               .order("updated_at", { ascending: false }),
             supabase
               .from("atlas_worlds")

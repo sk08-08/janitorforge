@@ -25,6 +25,7 @@ export async function inviteCollaborator(
     .from("bots")
     .select("id, user_id, name")
     .eq("id", botId)
+    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -138,6 +139,7 @@ export async function removeCollaborator(collaboratorId: string) {
     .from("bots")
     .select("user_id")
     .eq("id", collabRecord.bot_id)
+    .is("deleted_at", null)
     .single();
 
   const isOwner = bot?.user_id === access.user.id;
@@ -265,6 +267,7 @@ export async function updateCollaboratorRole(
     .from("bots")
     .select("user_id")
     .eq("id", collabRecord.bot_id)
+    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -690,6 +693,7 @@ export async function approveChangeRequest(changeRequestId: string) {
     .from("bots")
     .select("user_id")
     .eq("id", cr.bot_id)
+    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -762,6 +766,7 @@ export async function rejectChangeRequest(
     .from("bots")
     .select("user_id")
     .eq("id", cr.bot_id)
+    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -838,6 +843,7 @@ export async function getBotApprovalSetting(botId: string) {
     .from("bots")
     .select("require_collab_approval")
     .eq("id", botId)
+    .is("deleted_at", null)
     .single();
 
   if (!bot) {
@@ -864,6 +870,7 @@ export async function toggleBotApproval(
     .from("bots")
     .select("user_id")
     .eq("id", botId)
+    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {

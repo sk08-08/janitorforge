@@ -114,6 +114,7 @@ export async function updateBotAction(id: string, data: Partial<BotFormData>) {
   const { data: updated, error } = await supabase
     .from("bots")
     .update(payload)
+    .is("deleted_at", null)
     .eq("id", id)
     .select("*")
     .single();
@@ -174,6 +175,7 @@ export async function deleteBotAction(id: string) {
   const { error } = await supabase
     .from("bots")
     .update({ deleted_at: new Date().toISOString() })
+    .is("deleted_at", null)
     .eq("id", id)
     .eq("user_id", userId);
   if (error) {

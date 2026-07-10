@@ -72,6 +72,7 @@ export async function checkSlugAvailability(
     .from("creator_pages")
     .select("id, title, user_id")
     .eq("slug", clean)
+    .is("deleted_at", null)
     .maybeSingle();
 
   if (pageMatch && pageMatch.user_id === currentUserId) {
@@ -129,6 +130,7 @@ export async function checkSlugAvailability(
       .from("creator_pages")
       .select("id, title, user_id")
       .eq("slug", clean)
+      .is("deleted_at", null)
       .neq("user_id", currentUserId)
       .limit(1)
       .maybeSingle();

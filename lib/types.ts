@@ -395,7 +395,8 @@ export type NavigationView =
   | "feedback"
   | "atlas"
   | "creator-pages"
-  | "profile";
+  | "profile"
+  | "admin";
 
 // ----------------------------------------------------------------------------
 // Change Request Types

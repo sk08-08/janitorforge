@@ -87,6 +87,7 @@ export default async function UserProfilePage({ params }: PageProps) {
     .select("*")
     .eq("user_id", profile.id)
     .eq("is_published", true)
+    .is("deleted_at", null)
     .order("updated_at", { ascending: false });
 
   // Fetch their public bots

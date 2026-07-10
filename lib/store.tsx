@@ -40,6 +40,7 @@ const validNavigationViews: NavigationView[] = [
   "atlas",
   "creator-pages",
   "profile",
+  "admin",
 ];
 
 function toNavigationView(value: string | null): NavigationView | null {
@@ -180,6 +181,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           (payload) => {
             if (payload.eventType === "INSERT") {
               const r = payload.new as any;
+              if (r.deleted_at) return;
               setRequests((prev) => {
                 if (prev.some((req) => req.id === r.id)) return prev;
                 return [
@@ -205,6 +207,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               });
             } else if (payload.eventType === "UPDATE") {
               const r = payload.new as any;
+              if (r.deleted_at) {
+                setRequests((prev) => prev.filter((req) => req.id !== r.id));
+                return;
+              }
               setRequests((prev) =>
                 prev.map((req) =>
                   req.id === r.id
@@ -283,7 +289,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .order("updated_at", { ascending: false })
             .limit(20),
           formsQuery.is("deleted_at", null),
-          requestsQuery,
+          requestsQuery.is("deleted_at", null),
         ]);
 
         if (botsError) throw botsError;
@@ -596,6 +602,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             notes: notes ?? null,
             updated_at: new Date().toISOString(),
           })
+          .is("deleted_at", null)
           .eq("id", id);
 
         if (error) {
@@ -626,6 +633,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notes,
           updated_at: new Date().toISOString(),
         })
+        .is("deleted_at", null)
         .eq("id", id);
 
       if (error) {
@@ -647,6 +655,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase
         .from("requests")
         .update({ deleted_at: new Date().toISOString() })
+        .is("deleted_at", null)
         .eq("id", id);
 
       if (error) {

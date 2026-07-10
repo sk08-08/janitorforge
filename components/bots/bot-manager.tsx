@@ -61,7 +61,7 @@ import {
   updateBotAction,
   deleteBotAction,
 } from "@/app/actions/bots";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { countBotTokens, exportCharacterCardPNG } from "@/lib/bot-utils";
 import { toast } from "sonner";
 import type { Bot, BotFormData } from "@/lib/types";
@@ -337,7 +337,7 @@ function BotCard({
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4 text-primary" />
-              <span>{bot.updatedAt.toLocaleDateString()}</span>
+              <span>{formatDateTime(bot.updatedAt)}</span>
             </div>
           </div>
 
@@ -479,7 +479,7 @@ function BotCard({
           <span>{tokenCount.toLocaleString()} tokens</span>
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3 text-primary" />
-            {bot.updatedAt.toLocaleDateString()}
+            {formatDateTime(bot.updatedAt)}
           </span>
         </div>
       </CardContent>

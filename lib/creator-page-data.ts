@@ -101,6 +101,7 @@ export async function fetchCreatorPageData(
       .from("creator_page_sections")
       .select("*")
       .eq("page_id", creatorPage.id)
+      .is("deleted_at", null)
       .order("position", { ascending: true }),
     supabase
       .from("bots")

@@ -16,6 +16,7 @@ import { CreatorPages } from "@/components/creator-pages/creator-pages";
 import { ProfilePage } from "@/components/profile/profile-page";
 import { FeedbackInbox } from "@/components/dashboard/feedback-inbox";
 import ModerationPageContent from "@/app/dashboard/moderation/content";
+import { AdminPanel } from "@/components/admin/admin-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProfilesHub } from "@/components/hub/profiles-hub";
 import { ResourcesHub } from "@/components/hub/resources-hub";
@@ -62,6 +63,8 @@ function ViewRouter() {
       return <LogsHubView />;
     case "profile":
       return <ProfilePage />;
+    case "admin":
+      return <AdminPanel />;
     default:
       return <DashboardHome />;
   }

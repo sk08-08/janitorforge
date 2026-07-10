@@ -1,66 +1,193 @@
 // ============================================================================
 // Rate Limiting Utilities
-// In-memory rate limiting (for production use Redis)
+// In-memory rate limiting with automatic cleanup and configurable limits.
+// For production with Redis, see redis-rate-limit.ts
 // ============================================================================
 
-// In-memory rate limiting store
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const MAX_REQUESTS_PER_MINUTE = 5;
+export interface RateLimiterOptions {
+  /** Max requests allowed within the window (default: 5) */
+  maxRequests?: number;
+  /** Window duration in milliseconds (default: 60 000 = 1 min) */
+  windowMs?: number;
+  /** Max entries in the store before eviction kicks in (default: 10 000) */
+  maxStoreSize?: number;
+  /** How often to run cleanup in ms (default: 300 000 = 5 min) */
+  cleanupIntervalMs?: number;
+}
 
-/**
- * Get client IP address from headers
- */
-export function getClientIp(headers: Headers | null): string {
-  if (!headers) return "unknown";
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+}
 
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
+// ---------------------------------------------------------------------------
+// RateLimiter class — instantiable, testable, reusable
+// ---------------------------------------------------------------------------
+export class RateLimiter {
+  private store = new Map<string, { count: number; resetTime: number }>();
+  private readonly maxRequests: number;
+  private readonly windowMs: number;
+  private readonly maxStoreSize: number;
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+  constructor(options?: RateLimiterOptions) {
+    this.maxRequests = options?.maxRequests ?? 5;
+    this.windowMs = options?.windowMs ?? 60_000;
+    this.maxStoreSize = options?.maxStoreSize ?? 10_000;
+
+    const interval = options?.cleanupIntervalMs ?? 5 * 60_000;
+    this.cleanupTimer = setInterval(() => this.cleanup(), interval);
+    // Don't keep the Node.js process alive just for the timer
+    if (this.cleanupTimer?.unref) {
+      this.cleanupTimer.unref();
+    }
   }
 
+  // -- Core API -------------------------------------------------------------
+
+  check(key: string): RateLimitResult {
+    const now = Date.now();
+    const record = this.store.get(key);
+
+    if (!record || now > record.resetTime) {
+      this.evictIfNeeded();
+      this.store.set(key, { count: 1, resetTime: now + this.windowMs });
+      return { allowed: true, remaining: this.maxRequests - 1 };
+    }
+
+    if (record.count >= this.maxRequests) {
+      return { allowed: false, remaining: 0 };
+    }
+
+    record.count += 1;
+    return { allowed: true, remaining: this.maxRequests - record.count };
+  }
+
+  clear(key: string): void {
+    this.store.delete(key);
+  }
+
+  getStats(key: string): { count: number; resetTime: number } | null {
+    return this.store.get(key) ?? null;
+  }
+
+  /** Remove all expired entries */
+  cleanup(): void {
+    const now = Date.now();
+    for (const [key, record] of this.store) {
+      if (now > record.resetTime) {
+        this.store.delete(key);
+      }
+    }
+  }
+
+  /** Current number of tracked keys (useful for monitoring) */
+  get size(): number {
+    return this.store.size;
+  }
+
+  /** Stop the cleanup timer — call when tearing down in tests */
+  destroy(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.store.clear();
+  }
+
+  // -- Internal -------------------------------------------------------------
+
+  private evictIfNeeded(): void {
+    if (this.store.size < this.maxStoreSize) return;
+
+    // Evict expired entries first
+    this.cleanup();
+
+    // If still over limit, remove oldest entries by resetTime
+    if (this.store.size >= this.maxStoreSize) {
+      const entries = [...this.store.entries()].sort(
+        (a, b) => a[1].resetTime - b[1].resetTime,
+      );
+      const toRemove = Math.ceil(this.maxStoreSize * 0.1); // drop ~10 %
+      for (let i = 0; i < toRemove && i < entries.length; i++) {
+        this.store.delete(entries[i][0]);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Default singleton — reads from env vars so deployments can tune without
+// touching code.
+// ---------------------------------------------------------------------------
+const defaultLimiter = new RateLimiter({
+  maxRequests: Number(process.env.RATE_LIMIT_MAX) || 5,
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 60_000,
+  maxStoreSize: Number(process.env.RATE_LIMIT_MAX_STORE) || 10_000,
+});
+
+// ---------------------------------------------------------------------------
+// Backward-compatible helpers (used by feedback.ts, safety.ts, etc.)
+// ---------------------------------------------------------------------------
+
+export interface GetClientIpOptions {
+  /**
+   * When `true` (default), the first value of `x-forwarded-for` is trusted.
+   * Set to `false` if your server is NOT behind a trusted reverse proxy
+   * (Cloudflare, Nginx, AWS ALB, Vercel, etc.) to prevent IP spoofing.
+   */
+  trustProxy?: boolean;
+}
+
+/**
+ * Extract the client IP from request headers.
+ *
+ * **Security note:** `x-forwarded-for` can be spoofed if your server is not
+ * behind a trusted proxy that overwrites the header. On Vercel / Cloudflare
+ * this is safe because the platform sets the header. Pass `{ trustProxy: false }`
+ * if unsure.
+ */
+export function getClientIp(
+  headers: Headers | null,
+  options?: GetClientIpOptions,
+): string {
+  if (!headers) return "unknown";
+
+  const trustProxy = options?.trustProxy ?? true;
+
+  if (trustProxy) {
+    const forwarded = headers.get("x-forwarded-for");
+    if (forwarded) {
+      return forwarded.split(",")[0].trim();
+    }
+    return headers.get("x-real-ip") || "unknown";
+  }
+
+  // Don't trust proxy headers — only use x-real-ip which is harder to spoof
+  // when the server itself sets it
   return headers.get("x-real-ip") || "unknown";
 }
 
 /**
- * Check rate limiting for an IP
+ * Check rate limiting for a key (e.g. IP or prefixed IP).
+ * Uses the default singleton limiter.
  */
-export function checkRateLimit(clientIp: string): {
-  allowed: boolean;
-  remaining: number;
-} {
-  const now = Date.now();
-  const record = rateLimitStore.get(clientIp);
-
-  if (!record || now > record.resetTime) {
-    // New window
-    rateLimitStore.set(clientIp, {
-      count: 1,
-      resetTime: now + RATE_LIMIT_WINDOW,
-    });
-    return { allowed: true, remaining: MAX_REQUESTS_PER_MINUTE - 1 };
-  }
-
-  if (record.count >= MAX_REQUESTS_PER_MINUTE) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  record.count += 1;
-  return { allowed: true, remaining: MAX_REQUESTS_PER_MINUTE - record.count };
+export function checkRateLimit(key: string): RateLimitResult {
+  return defaultLimiter.check(key);
 }
 
 /**
- * Clear rate limit record for an IP (admin use)
+ * Clear rate limit record for a key (admin / testing use).
  */
-export function clearRateLimit(clientIp: string): void {
-  rateLimitStore.delete(clientIp);
+export function clearRateLimit(key: string): void {
+  defaultLimiter.clear(key);
 }
 
 /**
- * Get current rate limit stats (for debugging)
+ * Get current rate limit stats for a key (debugging).
  */
 export function getRateLimitStats(
-  clientIp: string,
+  key: string,
 ): { count: number; resetTime: number } | null {
-  return rateLimitStore.get(clientIp) || null;
+  return defaultLimiter.getStats(key);
 }

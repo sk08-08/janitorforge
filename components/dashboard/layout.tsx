@@ -23,6 +23,7 @@ import {
   Menu,
   MessageSquareMore,
   AppWindow,
+  ShieldAlert,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { logout } from "@/app/actions/auth";
@@ -507,6 +508,12 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                     icon: MessageSquareMore,
                     description: "Review admin feedback and suggestions",
                   },
+                  {
+                    id: "admin",
+                    label: "Admin Panel",
+                    icon: ShieldAlert,
+                    description: "Manage users, content, and platform settings",
+                  },
                 ])}
               </div>
             )}
@@ -651,6 +658,13 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                           label: "Feedback Inbox",
                           icon: MessageSquareMore,
                           description: "Review admin feedback and suggestions",
+                        },
+                        {
+                          id: "admin",
+                          label: "Admin Panel",
+                          icon: ShieldAlert,
+                          description:
+                            "Manage users, content, and platform settings",
                         },
                       ])}
                     </div>

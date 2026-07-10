@@ -44,7 +44,11 @@ async function assertOwnedForm(
     return { success: false, error: "Unauthenticated" };
   }
 
-  const query = supabase.from("request_forms").select("id").eq("id", formId);
+  const query = supabase
+    .from("request_forms")
+    .select("id")
+    .eq("id", formId)
+    .is("deleted_at", null);
   const { data, error } = access.isAdmin
     ? await query.maybeSingle()
     : await query.eq("user_id", userId).maybeSingle();

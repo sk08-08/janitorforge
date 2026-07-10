@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import type { Request, RequestStatus } from "@/lib/types";
 import { MarkdownRenderer } from "./markdown-renderer";
 
@@ -342,7 +342,7 @@ function RequestCard({
         <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {request.createdAt.toLocaleDateString()}
+            {formatDateTime(request.createdAt)}
           </span>
         </div>
       </CardContent>

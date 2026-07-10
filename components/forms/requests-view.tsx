@@ -64,7 +64,6 @@ export function RequestsView() {
   const { requests, forms, updateRequestStatus, deleteRequest } = useStore();
   const [filterFormId, setFilterFormId] = useState<string>("all");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [accessLoaded, setAccessLoaded] = useState(false);
 
   useEffect(() => {
@@ -76,11 +75,9 @@ export function RequestsView() {
         const access = await getCurrentUserAccess(supabase);
         if (!mounted) return;
         setCurrentUserId(access.user?.id ?? null);
-        setIsAdmin(access.isAdmin);
       } catch {
         if (!mounted) return;
         setCurrentUserId(null);
-        setIsAdmin(false);
       } finally {
         if (mounted) setAccessLoaded(true);
       }
@@ -132,21 +129,8 @@ export function RequestsView() {
               request.ownerId === currentUserId || isOwnRequest(request.formId),
           )
         : [];
-  const otherRequests = isAdmin
-    ? filterFormId === "all"
-      ? filteredRequests.filter(
-          (request) =>
-            !(
-              request.ownerId === currentUserId || isOwnRequest(request.formId)
-            ),
-        )
-      : isSelectedFormOwn
-        ? []
-        : filteredRequests
-    : [];
 
-  const hasVisibleRequests =
-    ownRequests.length > 0 || (isAdmin && otherRequests.length > 0);
+  const hasVisibleRequests = ownRequests.length > 0;
 
   const handleStatusChange = (
     requestId: string,
@@ -297,70 +281,12 @@ export function RequestsView() {
           </div>
         </div>
       ) : hasVisibleRequests ? (
-        <div className="space-y-8">
-          {showOwnRequestsSection && (
-            <section className="space-y-3">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold">My submissions</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Submissions that belong to your own forms.
-                  </p>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {ownRequests.length} total
-                </p>
-              </div>
-
-              {ownRequests.length > 0 ? (
-                <KanbanBoard
-                  requests={ownRequests}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                  collapseStateKey="kanban-collapsed-my-requests"
-                />
-              ) : (
-                <Card>
-                  <CardContent className="py-12 text-center text-muted-foreground">
-                    No requests in this section.
-                  </CardContent>
-                </Card>
-              )}
-            </section>
-          )}
-
-          {isAdmin && (
-            <section className="space-y-3">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold">Other accounts</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Submissions from forms owned by other users.
-                  </p>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {otherRequests.length} total
-                </p>
-              </div>
-
-              {otherRequests.length > 0 ? (
-                <KanbanBoard
-                  requests={otherRequests}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDelete}
-                  collapseStateKey="kanban-collapsed-other-requests"
-                  isAdmin={true}
-                />
-              ) : (
-                <Card>
-                  <CardContent className="py-12 text-center text-muted-foreground">
-                    No submissions from other accounts yet.
-                  </CardContent>
-                </Card>
-              )}
-            </section>
-          )}
-        </div>
+        <KanbanBoard
+          requests={ownRequests}
+          onStatusChange={handleStatusChange}
+          onDelete={handleDelete}
+          collapseStateKey="kanban-collapsed-requests"
+        />
       ) : requests.length > 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

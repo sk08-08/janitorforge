@@ -53,7 +53,7 @@ const THREAT_PATTERNS: RegExp[] = [
 
 // Hate speech — severe slurs directed at someone
 const HATE_SPEECH_PATTERNS: RegExp[] = [
-  /\b(f+a+g+o*t+|n+i+g+g+(e*r|a+h*)|r+e+t+a+r+d+)\b/gi,
+  /\b(f+a+g+o*t+|n+i+g+g+(e*r|a+h*)|r+e+t+a+r+d+)\b/i,
 ];
 
 // Direct harassment (these are ONLY flagged when directed at someone with "you/ur")
@@ -112,10 +112,10 @@ const DANGEROUS_CATEGORY_MAP: Record<string, RegExp[]> = {
 // SPAM PATTERNS
 // ============================================================================
 
-const SPAM_PATTERNS = [
-  /(.)\1{19,}/g, // Extreme character repetition (20+ same chars)
-  /\b(viagra|cialis|casino|lottery|prize|winner|claim\s+now|free\s+money|hot\s+singles|click\s+here)\b/gi,
-  /(https?:\/\/[^\s]*\.(ru|tk|cf|ml|ga|gq|pw|cc)\b)/gi, // Suspicious TLDs in links
+const SPAM_PATTERNS: RegExp[] = [
+  /(.)\1{19,}/, // Extreme character repetition
+  /\b(viagra|cialis|casino|lottery|prize|winner|claim\s+now|free\s+money|hot\s+singles|click\s+here)\b/i,
+  /(https?:\/\/[^\s]*\.(ru|tk|cf|ml|ga|gq|pw|cc)\b)/i, // Suspicious TLDs in links
 ];
 
 // Known URL shorteners / phishing domains
@@ -264,16 +264,17 @@ export function checkDangerousPatterns(text: string): string[] {
 export function checkSpamPatterns(text: string): string[] {
   const flags: string[] = [];
 
-  if (/(.)\1{19,}/.test(text)) {
+  if (SPAM_PATTERNS[0].test(text)) {
     flags.push("spam_repetition");
   }
 
-  if (
-    /\b(viagra|cialis|casino|lottery|prize|winner|claim\s+now|free\s+money)\b/i.test(
-      text,
-    )
-  ) {
+  if (SPAM_PATTERNS[1].test(text)) {
     flags.push("spam_keywords");
+  }
+
+  // Ahora sí estamos usando tu tercera regla de spam
+  if (SPAM_PATTERNS[2].test(text)) {
+    flags.push("suspicious_url_domain");
   }
 
   return flags;
@@ -370,10 +371,7 @@ export function filterContent(text: string): ContentFilterResult {
   const hasOnlyMinorFlags =
     allFlags.length > 0 &&
     allFlags.every(
-      (f) =>
-        f === "all_caps_aggression" ||
-        f === "excessive_punctuation" ||
-        f === "spam_repetition",
+      (f) => f === "all_caps_aggression" || f === "excessive_punctuation",
     );
 
   if (hasOnlyMinorFlags && containsWhitelistedSlang(text)) {

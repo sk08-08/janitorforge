@@ -111,6 +111,7 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
   const { data: updated, error } = await supabase
     .from("request_forms")
     .update(payload)
+    .is("deleted_at", null)
     .eq("id", id)
     .select("*")
     .single();
@@ -170,6 +171,7 @@ export async function deleteFormAction(id: string) {
   const { error } = await supabase
     .from("request_forms")
     .update({ deleted_at: new Date().toISOString() })
+    .is("deleted_at", null)
     .eq("id", id)
     .eq("user_id", userId);
   if (error) {
