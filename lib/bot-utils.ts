@@ -127,8 +127,10 @@ export function botToCharacterCard(bot: Bot): CharacterCardV2 {
     spec_version: "2.0",
     data: {
       name: bot.name,
-      description: bot.shortDescription,
-      personality: bot.personality,
+      // CRUCE 1: La "Personality" masiva de Janitor va al "description" del estándar V2
+      description: bot.personality,
+      // La "Short Description" de Janitor encaja en el "personality" del estándar V2 (rasgos breves)
+      personality: bot.shortDescription,
       first_mes: bot.firstMessage,
       alternate_greetings:
         alternateGreetings.length > 0 ? alternateGreetings : undefined,
@@ -160,8 +162,10 @@ export function characterCardToBot(
 
   return {
     name: card.data.name,
-    shortDescription: card.data.description,
-    personality: card.data.personality,
+    // CRUCE 2: El "personality" breve del V2 se convierte en tu Short Description
+    shortDescription: card.data.personality || "",
+    // El "description" masivo del V2 se convierte en tu Personality de Janitor
+    personality: card.data.description || "",
     firstMessage: card.data.first_mes,
     alternateGreetings,
     scenario: card.data.scenario,
@@ -172,45 +176,57 @@ export function characterCardToBot(
 }
 
 /**
+ * Helper: Calcula el CRC32 necesario para los bloques PNG
+ */
+function crc32(data: Uint8Array): number {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c;
+  }
+  let crc = 0xffffffff;
+  for (let i = 0; i < data.length; i++) {
+    crc = (crc >>> 8) ^ table[(crc ^ data[i]) & 0xff];
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/**
  * Encodes character card data into a PNG image with embedded metadata
- * Uses the standard chara field in tEXt chunk
+ * STRICT V2 COMPLIANCE: Uses standard chara field in tEXt chunk
  */
 export async function exportCharacterCardPNG(
   bot: Bot,
   imageUrl?: string,
 ): Promise<Blob> {
-  // Create character card data
   const cardData = botToCharacterCard(bot);
   const jsonString = JSON.stringify(cardData);
   const base64Data = btoa(unescape(encodeURIComponent(jsonString)));
 
-  // Create a canvas with the bot image or a default
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
-
   canvas.width = 400;
   canvas.height = 600;
 
-  // Fill with gradient background
   const gradient = ctx.createLinearGradient(0, 0, 400, 600);
   gradient.addColorStop(0, "#2d1f4e");
   gradient.addColorStop(1, "#1a1625");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 400, 600);
 
-  // Add bot name
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 24px system-ui";
   ctx.textAlign = "center";
   ctx.fillText(bot.name, 200, 300);
 
-  // Add subtitle
   ctx.fillStyle = "#a78bfa";
   ctx.font = "14px system-ui";
   ctx.fillText("Character Card V2", 200, 330);
   ctx.fillText("Created with JanitorForge", 200, 350);
 
-  // If there is an image URL, try to load it
   if (imageUrl) {
     try {
       const img = new Image();
@@ -222,52 +238,108 @@ export async function exportCharacterCardPNG(
       });
       ctx.drawImage(img, 0, 0, 400, 600);
     } catch {
-      // Image failed to load, use default canvas
+      // Ignorar si falla la imagen
     }
   }
 
-  // Convert to blob - in a real implementation, you'd use a library like
-  // png-chunk-text to properly embed the tEXt chunk with 'chara' keyword
-  // For now, we'll just add the data as a comment in a custom format
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      if (blob) {
-        // In production, use a proper PNG metadata library
-        // For demo purposes, we'll return the blob with metadata stored separately
-        const dataBlob = new Blob([blob, "\n---CHARA_DATA---\n", base64Data], {
-          type: "image/png",
-        });
-        resolve(dataBlob);
-      }
-    }, "image/png");
-  });
+  // 1. Obtener el blob del canvas original
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/png"),
+  );
+
+  if (!blob) throw new Error("Failed to create canvas blob");
+
+  // 2. Manipulación Binaria: Inyectar el tEXt chunk real
+  const buffer = await blob.arrayBuffer();
+  const originalBytes = new Uint8Array(buffer);
+  const textEncoder = new TextEncoder();
+
+  // Construir los datos del chunk (keyword + null terminator + data)
+  const keyword = textEncoder.encode("chara\0");
+  const textData = textEncoder.encode(base64Data);
+  const chunkData = new Uint8Array(keyword.length + textData.length);
+  chunkData.set(keyword, 0);
+  chunkData.set(textData, keyword.length);
+
+  // Calcular el CRC32 usando el "Tipo" + "Data"
+  const type = textEncoder.encode("tEXt");
+  const crcData = new Uint8Array(4 + chunkData.length);
+  crcData.set(type, 0);
+  crcData.set(chunkData, 4);
+  const crc = crc32(crcData);
+
+  // Ensamblar el bloque completo (Longitud 4b + Tipo 4b + Datos + CRC 4b)
+  const chunk = new Uint8Array(4 + 4 + chunkData.length + 4);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, chunkData.length); // Longitud
+  chunk.set(type, 4); // Tipo
+  chunk.set(chunkData, 8); // Datos
+  view.setUint32(8 + chunkData.length, crc); // CRC32
+
+  // 3. Insertar el bloque justo después del bloque IHDR (siempre ocupa los primeros 33 bytes)
+  const finalBuffer = new Uint8Array(originalBytes.length + chunk.length);
+  finalBuffer.set(originalBytes.subarray(0, 33), 0); // Firma PNG + IHDR
+  finalBuffer.set(chunk, 33); // Nuestro tEXt chunk
+  finalBuffer.set(originalBytes.subarray(33), 33 + chunk.length); // El resto de la imagen
+
+  return new Blob([finalBuffer], { type: "image/png" });
 }
 
 /**
  * Attempts to read character card data from a PNG file
+ * STRICT V2 COMPLIANCE: Reads binary PNG chunks securely
  */
 export async function importCharacterCardPNG(
   file: File,
 ): Promise<CharacterCardV2 | null> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        // Look for our embedded data marker
-        const markerIndex = text.indexOf("---CHARA_DATA---");
-        if (markerIndex !== -1) {
-          const base64Data = text.slice(markerIndex + 17);
-          const jsonString = decodeURIComponent(escape(atob(base64Data)));
-          const cardData = JSON.parse(jsonString) as CharacterCardV2;
-          resolve(cardData);
-        } else {
-          resolve(null);
+  try {
+    const buffer = await file.arrayBuffer();
+    const view = new DataView(buffer);
+
+    // Verificar que sea un PNG válido
+    if (view.getUint32(0) !== 0x89504e47) {
+      return null;
+    }
+
+    let offset = 8; // Empezar después de la firma PNG
+
+    while (offset < view.byteLength) {
+      const length = view.getUint32(offset);
+      const type = String.fromCharCode(
+        view.getUint8(offset + 4),
+        view.getUint8(offset + 5),
+        view.getUint8(offset + 6),
+        view.getUint8(offset + 7),
+      );
+
+      if (type === "tEXt") {
+        const dataOffset = offset + 8;
+        const dataBytes = new Uint8Array(buffer, dataOffset, length);
+        const chunkText = new TextDecoder("utf-8").decode(dataBytes);
+
+        // Separar "chara" de la cadena en base64
+        const parts = chunkText.split("\0");
+        const keyword = parts[0];
+
+        if (keyword === "chara") {
+          const encodedData = parts.slice(1).join("\0");
+          try {
+            const jsonString = decodeURIComponent(escape(atob(encodedData)));
+            return JSON.parse(jsonString) as CharacterCardV2;
+          } catch (e) {
+            console.error("Failed to parse card JSON data:", e);
+            return null;
+          }
         }
-      } catch {
-        resolve(null);
       }
-    };
-    reader.readAsText(file);
-  });
+
+      // Saltar al siguiente bloque (4 length + 4 type + data + 4 crc)
+      offset += 12 + length;
+    }
+
+    return null; // No se encontró el bloque 'chara'
+  } catch (error) {
+    console.error("Error reading PNG metadata:", error);
+    return null;
+  }
 }

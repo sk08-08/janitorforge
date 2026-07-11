@@ -637,7 +637,8 @@ export function ResourcesHub() {
                   </h1>
                 </div>
                 <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                  A browsable directory of useful links, references, and guides.
+                  A browsable directory of useful articles, references, and
+                  guides.
                 </p>
               </div>
             </div>

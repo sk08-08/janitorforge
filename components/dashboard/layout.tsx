@@ -61,6 +61,8 @@ interface NavItem {
   id: NavigationView;
   label: string;
   icon: typeof LayoutDashboard;
+  color?: string;
+  activeBg?: string;
   description: string;
 }
 
@@ -95,42 +97,56 @@ const forgeNavItems: NavItem[] = [
     id: "dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
+    color: "text-primary",
+    activeBg: "bg-primary/10",
     description: "Overview and quick stats",
   },
   {
     id: "bots",
     label: "Bot Manager",
     icon: Bot,
+    color: "text-green-500",
+    activeBg: "bg-green-500/10",
     description: "Create and manage your bots",
   },
   {
     id: "forms",
     label: "Forms",
     icon: FileText,
+    color: "text-muted-foreground",
+    activeBg: "bg-primary/10",
     description: "Design custom forms",
   },
   {
     id: "requests",
     label: "Submissions",
     icon: Inbox,
+    color: "text-blue-500",
+    activeBg: "bg-blue-500/10",
     description: "Manage incoming submissions",
   },
   {
     id: "moderation",
     label: "Moderation",
     icon: Shield,
+    color: "text-orange-500",
+    activeBg: "bg-orange-500/10",
     description: "Review flagged submissions",
   },
   {
     id: "atlas",
     label: "Atlas",
     icon: Globe,
+    color: "text-pink-500",
+    activeBg: "bg-pink-500/10",
     description: "Organize series, lore, and creator spaces",
   },
   {
     id: "creator-pages",
     label: "Creator Pages",
     icon: AppWindow,
+    color: "text-yellow-500",
+    activeBg: "bg-yellow-500/10",
     description: "Design and manage public creator pages",
   },
 ];
@@ -356,14 +372,24 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
         variant={isActive ? "secondary" : "ghost"}
         className={cn(
           "w-full justify-start gap-3 transition-all cursor-pointer",
+          // ESTADO ACTIVO: Fondo tintado y texto del color asignado
           isActive &&
-            "bg-sidebar-accent text-sidebar-accent-foreground neon-glow-sm cursor-default",
+            cn(
+              "cursor-default",
+              item.activeBg || "bg-sidebar-accent/50",
+              item.color || "text-sidebar-accent-foreground",
+            ),
+          // ESTADO INACTIVO: Texto grisáceo. En hover, fondo sutil y texto blanco
+          !isActive &&
+            "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-white",
+          // ESTADO COLAPSADO
           collapsed && "justify-center px-2",
         )}
         onClick={() => handleNavClick(item.id)}
       >
-        <div className="relative">
-          <Icon className={cn("h-5 w-5", isActive && "text-primary")} />
+        <div className="relative flex items-center justify-center">
+          <Icon className={cn("h-5 w-5", item.color)} />
+
           {(showBadge || showModerationBadge) && (
             <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
               {badgeValue}

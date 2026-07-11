@@ -1231,13 +1231,20 @@ export function AtlasHub() {
                 icon: NotebookText,
               },
               { label: "Entries", value: totalEntries, icon: BookOpen },
-              { label: "Linked bots", value: linkedBotCount, icon: Bot },
+              {
+                label: "Linked bots",
+                value: linkedBotCount,
+                icon: Bot,
+                color: "text-green-500",
+              },
             ].map((stat) => (
               <div
                 key={stat.label}
                 className="rounded-2xl border border-border/60 bg-background/60 p-4 backdrop-blur"
               >
-                <stat.icon className="mb-2 h-4 w-4 text-muted-foreground" />
+                <stat.icon
+                  className={`mb-2 h-4 w-4 ${stat.color || "text-muted-foreground"}`}
+                />
                 <p className="text-2xl font-bold tracking-tight">
                   {stat.value}
                 </p>

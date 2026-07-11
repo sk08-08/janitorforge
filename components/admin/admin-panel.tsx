@@ -8,7 +8,6 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   BarChart3,
-  Users,
   FileText,
   Inbox,
   Shield,
@@ -30,9 +29,9 @@ import {
   AlertTriangle,
   Eye,
   Flame,
-  Clock,
   ExternalLink,
   Tag,
+  UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,6 +173,7 @@ interface Stats {
   total_bots: number;
   total_forms: number;
   total_submissions: number;
+  color: string;
   pending_flagged: number;
   new_today: number;
   blocked_users: number;
@@ -224,31 +224,36 @@ function OverviewTab({
           label: "Total Users",
           value: stats.total_users,
           sub: `+${stats.new_users_week} this week`,
-          icon: Users,
+          icon: UsersRound,
+          color: "text-primary",
         },
         {
           label: "Active Bots",
           value: stats.total_bots,
           sub: `${stats.sfw_bots} SFW · ${stats.nsfw_bots} NSFW`,
           icon: Bot,
+          color: "text-green-500",
         },
         {
           label: "Active Forms",
           value: stats.active_forms,
           sub: `${stats.total_forms} total`,
           icon: FileText,
+          color: "text-muted-foreground",
         },
         {
           label: "Submissions",
           value: stats.total_submissions,
           sub: `+${stats.new_today} today`,
           icon: Inbox,
+          color: "text-blue-500",
         },
         {
           label: "Pending Flags",
           value: stats.pending_flagged,
           sub: "unreviewed",
           icon: Shield,
+          color: "text-orange-500",
           highlight: stats.pending_flagged > 0,
         },
         {
@@ -256,12 +261,14 @@ function OverviewTab({
           value: stats.deleted_submissions,
           sub: "soft-deleted",
           icon: Trash2,
+          color: "text-red-500",
         },
         {
           label: "Blocked Users",
           value: stats.blocked_users,
           sub: "platform bans",
           icon: Ban,
+          color: "text-red-500",
           highlight: stats.blocked_users > 0,
         },
         {
@@ -269,6 +276,7 @@ function OverviewTab({
           value: stats.admin_users,
           sub: "with admin access",
           icon: CrownIcon,
+          color: "text-yellow-500",
         },
       ]
     : [];
@@ -315,7 +323,7 @@ function OverviewTab({
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
                     <Icon
-                      className={`h-4 w-4 shrink-0 ${card.highlight ? "text-destructive" : "text-muted-foreground"}`}
+                      className={`h-4 w-4 shrink-0 ${card.color ?? (card.highlight ? "text-destructive" : "text-muted-foreground")}`}
                     />
                     <span className="text-2xl font-bold">{card.value}</span>
                   </div>
@@ -379,7 +387,7 @@ function OverviewTab({
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Inbox className="h-4 w-4 text-primary" />
+                <Inbox className="h-4 w-4 text-blue-500" />
                 Recent Submissions
               </CardTitle>
             </CardHeader>
@@ -434,7 +442,7 @@ function OverviewTab({
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
                 Unreviewed Flags
               </CardTitle>
             </CardHeader>
@@ -2199,13 +2207,55 @@ export function AdminPanel() {
     );
   }
 
-  const tabs: { id: AdminTab; label: string; icon: typeof BarChart3 }[] = [
-    { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "submissions", label: "Submissions", icon: Inbox },
-    { id: "forms", label: "Forms", icon: FileText },
-    { id: "bots", label: "Bots", icon: Bot },
-    { id: "users", label: "Users", icon: Users },
-    { id: "moderation", label: "Moderation", icon: Shield },
+  const tabs: {
+    id: AdminTab;
+    label: string;
+    icon: typeof BarChart3;
+    color: string;
+    style?: string;
+  }[] = [
+    {
+      id: "overview",
+      label: "Overview",
+      icon: BarChart3,
+      color: "text-primary",
+      style: "border-primary text-primary",
+    },
+    {
+      id: "submissions",
+      label: "Submissions",
+      icon: Inbox,
+      color: "text-blue-500",
+      style: "border-blue-500 text-blue-500",
+    },
+    {
+      id: "forms",
+      label: "Forms",
+      icon: FileText,
+      color: "text-muted-foreground",
+      style: "border-muted-foreground text-muted-foreground",
+    },
+    {
+      id: "bots",
+      label: "Bots",
+      icon: Bot,
+      color: "text-green-500",
+      style: "border-green-500 text-green-500",
+    },
+    {
+      id: "users",
+      label: "Users",
+      icon: UsersRound,
+      color: "text-primary",
+      style: "border-primary text-primary",
+    },
+    {
+      id: "moderation",
+      label: "Moderation",
+      icon: Shield,
+      color: "text-orange-500",
+      style: "border-orange-500 text-orange-500",
+    },
   ];
 
   return (
@@ -2232,11 +2282,11 @@ export function AdminPanel() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 cursor-pointer px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                 isActive
-                  ? "border-primary text-primary"
+                  ? `${tab.style}`
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={`h-4 w-4 ${tab.color}`} />
               {tab.label}
             </button>
           );

@@ -623,7 +623,7 @@ export function ProfilesHub() {
               </CardContent>
             </Card>
 
-            <Card className="border-border/70 bg-card/95 shadow-sm">
+            {/* <Card className="border-border/70 bg-card/95 shadow-sm">
               <CardContent className="space-y-3 p-5">
                 <div className="flex items-center gap-2">
                   <Shield className="h-4 w-4 text-primary" />
@@ -662,7 +662,7 @@ export function ProfilesHub() {
                   </div>
                 )}
               </CardContent>
-            </Card>
+            </Card> */}
           </aside>
         </div>
       </div>

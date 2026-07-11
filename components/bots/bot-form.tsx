@@ -589,6 +589,24 @@ export function BotForm({
 
           <Separator />
 
+          {/* Scenario */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="scenario">Scenario</Label>
+              <TokenCounter text={scenario} fieldName="Scenario" />
+            </div>
+            <Textarea
+              id="scenario"
+              value={scenario}
+              onChange={(e) => setScenario(e.target.value)}
+              placeholder="The setting and circumstances of the roleplay..."
+              rows={4}
+              className="font-mono text-sm max-h-48 overflow-auto resize-y"
+            />
+          </div>
+
+          <Separator />
+
           {/* Initial Message */}
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -731,24 +749,6 @@ export function BotForm({
                 </div>
               </div>
             </div>
-          </div>
-
-          <Separator />
-
-          {/* Scenario */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="scenario">Scenario</Label>
-              <TokenCounter text={scenario} fieldName="Scenario" />
-            </div>
-            <Textarea
-              id="scenario"
-              value={scenario}
-              onChange={(e) => setScenario(e.target.value)}
-              placeholder="The setting and circumstances of the roleplay..."
-              rows={4}
-              className="font-mono text-sm max-h-48 overflow-auto resize-y"
-            />
           </div>
 
           <Separator />

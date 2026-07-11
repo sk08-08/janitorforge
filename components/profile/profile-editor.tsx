@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
   PopoverContent,
@@ -886,11 +887,10 @@ export function ProfileEditor({
                             : "hover:border-primary/30",
                         )}
                       >
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={isSelected}
-                          onChange={(e) => {
-                            if (e.target.checked) {
+                          onCheckedChange={(checked) => {
+                            if (checked) {
                               setFeaturedBotIds([...featuredBotIds, bot.id]);
                             } else {
                               setFeaturedBotIds(

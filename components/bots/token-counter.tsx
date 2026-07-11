@@ -148,12 +148,13 @@ export function TokenSummary({
   exampleDialogues,
 }: TokenSummaryProps) {
   const totals = useMemo(() => {
-    const combinedInitialMessages = initialMessages
-      .filter(Boolean)
-      .join("\n\n");
+    const mainInitialMessage =
+      initialMessages.length > 0 && initialMessages[0]
+        ? initialMessages[0]
+        : "";
     const fields = [
       { name: "Personality", text: personality },
-      { name: "Initial Messages", text: combinedInitialMessages },
+      { name: "First Message", text: mainInitialMessage },
       { name: "Scenario", text: scenario },
       { name: "Example Dialogues", text: exampleDialogues },
     ];
