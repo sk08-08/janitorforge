@@ -996,7 +996,7 @@ function SectionEditor({
                           : section.custom?.imageUrl
                       }
                       alt="Section image preview"
-                      className="max-h-44 w-full object-cover"
+                      className="max-h-44 w-full object-contain"
                     />
                   </div>
                 )}

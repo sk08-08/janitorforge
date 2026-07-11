@@ -533,6 +533,12 @@ function SectionRenderer({
       : section?.custom?.headerAlignment === "right"
         ? "text-right"
         : "text-left";
+  const flexAlignClass =
+    section?.custom?.headerAlignment === "center"
+      ? "items-center"
+      : section?.custom?.headerAlignment === "right"
+        ? "items-end"
+        : "items-start";
   const hasRequiredFields = section.fields.some((f: any) => f.required);
 
   if (section?.custom?.collapsible) {
@@ -562,12 +568,12 @@ function SectionRenderer({
             )}
 
             {(resolvedSectionImageUrl || safeGifUrl) && (
-              <div className="mt-3 grid gap-3">
+              <div className={`mt-3 flex flex-col gap-3 ${flexAlignClass}`}>
                 {resolvedSectionImageUrl && (
                   <img
                     src={resolvedSectionImageUrl}
                     alt="Section visual"
-                    className="max-h-72 w-full rounded-md border object-cover"
+                    className="max-h-72 max-w-full w-auto rounded-md border object-contain"
                     loading="lazy"
                   />
                 )}
@@ -575,7 +581,7 @@ function SectionRenderer({
                   <img
                     src={safeGifUrl}
                     alt="Section gif"
-                    className="max-h-72 w-full rounded-md border object-cover"
+                    className="max-h-72 max-w-full w-auto rounded-md border object-contain"
                     loading="lazy"
                   />
                 )}
@@ -656,12 +662,12 @@ function SectionRenderer({
         )}
 
         {(resolvedSectionImageUrl || safeGifUrl) && (
-          <div className="mt-2 grid gap-3">
+          <div className={`mt-2 flex flex-col gap-3 ${flexAlignClass}`}>
             {resolvedSectionImageUrl && (
               <img
                 src={resolvedSectionImageUrl}
                 alt="Section visual"
-                className="max-h-72 w-full rounded-md border object-cover"
+                className="max-h-72 max-w-full w-auto rounded-md border object-contain"
                 loading="lazy"
               />
             )}
@@ -669,7 +675,7 @@ function SectionRenderer({
               <img
                 src={safeGifUrl}
                 alt="Section gif"
-                className="max-h-72 w-full rounded-md border object-cover"
+                className="max-h-72 max-w-full w-auto rounded-md border object-contain"
                 loading="lazy"
               />
             )}
