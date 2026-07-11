@@ -11,7 +11,6 @@ import {
   Bot,
   ExternalLink,
   Calendar,
-  Layout,
   ArrowLeft,
   Star,
   MapPin,
@@ -308,6 +307,13 @@ export function PublicProfile({
     "followers" | "following"
   >("followers");
 
+  const activeBots = bots.filter((bot: any) => !bot.deleted_at);
+  const activeCreatorPages = creatorPages.filter(
+    (page: any) => !page.deleted_at,
+  );
+  const activeWorlds = worlds.filter((world: any) => !world.deleted_at);
+  const activeForms = forms.filter((form: any) => !form.deleted_at);
+
   const displayName = profile.display_name || profile.username || "User";
   const theme = (profile.theme as Record<string, unknown>) || {};
   const themeColor = (theme.primaryColor as string) || "#7c3aed";
@@ -315,7 +321,7 @@ export function PublicProfile({
   const badges = profile.profile_badges || [];
   const featuredBotIds = profile.featured_bot_ids || [];
   const featuredBots = featuredBotIds
-    .map((id) => bots.find((bot) => bot.id === id))
+    .map((id) => activeBots.find((bot) => bot.id === id))
     .filter(Boolean);
   const specialtiesList = profile.specialties || [];
   const showBadges = theme.showBadges !== false;
@@ -669,11 +675,11 @@ export function PublicProfile({
                 <div className="flex items-center gap-3">
                   <Bot className="h-5 w-5" style={{ color: themeColor }} />
                   <h2 className="text-lg font-semibold">Bots</h2>
-                  <Badge variant="outline">{bots.length}</Badge>
+                  <Badge variant="outline">{activeBots.length}</Badge>
                 </div>
-                {bots.length > 0 ? (
+                {activeBots.length > 0 ? (
                   <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                    {bots.map((bot) => (
+                    {activeBots.map((bot) => (
                       <BotCard
                         key={bot.id}
                         bot={bot}
@@ -703,11 +709,11 @@ export function PublicProfile({
               <div className="flex items-center gap-3">
                 <AppWindow className="h-5 w-5" style={{ color: themeColor }} />
                 <h2 className="text-lg font-semibold">Creator Pages</h2>
-                <Badge variant="outline">{creatorPages.length}</Badge>
+                <Badge variant="outline">{activeCreatorPages.length}</Badge>
               </div>
-              {creatorPages.length > 0 ? (
+              {activeCreatorPages.length > 0 ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {creatorPages.map((page) => (
+                  {activeCreatorPages.map((page) => (
                     <Link key={page.id} href={`/page/${page.slug}`}>
                       <div className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer h-full">
                         <div className="flex items-center gap-2 mb-1">
@@ -750,11 +756,11 @@ export function PublicProfile({
               <div className="flex items-center gap-3">
                 <Globe className="h-5 w-5" style={{ color: themeColor }} />
                 <h2 className="text-lg font-semibold">Worlds</h2>
-                <Badge variant="outline">{worlds.length}</Badge>
+                <Badge variant="outline">{activeWorlds.length}</Badge>
               </div>
-              {worlds.length > 0 ? (
+              {activeWorlds.length > 0 ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {worlds.map((world) => (
+                  {activeWorlds.map((world) => (
                     <div
                       key={world.id}
                       className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md"
@@ -811,11 +817,11 @@ export function PublicProfile({
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5" style={{ color: themeColor }} />
                 <h2 className="text-lg font-semibold">Forms</h2>
-                <Badge variant="outline">{forms.length}</Badge>
+                <Badge variant="outline">{activeForms.length}</Badge>
               </div>
-              {forms.length > 0 ? (
+              {activeForms.length > 0 ? (
                 <div className="grid justify-items-stretch gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {forms.map((form) => (
+                  {activeForms.map((form) => (
                     <Link
                       href={`/form/${form.shareable_link}`}
                       target="_blank"

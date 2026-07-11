@@ -227,6 +227,12 @@ export function ProfilePage() {
   const showCreatorPages = theme.showCreatorPages !== false;
   const showWorlds = theme.showWorlds !== false;
   const showForms = theme.showForms !== false;
+  const activeBots = bots.filter((bot: any) => !bot.deleted_at);
+  const activeCreatorPages = creatorPages.filter(
+    (page: any) => !page.deleted_at,
+  );
+  const activeWorlds = worlds.filter((world: any) => !world.deleted_at);
+  const activeForms = forms.filter((form: any) => !form.deleted_at);
   const hideCompletenessNudge =
     theme.hideCompletenessNudge === true ||
     theme.hideCompletenessNudge === "true";
@@ -234,7 +240,7 @@ export function ProfilePage() {
   const featuredBots = featuredBotIds
     .map((id) => bots.find((b) => b.id === id))
     .filter(Boolean);
-  const ownForms = forms.filter(
+  const ownForms = activeForms.filter(
     (f) => f.ownerId === (p.id as string) || f.ownerId === undefined,
   );
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
@@ -565,10 +571,10 @@ export function ProfilePage() {
             <div className="flex items-center gap-3">
               <Bot className="h-5 w-5" style={{ color: primaryColor }} />
               <h2 className="text-lg font-semibold">Bots</h2>
-              <Badge variant="outline">{bots.length}</Badge>
+              <Badge variant="outline">{activeBots.length}</Badge>
             </div>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {bots.map((bot) => (
+              {activeBots.map((bot) => (
                 <div
                   key={bot.id}
                   className="rounded-lg border overflow-hidden transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
@@ -624,11 +630,11 @@ export function ProfilePage() {
             <div className="flex items-center gap-3">
               <AppWindow className="h-5 w-5" style={{ color: primaryColor }} />
               <h2 className="text-lg font-semibold">Creator Pages</h2>
-              <Badge variant="outline">{creatorPages.length}</Badge>
+              <Badge variant="outline">{activeCreatorPages.length}</Badge>
             </div>
-            {creatorPages.length > 0 ? (
+            {activeCreatorPages.length > 0 ? (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {creatorPages.map((page) => (
+                {activeCreatorPages.map((page) => (
                   <a
                     key={page.id}
                     href={page.is_published ? `/page/${page.slug}` : "#"}
@@ -674,11 +680,11 @@ export function ProfilePage() {
             <div className="flex items-center gap-3">
               <Globe className="h-5 w-5" style={{ color: primaryColor }} />
               <h2 className="text-lg font-semibold">Worlds</h2>
-              <Badge variant="outline">{worlds.length}</Badge>
+              <Badge variant="outline">{activeWorlds.length}</Badge>
             </div>
-            {worlds.length > 0 ? (
+            {activeWorlds.length > 0 ? (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {worlds.map((world) => (
+                {activeWorlds.map((world) => (
                   <div
                     key={world.id}
                     className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
