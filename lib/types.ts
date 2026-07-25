@@ -346,8 +346,17 @@ export interface CharacterCardV2 {
     tags?: string[];
     creator?: string;
     character_version?: string;
-    extensions?: Record<string, unknown>;
+    extensions?: CharacterCardExtensions;
   };
+}
+
+export interface JanitorForgeCharacterCardExtension {
+  rating?: "SFW" | "NSFW";
+  createdAt?: string;
+}
+
+export interface CharacterCardExtensions extends Record<string, unknown> {
+  janitorforge?: JanitorForgeCharacterCardExtension;
 }
 
 export interface CharacterBook {

@@ -4,7 +4,12 @@
 // ============================================================================
 
 import { encode } from "gpt-tokenizer";
-import type { TokenValidation, Bot, CharacterCardV2 } from "./types";
+import type {
+  TokenValidation,
+  Bot,
+  CharacterCardV2,
+  JanitorForgeCharacterCardExtension,
+} from "./types";
 
 // ----------------------------------------------------------------------------
 // Token Counting
@@ -154,7 +159,7 @@ export function characterCardToBot(
   card: CharacterCardV2,
 ): Omit<Bot, "id" | "createdAt" | "updatedAt"> {
   const extensions = card.data.extensions?.janitorforge as
-    | { rating?: string }
+    | JanitorForgeCharacterCardExtension
     | undefined;
   const alternateGreetings = (card.data.alternate_greetings || []).filter(
     Boolean,
@@ -171,7 +176,7 @@ export function characterCardToBot(
     scenario: card.data.scenario,
     exampleDialogues: card.data.mes_example,
     tags: card.data.tags || [],
-    rating: (extensions?.rating as "SFW" | "NSFW") || "SFW",
+    rating: extensions?.rating || "SFW",
   };
 }
 

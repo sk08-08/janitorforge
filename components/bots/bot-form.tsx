@@ -46,6 +46,7 @@ import { Switch } from "@/components/ui/switch";
 import { TokenCounter, TokenSummary } from "./token-counter";
 import { cn } from "@/lib/utils";
 import type { BotFormData } from "@/lib/types";
+import type { JanitorForgeCharacterCardExtension } from "@/lib/types";
 import {
   exportCharacterCardPNG,
   importCharacterCardPNG,
@@ -335,6 +336,15 @@ export function BotForm({
       try {
         const cardData = await importCharacterCardPNG(file);
         if (cardData) {
+          const importedRating = (
+            cardData.data.extensions?.janitorforge as
+              | JanitorForgeCharacterCardExtension
+              | undefined
+          )?.rating;
+          const importedTags = cardData.data.tags || [];
+          const hasLimitlessTag = importedTags.some(
+            (tag) => tag.trim().toLowerCase() === "limitless",
+          );
           const botData = characterCardToBot(cardData);
           setName(botData.name);
           setShortDescription(botData.shortDescription);
@@ -348,7 +358,11 @@ export function BotForm({
           setScenario(botData.scenario);
           setExampleDialogues(botData.exampleDialogues);
           setTags(botData.tags);
-          setRating(botData.rating);
+          if (hasLimitlessTag) {
+            setRating("NSFW");
+          } else if (importedRating === "SFW" || importedRating === "NSFW") {
+            setRating(importedRating);
+          }
           toast.success("Character card imported successfully!");
         } else {
           toast.error("Could not read character data from this file");

@@ -18,7 +18,7 @@ const ALLOWED_BOT_IMAGE_TYPES = [
   "image/webp",
   "image/avif",
 ];
-const MAX_BOT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_BOT_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
 export async function createBotAction(data: BotFormData) {
   const supabase = await createClient();
