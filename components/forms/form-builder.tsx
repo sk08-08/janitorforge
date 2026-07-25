@@ -121,7 +121,7 @@ function sanitizeUrl(input: string) {
 }
 
 const giphyFetch = new GiphyFetch(
-  process.env.NEXT_PUBLIC_GIPHY_API_KEY || "dc6zaTOxFJmzC",
+  process.env.NEXT_PUBLIC_GIPHY_API_KEY || "7o0fqYvUWtgy7wRLtEVpQOhsYsVX0J8y",
 );
 
 function toggleListMarkersForText(text: string, type: "ul" | "ol") {
