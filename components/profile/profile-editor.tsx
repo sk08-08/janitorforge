@@ -418,7 +418,7 @@ export function ProfileEditor({
         specialties,
         social_links: socialLinks,
         visibility,
-        featured_bot_ids: featuredBotIds,
+        featured_bot_ids: validFeaturedBotIds,
         theme: {
           primaryColor,
           accentColor,
@@ -467,6 +467,16 @@ export function ProfileEditor({
   const filledSocialCount = Object.values(socialLinks).filter(
     (v) => v && v.trim(),
   ).length;
+  const validFeaturedBotIds = featuredBotIds.filter((id) =>
+    bots.some((bot) => bot.id === id),
+  );
+  const featuredCount = validFeaturedBotIds.length;
+  const featuredBotsSorted = [...bots].sort((a, b) => {
+    const aSelected = validFeaturedBotIds.includes(a.id);
+    const bSelected = validFeaturedBotIds.includes(b.id);
+    if (aSelected !== bSelected) return aSelected ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -522,9 +532,9 @@ export function ProfileEditor({
               >
                 <Star className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
                 Featured
-                {featuredBotIds.length > 0 && (
+                {featuredCount > 0 && (
                   <span className="ml-1 text-[10px] opacity-60">
-                    ({featuredBotIds.length})
+                    ({featuredCount})
                   </span>
                 )}
               </TabsTrigger>
@@ -997,10 +1007,13 @@ export function ProfileEditor({
               <p className="text-xs text-muted-foreground">
                 Select bots to feature on your profile.
               </p>
+              <p className="text-[11px] text-muted-foreground">
+                Selected: {featuredCount} / {bots.length}
+              </p>
               {bots.length > 0 ? (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {bots.map((bot) => {
-                    const isSelected = featuredBotIds.includes(bot.id);
+                  {featuredBotsSorted.map((bot) => {
+                    const isSelected = validFeaturedBotIds.includes(bot.id);
                     return (
                       <label
                         key={bot.id}
@@ -1014,13 +1027,12 @@ export function ProfileEditor({
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFeaturedBotIds([...featuredBotIds, bot.id]);
-                            } else {
-                              setFeaturedBotIds(
-                                featuredBotIds.filter((id) => id !== bot.id),
-                              );
-                            }
+                            setFeaturedBotIds((prev) => {
+                              if (checked) {
+                                return Array.from(new Set([...prev, bot.id]));
+                              }
+                              return prev.filter((id) => id !== bot.id);
+                            });
                           }}
                           className="rounded shrink-0"
                         />

@@ -286,8 +286,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             .select("*")
             .eq("user_id", user.id)
             .is("deleted_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(20),
+            .order("updated_at", { ascending: false }),
           formsQuery.is("deleted_at", null),
           requestsQuery.is("deleted_at", null),
         ]);

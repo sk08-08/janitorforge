@@ -11,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -51,7 +59,13 @@ import { FollowListModal } from "./follow-list-modal";
 import { ProfileBadgesSection } from "./profile-badges";
 import { ProfileCompletenessCard } from "./profile-completeness";
 import { ProfileSectionEmpty } from "./profile-section-empty";
+import {
+  ProfileBotGridCard,
+  ProfileFeaturedBotListCard,
+} from "./profile-bot-cards";
 import { cn } from "@/lib/utils";
+
+const PROFILE_BOTS_PAGE_SIZE = 12;
 
 interface ProfileBadge {
   id: string;
@@ -110,6 +124,7 @@ export function ProfilePage() {
   const [followModalTab, setFollowModalTab] = useState<
     "followers" | "following"
   >("followers");
+  const [botsPage, setBotsPage] = useState(0);
   const [followCounts, setFollowCounts] = useState({
     followers: 0,
     following: 0,
@@ -191,6 +206,18 @@ export function ProfilePage() {
     loadProfile();
   }, [loadProfile]);
 
+  const activeBots = bots.filter((bot: any) => !bot.deleted_at);
+  const totalBotPages = Math.max(
+    1,
+    Math.ceil(activeBots.length / PROFILE_BOTS_PAGE_SIZE),
+  );
+
+  useEffect(() => {
+    if (botsPage > totalBotPages - 1) {
+      setBotsPage(Math.max(0, totalBotPages - 1));
+    }
+  }, [botsPage, totalBotPages]);
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-6">
@@ -227,7 +254,6 @@ export function ProfilePage() {
   const showCreatorPages = theme.showCreatorPages !== false;
   const showWorlds = theme.showWorlds !== false;
   const showForms = theme.showForms !== false;
-  const activeBots = bots.filter((bot: any) => !bot.deleted_at);
   const activeCreatorPages = creatorPages.filter(
     (page: any) => !page.deleted_at,
   );
@@ -242,6 +268,16 @@ export function ProfilePage() {
     .filter(Boolean);
   const ownForms = activeForms.filter(
     (f) => f.ownerId === (p.id as string) || f.ownerId === undefined,
+  );
+  const paginatedBots = activeBots.slice(
+    botsPage * PROFILE_BOTS_PAGE_SIZE,
+    (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
+  );
+  const botsRangeStart =
+    activeBots.length === 0 ? 0 : botsPage * PROFILE_BOTS_PAGE_SIZE + 1;
+  const botsRangeEnd = Math.min(
+    (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
+    activeBots.length,
   );
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
 
@@ -477,49 +513,13 @@ export function ProfilePage() {
                   Featured Bots
                 </p>
                 {featuredBots.length > 0 ? (
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                  <div className="space-y-2.5">
                     {featuredBots.map((bot) => (
-                      <div
+                      <ProfileFeaturedBotListCard
                         key={bot!.id}
-                        className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-primary/30 cursor-pointer"
+                        bot={bot!}
                         onClick={() => setBotDetailBot(bot)}
-                      >
-                        <div className="h-10 w-10 rounded bg-muted overflow-hidden shrink-0">
-                          {bot!.imageUrl ? (
-                            <img
-                              src={bot!.imageUrl}
-                              alt={bot!.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div
-                              className="h-full w-full flex items-center justify-center"
-                              style={{ backgroundColor: `${primaryColor}22` }}
-                            >
-                              <Star
-                                className="h-5 w-5"
-                                style={{
-                                  color: primaryColor,
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {bot!.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {bot!.shortDescription || "No description"}
-                          </p>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] shrink-0"
-                        >
-                          {bot!.rating}
-                        </Badge>
-                      </div>
+                      />
                     ))}
                   </div>
                 ) : (
@@ -574,49 +574,84 @@ export function ProfilePage() {
               <Badge variant="outline">{activeBots.length}</Badge>
             </div>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {activeBots.map((bot) => (
-                <div
+              {paginatedBots.map((bot) => (
+                <ProfileBotGridCard
                   key={bot.id}
-                  className="rounded-lg border overflow-hidden transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
+                  bot={bot}
                   onClick={() => setBotDetailBot(bot)}
-                >
-                  <div className="aspect-video bg-muted overflow-hidden">
-                    {bot.imageUrl ? (
-                      <img
-                        src={bot.imageUrl}
-                        alt={bot.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center">
-                        <Bot
-                          className="h-8 w-8"
-                          style={{
-                            color: primaryColor,
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm font-medium truncate">{bot.name}</p>
-                      <Badge
-                        variant={
-                          bot.rating === "SFW" ? "secondary" : "destructive"
-                        }
-                        className="text-[10px] shrink-0"
-                      >
-                        {bot.rating}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {bot.shortDescription || "No description"}
-                    </p>
-                  </div>
-                </div>
+                />
               ))}
             </div>
+            {totalBotPages > 1 && (
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Showing {botsRangeStart}-{botsRangeEnd} of {activeBots.length}{" "}
+                  bots
+                </p>
+                <Pagination className="w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (botsPage > 0) {
+                            setBotsPage((prev) => prev - 1);
+                          }
+                        }}
+                        className={cn(
+                          "cursor-pointer",
+                          botsPage === 0 && "pointer-events-none opacity-50",
+                        )}
+                      />
+                    </PaginationItem>
+                    {Array.from(
+                      { length: Math.min(totalBotPages, 5) },
+                      (_, i) => {
+                        const page =
+                          totalBotPages <= 5
+                            ? i
+                            : Math.max(
+                                0,
+                                Math.min(botsPage - 2, totalBotPages - 5),
+                              ) + i;
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              href="#"
+                              isActive={page === botsPage}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setBotsPage(page);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              {page + 1}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      },
+                    )}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (botsPage < totalBotPages - 1) {
+                            setBotsPage((prev) => prev + 1);
+                          }
+                        }}
+                        className={cn(
+                          "cursor-pointer",
+                          botsPage >= totalBotPages - 1 &&
+                            "pointer-events-none opacity-50",
+                        )}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
             <hr
               className="border-t"
               style={{ borderColor: `${primaryColor}33` }}

@@ -96,8 +96,7 @@ export default async function UserProfilePage({ params }: PageProps) {
     .select("id, name, short_description, tags, rating, image_url, created_at")
     .eq("user_id", profile.id)
     .is("deleted_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(20);
+    .order("updated_at", { ascending: false });
 
   // Fetch worlds
   const { data: worlds } = await supabase
@@ -144,10 +143,10 @@ export default async function UserProfilePage({ params }: PageProps) {
       bots={(bots || []).map((b: any) => ({
         id: b.id,
         name: b.name,
-        short_description: b.short_description,
+        shortDescription: b.short_description,
         tags: b.tags || [],
         rating: b.rating,
-        image_url: b.image_url,
+        imageUrl: b.image_url,
         created_at: b.created_at,
       }))}
       worlds={(worlds || []).map((w: any) => ({

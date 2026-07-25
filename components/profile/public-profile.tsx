@@ -30,14 +30,16 @@ import {
 } from "@/components/ui/social-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import {
@@ -51,6 +53,13 @@ import { BotDetailModal } from "@/components/bots/bot-detail-modal";
 import { renderMarkdown } from "@/lib/markdown";
 import { ProfileBadgesSection } from "./profile-badges";
 import { ProfileSectionEmpty } from "./profile-section-empty";
+import {
+  ProfileBotGridCard,
+  ProfileFeaturedBotListCard,
+} from "./profile-bot-cards";
+import { cn } from "@/lib/utils";
+
+const PROFILE_BOTS_PAGE_SIZE = 12;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,10 +96,10 @@ interface Profile {
 interface BotPreview {
   id: string;
   name: string;
-  short_description: string;
+  shortDescription: string;
   tags: string[];
   rating: string;
-  image_url: string | null;
+  imageUrl: string | null;
   created_at: string;
 }
 
@@ -205,74 +214,6 @@ function FollowButton({
   );
 }
 
-function BotCard({
-  bot,
-  themeColor,
-  onClick,
-}: {
-  bot: BotPreview;
-  themeColor: string;
-  onClick?: () => void;
-}) {
-  return (
-    <Card
-      className="group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer"
-      onClick={onClick}
-      style={{
-        borderColor: `${themeColor}44`,
-        boxShadow: `0 4px 6px -1px ${themeColor}11, 0 2px 4px -2px ${themeColor}08`,
-      }}
-    >
-      <div className="relative aspect-16/10 w-full overflow-hidden bg-muted">
-        {bot.image_url ? (
-          <img
-            src={bot.image_url}
-            alt={bot.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-            onError={(e) => {
-              const el = e.target as HTMLImageElement;
-              el.style.display = "none";
-            }}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-primary/5 to-transparent">
-            <Bot className="h-16 w-16 text-primary/30" />
-          </div>
-        )}
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/60 to-transparent" />
-        <Badge
-          variant={bot.rating === "SFW" ? "secondary" : "destructive"}
-          className="absolute top-3 right-3 backdrop-blur-sm shadow-sm"
-        >
-          {bot.rating}
-        </Badge>
-      </div>
-      <CardHeader className="pb-2 pt-4">
-        <CardTitle className="text-lg font-bold leading-tight">
-          {bot.name}
-        </CardTitle>
-        <CardDescription className="line-clamp-2 text-sm mt-1">
-          {bot.short_description || "No description provided"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-4">
-        <div className="flex flex-wrap gap-1.5">
-          {bot.tags.slice(0, 4).map((tag) => (
-            <Badge key={tag} variant="outline" className="text-[11px]">
-              {tag}
-            </Badge>
-          ))}
-          {bot.tags.length > 4 && (
-            <Badge variant="outline" className="text-[11px]">
-              +{bot.tags.length - 4}
-            </Badge>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Social icon map
 // ---------------------------------------------------------------------------
@@ -306,6 +247,7 @@ export function PublicProfile({
   const [followModalTab, setFollowModalTab] = useState<
     "followers" | "following"
   >("followers");
+  const [botsPage, setBotsPage] = useState(0);
 
   const activeBots = bots.filter((bot: any) => !bot.deleted_at);
   const activeCreatorPages = creatorPages.filter(
@@ -332,6 +274,26 @@ export function PublicProfile({
   const showForms = theme.showForms !== false;
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
   const completeness = (profile.profile_completeness as number) || 0;
+  const totalBotPages = Math.max(
+    1,
+    Math.ceil(activeBots.length / PROFILE_BOTS_PAGE_SIZE),
+  );
+  const paginatedBots = activeBots.slice(
+    botsPage * PROFILE_BOTS_PAGE_SIZE,
+    (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
+  );
+  const botsRangeStart =
+    activeBots.length === 0 ? 0 : botsPage * PROFILE_BOTS_PAGE_SIZE + 1;
+  const botsRangeEnd = Math.min(
+    (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
+    activeBots.length,
+  );
+
+  useEffect(() => {
+    if (botsPage > totalBotPages - 1) {
+      setBotsPage(Math.max(0, totalBotPages - 1));
+    }
+  }, [botsPage, totalBotPages]);
 
   return (
     <ScrollArea className="h-screen w-full overflow-hidden bg-background">
@@ -587,66 +549,13 @@ export function PublicProfile({
                 <Badge variant="outline">{featuredBots.length}</Badge>
               </div>
               {featuredBots.length > 0 ? (
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                <div className="space-y-2.5">
                   {featuredBots.map((bot) => (
-                    <Card
+                    <ProfileFeaturedBotListCard
                       key={bot!.id}
-                      className="group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer"
+                      bot={bot!}
                       onClick={() => setBotDetailBot(bot)}
-                      style={{
-                        borderColor: `${themeColor}44`,
-                        boxShadow: `0 4px 6px -1px ${themeColor}11, 0 2px 4px -2px ${themeColor}08`,
-                      }}
-                    >
-                      <div className="relative aspect-video w-full overflow-hidden bg-muted">
-                        {bot!.image_url ? (
-                          <img
-                            src={bot!.image_url}
-                            alt={bot!.name}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-primary/5 to-transparent">
-                            <Bot className="h-16 w-16 text-primary/30" />
-                          </div>
-                        )}
-                        <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/60 to-transparent" />
-                        <Badge
-                          variant={
-                            bot!.rating === "SFW" ? "secondary" : "destructive"
-                          }
-                          className="absolute top-3 right-3 backdrop-blur-sm shadow-sm"
-                        >
-                          {bot!.rating}
-                        </Badge>
-                      </div>
-                      <CardHeader className="pb-2 pt-4">
-                        <CardTitle className="text-lg font-bold leading-tight">
-                          {bot!.name}
-                        </CardTitle>
-                        <CardDescription className="line-clamp-2 text-sm mt-1">
-                          {bot!.short_description || "No description provided"}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pb-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          {bot!.tags.slice(0, 4).map((tag) => (
-                            <Badge
-                              key={tag}
-                              variant="outline"
-                              className="text-[11px]"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          {bot!.tags.length > 4 && (
-                            <Badge variant="outline" className="text-[11px]">
-                              +{bot!.tags.length - 4}
-                            </Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                    />
                   ))}
                 </div>
               ) : (
@@ -678,16 +587,91 @@ export function PublicProfile({
                   <Badge variant="outline">{activeBots.length}</Badge>
                 </div>
                 {activeBots.length > 0 ? (
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                    {activeBots.map((bot) => (
-                      <BotCard
-                        key={bot.id}
-                        bot={bot}
-                        themeColor={themeColor}
-                        onClick={() => setBotDetailBot(bot)}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                      {paginatedBots.map((bot) => (
+                        <ProfileBotGridCard
+                          key={bot.id}
+                          bot={bot}
+                          onClick={() => setBotDetailBot(bot)}
+                        />
+                      ))}
+                    </div>
+                    {totalBotPages > 1 && (
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Showing {botsRangeStart}-{botsRangeEnd} of{" "}
+                          {activeBots.length} bots
+                        </p>
+                        <Pagination className="w-auto">
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (botsPage > 0) {
+                                    setBotsPage((prev) => prev - 1);
+                                  }
+                                }}
+                                className={cn(
+                                  "cursor-pointer",
+                                  botsPage === 0 &&
+                                    "pointer-events-none opacity-50",
+                                )}
+                              />
+                            </PaginationItem>
+                            {Array.from(
+                              { length: Math.min(totalBotPages, 5) },
+                              (_, i) => {
+                                const page =
+                                  totalBotPages <= 5
+                                    ? i
+                                    : Math.max(
+                                        0,
+                                        Math.min(
+                                          botsPage - 2,
+                                          totalBotPages - 5,
+                                        ),
+                                      ) + i;
+                                return (
+                                  <PaginationItem key={page}>
+                                    <PaginationLink
+                                      href="#"
+                                      isActive={page === botsPage}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setBotsPage(page);
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      {page + 1}
+                                    </PaginationLink>
+                                  </PaginationItem>
+                                );
+                              },
+                            )}
+                            <PaginationItem>
+                              <PaginationNext
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  if (botsPage < totalBotPages - 1) {
+                                    setBotsPage((prev) => prev + 1);
+                                  }
+                                }}
+                                className={cn(
+                                  "cursor-pointer",
+                                  botsPage >= totalBotPages - 1 &&
+                                    "pointer-events-none opacity-50",
+                                )}
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <ProfileSectionEmpty
                     icon={<Bot className="h-5 w-5" />}
@@ -705,7 +689,7 @@ export function PublicProfile({
 
           {/* Creator Pages */}
           {showCreatorPages && (
-            <div className="space-y-4">
+            <div className="space-y-4 mt-4">
               <div className="flex items-center gap-3">
                 <AppWindow className="h-5 w-5" style={{ color: themeColor }} />
                 <h2 className="text-lg font-semibold">Creator Pages</h2>
@@ -743,16 +727,12 @@ export function PublicProfile({
                   title="No creator pages yet"
                 />
               )}
-              <hr
-                className="border-t"
-                style={{ borderColor: `${themeColor}33` }}
-              />
             </div>
           )}
 
           {/* Worlds */}
           {showWorlds && (
-            <div className="space-y-4">
+            <div className="space-y-4 mt-12">
               <div className="flex items-center gap-3">
                 <Globe className="h-5 w-5" style={{ color: themeColor }} />
                 <h2 className="text-lg font-semibold">Worlds</h2>

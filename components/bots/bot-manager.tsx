@@ -536,6 +536,7 @@ export function BotManager() {
   const [searchResults, setSearchResults] = useState<Bot[]>([]);
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchPage, setSearchPage] = useState(0);
+  const [managerPage, setManagerPage] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const PAGE_SIZE = 20;
 
@@ -580,6 +581,18 @@ export function BotManager() {
     };
   }, [searchQuery, filterRating]);
 
+  useEffect(() => {
+    if (searchQuery.trim().length > 0 || filterRating !== "all") {
+      setManagerPage(0);
+      return;
+    }
+
+    const maxPage = Math.max(0, Math.ceil(bots.length / PAGE_SIZE) - 1);
+    if (managerPage > maxPage) {
+      setManagerPage(maxPage);
+    }
+  }, [searchQuery, filterRating, bots.length, managerPage]);
+
   const handlePageChange = useCallback(
     async (newPage: number) => {
       const offset = newPage * PAGE_SIZE;
@@ -616,8 +629,14 @@ export function BotManager() {
   // Determine which bots to display
   const isSearchActive =
     searchQuery.trim().length > 0 || filterRating !== "all";
-  const displayBots = isSearchActive ? searchResults : bots;
-  const totalPages = isSearchActive ? Math.ceil(searchTotal / PAGE_SIZE) : 1;
+  const paginatedOwnedBots = isSearchActive
+    ? searchResults
+    : bots.slice(managerPage * PAGE_SIZE, (managerPage + 1) * PAGE_SIZE);
+  const ownedTotal = isSearchActive ? searchTotal : bots.length;
+  const currentPage = isSearchActive ? searchPage : managerPage;
+  const totalPages = Math.max(1, Math.ceil(ownedTotal / PAGE_SIZE));
+  const rangeStart = ownedTotal === 0 ? 0 : currentPage * PAGE_SIZE + 1;
+  const rangeEnd = Math.min((currentPage + 1) * PAGE_SIZE, ownedTotal);
   const [editingBot, setEditingBot] = useState<Bot | null>(null);
   const [deleteConfirmBot, setDeleteConfirmBot] = useState<Bot | null>(null);
   const [collabDialogBot, setCollabDialogBot] = useState<
@@ -837,7 +856,7 @@ export function BotManager() {
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent mr-2" />
           Searching...
         </div>
-      ) : displayBots.length > 0 || collaborativeBots.length > 0 ? (
+      ) : paginatedOwnedBots.length > 0 || collaborativeBots.length > 0 ? (
         <div
           className={cn(
             viewMode === "grid"
@@ -846,7 +865,7 @@ export function BotManager() {
           )}
         >
           {/* Owned bots */}
-          {displayBots.map((bot) => (
+          {paginatedOwnedBots.map((bot) => (
             <BotCard
               key={bot.id}
               bot={bot}
@@ -1067,12 +1086,10 @@ export function BotManager() {
       </Dialog>
 
       {/* Pagination */}
-      {isSearchActive && totalPages > 1 && (
+      {totalPages > 1 && (
         <div className="mt-6 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
-            Showing {searchPage * PAGE_SIZE + 1}–
-            {Math.min((searchPage + 1) * PAGE_SIZE, searchTotal)} of{" "}
-            {searchTotal} bots
+            Showing {rangeStart}-{rangeEnd} of {ownedTotal} bots
           </p>
           <Pagination className="w-auto">
             <PaginationContent>
@@ -1081,11 +1098,16 @@ export function BotManager() {
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (searchPage > 0) handlePageChange(searchPage - 1);
+                    if (currentPage <= 0) return;
+                    if (isSearchActive) {
+                      handlePageChange(currentPage - 1);
+                    } else {
+                      setManagerPage((prev) => Math.max(0, prev - 1));
+                    }
                   }}
                   className={cn(
                     "cursor-pointer",
-                    searchPage === 0 && "pointer-events-none opacity-50",
+                    currentPage === 0 && "pointer-events-none opacity-50",
                   )}
                 />
               </PaginationItem>
@@ -1093,15 +1115,20 @@ export function BotManager() {
                 const page =
                   totalPages <= 5
                     ? i
-                    : Math.max(0, Math.min(searchPage - 2, totalPages - 5)) + i;
+                    : Math.max(0, Math.min(currentPage - 2, totalPages - 5)) +
+                      i;
                 return (
                   <PaginationItem key={page}>
                     <PaginationLink
                       href="#"
-                      isActive={page === searchPage}
+                      isActive={page === currentPage}
                       onClick={(e) => {
                         e.preventDefault();
-                        handlePageChange(page);
+                        if (isSearchActive) {
+                          handlePageChange(page);
+                        } else {
+                          setManagerPage(page);
+                        }
                       }}
                       className="cursor-pointer"
                     >
@@ -1115,12 +1142,18 @@ export function BotManager() {
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    if (searchPage < totalPages - 1)
-                      handlePageChange(searchPage + 1);
+                    if (currentPage >= totalPages - 1) return;
+                    if (isSearchActive) {
+                      handlePageChange(currentPage + 1);
+                    } else {
+                      setManagerPage((prev) =>
+                        Math.min(totalPages - 1, prev + 1),
+                      );
+                    }
                   }}
                   className={cn(
                     "cursor-pointer",
-                    searchPage >= totalPages - 1 &&
+                    currentPage >= totalPages - 1 &&
                       "pointer-events-none opacity-50",
                   )}
                 />
