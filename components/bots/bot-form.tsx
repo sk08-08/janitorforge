@@ -56,6 +56,92 @@ import { toast } from "sonner";
 import { EyeOff } from "lucide-react";
 import { removeBotImageAction, uploadBotImageAction } from "@/app/actions/bots";
 
+const MAX_BOT_IMAGE_SIZE_BYTES = 4 * 1024 * 1024;
+const COMPRESSED_BOT_IMAGE_TARGET_BYTES = 3.5 * 1024 * 1024;
+const IMAGE_COMPRESSION_STEPS = [
+  { maxDimension: 1600, quality: 0.82 },
+  { maxDimension: 1280, quality: 0.78 },
+  { maxDimension: 1024, quality: 0.72 },
+  { maxDimension: 768, quality: 0.68 },
+  { maxDimension: 640, quality: 0.62 },
+];
+
+async function loadImageElement(file: File): Promise<HTMLImageElement> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.decoding = "async";
+    image.src = objectUrl;
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = reject;
+    });
+    return image;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality?: number,
+): Promise<Blob | null> {
+  return await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality);
+  });
+}
+
+async function compressBotImageFile(file: File): Promise<File> {
+  const image = await loadImageElement(file);
+  const originalWidth = image.naturalWidth || image.width;
+  const originalHeight = image.naturalHeight || image.height;
+
+  if (!originalWidth || !originalHeight) {
+    return file;
+  }
+
+  let bestBlob: Blob | null = null;
+
+  for (const step of IMAGE_COMPRESSION_STEPS) {
+    const scale = Math.min(
+      1,
+      step.maxDimension / Math.max(originalWidth, originalHeight),
+    );
+    const width = Math.max(1, Math.round(originalWidth * scale));
+    const height = Math.max(1, Math.round(originalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) continue;
+
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await canvasToBlob(canvas, "image/webp", step.quality);
+    if (!blob) continue;
+
+    bestBlob = blob;
+    if (blob.size <= COMPRESSED_BOT_IMAGE_TARGET_BYTES) {
+      return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.webp`, {
+        type: blob.type || "image/webp",
+        lastModified: file.lastModified,
+      });
+    }
+  }
+
+  if (bestBlob) {
+    return new File([bestBlob], `${file.name.replace(/\.[^.]+$/, "")}.webp`, {
+      type: bestBlob.type || "image/webp",
+      lastModified: file.lastModified,
+    });
+  }
+
+  return file;
+}
+
 // ----------------------------------------------------------------------------
 // Bot Form Props
 // ----------------------------------------------------------------------------
@@ -199,10 +285,28 @@ export function BotForm({
       const file = e.target.files?.[0];
       if (!file) return;
 
+      if (file.size > MAX_BOT_IMAGE_SIZE_BYTES * 4) {
+        toast.error("Image is too large. Use a file under 4MB.");
+        e.target.value = "";
+        return;
+      }
+
       setUploadingImage(true);
       try {
+        const compressedFile =
+          file.size > MAX_BOT_IMAGE_SIZE_BYTES
+            ? await compressBotImageFile(file)
+            : file;
+
+        if (compressedFile.size > MAX_BOT_IMAGE_SIZE_BYTES) {
+          toast.error(
+            "Image could not be compressed enough. Try a smaller file.",
+          );
+          return;
+        }
+
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", compressedFile);
         if (imageUrl.trim()) {
           formData.append("existingUrl", imageUrl.trim());
         }

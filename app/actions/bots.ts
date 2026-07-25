@@ -18,7 +18,7 @@ const ALLOWED_BOT_IMAGE_TYPES = [
   "image/webp",
   "image/avif",
 ];
-const MAX_BOT_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_BOT_IMAGE_SIZE_BYTES = 4 * 1024 * 1024;
 
 export async function createBotAction(data: BotFormData) {
   const supabase = await createClient();
@@ -255,7 +255,7 @@ export async function uploadBotImageAction(formData: FormData) {
   }
 
   if (file.size > MAX_BOT_IMAGE_SIZE_BYTES) {
-    return { success: false, error: "Image is too large (max 5MB)" };
+    return { success: false, error: "Image is too large (max 4MB)" };
   }
 
   const supabase = await createClient();
