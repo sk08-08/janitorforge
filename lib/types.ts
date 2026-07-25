@@ -58,6 +58,7 @@ export interface FormField {
   id: string;
   type: FormFieldType;
   label: string;
+  textAlignment?: "left" | "center" | "right";
   placeholder?: string;
   required: boolean;
   options?: string[];

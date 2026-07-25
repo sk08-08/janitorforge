@@ -597,46 +597,63 @@ function SectionRenderer({
             )}
           </summary>
           <CardContent className={appearance.density.sectionContent}>
-            {section.fields.map((field: any) => (
-              <div key={field.id} className={appearance.density.fieldGroup}>
-                <Label className="flex items-center gap-1 flex-nowrap">
-                  <span
-                    className="inline min-w-0 whitespace-normal wrap-break-word rendered-markdown"
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdownInline(field.label),
-                    }}
+            {section.fields.map((field: any) => {
+              const fieldTextAlignClass =
+                field.textAlignment === "center"
+                  ? "text-center"
+                  : field.textAlignment === "right"
+                    ? "text-right"
+                    : "text-left";
+              const fieldLabelJustifyClass =
+                field.textAlignment === "center"
+                  ? "justify-center"
+                  : field.textAlignment === "right"
+                    ? "justify-end"
+                    : "justify-start";
+
+              return (
+                <div key={field.id} className={appearance.density.fieldGroup}>
+                  <Label
+                    className={`flex w-full items-center gap-1 flex-nowrap ${fieldLabelJustifyClass}`}
+                  >
+                    <span
+                      className={`inline min-w-0 whitespace-normal wrap-break-word rendered-markdown ${fieldTextAlignClass}`}
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdownInline(field.label),
+                      }}
+                    />
+                  </Label>
+                  {field.description && (
+                    <div
+                      className={`text-xs text-muted-foreground rendered-markdown wrap-break-word ${fieldTextAlignClass}`}
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdown(field.description),
+                      }}
+                    />
+                  )}
+                  <FieldRenderer
+                    field={field}
+                    value={
+                      values[field.id] ||
+                      (field.type === "tags" || field.type === "checkbox"
+                        ? []
+                        : "")
+                    }
+                    onChange={(value: any) =>
+                      onChange(field.id, field.label, value)
+                    }
+                    error={errors[field.id]}
+                    appearance={appearance}
                   />
-                </Label>
-                {field.description && (
-                  <div
-                    className="text-left text-xs text-muted-foreground rendered-markdown wrap-break-word"
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdown(field.description),
-                    }}
-                  />
-                )}
-                <FieldRenderer
-                  field={field}
-                  value={
-                    values[field.id] ||
-                    (field.type === "tags" || field.type === "checkbox"
-                      ? []
-                      : "")
-                  }
-                  onChange={(value: any) =>
-                    onChange(field.id, field.label, value)
-                  }
-                  error={errors[field.id]}
-                  appearance={appearance}
-                />
-                {errors[field.id] && (
-                  <p className="text-xs text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors[field.id]}
-                  </p>
-                )}
-              </div>
-            ))}
+                  {errors[field.id] && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors[field.id]}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </details>
       </Card>
@@ -694,42 +711,61 @@ function SectionRenderer({
         )}
       </CardHeader>
       <CardContent className={appearance.density.sectionContent}>
-        {section.fields.map((field: any) => (
-          <div key={field.id} className={appearance.density.fieldGroup}>
-            <Label className="flex items-center gap-1 flex-nowrap">
-              <span
-                className="inline min-w-0 whitespace-normal wrap-break-word"
-                dangerouslySetInnerHTML={{
-                  __html: renderMarkdownInline(field.label),
-                }}
+        {section.fields.map((field: any) => {
+          const fieldTextAlignClass =
+            field.textAlignment === "center"
+              ? "text-center"
+              : field.textAlignment === "right"
+                ? "text-right"
+                : "text-left";
+          const fieldLabelJustifyClass =
+            field.textAlignment === "center"
+              ? "justify-center"
+              : field.textAlignment === "right"
+                ? "justify-end"
+                : "justify-start";
+
+          return (
+            <div key={field.id} className={appearance.density.fieldGroup}>
+              <Label
+                className={`flex w-full items-center gap-1 flex-nowrap ${fieldLabelJustifyClass}`}
+              >
+                <span
+                  className={`inline min-w-0 whitespace-normal wrap-break-word ${fieldTextAlignClass}`}
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdownInline(field.label),
+                  }}
+                />
+              </Label>
+              {field.description && (
+                <div
+                  className={`text-xs text-muted-foreground wrap-break-word ${fieldTextAlignClass}`}
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(field.description),
+                  }}
+                />
+              )}
+              <FieldRenderer
+                field={field}
+                value={
+                  values[field.id] ||
+                  (field.type === "tags" || field.type === "checkbox" ? [] : "")
+                }
+                onChange={(value: any) =>
+                  onChange(field.id, field.label, value)
+                }
+                error={errors[field.id]}
+                appearance={appearance}
               />
-            </Label>
-            {field.description && (
-              <div
-                className="text-left text-xs text-muted-foreground wrap-break-word"
-                dangerouslySetInnerHTML={{
-                  __html: renderMarkdown(field.description),
-                }}
-              />
-            )}
-            <FieldRenderer
-              field={field}
-              value={
-                values[field.id] ||
-                (field.type === "tags" || field.type === "checkbox" ? [] : "")
-              }
-              onChange={(value: any) => onChange(field.id, field.label, value)}
-              error={errors[field.id]}
-              appearance={appearance}
-            />
-            {errors[field.id] && (
-              <p className="text-xs text-destructive flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" />
-                {errors[field.id]}
-              </p>
-            )}
-          </div>
-        ))}
+              {errors[field.id] && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors[field.id]}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );

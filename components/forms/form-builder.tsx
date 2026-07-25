@@ -37,6 +37,7 @@ import {
   Italic,
   Link as LinkIcon,
   ArrowUp,
+  Search,
   ArrowDown,
   Sparkles,
   Info,
@@ -48,6 +49,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -373,6 +375,9 @@ interface FieldEditorProps {
   field: FormField;
   onUpdate: (field: FormField) => void;
   onDelete: () => void;
+  onDragStart?: (event: React.DragEvent<HTMLElement>) => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
   allFields?: FormField[];
   openLinkModal?: (cb: (url: string) => void) => void;
 }
@@ -389,6 +394,9 @@ function FieldEditor({
   field,
   onUpdate,
   onDelete,
+  onDragStart,
+  onDragEnd,
+  isDragging = false,
   allFields = [],
 }: FieldEditorProps) {
   const [optionInput, setOptionInput] = useState("");
@@ -437,11 +445,22 @@ function FieldEditor({
   const needsOptions = ["select", "radio", "checkbox"].includes(field.type);
 
   return (
-    <Card className="border-border/50 overflow-hidden">
+    <Card
+      className={cn(
+        "border-border/50 overflow-hidden transition-opacity",
+        isDragging && "opacity-60",
+      )}
+    >
       <CardContent className="p-4 overflow-hidden">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
           {/* Drag handle placeholder */}
-          <div className="cursor-grab self-start text-muted-foreground sm:mt-2">
+          <div
+            className="cursor-grab self-start text-muted-foreground sm:mt-2"
+            draggable
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            title="Drag to reorder field"
+          >
             <GripVertical className="h-5 w-5" />
           </div>
 
@@ -502,6 +521,31 @@ function FieldEditor({
                 placeholder="Help text for this field..."
                 rows={2}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Text alignment</Label>
+              <Select
+                value={field.textAlignment || "left"}
+                onValueChange={(value) =>
+                  onUpdate({
+                    ...field,
+                    textAlignment: value as "left" | "center" | "right",
+                  })
+                }
+              >
+                <SelectTrigger className="h-8 w-36 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Applies to field label and description in the public form.
+              </p>
             </div>
 
             {/* Options (for select, radio, checkbox) */}
@@ -755,6 +799,13 @@ interface SectionEditorProps {
   section: FormSection;
   onUpdate: (section: FormSection) => void;
   onDelete: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDragStart?: (event: React.DragEvent<HTMLElement>) => void;
+  onDragEnd?: () => void;
+  isDragging?: boolean;
+  disableMoveUp?: boolean;
+  disableMoveDown?: boolean;
   openLinkModal?: (cb: (url: string) => void) => void;
 }
 
@@ -762,6 +813,13 @@ function SectionEditor({
   section,
   onUpdate,
   onDelete,
+  onMoveUp,
+  onMoveDown,
+  onDragStart,
+  onDragEnd,
+  isDragging = false,
+  disableMoveUp = false,
+  disableMoveDown = false,
   openLinkModal,
 }: SectionEditorProps) {
   const descRef = useRef<any>(null);
@@ -769,12 +827,16 @@ function SectionEditor({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
   const [gifSearch, setGifSearch] = useState("");
+  const [debouncedGifSearch, setDebouncedGifSearch] = useState("");
   const [gifItems, setGifItems] = useState<IGif[]>([]);
   const [gifOffset, setGifOffset] = useState(0);
   const [gifLoading, setGifLoading] = useState(false);
   const [gifLoadingMore, setGifLoadingMore] = useState(false);
   const [gifHasMore, setGifHasMore] = useState(true);
   const [gifError, setGifError] = useState("");
+  const [draggingFieldId, setDraggingFieldId] = useState<string | null>(null);
+  const [fieldDropIndex, setFieldDropIndex] = useState<number | null>(null);
+  const gifRequestSeqRef = useRef(0);
   const addField = (type: FormFieldType) => {
     const newField: FormField = {
       id: uuidv4(),
@@ -801,6 +863,64 @@ function SectionEditor({
       ...section,
       fields: section.fields.filter((f) => f.id !== fieldId),
     });
+  };
+
+  const moveFieldToIndex = (fieldId: string, dropIndex: number) => {
+    const sourceIndex = section.fields.findIndex((f) => f.id === fieldId);
+    if (sourceIndex < 0 || dropIndex < 0 || dropIndex > section.fields.length) {
+      return;
+    }
+
+    let targetIndex = dropIndex;
+    const next = [...section.fields];
+    const [moved] = next.splice(sourceIndex, 1);
+    if (sourceIndex < targetIndex) {
+      targetIndex -= 1;
+    }
+    if (targetIndex === sourceIndex) {
+      return;
+    }
+    next.splice(targetIndex, 0, moved);
+    onUpdate({
+      ...section,
+      fields: next,
+    });
+  };
+
+  const handleFieldDragStart =
+    (fieldId: string) => (event: React.DragEvent<HTMLElement>) => {
+      setDraggingFieldId(fieldId);
+      setFieldDropIndex(section.fields.findIndex((f) => f.id === fieldId));
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", fieldId);
+    };
+
+  const handleFieldDragOver = (
+    event: React.DragEvent<HTMLElement>,
+    dropIndex: number,
+  ) => {
+    if (!draggingFieldId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (fieldDropIndex !== dropIndex) {
+      setFieldDropIndex(dropIndex);
+    }
+  };
+
+  const handleFieldDrop = (
+    event: React.DragEvent<HTMLElement>,
+    dropIndex: number,
+  ) => {
+    event.preventDefault();
+    if (!draggingFieldId) return;
+    moveFieldToIndex(draggingFieldId, dropIndex);
+    setDraggingFieldId(null);
+    setFieldDropIndex(null);
+  };
+
+  const handleFieldDragEnd = () => {
+    setDraggingFieldId(null);
+    setFieldDropIndex(null);
   };
 
   const handleSectionImageUpload = async (
@@ -860,10 +980,17 @@ function SectionEditor({
   };
 
   const loadGifs = useCallback(
-    async ({ reset }: { reset: boolean }) => {
-      const query = gifSearch.trim();
-      const nextOffset = reset ? 0 : gifOffset;
+    async ({
+      reset,
+      query,
+      offset,
+    }: {
+      reset: boolean;
+      query: string;
+      offset: number;
+    }) => {
       const pageSize = 24;
+      const requestSeq = ++gifRequestSeqRef.current;
 
       if (reset) {
         setGifLoading(true);
@@ -875,16 +1002,18 @@ function SectionEditor({
       try {
         const res = query
           ? await giphyFetch.search(query, {
-              offset: nextOffset,
+              offset,
               limit: pageSize,
-              rating: "pg-13",
-              lang: "es",
+              rating: "r",
+              lang: "es, en",
             })
           : await giphyFetch.trending({
-              offset: nextOffset,
+              offset,
               limit: pageSize,
-              rating: "pg-13",
+              rating: "r",
             });
+
+        if (requestSeq !== gifRequestSeqRef.current) return;
 
         const items = Array.isArray(res.data) ? (res.data as IGif[]) : [];
         setGifItems((prev) => {
@@ -897,10 +1026,11 @@ function SectionEditor({
           return merged;
         });
 
-        const advanced = nextOffset + items.length;
+        const advanced = offset + items.length;
         setGifOffset(advanced);
         setGifHasMore(items.length === pageSize);
       } catch (error) {
+        if (requestSeq !== gifRequestSeqRef.current) return;
         const message =
           error instanceof Error
             ? error.message
@@ -908,20 +1038,39 @@ function SectionEditor({
         setGifError(message || "Failed to load GIFs");
         if (reset) setGifItems([]);
       } finally {
-        if (reset) setGifLoading(false);
-        else setGifLoadingMore(false);
+        if (requestSeq === gifRequestSeqRef.current) {
+          if (reset) setGifLoading(false);
+          else setGifLoadingMore(false);
+        }
       }
     },
-    [gifOffset, gifSearch],
+    [],
   );
 
   useEffect(() => {
     if (!gifDialogOpen) return;
     const t = setTimeout(() => {
-      void loadGifs({ reset: true });
-    }, 300);
+      setDebouncedGifSearch(gifSearch.trim());
+    }, 500);
     return () => clearTimeout(t);
-  }, [gifDialogOpen, gifSearch, loadGifs]);
+  }, [gifDialogOpen, gifSearch]);
+
+  useEffect(() => {
+    if (!gifDialogOpen) return;
+    setGifOffset(0);
+    setGifHasMore(true);
+    void loadGifs({
+      reset: true,
+      query: debouncedGifSearch,
+      offset: 0,
+    });
+  }, [debouncedGifSearch, gifDialogOpen, loadGifs]);
+
+  useEffect(() => {
+    if (!gifDialogOpen) {
+      gifRequestSeqRef.current += 1;
+    }
+  }, [gifDialogOpen]);
 
   const handleGifSelect = useCallback(
     (gif: IGif, e: React.SyntheticEvent<HTMLElement, Event>) => {
@@ -977,330 +1126,415 @@ function SectionEditor({
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3 overflow-hidden">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1 space-y-2">
-            <div>
-              <Input
-                id={`section-title-${section.id}`}
-                value={section.title || ""}
-                onChange={(e) =>
-                  onUpdate({ ...section, title: e.target.value })
+    <Card className={cn("transition-opacity", isDragging && "opacity-60")}>
+      <CardHeader className="relative pb-3 overflow-hidden">
+        <div className="min-w-0 space-y-2">
+          <div className="sm:pr-44">
+            <Input
+              id={`section-title-${section.id}`}
+              value={section.title || ""}
+              onChange={(e) => onUpdate({ ...section, title: e.target.value })}
+              placeholder="Section Title"
+              className="w-full min-w-0 text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
+            />
+          </div>
+          <div className="sm:pr-44">
+            <InlineMarkdownEditor
+              ref={descRef}
+              id={`section-desc-${section.id}`}
+              value={section.description}
+              onChange={(v) => onUpdate({ ...section, description: v })}
+              placeholder="Section description (optional)"
+              rows={2}
+              className="text-sm text-muted-foreground"
+            />
+          </div>
+          {/* Section layout */}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <Label className="text-xs text-muted-foreground shrink-0">
+                Alignment
+              </Label>
+              <Select
+                value={section.custom?.headerAlignment || "left"}
+                onValueChange={(val) =>
+                  onUpdate({
+                    ...section,
+                    custom: {
+                      ...(section.custom || {}),
+                      headerAlignment: val as any,
+                    },
+                  })
                 }
-                placeholder="Section Title"
-                className="w-full min-w-0 text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
+              >
+                <SelectTrigger className="h-8 w-28 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <Switch
+                checked={!!section.custom?.collapsible}
+                onCheckedChange={(checked) =>
+                  onUpdate({
+                    ...section,
+                    custom: {
+                      ...(section.custom || {}),
+                      collapsible: !!checked,
+                    },
+                  })
+                }
+              />
+              <Label className="cursor-pointer text-xs text-muted-foreground">
+                Collapsible
+              </Label>
+            </div>
+          </div>
+
+          {/* Styling & Media */}
+          <div className="rounded-lg border bg-muted/20 divide-y">
+            <div className="px-3 py-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Styling &amp; Media
+              </p>
+            </div>
+
+            {/* Text color */}
+            <div className="p-3">
+              <CustomColorPicker
+                label="Section text color"
+                value={section.custom?.textColor || "#e5e7eb"}
+                onChange={(nextColor) =>
+                  onUpdate({
+                    ...section,
+                    custom: {
+                      ...(section.custom || {}),
+                      textColor: nextColor,
+                    },
+                  })
+                }
               />
             </div>
-            <div>
-              <InlineMarkdownEditor
-                ref={descRef}
-                id={`section-desc-${section.id}`}
-                value={section.description}
-                onChange={(v) => onUpdate({ ...section, description: v })}
-                placeholder="Section description (optional)"
-                rows={2}
-                className="text-sm text-muted-foreground"
+
+            {/* Image */}
+            <div className="p-3 space-y-3">
+              <p className="text-xs font-medium">Image</p>
+              <input
+                ref={sectionImageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+                onChange={handleSectionImageUpload}
+                className="hidden"
               />
-            </div>
-            {/* Section layout */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <div className="flex items-center gap-2 min-w-0">
-                <Label className="text-xs text-muted-foreground shrink-0">
-                  Alignment
-                </Label>
-                <Select
-                  value={section.custom?.headerAlignment || "left"}
-                  onValueChange={(val) =>
-                    onUpdate({
-                      ...section,
-                      custom: {
-                        ...(section.custom || {}),
-                        headerAlignment: val as any,
-                      },
-                    })
-                  }
+
+              {/* Preview */}
+              {(section.custom?.imageAssetPath || section.custom?.imageUrl) && (
+                <div className="rounded-md border overflow-hidden">
+                  <img
+                    src={
+                      section.custom?.imageAssetPath
+                        ? getFormAssetPublicUrl(section.custom.imageAssetPath)
+                        : section.custom?.imageUrl
+                    }
+                    alt="Section image preview"
+                    className="max-h-44 w-full object-contain"
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  disabled={isUploadingImage}
+                  onClick={() => sectionImageInputRef.current?.click()}
                 >
-                  <SelectTrigger className="h-8 w-28 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="left">Left</SelectItem>
-                    <SelectItem value="center">Center</SelectItem>
-                    <SelectItem value="right">Right</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2 ml-auto">
-                <Switch
-                  checked={!!section.custom?.collapsible}
-                  onCheckedChange={(checked) =>
-                    onUpdate({
-                      ...section,
-                      custom: {
-                        ...(section.custom || {}),
-                        collapsible: !!checked,
-                      },
-                    })
-                  }
-                />
-                <Label className="cursor-pointer text-xs text-muted-foreground">
-                  Collapsible
-                </Label>
-              </div>
-            </div>
-
-            {/* Media & Styling */}
-            <div className="rounded-lg border bg-muted/20 divide-y">
-              <div className="px-3 py-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Media &amp; Styling
-                </p>
-              </div>
-
-              {/* Text color */}
-              <div className="p-3">
-                <CustomColorPicker
-                  label="Section text color"
-                  value={section.custom?.textColor || "#e5e7eb"}
-                  onChange={(nextColor) =>
-                    onUpdate({
-                      ...section,
-                      custom: {
-                        ...(section.custom || {}),
-                        textColor: nextColor,
-                      },
-                    })
-                  }
-                />
-              </div>
-
-              {/* Image */}
-              <div className="p-3 space-y-3">
-                <p className="text-xs font-medium">Image</p>
-                <input
-                  ref={sectionImageInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
-                  onChange={handleSectionImageUpload}
-                  className="hidden"
-                />
-
-                {/* Preview */}
-                {(section.custom?.imageAssetPath ||
-                  section.custom?.imageUrl) && (
-                  <div className="rounded-md border overflow-hidden">
-                    <img
-                      src={
-                        section.custom?.imageAssetPath
-                          ? getFormAssetPublicUrl(section.custom.imageAssetPath)
-                          : section.custom?.imageUrl
-                      }
-                      alt="Section image preview"
-                      className="max-h-44 w-full object-contain"
-                    />
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2">
+                  {isUploadingImage ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <ImageIcon className="mr-2 h-3.5 w-3.5" />
+                  )}
+                  {section.custom?.imageAssetPath
+                    ? "Replace uploaded"
+                    : "Upload file"}
+                </Button>
+                {section.custom?.imageAssetPath && (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="cursor-pointer"
-                    disabled={isUploadingImage}
-                    onClick={() => sectionImageInputRef.current?.click()}
+                    className="cursor-pointer text-destructive"
+                    onClick={handleRemoveSectionImage}
                   >
-                    {isUploadingImage ? (
-                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <ImageIcon className="mr-2 h-3.5 w-3.5" />
-                    )}
-                    {section.custom?.imageAssetPath
-                      ? "Replace uploaded"
-                      : "Upload file"}
+                    <Trash2 className="mr-2 h-3.5 w-3.5" />
+                    Remove
                   </Button>
-                  {section.custom?.imageAssetPath && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="cursor-pointer text-destructive"
-                      onClick={handleRemoveSectionImage}
-                    >
-                      <Trash2 className="mr-2 h-3.5 w-3.5" />
-                      Remove
-                    </Button>
-                  )}
-                </div>
+                )}
+              </div>
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    Or paste an image URL
-                  </Label>
-                  <Input
-                    value={section.custom?.imageUrl || ""}
-                    onChange={(e) =>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">
+                  Or paste an image URL
+                </Label>
+                <Input
+                  value={section.custom?.imageUrl || ""}
+                  onChange={(e) =>
+                    onUpdate({
+                      ...section,
+                      custom: {
+                        ...(section.custom || {}),
+                        imageUrl: e.target.value,
+                      },
+                    })
+                  }
+                  placeholder="https://example.com/image.jpg"
+                  className="text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Uploaded files take priority over URL if both are set.
+                </p>
+              </div>
+            </div>
+
+            {/* GIF */}
+            <div className="p-3 space-y-2">
+              <Label className="text-xs font-medium">GIF</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer font-medium"
+                  onClick={() => setGifDialogOpen(true)}
+                >
+                  <Sparkles className="mr-2 h-3.5 w-3.5 text-primary animate-pulse" />
+                  <span>
+                    {section.custom?.gifUrl ? "Replace GIF" : "Pick GIF"}
+                  </span>
+                  <span className="mx-1 text-muted-foreground">·</span>
+                  <span className="text-muted-foreground text-xs">
+                    Powered by{" "}
+                    <span className="font-black tracking-wider bg-gradient-to-r from-[#00FF99] via-[#00CCFF] via-[#9933FF] to-[#FF3366] bg-clip-text text-transparent">
+                      GIPHY
+                    </span>
+                  </span>
+                </Button>
+                {section.custom?.gifUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="cursor-pointer text-destructive"
+                    onClick={() =>
                       onUpdate({
                         ...section,
                         custom: {
                           ...(section.custom || {}),
-                          imageUrl: e.target.value,
+                          gifUrl: "",
                         },
                       })
                     }
-                    placeholder="https://example.com/image.jpg"
-                    className="text-sm"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Uploaded files take priority over URL if both are set.
-                  </p>
-                </div>
-              </div>
-
-              {/* GIF */}
-              <div className="p-3 space-y-2">
-                <Label className="text-xs font-medium">GIF</Label>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="cursor-pointer"
-                    onClick={() => setGifDialogOpen(true)}
                   >
-                    <Sparkles className="mr-2 h-3.5 w-3.5" />
-                    {section.custom?.gifUrl ? "Replace GIF" : "Pick GIF"}
+                    <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
                   </Button>
-                  {section.custom?.gifUrl && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="cursor-pointer text-destructive"
-                      onClick={() =>
-                        onUpdate({
-                          ...section,
-                          custom: {
-                            ...(section.custom || {}),
-                            gifUrl: "",
-                          },
-                        })
-                      }
-                    >
-                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
-                    </Button>
-                  )}
-                </div>
-                {section.custom?.gifUrl && (
-                  <div className="rounded-md border overflow-hidden">
-                    <img
-                      src={section.custom.gifUrl}
-                      alt="Selected gif"
-                      className="max-h-44 w-full object-contain"
-                    />
-                  </div>
                 )}
+              </div>
+              {section.custom?.gifUrl && (
+                <div className="rounded-md border overflow-hidden">
+                  <img
+                    src={section.custom.gifUrl}
+                    alt="Selected gif"
+                    className="max-h-44 w-full object-contain"
+                  />
+                </div>
+              )}
 
-                <Dialog open={gifDialogOpen} onOpenChange={setGifDialogOpen}>
-                  <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-                    <DialogHeader>
-                      <DialogTitle>Select a GIF</DialogTitle>
-                      <DialogDescription>
-                        Trending GIFs with search.
-                      </DialogDescription>
-                    </DialogHeader>
+              <Dialog open={gifDialogOpen} onOpenChange={setGifDialogOpen}>
+                <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>Select a GIF</DialogTitle>
+                    <DialogDescription>
+                      Trending GIFs with search.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="relative w-full">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 transition-colors duration-200 peer-focus:text-[#ea00ff] pointer-events-none" />
 
                     <Input
                       value={gifSearch}
                       onChange={(e) => setGifSearch(e.target.value)}
-                      placeholder="Search GIFs..."
+                      placeholder="Search GIPHY"
+                      className="peer w-full pl-10 pr-12 bg-[#121212] border-neutral-800 text-white placeholder:text-neutral-500 transition-all duration-200 focus-visible:ring-1 focus-visible:ring-[#ea00ff] focus-visible:border-[#00CCFF] focus-visible:drop-shadow-[0_0_6px_rgba(0,204,255,0.15)]"
                     />
 
-                    <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
-                      {gifLoading ? (
-                        <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Loading GIFs...
-                        </div>
-                      ) : gifError ? (
-                        <div className="space-y-2 py-8 text-center">
-                          <p className="text-sm text-destructive">{gifError}</p>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="cursor-pointer"
-                            onClick={() => void loadGifs({ reset: true })}
-                          >
-                            Retry
-                          </Button>
-                        </div>
-                      ) : gifItems.length === 0 ? (
-                        <p className="py-8 text-center text-sm text-muted-foreground">
-                          No GIFs found.
-                        </p>
-                      ) : (
-                        <>
-                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                            {gifItems.map((gif) => {
-                              const preview =
-                                gif.images.fixed_width_downsampled?.url ||
-                                gif.images.fixed_width?.url ||
-                                gif.images.original?.url;
-                              if (!preview) return null;
-                              return (
-                                <button
-                                  key={gif.id}
-                                  type="button"
-                                  className="overflow-hidden rounded-md border border-border/60 transition hover:scale-[1.01] hover:border-primary/60"
-                                  onClick={(e) => handleGifSelect(gif, e)}
-                                >
-                                  <img
-                                    src={preview}
-                                    alt={gif.title || "GIF"}
-                                    className="h-32 w-full object-cover"
-                                    loading="lazy"
-                                  />
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {gifHasMore && (
-                            <div className="pt-3 text-center">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="cursor-pointer"
-                                disabled={gifLoadingMore}
-                                onClick={() => void loadGifs({ reset: false })}
-                              >
-                                {gifLoadingMore ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Loading...
-                                  </>
-                                ) : (
-                                  "Load more"
-                                )}
-                              </Button>
-                            </div>
-                          )}
-                        </>
-                      )}
+                    {/* Sello de Marca Isotipo de GIPHY a la derecha */}
+                    <div
+                      className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 w-4 flex-col gap-0.5 pointer-events-none opacity-80 peer-focus:opacity-100 transition-opacity"
+                      aria-hidden="true"
+                    >
+                      <div className="h-1 w-full bg-[#00FF99]" />
+                      <div className="h-1 w-full bg-[#00CCFF]" />
+                      <div className="h-1 w-full bg-[#9933FF]" />
+                      <div className="h-1 w-full bg-[#FF3366]" />
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
+                  </div>
+                  <span className="text-muted-foreground text-xs">
+                    Powered by{" "}
+                    <span className="font-black tracking-wider hover:animate-pulse bg-gradient-to-r from-[#00FF99] via-[#00CCFF] via-[#9933FF] to-[#FF3366] bg-clip-text text-transparent">
+                      <a
+                        href="https://giphy.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        GIPHY
+                      </a>
+                    </span>
+                  </span>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
+                    {gifLoading ? (
+                      <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading GIFs...
+                      </div>
+                    ) : gifError ? (
+                      <div className="space-y-2 py-8 text-center">
+                        <p className="text-sm text-destructive">{gifError}</p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="cursor-pointer"
+                          onClick={() =>
+                            void loadGifs({
+                              reset: true,
+                              query: debouncedGifSearch,
+                              offset: 0,
+                            })
+                          }
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    ) : gifItems.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-muted-foreground">
+                        No GIFs found.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {gifItems.map((gif) => {
+                            const preview =
+                              gif.images.fixed_width_downsampled?.url ||
+                              gif.images.fixed_width?.url ||
+                              gif.images.original?.url;
+                            if (!preview) return null;
+                            return (
+                              <button
+                                key={gif.id}
+                                type="button"
+                                className="overflow-hidden rounded-md border border-border/60 transition hover:scale-[1.01] hover:border-primary/60"
+                                onClick={(e) => handleGifSelect(gif, e)}
+                              >
+                                <img
+                                  src={preview}
+                                  alt={gif.title || "GIF"}
+                                  className="h-32 w-full object-cover"
+                                  loading="lazy"
+                                />
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {gifHasMore && (
+                          <div className="pt-3 text-center">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="cursor-pointer"
+                              disabled={gifLoadingMore}
+                              onClick={() =>
+                                void loadGifs({
+                                  reset: false,
+                                  query: debouncedGifSearch,
+                                  offset: gifOffset,
+                                })
+                              }
+                            >
+                              {gifLoadingMore ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Loading...
+                                </>
+                              ) : (
+                                "Load more"
+                              )}
+                            </Button>
+                            <Image
+                              src="/giphy-logo.png"
+                              alt="Giphy Logo"
+                              width={84}
+                              height={84}
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
+        </div>
+        <div className="absolute right-4 top-3 flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            className="self-start text-muted-foreground hover:text-destructive cursor-pointer"
+            className="text-muted-foreground cursor-pointer"
+            title="Move section up"
+            onClick={onMoveUp}
+            disabled={disableMoveUp}
+          >
+            <ArrowUp className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground cursor-pointer"
+            title="Move section down"
+            onClick={onMoveDown}
+            disabled={disableMoveDown}
+          >
+            <ArrowDown className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground cursor-grab"
+            title="Reorder section"
+            draggable
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+          >
+            <GripVertical className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-destructive cursor-pointer"
             onClick={onDelete}
+            title="Delete section"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -1308,16 +1542,42 @@ function SectionEditor({
       </CardHeader>
       <CardContent className="space-y-3 overflow-hidden">
         {/* Fields */}
-        {section.fields.map((field) => (
-          <FieldEditor
-            key={field.id}
-            field={field}
-            onUpdate={(updated) => updateField(field.id, updated)}
-            onDelete={() => deleteField(field.id)}
-            allFields={section.fields}
-            openLinkModal={openLinkModal}
-          />
+        {section.fields.map((field, index) => (
+          <React.Fragment key={field.id}>
+            <div
+              className={cn(
+                "h-2 rounded-md border border-transparent transition-colors",
+                draggingFieldId && fieldDropIndex === index
+                  ? "border-primary/60 bg-primary/20"
+                  : "bg-transparent",
+              )}
+              onDragOver={(event) => handleFieldDragOver(event, index)}
+              onDrop={(event) => handleFieldDrop(event, index)}
+            />
+            <FieldEditor
+              field={field}
+              onUpdate={(updated) => updateField(field.id, updated)}
+              onDelete={() => deleteField(field.id)}
+              onDragStart={handleFieldDragStart(field.id)}
+              onDragEnd={handleFieldDragEnd}
+              isDragging={draggingFieldId === field.id}
+              allFields={section.fields}
+              openLinkModal={openLinkModal}
+            />
+          </React.Fragment>
         ))}
+        <div
+          className={cn(
+            "h-2 rounded-md border border-transparent transition-colors",
+            draggingFieldId && fieldDropIndex === section.fields.length
+              ? "border-primary/60 bg-primary/20"
+              : "bg-transparent",
+          )}
+          onDragOver={(event) =>
+            handleFieldDragOver(event, section.fields.length)
+          }
+          onDrop={(event) => handleFieldDrop(event, section.fields.length)}
+        />
 
         {/* Add Field Button */}
         <DropdownMenu>
@@ -1400,6 +1660,10 @@ export function FormBuilder({
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const linkCallbackRef = useRef<((url: string) => void) | null>(null);
   const [linkInput, setLinkInput] = useState("");
+  const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
+    null,
+  );
+  const [sectionDropIndex, setSectionDropIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setTitle(initialForm?.title || "");
@@ -1499,6 +1763,78 @@ export function FormBuilder({
     } else {
       toast.error("Form must have at least one section");
     }
+  };
+
+  const moveSection = (sectionId: string, direction: "up" | "down") => {
+    setSections((prev) => {
+      const index = prev.findIndex((s) => s.id === sectionId);
+      if (index === -1) return prev;
+
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+
+      const next = [...prev];
+      const [moved] = next.splice(index, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const moveSectionToIndex = (sectionId: string, dropIndex: number) => {
+    setSections((prev) => {
+      const sourceIndex = prev.findIndex((s) => s.id === sectionId);
+      if (sourceIndex < 0 || dropIndex < 0 || dropIndex > prev.length) {
+        return prev;
+      }
+
+      let targetIndex = dropIndex;
+      const next = [...prev];
+      const [moved] = next.splice(sourceIndex, 1);
+      if (sourceIndex < targetIndex) {
+        targetIndex -= 1;
+      }
+      if (targetIndex === sourceIndex) {
+        return prev;
+      }
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleSectionDragStart =
+    (sectionId: string) => (event: React.DragEvent<HTMLElement>) => {
+      setDraggingSectionId(sectionId);
+      setSectionDropIndex(sections.findIndex((s) => s.id === sectionId));
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", sectionId);
+    };
+
+  const handleSectionDragOver = (
+    event: React.DragEvent<HTMLElement>,
+    dropIndex: number,
+  ) => {
+    if (!draggingSectionId) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (sectionDropIndex !== dropIndex) {
+      setSectionDropIndex(dropIndex);
+    }
+  };
+
+  const handleSectionDrop = (
+    event: React.DragEvent<HTMLElement>,
+    dropIndex: number,
+  ) => {
+    event.preventDefault();
+    if (!draggingSectionId) return;
+    moveSectionToIndex(draggingSectionId, dropIndex);
+    setDraggingSectionId(null);
+    setSectionDropIndex(null);
+  };
+
+  const handleSectionDragEnd = () => {
+    setDraggingSectionId(null);
+    setSectionDropIndex(null);
   };
 
   const handleSave = () => {
@@ -1966,15 +2302,43 @@ export function FormBuilder({
           </Button>
         </div>
 
-        {sections.map((section) => (
-          <SectionEditor
-            key={section.id}
-            section={section}
-            onUpdate={(updated) => updateSection(section.id, updated)}
-            onDelete={() => deleteSection(section.id)}
-            openLinkModal={openLinkModal}
-          />
+        {sections.map((section, index) => (
+          <React.Fragment key={section.id}>
+            <div
+              className={cn(
+                "h-2 rounded-md border border-transparent transition-colors",
+                draggingSectionId && sectionDropIndex === index
+                  ? "border-primary/60 bg-primary/20"
+                  : "bg-transparent",
+              )}
+              onDragOver={(event) => handleSectionDragOver(event, index)}
+              onDrop={(event) => handleSectionDrop(event, index)}
+            />
+            <SectionEditor
+              section={section}
+              onUpdate={(updated) => updateSection(section.id, updated)}
+              onDelete={() => deleteSection(section.id)}
+              onMoveUp={() => moveSection(section.id, "up")}
+              onMoveDown={() => moveSection(section.id, "down")}
+              onDragStart={handleSectionDragStart(section.id)}
+              onDragEnd={handleSectionDragEnd}
+              isDragging={draggingSectionId === section.id}
+              disableMoveUp={index === 0}
+              disableMoveDown={index === sections.length - 1}
+              openLinkModal={openLinkModal}
+            />
+          </React.Fragment>
         ))}
+        <div
+          className={cn(
+            "h-2 rounded-md border border-transparent transition-colors",
+            draggingSectionId && sectionDropIndex === sections.length
+              ? "border-primary/60 bg-primary/20"
+              : "bg-transparent",
+          )}
+          onDragOver={(event) => handleSectionDragOver(event, sections.length)}
+          onDrop={(event) => handleSectionDrop(event, sections.length)}
+        />
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-4 border-t">
