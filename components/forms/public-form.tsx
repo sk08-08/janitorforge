@@ -192,13 +192,18 @@ import {
 } from "@/lib/form-appearance";
 import { FeedbackActions } from "@/components/feedback/feedback-actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getFormAssetPublicUrl } from "@/lib/form-assets";
+import {
+  getFormAssetPublicUrl,
+  getFormBannerPublicUrl,
+} from "@/lib/form-assets";
 
 interface PublicFormProps {
   form: {
     id: string;
     title: string;
     description?: string | null;
+    bannerAssetPath?: string | null;
+    bannerUrl?: string | null;
     isActive: boolean;
     sections: FormSection[];
     appearance?: FormAppearance | null;
@@ -543,7 +548,10 @@ function SectionRenderer({
 
   if (section?.custom?.collapsible) {
     return (
-      <Card className={appearance.sectionCard}>
+      <Card
+        className={appearance.sectionCard}
+        style={appearance.sectionCardStyle}
+      >
         <details className="group">
           <summary className={`cursor-pointer p-4 ${alignClass}`}>
             <span
@@ -636,7 +644,10 @@ function SectionRenderer({
   }
 
   return (
-    <Card className={appearance.sectionCard}>
+    <Card
+      className={appearance.sectionCard}
+      style={appearance.sectionCardStyle}
+    >
       <CardHeader>
         <CardTitle className={`${alignClass} wrap-break-word`}>
           <span
@@ -745,6 +756,12 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
   )
     ? { color: formDescriptionColor }
     : undefined;
+  const uploadedBannerUrl = getFormBannerPublicUrl(form.bannerAssetPath);
+  const externalBannerUrl = String(form.bannerUrl || "").trim();
+  const safeExternalBannerUrl = /^https?:\/\//i.test(externalBannerUrl)
+    ? externalBannerUrl
+    : "";
+  const resolvedBannerUrl = uploadedBannerUrl || safeExternalBannerUrl;
 
   const handleChange = (
     fieldId: string,
@@ -917,7 +934,30 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
   return (
     <ScrollArea className="h-screen w-full">
       <div className={appearance.wrapper} style={appearance.wrapperStyle}>
+        {isEditorial && (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-1"
+            style={appearance.editorialTopAccentStyle}
+          />
+        )}
+
         <div className={cn("container px-4 sm:px-6", appearance.preset.layout)}>
+          {resolvedBannerUrl && (
+            <div
+              className={cn(
+                "mb-4 w-full overflow-hidden rounded-2xl border border-border/60 bg-card/40",
+                isEditorial ? "md:col-span-2" : "mx-auto max-w-5xl",
+              )}
+            >
+              <img
+                src={resolvedBannerUrl}
+                alt="Form banner"
+                className="h-40 w-full object-cover sm:h-52 md:h-64"
+                loading="lazy"
+              />
+            </div>
+          )}
+
           {isEditorial ? (
             <aside
               className={cn("order-1 md:order-0", appearance.preset.sidebar)}
@@ -988,7 +1028,7 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
             </div>
           )}
 
-          <Card className={appearance.surface}>
+          <Card className={appearance.surface} style={appearance.surfaceStyle}>
             <CardContent className="p-4 sm:p-6 md:p-8">
               <form
                 onSubmit={handleSubmit}
@@ -1030,8 +1070,18 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
             </CardContent>
           </Card>
 
-          <div className="mt-6 sm:mt-8 flex w-full">
-            <Card className="w-full border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+          <div
+            className={cn(
+              "mt-6 sm:mt-8 flex w-full",
+              isEditorial && "md:col-span-2 justify-center",
+            )}
+          >
+            <Card
+              className={cn(
+                "w-full border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75",
+                isEditorial && "max-w-2xl",
+              )}
+            >
               <CardContent className="p-4 sm:p-5">
                 <div className="mb-3 space-y-1">
                   <p className="text-sm font-medium">
@@ -1056,7 +1106,12 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
             </Card>
           </div>
 
-          <p className="mt-8 text-center text-xs text-muted-foreground">
+          <p
+            className={cn(
+              "mt-8 text-center text-xs text-muted-foreground",
+              isEditorial && "md:col-span-2",
+            )}
+          >
             Powered by JanitorForge
           </p>
         </div>

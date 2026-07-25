@@ -157,6 +157,28 @@ export function getFormFieldFocusClasses(accent: FormAccent) {
   );
 }
 
+function hexToRgba(hex: string, alpha: number) {
+  const raw = String(hex || "")
+    .trim()
+    .replace(/^#/, "");
+  const normalized =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : raw;
+
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) {
+    return `rgba(99, 102, 241, ${alpha})`;
+  }
+
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export function getFormDensityClasses(density: FormDensity) {
   return density === "compact"
     ? {
@@ -179,8 +201,7 @@ export function getFormPresetClasses(preset: FormPreset) {
   switch (preset) {
     case "bold":
       return {
-        shell:
-          "border-2 shadow-2xl shadow-foreground/10 bg-gradient-to-br from-background via-background to-indigo-500/5",
+        shell: "border-2 shadow-2xl shadow-foreground/10 bg-background",
         card: "border-2 rounded-2xl bg-background/90 shadow-lg",
         heroIcon: "shadow-xl rounded-2xl",
         title: "tracking-tight text-xl",
@@ -191,13 +212,11 @@ export function getFormPresetClasses(preset: FormPreset) {
       };
     case "editorial":
       return {
-        shell:
-          "border-border/40 shadow-xl bg-gradient-to-b from-background via-background to-amber-500/5",
+        shell: "border-border/40 shadow-xl bg-background",
         card: "rounded-none border-x-0 border-t-0 border-b-2 border-dotted shadow-none bg-transparent",
         heroIcon: "shadow-md rounded-2xl ring-1 ring-border/20",
         title: "tracking-tight text-balance text-xl font-semibold",
-        wrapper:
-          "before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-gradient-to-r before:from-transparent before:via-amber-500/40 before:to-transparent",
+        wrapper: "",
         layout:
           "mx-auto flex w-full max-w-7xl flex-col gap-6 md:grid md:grid-cols-[18rem_minmax(0,1fr)] lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start",
         sidebar:
@@ -238,6 +257,10 @@ export function getFormAppearanceClasses(
   const accent = getFormAccentClasses(resolved.accent);
   const preset = getFormPresetClasses(resolved.preset);
   const density = getFormDensityClasses(resolved.density);
+  const accentSoft = hexToRgba(accent.hex, 0.08);
+  const accentSoftStrong = hexToRgba(accent.hex, 0.16);
+  const topAccent = hexToRgba(accent.hex, 0.45);
+  const editorialBorder = hexToRgba(accent.hex, 0.45);
 
   return {
     resolved,
@@ -259,7 +282,32 @@ export function getFormAppearanceClasses(
       backgroundAttachment: "fixed",
     } as CSSProperties,
     surface: cn("overflow-hidden", preset.shell),
+    surfaceStyle:
+      resolved.preset === "bold"
+        ? ({
+            backgroundImage: `linear-gradient(135deg, rgba(255,255,255,0) 0%, ${accentSoftStrong} 100%)`,
+          } as CSSProperties)
+        : resolved.preset === "editorial"
+          ? ({
+              backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0) 0%, ${accentSoft} 100%)`,
+            } as CSSProperties)
+          : undefined,
+    editorialTopAccentStyle:
+      resolved.preset === "editorial"
+        ? ({
+            backgroundImage: `linear-gradient(90deg, transparent, ${topAccent}, transparent)`,
+          } as CSSProperties)
+        : undefined,
     sectionCard: cn("transition-all border", preset.card, accent.border),
+    sectionCardStyle:
+      resolved.preset === "editorial"
+        ? ({
+            borderBottomColor: editorialBorder,
+            borderLeftColor: "transparent",
+            borderRightColor: "transparent",
+            borderTopColor: "transparent",
+          } as CSSProperties)
+        : undefined,
     heroIcon: cn(
       "flex h-12 w-12 items-center justify-center rounded-xl",
       accent.softBg,

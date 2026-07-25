@@ -331,6 +331,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ownerId: r.user_id || undefined,
               title: r.title,
               description: r.description || "",
+              bannerAssetPath: r.banner_asset_path || "",
+              bannerUrl: r.banner_url || "",
               sections: r.sections || [],
               appearance: r.appearance || undefined,
               shareableLink: r.shareable_link || "",

@@ -3,8 +3,13 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   FORM_ASSETS_BUCKET,
+  FORM_BANNERS_BUCKET,
   extractFormAssetPathsFromSections,
 } from "@/lib/form-assets";
+import {
+  BOT_ASSETS_BUCKET,
+  extractStorageObjectPathFromPublicUrl,
+} from "@/lib/storage-assets";
 
 // ============================================================================
 // Helper
@@ -758,15 +763,29 @@ export async function hardDeleteForm(id: string) {
 
   const { data: existing } = await supabase
     .from("request_forms")
-    .select("id, deleted_at, sections")
+    .select("id, deleted_at, sections, banner_asset_path")
     .eq("id", id)
     .maybeSingle();
   if (!(existing as any)?.deleted_at)
     return { success: false, error: "Record is not soft-deleted" };
 
-  const assetPaths = extractFormAssetPathsFromSections((existing as any).sections);
+  // Defensively remove dependent rows first for environments where FK cascade
+  // is missing or inconsistent.
+  await supabase.from("flagged_requests").delete().eq("form_id", id);
+  await supabase.from("requests").delete().eq("form_id", id);
+  await supabase.from("custom_blocklists").delete().eq("form_id", id);
+  await supabase.from("blocked_ips").delete().eq("form_id", id);
+
+  const assetPaths = extractFormAssetPathsFromSections(
+    (existing as any).sections,
+  );
   if (assetPaths.length > 0) {
     await supabase.storage.from(FORM_ASSETS_BUCKET).remove(assetPaths);
+  }
+
+  const bannerPath = String((existing as any).banner_asset_path || "").trim();
+  if (bannerPath) {
+    await supabase.storage.from(FORM_BANNERS_BUCKET).remove([bannerPath]);
   }
 
   const { error: dbError } = await supabase
@@ -783,11 +802,19 @@ export async function hardDeleteBot(id: string) {
 
   const { data: existing } = await supabase
     .from("bots")
-    .select("id, deleted_at")
+    .select("id, deleted_at, image_url")
     .eq("id", id)
     .maybeSingle();
   if (!(existing as any)?.deleted_at)
     return { success: false, error: "Record is not soft-deleted" };
+
+  const imagePath = extractStorageObjectPathFromPublicUrl(
+    (existing as any).image_url,
+    BOT_ASSETS_BUCKET,
+  );
+  if (imagePath) {
+    await supabase.storage.from(BOT_ASSETS_BUCKET).remove([imagePath]);
+  }
 
   const { error: dbError } = await supabase.from("bots").delete().eq("id", id);
   if (dbError) return { success: false, error: dbError.message };

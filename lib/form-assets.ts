@@ -4,6 +4,7 @@
 // ============================================================================
 
 export const FORM_ASSETS_BUCKET = "form-assets";
+export const FORM_BANNERS_BUCKET = "form-banners";
 
 function normalizePathSegment(segment: string) {
   return encodeURIComponent(segment).replace(/%2F/g, "/");
@@ -32,4 +33,14 @@ export function extractFormAssetPathsFromSections(sections: unknown): string[] {
   }
 
   return Array.from(paths);
+}
+
+export function getFormBannerPublicUrl(path?: string | null) {
+  const safePath = String(path || "").trim();
+  if (!safePath) return "";
+
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!baseUrl) return "";
+
+  return `${baseUrl.replace(/\/$/, "")}/storage/v1/object/public/${FORM_BANNERS_BUCKET}/${normalizePathSegment(safePath)}`;
 }

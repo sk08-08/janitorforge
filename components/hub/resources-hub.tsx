@@ -29,6 +29,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import {
+  Eye,
   ExternalLink,
   Link2,
   Plus,
@@ -60,6 +61,10 @@ import {
   Code,
   PenLineIcon,
   Upload,
+  MessageCircle,
+  Send,
+  ThumbsDown,
+  ThumbsUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -121,8 +126,22 @@ type ResourceEntryFormState = {
   isPublished: boolean;
 };
 
+type ResourceCommentRow = {
+  id: string;
+  entry_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  profiles: {
+    username: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
+};
+
 const RESOURCE_SECTION_STORAGE_KEY = "janitorforge-resources-section";
 const RESOURCE_ENTRY_STORAGE_KEY = "janitorforge-resources-entry";
+const RESOURCE_VIEWER_STORAGE_KEY = "janitorforge-resources-viewer";
 const emptySectionForm: ResourceSectionFormState = {
   title: "",
   description: "",
@@ -174,6 +193,20 @@ const sectionIconMap = Object.fromEntries(
   sectionIconOptions.map((option) => [option.value, option.icon]),
 ) as Record<string, typeof BookOpen>;
 
+function getOrCreateResourceViewerFingerprint() {
+  if (typeof window === "undefined") return "";
+
+  const current = localStorage.getItem(RESOURCE_VIEWER_STORAGE_KEY);
+  if (current && current.trim()) return current;
+
+  const generated =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  localStorage.setItem(RESOURCE_VIEWER_STORAGE_KEY, generated);
+  return generated;
+}
+
 export function ResourcesHub() {
   const [sections, setSections] = useState<ResourceSectionRow[]>([]);
   const [entries, setEntries] = useState<ResourceEntryRow[]>([]);
@@ -195,6 +228,22 @@ export function ResourcesHub() {
     useState<ResourceEntryFormState>(emptyEntryForm);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [dislikeCounts, setDislikeCounts] = useState<Record<string, number>>(
+    {},
+  );
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    {},
+  );
+  const [myReactions, setMyReactions] = useState<Record<string, -1 | 0 | 1>>(
+    {},
+  );
+  const [commentsByEntry, setCommentsByEntry] = useState<
+    Record<string, ResourceCommentRow[]>
+  >({});
+  const [commentDraft, setCommentDraft] = useState("");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -202,6 +251,7 @@ export function ResourcesHub() {
       const supabase = createClient();
       const access = await getCurrentUserAccess(supabase);
       setIsAdmin(access.isAdmin);
+      setAuthUserId(access.user?.id || null);
 
       let sectionQuery = supabase
         .from("hub_resource_sections")
@@ -341,10 +391,228 @@ export function ResourcesHub() {
     }
   }, [selectedSectionId, selectedEntryId, sections, entries]);
 
+  const loadEntryMetrics = useCallback(
+    async (entryIds: string[], userId?: string | null) => {
+      if (entryIds.length === 0) {
+        setViewCounts({});
+        setLikeCounts({});
+        setDislikeCounts({});
+        setCommentCounts({});
+        setMyReactions({});
+        return;
+      }
+
+      const supabase = createClient();
+      const [viewsRes, reactionsRes, commentsRes, mineRes] = await Promise.all([
+        supabase
+          .from("hub_resource_entry_views")
+          .select("entry_id")
+          .in("entry_id", entryIds),
+        supabase
+          .from("hub_resource_entry_reactions")
+          .select("entry_id, reaction")
+          .in("entry_id", entryIds),
+        supabase
+          .from("hub_resource_entry_comments")
+          .select("entry_id")
+          .in("entry_id", entryIds)
+          .is("deleted_at", null),
+        userId
+          ? supabase
+              .from("hub_resource_entry_reactions")
+              .select("entry_id, reaction")
+              .eq("user_id", userId)
+              .in("entry_id", entryIds)
+          : Promise.resolve({ data: [], error: null } as any),
+      ]);
+
+      if (viewsRes.error || reactionsRes.error || commentsRes.error) return;
+
+      const nextViews: Record<string, number> = {};
+      const nextLikes: Record<string, number> = {};
+      const nextDislikes: Record<string, number> = {};
+      const nextComments: Record<string, number> = {};
+
+      for (const entryId of entryIds) {
+        nextViews[entryId] = 0;
+        nextLikes[entryId] = 0;
+        nextDislikes[entryId] = 0;
+        nextComments[entryId] = 0;
+      }
+
+      (viewsRes.data || []).forEach((row: any) => {
+        nextViews[row.entry_id] = (nextViews[row.entry_id] || 0) + 1;
+      });
+
+      (reactionsRes.data || []).forEach((row: any) => {
+        if (row.reaction === 1) {
+          nextLikes[row.entry_id] = (nextLikes[row.entry_id] || 0) + 1;
+        }
+        if (row.reaction === -1) {
+          nextDislikes[row.entry_id] = (nextDislikes[row.entry_id] || 0) + 1;
+        }
+      });
+
+      (commentsRes.data || []).forEach((row: any) => {
+        nextComments[row.entry_id] = (nextComments[row.entry_id] || 0) + 1;
+      });
+
+      const nextMine: Record<string, -1 | 0 | 1> = {};
+      (mineRes?.data || []).forEach((row: any) => {
+        nextMine[row.entry_id] = row.reaction as -1 | 1;
+      });
+
+      setViewCounts(nextViews);
+      setLikeCounts(nextLikes);
+      setDislikeCounts(nextDislikes);
+      setCommentCounts(nextComments);
+      setMyReactions(nextMine);
+    },
+    [],
+  );
+
+  const loadEntryComments = useCallback(async (entryId: string) => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("hub_resource_entry_comments")
+      .select(
+        "id, entry_id, user_id, body, created_at, profiles:user_id(username, display_name, avatar_url)",
+      )
+      .eq("entry_id", entryId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+
+    if (error) return;
+    const normalized = (data || []).map((row: any) => ({
+      ...row,
+      profiles: Array.isArray(row.profiles)
+        ? (row.profiles[0] ?? null)
+        : row.profiles,
+    })) as ResourceCommentRow[];
+
+    setCommentsByEntry((prev) => ({
+      ...prev,
+      [entryId]: normalized,
+    }));
+  }, []);
+
+  const trackEntryView = useCallback(
+    async (entryId: string) => {
+      const viewerFingerprint = getOrCreateResourceViewerFingerprint();
+      if (!viewerFingerprint) return;
+
+      const supabase = createClient();
+      await supabase.rpc("record_hub_resource_entry_view", {
+        p_entry_id: entryId,
+        p_viewer_fingerprint: viewerFingerprint,
+        p_user_id: authUserId,
+      });
+
+      await loadEntryMetrics(
+        entries.map((entry) => entry.id),
+        authUserId,
+      );
+    },
+    [authUserId, entries, loadEntryMetrics],
+  );
+
+  const setReaction = useCallback(
+    async (entryId: string, reaction: -1 | 1) => {
+      if (!authUserId) {
+        toast.error("Sign in to react to resources");
+        return;
+      }
+
+      const current = myReactions[entryId] || 0;
+      const nextReaction: -1 | 0 | 1 = current === reaction ? 0 : reaction;
+      const supabase = createClient();
+
+      if (nextReaction === 0) {
+        const { error } = await supabase
+          .from("hub_resource_entry_reactions")
+          .delete()
+          .eq("entry_id", entryId)
+          .eq("user_id", authUserId);
+        if (error) {
+          toast.error(error.message || "Failed to update reaction");
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from("hub_resource_entry_reactions")
+          .upsert(
+            {
+              entry_id: entryId,
+              user_id: authUserId,
+              reaction: nextReaction,
+            },
+            { onConflict: "entry_id,user_id" },
+          );
+        if (error) {
+          toast.error(error.message || "Failed to update reaction");
+          return;
+        }
+      }
+
+      await loadEntryMetrics(
+        entries.map((entry) => entry.id),
+        authUserId,
+      );
+    },
+    [authUserId, entries, loadEntryMetrics, myReactions],
+  );
+
+  const submitComment = useCallback(async () => {
+    if (!selectedEntry || !authUserId) {
+      toast.error("Sign in to comment");
+      return;
+    }
+
+    const body = commentDraft.trim();
+    if (!body) return;
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("hub_resource_entry_comments")
+      .insert({
+        entry_id: selectedEntry.id,
+        user_id: authUserId,
+        body,
+      });
+
+    if (error) {
+      toast.error(error.message || "Failed to add comment");
+      return;
+    }
+
+    setCommentDraft("");
+    await loadEntryComments(selectedEntry.id);
+    await loadEntryMetrics(
+      entries.map((entry) => entry.id),
+      authUserId,
+    );
+  }, [
+    authUserId,
+    commentDraft,
+    entries,
+    loadEntryComments,
+    loadEntryMetrics,
+    selectedEntry,
+  ]);
+
+  useEffect(() => {
+    loadEntryMetrics(
+      entries.map((entry) => entry.id),
+      authUserId,
+    );
+  }, [authUserId, entries, loadEntryMetrics]);
+
   const openEntryDetail = (entry: ResourceEntryRow) => {
     setSelectedSectionId(entry.section_id);
     setSelectedEntryId(entry.id);
     setEntryDetailOpen(true);
+    trackEntryView(entry.id);
+    loadEntryComments(entry.id);
   };
 
   const openSectionDialog = (section?: ResourceSectionRow) => {
@@ -952,6 +1220,65 @@ export function ResourcesHub() {
                           )}
                         </div>
 
+                        <div className="mt-3 space-y-2 rounded-xl border border-border/60 bg-muted/15 p-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Engagement
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 text-xs">
+                            <Badge variant="outline" className="gap-1">
+                              <Eye className="h-3.5 w-3.5" />
+                              {viewCounts[entry.id] || 0} views
+                            </Badge>
+                            <Badge variant="outline" className="gap-1">
+                              <ThumbsUp className="h-3.5 w-3.5" />
+                              {likeCounts[entry.id] || 0} likes
+                            </Badge>
+                            <Badge variant="outline" className="gap-1">
+                              <ThumbsDown className="h-3.5 w-3.5" />
+                              {dislikeCounts[entry.id] || 0} dislikes
+                            </Badge>
+                            <Badge variant="outline" className="gap-1">
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              {commentCounts[entry.id] || 0} comments
+                            </Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <Button
+                              type="button"
+                              variant={
+                                myReactions[entry.id] === 1
+                                  ? "default"
+                                  : "outline"
+                              }
+                              size="sm"
+                              className="h-8 px-3 cursor-pointer"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setReaction(entry.id, 1);
+                              }}
+                            >
+                              <ThumbsUp className="mr-1.5 h-3.5 w-3.5" /> Like
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={
+                                myReactions[entry.id] === -1
+                                  ? "destructive"
+                                  : "outline"
+                              }
+                              size="sm"
+                              className="h-8 px-3 cursor-pointer"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setReaction(entry.id, -1);
+                              }}
+                            >
+                              <ThumbsDown className="mr-1.5 h-3.5 w-3.5" />
+                              Dislike
+                            </Button>
+                          </div>
+                        </div>
+
                         {isAdmin && (
                           <Collapsible className="mt-4" defaultOpen={false}>
                             <CollapsibleTrigger asChild>
@@ -1119,119 +1446,229 @@ export function ResourcesHub() {
           </DialogHeader>
 
           {selectedEntry && selectedSection && (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-              <ScrollArea className="h-[60vh] rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <div className="space-y-4 pr-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant={
-                        selectedEntry.is_published ? "default" : "secondary"
-                      }
-                    >
-                      {selectedEntry.is_published ? "Published" : "Draft"}
-                    </Badge>
-                    {selectedEntry.is_platform_pinned && (
-                      <Badge className="bg-amber-500 text-white hover:bg-amber-500">
-                        Janitor Forge
+            <>
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                <ScrollArea className="h-[60vh] rounded-2xl border border-border/70 bg-muted/20 p-4">
+                  <div className="space-y-4 pr-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant={
+                          selectedEntry.is_published ? "default" : "secondary"
+                        }
+                      >
+                        {selectedEntry.is_published ? "Published" : "Draft"}
                       </Badge>
+                      {selectedEntry.is_platform_pinned && (
+                        <Badge className="bg-amber-500 text-white hover:bg-amber-500">
+                          Janitor Forge
+                        </Badge>
+                      )}
+                      {selectedEntry.label && (
+                        <Badge variant="outline">{selectedEntry.label}</Badge>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Summary
+                      </p>
+                      <div className="prose prose-sm mt-2 max-w-none leading-6 dark:prose-invert">
+                        <MarkdownContent
+                          content={selectedEntry.summary || "No summary yet."}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </ScrollArea>
+
+                <div
+                  className="space-y-4 rounded-2xl border p-4"
+                  style={{
+                    borderColor: selectedEntry.is_platform_pinned
+                      ? "#f59e0b"
+                      : selectedSection.accent_color || "#7c3aed",
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium">Section</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedSection.title}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Source</p>
+                    {selectedEntry.url ? (
+                      <a
+                        href={selectedEntry.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          color: selectedEntry.is_platform_pinned
+                            ? "#f59e0b"
+                            : selectedSection.accent_color || "#7c3aed",
+                        }}
+                        className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
+                      >
+                        Open source <ExternalLink className="h-4 w-4" />
+                      </a>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No source link yet.
+                      </p>
                     )}
-                    {selectedEntry.label && (
-                      <Badge variant="outline">{selectedEntry.label}</Badge>
-                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Metadata</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Badge variant="outline">
+                        Created{" "}
+                        {new Date(
+                          selectedEntry.created_at,
+                        ).toLocaleDateString()}
+                        <PenLineIcon className="ml-2 h-4 w-4" />
+                      </Badge>
+                      {selectedEntry.updated_at && (
+                        <Badge variant="outline">
+                          Updated{" "}
+                          {new Date(
+                            selectedEntry.updated_at,
+                          ).toLocaleDateString()}
+                          <Upload className="ml-2 h-4 w-4" />
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Summary
-                    </p>
-                    <div className="prose prose-sm mt-2 max-w-none leading-6 dark:prose-invert">
-                      <MarkdownContent
-                        content={selectedEntry.summary || "No summary yet."}
-                      />
+                    <p className="text-sm font-medium">Engagement</p>
+                    <div className="mt-2 space-y-3 rounded-xl border border-border/60 bg-muted/15 p-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant="outline" className="gap-1">
+                          <Eye className="h-3.5 w-3.5" />
+                          {viewCounts[selectedEntry.id] || 0} views
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <ThumbsUp className="h-3.5 w-3.5" />
+                          {likeCounts[selectedEntry.id] || 0} likes
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <ThumbsDown className="h-3.5 w-3.5" />
+                          {dislikeCounts[selectedEntry.id] || 0} dislikes
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          {commentCounts[selectedEntry.id] || 0} comments
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            myReactions[selectedEntry.id] === 1
+                              ? "default"
+                              : "outline"
+                          }
+                          className="cursor-pointer"
+                          onClick={() => setReaction(selectedEntry.id, 1)}
+                        >
+                          <ThumbsUp className="mr-2 h-4 w-4" /> Like
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            myReactions[selectedEntry.id] === -1
+                              ? "destructive"
+                              : "outline"
+                          }
+                          className="cursor-pointer"
+                          onClick={() => setReaction(selectedEntry.id, -1)}
+                        >
+                          <ThumbsDown className="mr-2 h-4 w-4" /> Dislike
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </ScrollArea>
 
-              <div
-                className="space-y-4 rounded-2xl border p-4"
-                style={{
-                  borderColor: selectedEntry.is_platform_pinned
-                    ? "#f59e0b"
-                    : selectedSection.accent_color || "#7c3aed",
-                }}
-              >
-                <div>
-                  <p className="text-sm font-medium">Section</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedSection.title}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Source</p>
-                  {selectedEntry.url ? (
-                    <a
-                      href={selectedEntry.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        color: selectedEntry.is_platform_pinned
-                          ? "#f59e0b"
-                          : selectedSection.accent_color || "#7c3aed",
-                      }}
-                      className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
-                    >
-                      Open source <ExternalLink className="h-4 w-4" />
-                    </a>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No source link yet.
-                    </p>
+                  {isAdmin && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setEntryDetailOpen(false);
+                          openEntryDialog(selectedEntry);
+                        }}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="cursor-pointer"
+                        onClick={() => toggleEntryPublish(selectedEntry)}
+                      >
+                        {selectedEntry.is_published ? "Unpublish" : "Publish"}
+                      </Button>
+                    </div>
                   )}
                 </div>
-                <div>
-                  <p className="text-sm font-medium">Metadata</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Badge variant="outline">
-                      Created{" "}
-                      {new Date(selectedEntry.created_at).toLocaleDateString()}
-                      <PenLineIcon className="ml-2 h-4 w-4" />
-                    </Badge>
-                    {selectedEntry.updated_at && (
-                      <Badge variant="outline">
-                        Updated{" "}
-                        {new Date(
-                          selectedEntry.updated_at,
-                        ).toLocaleDateString()}
-                        <Upload className="ml-2 h-4 w-4" />
-                      </Badge>
-                    )}
-                  </div>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-border/70 bg-background p-4">
+                <p className="text-sm font-medium">Comments</p>
+                <div className="flex gap-2">
+                  <Textarea
+                    value={commentDraft}
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                    rows={3}
+                    placeholder={
+                      authUserId
+                        ? "Write your comment..."
+                        : "Sign in to write a comment"
+                    }
+                    disabled={!authUserId}
+                  />
+                  <Button
+                    type="button"
+                    className="cursor-pointer self-end"
+                    onClick={submitComment}
+                    disabled={!authUserId || !commentDraft.trim()}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
                 </div>
 
-                {isAdmin && (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      className="cursor-pointer"
-                      onClick={() => {
-                        setEntryDetailOpen(false);
-                        openEntryDialog(selectedEntry);
-                      }}
-                    >
-                      <Pencil className="mr-2 h-4 w-4" /> Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="cursor-pointer"
-                      onClick={() => toggleEntryPublish(selectedEntry)}
-                    >
-                      {selectedEntry.is_published ? "Unpublish" : "Publish"}
-                    </Button>
-                  </div>
-                )}
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {(commentsByEntry[selectedEntry.id] || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No comments yet.
+                    </p>
+                  ) : (
+                    (commentsByEntry[selectedEntry.id] || []).map((comment) => (
+                      <div
+                        key={comment.id}
+                        className="rounded-xl border border-border/70 p-3"
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">
+                            {comment.profiles?.display_name ||
+                              comment.profiles?.username ||
+                              "User"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(comment.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {comment.body}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

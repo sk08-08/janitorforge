@@ -357,7 +357,7 @@ function OverviewTab({
                   {activity.recent_users.map((u: any) => (
                     <a
                       key={u.id}
-                      href={u.username ? `/${u.username}` : undefined}
+                      href={`/profile/${u.username}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 px-4 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
@@ -607,8 +607,8 @@ function SubmissionsTab({
           </Button>
         </div>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
+          size="icon"
           onClick={load}
           disabled={loading}
           className="cursor-pointer ml-auto"
@@ -778,9 +778,16 @@ function SubmissionsTab({
                       <p className="text-xs text-muted-foreground">
                         Form Owner
                       </p>
-                      <p className="font-medium">
-                        @{selectedItem.owner?.username ?? "—"}
-                      </p>
+                      <a
+                        href={`/profile/${selectedItem.owner?.username ?? "unknown"}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer flex items-center gap-2"
+                      >
+                        <p className="font-medium text-primary cursor-pointer hover:underline">
+                          @{selectedItem.owner?.username ?? "—"}
+                        </p>
+                      </a>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Created</p>
@@ -996,8 +1003,8 @@ function FormsTab() {
           </Button>
         </div>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
+          size="icon"
           onClick={load}
           disabled={loading}
           className="cursor-pointer ml-auto"
@@ -1173,9 +1180,16 @@ function FormsTab() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground">Owner</p>
-                      <p className="font-medium">
-                        @{selectedItem.owner?.username ?? "—"}
-                      </p>
+                      <a
+                        href={`/profile/${selectedItem.owner?.username ?? ""}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer flex items-center gap-2"
+                      >
+                        <p className="font-medium text-primary hover:underline cursor-pointer">
+                          @{selectedItem.owner?.username ?? "—"}
+                        </p>
+                      </a>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Sections</p>
@@ -1415,8 +1429,8 @@ function BotsTab() {
           </Button>
         </div>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
+          size="icon"
           onClick={load}
           disabled={loading}
           className="cursor-pointer ml-auto"
@@ -1603,9 +1617,16 @@ function BotsTab() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground">Owner</p>
-                      <p className="font-medium">
-                        @{selectedItem.owner?.username ?? "—"}
-                      </p>
+                      <a
+                        href={`/profile/${selectedItem.owner?.username ?? ""}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer flex items-center gap-2"
+                      >
+                        <p className="font-medium text-primary cursor-pointer hover:underline">
+                          @{selectedItem.owner?.username ?? "—"}
+                        </p>
+                      </a>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Created</p>
@@ -1927,8 +1948,8 @@ function UsersTab() {
           </Button>
         </div>
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
+          size="icon"
           onClick={load}
           disabled={loading}
           className="cursor-pointer ml-auto"
@@ -1975,24 +1996,31 @@ function UsersTab() {
                   className={user.is_blocked ? "opacity-60" : ""}
                 >
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7">
-                        <AvatarImage src={user.avatar_url ?? undefined} />
-                        <AvatarFallback>
-                          {(user.username ?? "?").charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {user.display_name || user.username || "—"}
-                        </p>
-                        {user.username && (
-                          <p className="text-xs text-muted-foreground">
-                            @{user.username}
+                    <a
+                      href={`/profile/${user.username}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="cursor-pointer flex items-center gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-7 w-7">
+                          <AvatarImage src={user.avatar_url ?? undefined} />
+                          <AvatarFallback>
+                            {(user.username ?? "?").charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {user.display_name || user.username || "—"}
                           </p>
-                        )}
+                          {user.username && (
+                            <p className="text-xs text-muted-foreground">
+                              @{user.username}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </a>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
@@ -2028,7 +2056,7 @@ function UsersTab() {
                         {user.username && (
                           <DropdownMenuItem asChild>
                             <a
-                              href={`/${user.username}`}
+                              href={`/profile/${user.username}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="cursor-pointer flex items-center gap-2"

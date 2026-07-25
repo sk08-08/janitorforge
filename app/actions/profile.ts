@@ -2,6 +2,69 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAccess } from "@/lib/access";
+import { friendlySupabaseError } from "@/lib/error-utils";
+import {
+  PROFILE_ASSETS_BUCKET,
+  extractStorageObjectPathFromPublicUrl,
+  getStoragePublicUrl,
+} from "@/lib/storage-assets";
+
+const ALLOWED_PROFILE_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+];
+const ALLOWED_PROFILE_IMAGE_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "avif",
+  "gif",
+  "heic",
+  "heif",
+];
+const MAX_PROFILE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+function getSafeImageExtension(file: File) {
+  const byName = String(file.name || "")
+    .split(".")
+    .pop()
+    ?.toLowerCase()
+    .trim();
+  if (byName && ALLOWED_PROFILE_IMAGE_EXTENSIONS.includes(byName)) {
+    return byName;
+  }
+
+  const byMime =
+    String(file.type || "")
+      .toLowerCase()
+      .split("/")[1] || "";
+  if (byMime && ALLOWED_PROFILE_IMAGE_EXTENSIONS.includes(byMime)) {
+    return byMime;
+  }
+
+  return "jpg";
+}
+
+function withRawErrorDetails(err: unknown, fallback: string) {
+  const friendly = friendlySupabaseError(err, fallback);
+  const rawMessage =
+    typeof err === "object" && err !== null && "message" in (err as any)
+      ? String((err as any).message || "").trim()
+      : "";
+
+  if (!rawMessage) return friendly;
+  if (friendly.toLowerCase().includes(rawMessage.toLowerCase())) {
+    return friendly;
+  }
+  return `${friendly} (${rawMessage})`;
+}
 
 // ---------------------------------------------------------------------------
 // Get own profile
@@ -136,6 +199,19 @@ export async function updateProfile(input: UpdateProfileInput) {
     return { success: false, error: "Nothing to update" };
   }
 
+  let existingAssets: {
+    avatar_url: string | null;
+    banner_url: string | null;
+  } | null = null;
+  if (input.avatar_url !== undefined || input.banner_url !== undefined) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("avatar_url, banner_url")
+      .eq("id", access.user.id)
+      .maybeSingle();
+    existingAssets = data ?? null;
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update(payload)
@@ -144,6 +220,183 @@ export async function updateProfile(input: UpdateProfileInput) {
   if (error) {
     return { success: false, error: error.message };
   }
+
+  if (existingAssets) {
+    if (input.avatar_url !== undefined) {
+      const oldAvatarPath = extractStorageObjectPathFromPublicUrl(
+        existingAssets.avatar_url,
+        PROFILE_ASSETS_BUCKET,
+      );
+      const newAvatarPath = extractStorageObjectPathFromPublicUrl(
+        String(input.avatar_url ?? ""),
+        PROFILE_ASSETS_BUCKET,
+      );
+      if (oldAvatarPath && oldAvatarPath !== newAvatarPath) {
+        await supabase.storage
+          .from(PROFILE_ASSETS_BUCKET)
+          .remove([oldAvatarPath]);
+      }
+    }
+
+    if (input.banner_url !== undefined) {
+      const oldBannerPath = extractStorageObjectPathFromPublicUrl(
+        existingAssets.banner_url,
+        PROFILE_ASSETS_BUCKET,
+      );
+      const newBannerPath = extractStorageObjectPathFromPublicUrl(
+        String(input.banner_url ?? ""),
+        PROFILE_ASSETS_BUCKET,
+      );
+      if (oldBannerPath && oldBannerPath !== newBannerPath) {
+        await supabase.storage
+          .from(PROFILE_ASSETS_BUCKET)
+          .remove([oldBannerPath]);
+      }
+    }
+  }
+
+  return { success: true };
+}
+
+export async function uploadProfileAssetAction(formData: FormData) {
+  try {
+    const kind = String(formData.get("kind") || "").trim();
+    if (kind !== "avatar" && kind !== "banner") {
+      return { success: false, error: "Invalid asset kind" };
+    }
+
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return { success: false, error: "No image file provided" };
+    }
+
+    const fileType = String(file.type || "").toLowerCase();
+    const fileExt = getSafeImageExtension(file);
+    if (
+      fileType &&
+      !ALLOWED_PROFILE_IMAGE_TYPES.includes(fileType) &&
+      !ALLOWED_PROFILE_IMAGE_EXTENSIONS.includes(fileExt)
+    ) {
+      return {
+        success: false,
+        error:
+          "Unsupported image type. Use PNG, JPG, WEBP, AVIF, GIF, HEIC or HEIF",
+      };
+    }
+
+    if (file.size > MAX_PROFILE_IMAGE_SIZE_BYTES) {
+      return { success: false, error: "Image is too large (max 5MB)" };
+    }
+
+    const supabase = await createClient();
+    const access = await getCurrentUserAccess(supabase);
+    if (!access.user) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const column = kind === "avatar" ? "avatar_url" : "banner_url";
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("avatar_url, banner_url")
+      .eq("id", access.user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      return {
+        success: false,
+        error: withRawErrorDetails(profileError, "Failed to load profile"),
+        raw: profileError,
+      };
+    }
+
+    const existingUrl = String((profile as any)?.[column] || "").trim();
+    const existingPath = extractStorageObjectPathFromPublicUrl(
+      existingUrl,
+      PROFILE_ASSETS_BUCKET,
+    );
+    const targetPath = `${access.user.id}/${kind}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(PROFILE_ASSETS_BUCKET)
+      .upload(targetPath, file, {
+        upsert: true,
+        contentType: fileType || undefined,
+        cacheControl: "3600",
+      });
+
+    if (uploadError) {
+      return {
+        success: false,
+        error: withRawErrorDetails(uploadError, "Failed to upload image"),
+        raw: uploadError,
+      };
+    }
+
+    if (existingPath && existingPath !== targetPath) {
+      await supabase.storage.from(PROFILE_ASSETS_BUCKET).remove([existingPath]);
+    }
+
+    const publicUrl = getStoragePublicUrl(PROFILE_ASSETS_BUCKET, targetPath);
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ [column]: publicUrl })
+      .eq("id", access.user.id);
+
+    if (updateError) {
+      return {
+        success: false,
+        error: withRawErrorDetails(updateError, "Failed to save image"),
+        raw: updateError,
+      };
+    }
+
+    return { success: true, url: publicUrl, path: targetPath, kind };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Unexpected error while uploading image";
+    return { success: false, error: message };
+  }
+}
+
+export async function removeProfileAssetAction(kind: "avatar" | "banner") {
+  const supabase = await createClient();
+  const access = await getCurrentUserAccess(supabase);
+  if (!access.user) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const column = kind === "avatar" ? "avatar_url" : "banner_url";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("avatar_url, banner_url")
+    .eq("id", access.user.id)
+    .maybeSingle();
+
+  const currentUrl = String((profile as any)?.[column] || "").trim();
+  const currentPath = extractStorageObjectPathFromPublicUrl(
+    currentUrl,
+    PROFILE_ASSETS_BUCKET,
+  );
+
+  if (currentPath) {
+    await supabase.storage.from(PROFILE_ASSETS_BUCKET).remove([currentPath]);
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ [column]: null })
+    .eq("id", access.user.id);
+
+  if (error) {
+    return {
+      success: false,
+      error: friendlySupabaseError(error, "Failed to remove image"),
+      raw: error,
+    };
+  }
+
   return { success: true };
 }
 

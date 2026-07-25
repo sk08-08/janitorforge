@@ -99,6 +99,8 @@ export interface RequestForm {
   ownerId?: string;
   title: string;
   description: string;
+  bannerAssetPath?: string;
+  bannerUrl?: string;
   sections: FormSection[];
   appearance?: FormAppearance;
   shareableLink: string;

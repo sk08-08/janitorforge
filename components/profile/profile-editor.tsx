@@ -51,8 +51,14 @@ import {
   Image as ImageIcon,
   UsersRound,
   UserRound,
+  Upload,
 } from "lucide-react";
-import { getOwnProfile, updateProfile } from "@/app/actions/profile";
+import {
+  getOwnProfile,
+  removeProfileAssetAction,
+  updateProfile,
+  uploadProfileAssetAction,
+} from "@/app/actions/profile";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -250,6 +256,8 @@ export function ProfileEditor({
   const [location, setLocation] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   // Specialties
   const [specialties, setSpecialties] = useState<string[]>([]);
@@ -281,6 +289,56 @@ export function ProfileEditor({
   // Featured bots
   const [featuredBotIds, setFeaturedBotIds] = useState<string[]>([]);
   const { bots } = useStore();
+
+  const handleProfileAssetUpload = async (
+    kind: "avatar" | "banner",
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (kind === "avatar") setUploadingAvatar(true);
+    else setUploadingBanner(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("kind", kind);
+      formData.append("file", file);
+
+      const result = await uploadProfileAssetAction(formData);
+      if (!result.success || !result.url) {
+        toast.error(result.error || "Failed to upload image");
+        return;
+      }
+
+      if (kind === "avatar") setAvatarUrl(result.url);
+      else setBannerUrl(result.url);
+
+      toast.success(kind === "avatar" ? "Avatar uploaded" : "Banner uploaded");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unexpected error while uploading image";
+      toast.error(message);
+    } finally {
+      if (kind === "avatar") setUploadingAvatar(false);
+      else setUploadingBanner(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleProfileAssetRemove = async (kind: "avatar" | "banner") => {
+    const result = await removeProfileAssetAction(kind);
+    if (!result.success) {
+      toast.error(result.error || "Failed to remove image");
+      return;
+    }
+
+    if (kind === "avatar") setAvatarUrl("");
+    else setBannerUrl("");
+    toast.success(kind === "avatar" ? "Avatar removed" : "Banner removed");
+  };
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -491,6 +549,13 @@ export function ProfileEditor({
                   <Label className="text-xs flex items-center gap-1">
                     <ImageIcon className="h-3 w-3" /> Banner
                   </Label>
+                  <input
+                    type="file"
+                    id="profile-banner-upload"
+                    className="hidden"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/avif,image/gif,image/heic,image/heif"
+                    onChange={(e) => handleProfileAssetUpload("banner", e)}
+                  />
                   <ImagePreview
                     url={bannerUrl}
                     alt="Banner preview"
@@ -499,16 +564,49 @@ export function ProfileEditor({
                       <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
                     }
                   />
-                  <Input
-                    value={bannerUrl}
-                    onChange={(e) => setBannerUrl(e.target.value)}
-                    placeholder="https://example.com/banner.png"
-                    className="text-xs"
-                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="cursor-pointer"
+                      disabled={uploadingBanner}
+                      onClick={() =>
+                        document
+                          .getElementById("profile-banner-upload")
+                          ?.click()
+                      }
+                    >
+                      {uploadingBanner ? (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="mr-2 h-3.5 w-3.5" />
+                      )}
+                      {bannerUrl ? "Replace banner" : "Upload banner"}
+                    </Button>
+                    {bannerUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="cursor-pointer text-destructive"
+                        onClick={() => handleProfileAssetRemove("banner")}
+                      >
+                        <X className="mr-2 h-3.5 w-3.5" /> Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Avatar */}
                 <div className="flex items-end gap-3">
+                  <input
+                    type="file"
+                    id="profile-avatar-upload"
+                    className="hidden"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/avif,image/gif,image/heic,image/heif"
+                    onChange={(e) => handleProfileAssetUpload("avatar", e)}
+                  />
                   <ImagePreview
                     url={avatarUrl}
                     alt="Avatar preview"
@@ -519,14 +617,40 @@ export function ProfileEditor({
                   />
                   <div className="flex-1 space-y-1.5 min-w-0">
                     <Label className="text-xs flex items-center gap-1">
-                      <UserRound className="h-3 w-3" /> Avatar URL
+                      <UserRound className="h-3 w-3" /> Avatar
                     </Label>
-                    <Input
-                      value={avatarUrl}
-                      onChange={(e) => setAvatarUrl(e.target.value)}
-                      placeholder="https://example.com/avatar.png"
-                      className="text-xs"
-                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="cursor-pointer"
+                        disabled={uploadingAvatar}
+                        onClick={() =>
+                          document
+                            .getElementById("profile-avatar-upload")
+                            ?.click()
+                        }
+                      >
+                        {uploadingAvatar ? (
+                          <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="mr-2 h-3.5 w-3.5" />
+                        )}
+                        {avatarUrl ? "Replace avatar" : "Upload avatar"}
+                      </Button>
+                      {avatarUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="cursor-pointer text-destructive"
+                          onClick={() => handleProfileAssetRemove("avatar")}
+                        >
+                          <X className="mr-2 h-3.5 w-3.5" /> Remove
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

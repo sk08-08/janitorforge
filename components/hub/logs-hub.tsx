@@ -32,9 +32,14 @@ import {
   ArrowDown,
   ArrowUp,
   ExternalLink,
+  Eye,
+  MessageCircle,
   Pencil,
   Plus,
   Pin,
+  Send,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   Logs,
   PenLineIcon,
@@ -74,7 +79,21 @@ type HubLogPostFormState = {
   isPublished: boolean;
 };
 
+type HubCommentRow = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  profiles: {
+    username: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
+};
+
 const LOG_SELECTED_STORAGE_KEY = "janitorforge-logs-post";
+const LOG_VIEWER_STORAGE_KEY = "janitorforge-logs-viewer";
 
 const emptyLogForm: HubLogPostFormState = {
   title: "",
@@ -85,6 +104,21 @@ const emptyLogForm: HubLogPostFormState = {
   sourceUrl: "",
   isPublished: true,
 };
+
+function getOrCreateViewerFingerprint() {
+  if (typeof window === "undefined") return "";
+
+  const current = localStorage.getItem(LOG_VIEWER_STORAGE_KEY);
+  if (current && current.trim()) return current;
+
+  const generated =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  localStorage.setItem(LOG_VIEWER_STORAGE_KEY, generated);
+  return generated;
+}
 
 export function LogsHub() {
   const [posts, setPosts] = useState<HubLogPostRow[]>([]);
@@ -99,6 +133,22 @@ export function LogsHub() {
   const [saving, setSaving] = useState(false);
   const [deletePostTarget, setDeletePostTarget] =
     useState<HubLogPostRow | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [dislikeCounts, setDislikeCounts] = useState<Record<string, number>>(
+    {},
+  );
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
+    {},
+  );
+  const [myReactions, setMyReactions] = useState<Record<string, -1 | 0 | 1>>(
+    {},
+  );
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, HubCommentRow[]>
+  >({});
+  const [commentDraft, setCommentDraft] = useState("");
 
   const selectedPost = useMemo(
     () => posts.find((post) => post.id === selectedPostId) ?? null,
@@ -111,6 +161,7 @@ export function LogsHub() {
       const supabase = createClient();
       const access = await getCurrentUserAccess(supabase);
       setIsAdmin(access.isAdmin);
+      setAuthUserId(access.user?.id || null);
 
       let query = supabase
         .from("hub_log_posts")
@@ -173,9 +224,230 @@ export function LogsHub() {
     }
   }, [selectedPostId, posts]);
 
+  const loadPostMetrics = useCallback(
+    async (postIds: string[], userId?: string | null) => {
+      if (postIds.length === 0) {
+        setViewCounts({});
+        setLikeCounts({});
+        setDislikeCounts({});
+        setCommentCounts({});
+        setMyReactions({});
+        return;
+      }
+
+      const supabase = createClient();
+
+      const [viewsRes, reactionsRes, commentsRes, myReactionsRes] =
+        await Promise.all([
+          supabase
+            .from("hub_log_post_views")
+            .select("post_id")
+            .in("post_id", postIds),
+          supabase
+            .from("hub_log_post_reactions")
+            .select("post_id, reaction")
+            .in("post_id", postIds),
+          supabase
+            .from("hub_log_post_comments")
+            .select("post_id")
+            .in("post_id", postIds)
+            .is("deleted_at", null),
+          userId
+            ? supabase
+                .from("hub_log_post_reactions")
+                .select("post_id, reaction")
+                .eq("user_id", userId)
+                .in("post_id", postIds)
+            : Promise.resolve({ data: [], error: null } as any),
+        ]);
+
+      if (viewsRes.error || reactionsRes.error || commentsRes.error) {
+        return;
+      }
+
+      const nextViews: Record<string, number> = {};
+      const nextLikes: Record<string, number> = {};
+      const nextDislikes: Record<string, number> = {};
+      const nextComments: Record<string, number> = {};
+
+      for (const postId of postIds) {
+        nextViews[postId] = 0;
+        nextLikes[postId] = 0;
+        nextDislikes[postId] = 0;
+        nextComments[postId] = 0;
+      }
+
+      (viewsRes.data || []).forEach((row: any) => {
+        nextViews[row.post_id] = (nextViews[row.post_id] || 0) + 1;
+      });
+
+      (reactionsRes.data || []).forEach((row: any) => {
+        if (row.reaction === 1) {
+          nextLikes[row.post_id] = (nextLikes[row.post_id] || 0) + 1;
+        }
+        if (row.reaction === -1) {
+          nextDislikes[row.post_id] = (nextDislikes[row.post_id] || 0) + 1;
+        }
+      });
+
+      (commentsRes.data || []).forEach((row: any) => {
+        nextComments[row.post_id] = (nextComments[row.post_id] || 0) + 1;
+      });
+
+      const nextMine: Record<string, -1 | 0 | 1> = {};
+      if (myReactionsRes?.data) {
+        (myReactionsRes.data as any[]).forEach((row) => {
+          nextMine[row.post_id] = row.reaction as -1 | 1;
+        });
+      }
+
+      setViewCounts(nextViews);
+      setLikeCounts(nextLikes);
+      setDislikeCounts(nextDislikes);
+      setCommentCounts(nextComments);
+      setMyReactions(nextMine);
+    },
+    [],
+  );
+
+  const loadPostComments = useCallback(async (postId: string) => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("hub_log_post_comments")
+      .select(
+        "id, post_id, user_id, body, created_at, profiles:user_id(username, display_name, avatar_url)",
+      )
+      .eq("post_id", postId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+
+    if (error) return;
+
+    const normalized = (data || []).map((row: any) => ({
+      ...row,
+      profiles: Array.isArray(row.profiles)
+        ? (row.profiles[0] ?? null)
+        : row.profiles,
+    })) as HubCommentRow[];
+
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [postId]: normalized,
+    }));
+  }, []);
+
+  const trackPostView = useCallback(
+    async (postId: string) => {
+      const viewerFingerprint = getOrCreateViewerFingerprint();
+      if (!viewerFingerprint) return;
+
+      const supabase = createClient();
+      await supabase.rpc("record_hub_log_post_view", {
+        p_post_id: postId,
+        p_viewer_fingerprint: viewerFingerprint,
+        p_user_id: authUserId,
+      });
+
+      await loadPostMetrics(
+        posts.map((post) => post.id),
+        authUserId,
+      );
+    },
+    [authUserId, loadPostMetrics, posts],
+  );
+
+  const setReaction = useCallback(
+    async (postId: string, reaction: -1 | 1) => {
+      if (!authUserId) {
+        toast.error("Sign in to react to posts");
+        return;
+      }
+
+      const current = myReactions[postId] || 0;
+      const nextReaction: -1 | 0 | 1 = current === reaction ? 0 : reaction;
+
+      const supabase = createClient();
+      if (nextReaction === 0) {
+        const { error } = await supabase
+          .from("hub_log_post_reactions")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", authUserId);
+        if (error) {
+          toast.error(error.message || "Failed to update reaction");
+          return;
+        }
+      } else {
+        const { error } = await supabase.from("hub_log_post_reactions").upsert(
+          {
+            post_id: postId,
+            user_id: authUserId,
+            reaction: nextReaction,
+          },
+          { onConflict: "post_id,user_id" },
+        );
+        if (error) {
+          toast.error(error.message || "Failed to update reaction");
+          return;
+        }
+      }
+
+      await loadPostMetrics(
+        posts.map((post) => post.id),
+        authUserId,
+      );
+    },
+    [authUserId, loadPostMetrics, myReactions, posts],
+  );
+
+  const submitComment = useCallback(async () => {
+    if (!selectedPost || !authUserId) {
+      toast.error("Sign in to comment");
+      return;
+    }
+
+    const body = commentDraft.trim();
+    if (!body) return;
+
+    const supabase = createClient();
+    const { error } = await supabase.from("hub_log_post_comments").insert({
+      post_id: selectedPost.id,
+      user_id: authUserId,
+      body,
+    });
+
+    if (error) {
+      toast.error(error.message || "Failed to add comment");
+      return;
+    }
+
+    setCommentDraft("");
+    await loadPostComments(selectedPost.id);
+    await loadPostMetrics(
+      posts.map((post) => post.id),
+      authUserId,
+    );
+  }, [
+    authUserId,
+    commentDraft,
+    loadPostComments,
+    loadPostMetrics,
+    posts,
+    selectedPost,
+  ]);
+
+  useEffect(() => {
+    loadPostMetrics(
+      posts.map((post) => post.id),
+      authUserId,
+    );
+  }, [authUserId, loadPostMetrics, posts]);
+
   const openPostDetail = (post: HubLogPostRow) => {
     setSelectedPostId(post.id);
     setPostDetailOpen(true);
+    trackPostView(post.id);
+    loadPostComments(post.id);
   };
 
   const openPostDialog = (post?: HubLogPostRow) => {
@@ -410,6 +682,57 @@ export function LogsHub() {
                             • {new Date(post.published_at).toLocaleDateString()}
                           </span>
                         )}
+                      </div>
+
+                      <div className="space-y-2 rounded-xl border border-border/60 bg-muted/15 p-3">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Engagement
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 text-xs">
+                          <Badge variant="outline" className="gap-1">
+                            <Eye className="h-3.5 w-3.5" />
+                            {viewCounts[post.id] || 0} views
+                          </Badge>
+                          <Badge variant="outline" className="gap-1">
+                            <ThumbsUp className="h-3.5 w-3.5" />
+                            {likeCounts[post.id] || 0} likes
+                          </Badge>
+                          <Badge variant="outline" className="gap-1">
+                            <ThumbsDown className="h-3.5 w-3.5" />
+                            {dislikeCounts[post.id] || 0} dislikes
+                          </Badge>
+                          <Badge variant="outline" className="gap-1">
+                            <MessageCircle className="h-3.5 w-3.5" />
+                            {commentCounts[post.id] || 0} comments
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          <Button
+                            type="button"
+                            variant={
+                              myReactions[post.id] === 1 ? "default" : "outline"
+                            }
+                            size="sm"
+                            className="h-8 px-3 cursor-pointer"
+                            onClick={() => setReaction(post.id, 1)}
+                          >
+                            <ThumbsUp className="mr-1.5 h-3.5 w-3.5" /> Like
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={
+                              myReactions[post.id] === -1
+                                ? "destructive"
+                                : "outline"
+                            }
+                            size="sm"
+                            className="h-8 px-3 cursor-pointer"
+                            onClick={() => setReaction(post.id, -1)}
+                          >
+                            <ThumbsDown className="mr-1.5 h-3.5 w-3.5" />
+                            Dislike
+                          </Button>
+                        </div>
                       </div>
 
                       {isAdmin && (
@@ -696,6 +1019,58 @@ export function LogsHub() {
 
                 <div className="space-y-4 rounded-2xl border border-border/70 bg-background p-4">
                   <div className="space-y-2">
+                    <p className="text-sm font-medium">Engagement</p>
+                    <div className="space-y-3 rounded-xl border border-border/60 bg-muted/15 p-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant="outline" className="gap-1">
+                          <Eye className="h-3.5 w-3.5" />
+                          {viewCounts[selectedPost.id] || 0} views
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <ThumbsUp className="h-3.5 w-3.5" />
+                          {likeCounts[selectedPost.id] || 0} likes
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <ThumbsDown className="h-3.5 w-3.5" />
+                          {dislikeCounts[selectedPost.id] || 0} dislikes
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          {commentCounts[selectedPost.id] || 0} comments
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            myReactions[selectedPost.id] === 1
+                              ? "default"
+                              : "outline"
+                          }
+                          className="cursor-pointer"
+                          onClick={() => setReaction(selectedPost.id, 1)}
+                        >
+                          <ThumbsUp className="mr-2 h-4 w-4" /> Like
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            myReactions[selectedPost.id] === -1
+                              ? "destructive"
+                              : "outline"
+                          }
+                          className="cursor-pointer"
+                          onClick={() => setReaction(selectedPost.id, -1)}
+                        >
+                          <ThumbsDown className="mr-2 h-4 w-4" /> Dislike
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
                     <p className="text-sm font-medium">Source</p>
                     <p className="text-sm text-muted-foreground">
                       {selectedPost.source_name || "No source name"}
@@ -752,6 +1127,60 @@ export function LogsHub() {
                         {selectedPost.is_published ? "Unpublish" : "Publish"}
                       </Button>
                     </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-border/70 bg-background p-4">
+                <p className="text-sm font-medium">Comments</p>
+                <div className="flex gap-2">
+                  <Textarea
+                    value={commentDraft}
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                    rows={3}
+                    placeholder={
+                      authUserId
+                        ? "Write your comment..."
+                        : "Sign in to write a comment"
+                    }
+                    disabled={!authUserId}
+                  />
+                  <Button
+                    type="button"
+                    className="cursor-pointer self-end"
+                    onClick={submitComment}
+                    disabled={!authUserId || !commentDraft.trim()}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {(commentsByPost[selectedPost.id] || []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No comments yet.
+                    </p>
+                  ) : (
+                    (commentsByPost[selectedPost.id] || []).map((comment) => (
+                      <div
+                        key={comment.id}
+                        className="rounded-xl border border-border/70 p-3"
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">
+                            {comment.profiles?.display_name ||
+                              comment.profiles?.username ||
+                              "User"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(comment.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">
+                          {comment.body}
+                        </p>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>

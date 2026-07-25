@@ -6,6 +6,8 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { GiphyFetch } from "@giphy/js-fetch-api";
+import type { IGif } from "@giphy/js-types";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +33,7 @@ import {
   Copy,
   ExternalLink,
   Bold,
+  Upload,
   Italic,
   Link as LinkIcon,
   ArrowUp,
@@ -94,9 +97,15 @@ import { MarkdownRenderer } from "./markdown-renderer";
 import type { FieldCondition, ConditionOperator } from "@/lib/types";
 import {
   removeFormSectionImageAction,
+  removeFormBannerAction,
+  updateFormAction,
+  uploadFormBannerAction,
   uploadFormSectionImageAction,
 } from "@/app/actions/forms";
-import { getFormAssetPublicUrl } from "@/lib/form-assets";
+import {
+  getFormAssetPublicUrl,
+  getFormBannerPublicUrl,
+} from "@/lib/form-assets";
 import { CustomColorPicker } from "@/components/ui/custom-color-picker";
 
 function sanitizeUrl(input: string) {
@@ -110,6 +119,10 @@ function sanitizeUrl(input: string) {
   } catch {}
   return "";
 }
+
+const giphyFetch = new GiphyFetch(
+  process.env.NEXT_PUBLIC_GIPHY_API_KEY || "dc6zaTOxFJmzC",
+);
 
 function toggleListMarkersForText(text: string, type: "ul" | "ol") {
   const lines = String(text || "").split(/\r?\n/);
@@ -754,6 +767,14 @@ function SectionEditor({
   const descRef = useRef<any>(null);
   const sectionImageInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [gifDialogOpen, setGifDialogOpen] = useState(false);
+  const [gifSearch, setGifSearch] = useState("");
+  const [gifItems, setGifItems] = useState<IGif[]>([]);
+  const [gifOffset, setGifOffset] = useState(0);
+  const [gifLoading, setGifLoading] = useState(false);
+  const [gifLoadingMore, setGifLoadingMore] = useState(false);
+  const [gifHasMore, setGifHasMore] = useState(true);
+  const [gifError, setGifError] = useState("");
   const addField = (type: FormFieldType) => {
     const newField: FormField = {
       id: uuidv4(),
@@ -837,6 +858,87 @@ function SectionEditor({
     });
     toast.success("Section image removed");
   };
+
+  const loadGifs = useCallback(
+    async ({ reset }: { reset: boolean }) => {
+      const query = gifSearch.trim();
+      const nextOffset = reset ? 0 : gifOffset;
+      const pageSize = 24;
+
+      if (reset) {
+        setGifLoading(true);
+        setGifError("");
+      } else {
+        setGifLoadingMore(true);
+      }
+
+      try {
+        const res = query
+          ? await giphyFetch.search(query, {
+              offset: nextOffset,
+              limit: pageSize,
+              rating: "pg-13",
+              lang: "es",
+            })
+          : await giphyFetch.trending({
+              offset: nextOffset,
+              limit: pageSize,
+              rating: "pg-13",
+            });
+
+        const items = Array.isArray(res.data) ? (res.data as IGif[]) : [];
+        setGifItems((prev) => {
+          if (reset) return items;
+          const seen = new Set(prev.map((g) => g.id));
+          const merged = [...prev];
+          for (const gif of items) {
+            if (!seen.has(gif.id)) merged.push(gif);
+          }
+          return merged;
+        });
+
+        const advanced = nextOffset + items.length;
+        setGifOffset(advanced);
+        setGifHasMore(items.length === pageSize);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load GIFs. Check GIPHY API key and network.";
+        setGifError(message || "Failed to load GIFs");
+        if (reset) setGifItems([]);
+      } finally {
+        if (reset) setGifLoading(false);
+        else setGifLoadingMore(false);
+      }
+    },
+    [gifOffset, gifSearch],
+  );
+
+  useEffect(() => {
+    if (!gifDialogOpen) return;
+    const t = setTimeout(() => {
+      void loadGifs({ reset: true });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [gifDialogOpen, gifSearch, loadGifs]);
+
+  const handleGifSelect = useCallback(
+    (gif: IGif, e: React.SyntheticEvent<HTMLElement, Event>) => {
+      e.preventDefault();
+      const gifUrl = gif.images.original.url;
+      onUpdate({
+        ...section,
+        custom: {
+          ...(section.custom || {}),
+          gifUrl,
+        },
+      });
+      setGifDialogOpen(false);
+      toast.success("GIF selected");
+    },
+    [onUpdate, section],
+  );
 
   // Wrap selection for inputs inside this section by element id
   const wrapSelectionInSection = (
@@ -1058,22 +1160,139 @@ function SectionEditor({
               </div>
 
               {/* GIF */}
-              <div className="p-3 space-y-1.5">
-                <Label className="text-xs font-medium">GIF URL</Label>
-                <Input
-                  value={section.custom?.gifUrl || ""}
-                  onChange={(e) =>
-                    onUpdate({
-                      ...section,
-                      custom: {
-                        ...(section.custom || {}),
-                        gifUrl: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="https://media.giphy.com/media/…/giphy.gif"
-                  className="text-sm"
-                />
+              <div className="p-3 space-y-2">
+                <Label className="text-xs font-medium">GIF</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="cursor-pointer"
+                    onClick={() => setGifDialogOpen(true)}
+                  >
+                    <Sparkles className="mr-2 h-3.5 w-3.5" />
+                    {section.custom?.gifUrl ? "Replace GIF" : "Pick GIF"}
+                  </Button>
+                  {section.custom?.gifUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="cursor-pointer text-destructive"
+                      onClick={() =>
+                        onUpdate({
+                          ...section,
+                          custom: {
+                            ...(section.custom || {}),
+                            gifUrl: "",
+                          },
+                        })
+                      }
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
+                    </Button>
+                  )}
+                </div>
+                {section.custom?.gifUrl && (
+                  <div className="rounded-md border overflow-hidden">
+                    <img
+                      src={section.custom.gifUrl}
+                      alt="Selected gif"
+                      className="max-h-44 w-full object-contain"
+                    />
+                  </div>
+                )}
+
+                <Dialog open={gifDialogOpen} onOpenChange={setGifDialogOpen}>
+                  <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                      <DialogTitle>Select a GIF</DialogTitle>
+                      <DialogDescription>
+                        Trending GIFs with search.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <Input
+                      value={gifSearch}
+                      onChange={(e) => setGifSearch(e.target.value)}
+                      placeholder="Search GIFs..."
+                    />
+
+                    <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
+                      {gifLoading ? (
+                        <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading GIFs...
+                        </div>
+                      ) : gifError ? (
+                        <div className="space-y-2 py-8 text-center">
+                          <p className="text-sm text-destructive">{gifError}</p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="cursor-pointer"
+                            onClick={() => void loadGifs({ reset: true })}
+                          >
+                            Retry
+                          </Button>
+                        </div>
+                      ) : gifItems.length === 0 ? (
+                        <p className="py-8 text-center text-sm text-muted-foreground">
+                          No GIFs found.
+                        </p>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {gifItems.map((gif) => {
+                              const preview =
+                                gif.images.fixed_width_downsampled?.url ||
+                                gif.images.fixed_width?.url ||
+                                gif.images.original?.url;
+                              if (!preview) return null;
+                              return (
+                                <button
+                                  key={gif.id}
+                                  type="button"
+                                  className="overflow-hidden rounded-md border border-border/60 transition hover:scale-[1.01] hover:border-primary/60"
+                                  onClick={(e) => handleGifSelect(gif, e)}
+                                >
+                                  <img
+                                    src={preview}
+                                    alt={gif.title || "GIF"}
+                                    className="h-32 w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {gifHasMore && (
+                            <div className="pt-3 text-center">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="cursor-pointer"
+                                disabled={gifLoadingMore}
+                                onClick={() => void loadGifs({ reset: false })}
+                              >
+                                {gifLoadingMore ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Loading...
+                                  </>
+                                ) : (
+                                  "Load more"
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </div>
@@ -1158,6 +1377,12 @@ export function FormBuilder({
   const [description, setDescription] = useState(
     initialForm?.description || "",
   );
+  const [bannerAssetPath, setBannerAssetPath] = useState(
+    initialForm?.bannerAssetPath || "",
+  );
+  const [bannerUrl, setBannerUrl] = useState(initialForm?.bannerUrl || "");
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const formBannerInputRef = useRef<HTMLInputElement | null>(null);
   const [appearance, setAppearance] = useState(
     resolveFormAppearance(initialForm?.appearance || defaultFormAppearance),
   );
@@ -1175,6 +1400,26 @@ export function FormBuilder({
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const linkCallbackRef = useRef<((url: string) => void) | null>(null);
   const [linkInput, setLinkInput] = useState("");
+
+  useEffect(() => {
+    setTitle(initialForm?.title || "");
+    setDescription(initialForm?.description || "");
+    setBannerAssetPath(initialForm?.bannerAssetPath || "");
+    setBannerUrl(initialForm?.bannerUrl || "");
+    setAppearance(
+      resolveFormAppearance(initialForm?.appearance || defaultFormAppearance),
+    );
+    setSections(
+      initialForm?.sections || [
+        {
+          id: uuidv4(),
+          title: "Basic Information",
+          fields: [],
+        },
+      ],
+    );
+    setIsActive(initialForm?.isActive ?? true);
+  }, [initialForm]);
 
   const openLinkModal = (cb: (url: string) => void) => {
     linkCallbackRef.current = cb;
@@ -1271,10 +1516,85 @@ export function FormBuilder({
     onSave({
       title: title.trim(),
       description: description.trim(),
+      bannerAssetPath: bannerAssetPath || undefined,
+      bannerUrl: bannerUrl || undefined,
       sections,
       appearance,
       isActive,
     });
+  };
+
+  const handleFormBannerUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingBanner(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (bannerAssetPath) {
+        formData.append("existingPath", bannerAssetPath);
+      }
+
+      const result = await uploadFormBannerAction(formData);
+      if (!result.success || !result.path) {
+        toast.error(result.error || "Failed to upload banner");
+        return;
+      }
+
+      setBannerAssetPath(result.path);
+      if (result.publicUrl) {
+        setBannerUrl(result.publicUrl);
+      }
+
+      if (isEditing && initialForm?.id) {
+        const persist = await updateFormAction(initialForm.id, {
+          bannerAssetPath: result.path,
+          bannerUrl: result.publicUrl || bannerUrl,
+        });
+        if (!persist.success) {
+          toast.error(persist.error || "Failed to persist banner");
+          return;
+        }
+      }
+
+      toast.success("Form banner uploaded");
+    } finally {
+      setIsUploadingBanner(false);
+      if (formBannerInputRef.current) {
+        formBannerInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveFormBanner = async () => {
+    if (!bannerAssetPath) {
+      setBannerUrl("");
+      return;
+    }
+
+    const result = await removeFormBannerAction(bannerAssetPath);
+    if (!result.success) {
+      toast.error(result.error || "Failed to remove banner");
+      return;
+    }
+
+    if (isEditing && initialForm?.id) {
+      const persist = await updateFormAction(initialForm.id, {
+        bannerAssetPath: "",
+        bannerUrl: "",
+      });
+      if (!persist.success) {
+        toast.error(persist.error || "Failed to persist banner removal");
+        return;
+      }
+    }
+
+    setBannerAssetPath("");
+    setBannerUrl("");
+    toast.success("Form banner removed");
   };
 
   const appearanceClasses = getFormAppearanceClasses(appearance);
@@ -1381,7 +1701,10 @@ export function FormBuilder({
         </CollapsibleContent>
       </Collapsible>
       {/* Form Details */}
-      <Card className={appearanceClasses.preset.shell}>
+      <Card
+        className={appearanceClasses.preset.shell}
+        style={appearanceClasses.surfaceStyle}
+      >
         <CardHeader>
           <CardTitle>Form Details</CardTitle>
           <CardDescription>
@@ -1389,6 +1712,77 @@ export function FormBuilder({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Form Banner</Label>
+            <input
+              ref={formBannerInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+              className="hidden"
+              onChange={handleFormBannerUpload}
+            />
+
+            {(bannerAssetPath || bannerUrl.trim()) && (
+              <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/20">
+                <img
+                  src={
+                    bannerAssetPath
+                      ? getFormBannerPublicUrl(bannerAssetPath)
+                      : bannerUrl.trim()
+                  }
+                  alt="Form banner preview"
+                  className="h-36 w-full object-cover sm:h-44"
+                />
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="cursor-pointer"
+                disabled={isUploadingBanner}
+                onClick={() => formBannerInputRef.current?.click()}
+              >
+                {isUploadingBanner ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 h-3.5 w-3.5" />
+                )}
+                {bannerAssetPath ? "Replace banner" : "Upload banner"}
+              </Button>
+
+              {(bannerAssetPath || bannerUrl.trim()) && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="cursor-pointer text-destructive"
+                  onClick={handleRemoveFormBanner}
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                Or paste an external banner URL
+              </Label>
+              <Input
+                value={bannerUrl}
+                onChange={(e) => setBannerUrl(e.target.value)}
+                placeholder="https://example.com/form-banner.jpg"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Uploaded banner takes priority if both are set.
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Identity */}
           <div className="space-y-2">
             <Label htmlFor="form-title">
@@ -1521,6 +1915,10 @@ export function FormBuilder({
                 "flex items-center gap-3 rounded-lg border px-4 py-3",
                 appearanceClasses.preset.shell,
               )}
+              style={{
+                ...appearanceClasses.surfaceStyle,
+                ...appearanceClasses.sectionCardStyle,
+              }}
             >
               <div className={appearanceClasses.heroIcon}>
                 <Sparkles

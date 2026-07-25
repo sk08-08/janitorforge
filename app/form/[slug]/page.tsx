@@ -30,7 +30,7 @@ export default async function PublicFormPage({
       const { data: legacyRow, error: legacyError } = await supabase
         .from("request_forms")
         .select(
-          "id, user_id, title, description, sections, appearance, is_active, deactivated_message, deactivated_redirect_url, deactivated_redirect_label, deactivated_accent_color",
+          "id, user_id, title, description, banner_asset_path, banner_url, sections, appearance, is_active, deactivated_message, deactivated_redirect_url, deactivated_redirect_label, deactivated_accent_color",
         )
         .eq("shareable_link", slugValue)
         .is("deleted_at", null)
@@ -191,6 +191,8 @@ export default async function PublicFormPage({
       id: row.id,
       title: row.title,
       description: row.description,
+      bannerAssetPath: row.banner_asset_path || "",
+      bannerUrl: row.banner_url || "",
       isActive: !!row.is_active,
       deactivatedMessage: row.deactivated_message || "",
       sections: (row.sections || []) as FormSection[],

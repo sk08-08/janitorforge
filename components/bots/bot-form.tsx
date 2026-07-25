@@ -20,6 +20,7 @@ import {
   Link as LinkIcon,
   Pencil,
   Eye,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,7 @@ import {
 } from "@/lib/bot-utils";
 import { toast } from "sonner";
 import { EyeOff } from "lucide-react";
+import { removeBotImageAction, uploadBotImageAction } from "@/app/actions/bots";
 
 // ----------------------------------------------------------------------------
 // Bot Form Props
@@ -111,6 +113,7 @@ export function BotForm({
     initialData?.rating || "SFW",
   );
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [hideSensitiveFields, setHideSensitiveFields] = useState(
     initialData?.hideSensitiveFields || false,
   );
@@ -189,6 +192,48 @@ export function BotForm({
     () => initialMessages.map((message) => message.trim()).filter(Boolean),
     [initialMessages],
   );
+
+  const handleImageUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setUploadingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        if (imageUrl.trim()) {
+          formData.append("existingUrl", imageUrl.trim());
+        }
+
+        const result = await uploadBotImageAction(formData);
+        if (!result.success || !result.url) {
+          toast.error(result.error || "Failed to upload image");
+          return;
+        }
+
+        setImageUrl(result.url);
+        toast.success("Bot image uploaded");
+      } finally {
+        setUploadingImage(false);
+        e.target.value = "";
+      }
+    },
+    [imageUrl],
+  );
+
+  const handleRemoveImage = useCallback(async () => {
+    if (!imageUrl.trim()) return;
+
+    const result = await removeBotImageAction(imageUrl.trim());
+    if (!result.success) {
+      toast.error(result.error || "Failed to remove image");
+      return;
+    }
+
+    setImageUrl("");
+    toast.success("Bot image removed");
+  }, [imageUrl]);
 
   // Form submission
   const handleSubmit = useCallback(
@@ -493,21 +538,61 @@ export function BotForm({
 
           {/* Image URL */}
           <div className="space-y-2">
+            <input
+              type="file"
+              id="bot-image-upload"
+              className="hidden"
+              accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+              onChange={handleImageUpload}
+            />
             <Label
               htmlFor="image-url"
               className="flex flex-wrap items-center gap-1"
             >
-              <span>Image URL</span>
+              <span>Bot Image</span>
               <span className="text-xs text-muted-foreground font-normal">
                 (optional)
               </span>
             </Label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="cursor-pointer"
+                disabled={uploadingImage}
+                onClick={() =>
+                  document.getElementById("bot-image-upload")?.click()
+                }
+              >
+                {uploadingImage ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 h-3.5 w-3.5" />
+                )}
+                {imageUrl.trim() ? "Replace image" : "Upload image"}
+              </Button>
+              {imageUrl.trim() && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="cursor-pointer text-destructive"
+                  onClick={handleRemoveImage}
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
+                </Button>
+              )}
+            </div>
             <Input
               id="image-url"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="https://example.com/bot-image.png"
             />
+            <p className="text-xs text-muted-foreground">
+              You can upload directly or paste an external URL.
+            </p>
             {imageUrl.trim() && (
               <div className="mt-2 h-20 w-20 rounded-lg overflow-hidden border border-border/70">
                 <img
