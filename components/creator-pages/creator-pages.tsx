@@ -1283,7 +1283,7 @@ export function CreatorPages() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
+                          className="h-7 w-7 text-destructive hover:text-white cursor-pointer shrink-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteSection(section.id);
@@ -2887,7 +2887,7 @@ export function CreatorPages() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-destructive hover:text-destructive cursor-pointer"
+                    className="text-destructive hover:text-white cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeletePage(page.id);

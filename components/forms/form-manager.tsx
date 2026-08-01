@@ -600,7 +600,7 @@ export function FormManager() {
           </SheetHeader>
           <div className="mt-6">
             {editingForm && (
-              <div className="mb-6">
+              <div className="mb-6 px-4 lg:px-6">
                 <ShareableLinkDisplay
                   formId={editingForm.id}
                   shareableLink={editingForm.shareableLink}

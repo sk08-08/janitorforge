@@ -386,7 +386,7 @@ export function NotificationBell() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 cursor-pointer text-muted-foreground hover:text-destructive"
+                      className="h-6 w-6 cursor-pointer text-destructive hover:text-white"
                       title="Delete"
                       onClick={(e) => {
                         e.preventDefault();

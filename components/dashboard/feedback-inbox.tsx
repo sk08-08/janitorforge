@@ -1505,7 +1505,7 @@ export function FeedbackInbox() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs text-destructive hover:text-destructive cursor-pointer"
+                    className="h-7 text-xs text-destructive hover:text-white cursor-pointer"
                     onClick={() => setDeleteTarget(selectedItem)}
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete

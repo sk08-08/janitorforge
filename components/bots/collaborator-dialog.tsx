@@ -641,7 +641,7 @@ export function CollaboratorDialog({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
+                                className="h-7 w-7 text-destructive hover:text-white cursor-pointer shrink-0"
                                 onClick={() => handleRemove(collab.id)}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -677,7 +677,7 @@ export function CollaboratorDialog({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer shrink-0"
+                              className="h-7 w-7 text-destructive hover:text-white cursor-pointer shrink-0"
                               onClick={() => handleRemove(collab.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -837,7 +837,7 @@ export function CollaboratorDialog({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-destructive cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          className="h-6 w-6 text-destructive hover:text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                           onClick={() => handleDeleteComment(comment.id)}
                         >
                           <Trash2 className="h-3 w-3" />

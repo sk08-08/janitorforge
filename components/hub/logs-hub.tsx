@@ -785,7 +785,7 @@ export function LogsHub() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setDeletePostTarget(post)}
-                                className="text-destructive cursor-pointer hover:text-destructive"
+                                className="text-destructive cursor-pointer hover:text-white"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" /> Delete
                               </Button>

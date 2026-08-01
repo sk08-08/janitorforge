@@ -1082,7 +1082,7 @@ export function ResourcesHub() {
                                     title: section.title,
                                   })
                                 }
-                                className="cursor-pointer text-destructive hover:text-destructive"
+                                className="cursor-pointer text-destructive hover:text-white"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" /> Delete
                               </Button>
@@ -1334,7 +1334,7 @@ export function ResourcesHub() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="cursor-pointer text-destructive hover:text-destructive"
+                                  className="cursor-pointer text-destructive hover:text-white"
                                   onClick={() =>
                                     setDeleteTarget({
                                       kind: "entry",

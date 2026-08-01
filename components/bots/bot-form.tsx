@@ -501,7 +501,7 @@ export function BotForm({
       className="space-y-6 overflow-hidden p-4 lg:p-6"
     >
       {/* Header Actions */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <input
           type="file"
           id="import-card"
@@ -513,7 +513,7 @@ export function BotForm({
           type="button"
           variant="outline"
           size="sm"
-          className="cursor-pointer"
+          className="w-full cursor-pointer sm:w-auto"
           onClick={() => document.getElementById("import-card")?.click()}
         >
           <Upload className="mr-2 h-4 w-4" />
@@ -523,7 +523,7 @@ export function BotForm({
           type="button"
           variant="outline"
           size="sm"
-          className="cursor-pointer"
+          className="w-full cursor-pointer sm:w-auto"
           onClick={handleExport}
           disabled={!name.trim()}
         >
@@ -1012,30 +1012,30 @@ export function BotForm({
       />
 
       {/* Actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex w-full gap-2 sm:w-auto">
           {isEditing && onDelete && (
             <Button
               type="button"
               variant="destructive"
               onClick={onDelete}
-              className="cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Bot
             </Button>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Button
             type="button"
             variant="outline"
             onClick={onCancel}
-            className="cursor-pointer"
+            className="w-full cursor-pointer sm:w-auto"
           >
             Cancel
           </Button>
-          <Button type="submit" className="cursor-pointer">
+          <Button type="submit" className="w-full cursor-pointer sm:w-auto">
             <Save className="mr-2 h-4 w-4" />
             {isEditing ? "Save Changes" : "Create Bot"}
           </Button>

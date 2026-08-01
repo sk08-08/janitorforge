@@ -19,6 +19,8 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import {
+  Flame,
+  Gem,
   Plus,
   Trash2,
   GripVertical,
@@ -39,9 +41,12 @@ import {
   ArrowUp,
   Search,
   ArrowDown,
+  Star,
   Sparkles,
   Info,
   ChevronDown,
+  Wand2,
+  Heart,
   Image as ImageIcon,
   Loader2,
 } from "lucide-react";
@@ -90,6 +95,7 @@ import {
   defaultFormAppearance,
   formAppearanceAccents,
   formAppearanceDensityOptions,
+  formAppearanceHeaderIcons,
   formAppearancePresets,
   getFormAppearanceClasses,
   resolveFormAppearance,
@@ -109,6 +115,16 @@ import {
   getFormBannerPublicUrl,
 } from "@/lib/form-assets";
 import { CustomColorPicker } from "@/components/ui/custom-color-picker";
+import { renderMarkdown } from "@/lib/markdown";
+
+const headerIconMap = {
+  sparkles: Sparkles,
+  star: Star,
+  wand: Wand2,
+  heart: Heart,
+  flame: Flame,
+  gem: Gem,
+} as const;
 
 function sanitizeUrl(input: string) {
   const url = String(input || "").trim();
@@ -586,7 +602,7 @@ function FieldEditor({
                         />
                         <div className="flex items-center gap-1 self-end sm:self-auto">
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             onClick={() => moveOption(index, -1)}
                             title="Move up"
@@ -595,7 +611,7 @@ function FieldEditor({
                             <ArrowUp className="h-4 w-4" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             onClick={() => moveOption(index, 1)}
                             title="Move down"
@@ -604,7 +620,7 @@ function FieldEditor({
                             <ArrowDown className="h-4 w-4" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
                             onClick={() => removeOption(index)}
                             title="Remove"
@@ -780,7 +796,7 @@ function FieldEditor({
           <Button
             variant="ghost"
             size="icon"
-            className="text-muted-foreground hover:text-destructive cursor-pointer"
+            className="text-destructive hover:text-white cursor-pointer"
             onClick={onDelete}
           >
             <Trash2 className="h-4 w-4" />
@@ -822,9 +838,9 @@ function SectionEditor({
   disableMoveDown = false,
   openLinkModal,
 }: SectionEditorProps) {
-  const descRef = useRef<any>(null);
   const sectionImageInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [stylingOpen, setStylingOpen] = useState(false);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
   const [gifSearch, setGifSearch] = useState("");
   const [debouncedGifSearch, setDebouncedGifSearch] = useState("");
@@ -950,9 +966,9 @@ function SectionEditor({
           imageAssetPath: result.path,
         },
       });
+
       toast.success("Section image uploaded");
     } finally {
-      setIsUploadingImage(false);
       if (sectionImageInputRef.current) {
         sectionImageInputRef.current.value = "";
       }
@@ -1089,459 +1105,479 @@ function SectionEditor({
     [onUpdate, section],
   );
 
-  // Wrap selection for inputs inside this section by element id
-  const wrapSelectionInSection = (
-    key: "title" | "description",
-    before: string,
-    after = "",
-  ) => {
-    const id =
-      key === "title"
-        ? `section-title-${section.id}`
-        : `section-desc-${section.id}`;
-    const el = document.getElementById(id) as HTMLElement | null;
-    if (
-      el &&
-      (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
-    ) {
-      const start = (el as any).selectionStart ?? 0;
-      const end = (el as any).selectionEnd ?? start;
-      const value = el.value || "";
-      const result = applyToggleWrap(value, start, end, before, after);
-      if (key === "title") onUpdate({ ...section, title: result.newValue });
-      else onUpdate({ ...section, description: result.newValue });
-      requestAnimationFrame(() => {
-        try {
-          el.focus();
-          (el as any).setSelectionRange(result.newStart, result.newEnd);
-        } catch {}
-      });
-    } else {
-      const cur =
-        key === "title" ? section.title || "" : section.description || "";
-      const res = applyToggleWrap(cur, 0, 0, before, after);
-      if (key === "title") onUpdate({ ...section, title: res.newValue });
-      else onUpdate({ ...section, description: res.newValue });
-    }
-  };
-
   return (
-    <Card className={cn("transition-opacity", isDragging && "opacity-60")}>
-      <CardHeader className="relative pb-3 overflow-hidden">
-        <div className="min-w-0 space-y-2">
-          <div className="sm:pr-44">
-            <Input
-              id={`section-title-${section.id}`}
-              value={section.title || ""}
-              onChange={(e) => onUpdate({ ...section, title: e.target.value })}
-              placeholder="Section Title"
-              className="w-full min-w-0 text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
-            />
+    <Card
+      className={cn(
+        "overflow-hidden border-border/70 bg-card/95 transition-all",
+        isDragging && "opacity-60",
+      )}
+    >
+      <CardHeader className="space-y-4 pb-4 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-primary/10 px-3 py-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Section actions
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground cursor-pointer"
+              title="Move section up"
+              onClick={onMoveUp}
+              disabled={disableMoveUp}
+            >
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground cursor-pointer"
+              title="Move section down"
+              onClick={onMoveDown}
+              disabled={disableMoveDown}
+            >
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground cursor-grab"
+              title="Reorder section"
+              draggable
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+            >
+              <GripVertical className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-white cursor-pointer"
+              onClick={onDelete}
+              title="Delete section"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
-          <div className="sm:pr-44">
-            <InlineMarkdownEditor
-              ref={descRef}
-              id={`section-desc-${section.id}`}
-              value={section.description}
-              onChange={(v) => onUpdate({ ...section, description: v })}
-              placeholder="Section description (optional)"
-              rows={2}
-              className="text-sm text-muted-foreground"
-            />
-          </div>
-          {/* Section layout */}
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <div className="flex items-center gap-2 min-w-0">
-              <Label className="text-xs text-muted-foreground shrink-0">
-                Alignment
-              </Label>
-              <Select
-                value={section.custom?.headerAlignment || "left"}
-                onValueChange={(val) =>
-                  onUpdate({
-                    ...section,
-                    custom: {
-                      ...(section.custom || {}),
-                      headerAlignment: val as any,
-                    },
-                  })
-                }
-              >
-                <SelectTrigger className="h-8 w-28 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="left">Left</SelectItem>
-                  <SelectItem value="center">Center</SelectItem>
-                  <SelectItem value="right">Right</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        </div>
 
-            <div className="flex items-center gap-2 ml-auto">
-              <Switch
-                checked={!!section.custom?.collapsible}
-                onCheckedChange={(checked) =>
-                  onUpdate({
-                    ...section,
-                    custom: {
-                      ...(section.custom || {}),
-                      collapsible: !!checked,
-                    },
-                  })
-                }
-              />
-              <Label className="cursor-pointer text-xs text-muted-foreground">
-                Collapsible
-              </Label>
-            </div>
-          </div>
-
-          {/* Styling & Media */}
-          <div className="rounded-lg border bg-muted/20 divide-y">
-            <div className="px-3 py-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Styling &amp; Media
-              </p>
-            </div>
-
-            {/* Text color */}
-            <div className="p-3">
-              <CustomColorPicker
-                label="Section text color"
-                value={section.custom?.textColor || "#e5e7eb"}
-                onChange={(nextColor) =>
-                  onUpdate({
-                    ...section,
-                    custom: {
-                      ...(section.custom || {}),
-                      textColor: nextColor,
-                    },
-                  })
-                }
-              />
-            </div>
-
-            {/* Image */}
-            <div className="p-3 space-y-3">
-              <p className="text-xs font-medium">Image</p>
-              <input
-                ref={sectionImageInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
-                onChange={handleSectionImageUpload}
-                className="hidden"
-              />
-
-              {/* Preview */}
-              {(section.custom?.imageAssetPath || section.custom?.imageUrl) && (
-                <div className="rounded-md border overflow-hidden">
-                  <img
-                    src={
-                      section.custom?.imageAssetPath
-                        ? getFormAssetPublicUrl(section.custom.imageAssetPath)
-                        : section.custom?.imageUrl
-                    }
-                    alt="Section image preview"
-                    className="max-h-44 w-full object-contain"
-                  />
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer"
-                  disabled={isUploadingImage}
-                  onClick={() => sectionImageInputRef.current?.click()}
+        <div className="min-w-0 space-y-4">
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Section Content
+            </p>
+            <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3 sm:p-4">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor={`section-title-${section.id}`}
+                  className="text-xs text-muted-foreground"
                 >
-                  {isUploadingImage ? (
-                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <ImageIcon className="mr-2 h-3.5 w-3.5" />
-                  )}
-                  {section.custom?.imageAssetPath
-                    ? "Replace uploaded"
-                    : "Upload file"}
-                </Button>
-                {section.custom?.imageAssetPath && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="cursor-pointer text-destructive"
-                    onClick={handleRemoveSectionImage}
-                  >
-                    <Trash2 className="mr-2 h-3.5 w-3.5" />
-                    Remove
-                  </Button>
-                )}
+                  Section title
+                </Label>
+                <MarkdownField
+                  id={`section-title-${section.id}`}
+                  value={section.title || ""}
+                  onChange={(e) =>
+                    onUpdate({
+                      ...section,
+                      title: e.target.value,
+                    })
+                  }
+                  placeholder="Blah blah blah"
+                  rows={2}
+                  className="w-full min-w-0 text-base font-semibold"
+                />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Or paste an image URL
+                <Label
+                  htmlFor={`section-desc-${section.id}`}
+                  className="text-xs text-muted-foreground"
+                >
+                  Section description
                 </Label>
-                <Input
-                  value={section.custom?.imageUrl || ""}
+                <MarkdownField
+                  id={`section-desc-${section.id}`}
+                  value={section.description || ""}
                   onChange={(e) =>
+                    onUpdate({
+                      ...section,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Blah blah blah (optional)"
+                  rows={2}
+                  className="text-sm text-muted-foreground"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section layout */}
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Alignment
+            </p>
+            <div className="space-y-3 rounded-xl border border-border/60 bg-background/70 p-3">
+              <div className="space-y-1.5 min-w-0">
+                <Select
+                  value={section.custom?.headerAlignment || "left"}
+                  onValueChange={(val) =>
                     onUpdate({
                       ...section,
                       custom: {
                         ...(section.custom || {}),
-                        imageUrl: e.target.value,
+                        headerAlignment: val as any,
                       },
                     })
                   }
-                  placeholder="https://example.com/image.jpg"
-                  className="text-sm"
+                >
+                  <SelectTrigger className="h-8 w-full text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="left">Left</SelectItem>
+                    <SelectItem value="center">Center</SelectItem>
+                    <SelectItem value="right">Right</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2">
+                <Label className="cursor-pointer text-xs text-muted-foreground">
+                  Collapsible
+                </Label>
+                <Switch
+                  checked={!!section.custom?.collapsible}
+                  onCheckedChange={(checked) =>
+                    onUpdate({
+                      ...section,
+                      custom: {
+                        ...(section.custom || {}),
+                        collapsible: !!checked,
+                      },
+                    })
+                  }
                 />
-                <p className="text-[11px] text-muted-foreground">
-                  Uploaded files take priority over URL if both are set.
-                </p>
               </div>
             </div>
+          </div>
 
-            {/* GIF */}
-            <div className="p-3 space-y-2">
-              <Label className="text-xs font-medium">GIF</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button
+          {/* Styling & Media */}
+          <Collapsible open={stylingOpen} onOpenChange={setStylingOpen}>
+            <div className="rounded-xl border border-border/70 bg-muted/20 overflow-hidden">
+              <CollapsibleTrigger asChild>
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer font-medium"
-                  onClick={() => setGifDialogOpen(true)}
+                  className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-muted/30 cursor-pointer"
                 >
-                  <Sparkles className="mr-2 h-3.5 w-3.5 text-primary animate-pulse" />
-                  <span>
-                    {section.custom?.gifUrl ? "Replace GIF" : "Pick GIF"}
-                  </span>
-                  <span className="mx-1 text-muted-foreground">·</span>
-                  <span className="text-muted-foreground text-xs">
-                    Powered by{" "}
-                    <span className="font-black tracking-wider bg-gradient-to-r from-[#00FF99] via-[#00CCFF] via-[#9933FF] to-[#FF3366] bg-clip-text text-transparent">
-                      GIPHY
-                    </span>
-                  </span>
-                </Button>
-                {section.custom?.gifUrl && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="cursor-pointer text-destructive"
-                    onClick={() =>
-                      onUpdate({
-                        ...section,
-                        custom: {
-                          ...(section.custom || {}),
-                          gifUrl: "",
-                        },
-                      })
-                    }
-                  >
-                    <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
-                  </Button>
-                )}
-              </div>
-              {section.custom?.gifUrl && (
-                <div className="rounded-md border overflow-hidden">
-                  <img
-                    src={section.custom.gifUrl}
-                    alt="Selected gif"
-                    className="max-h-44 w-full object-contain"
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Styling &amp; Media
+                  </p>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-muted-foreground transition-transform",
+                      stylingOpen && "rotate-180",
+                    )}
                   />
-                </div>
-              )}
+                </button>
+              </CollapsibleTrigger>
 
-              <Dialog open={gifDialogOpen} onOpenChange={setGifDialogOpen}>
-                <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-                  <DialogHeader>
-                    <DialogTitle>Select a GIF</DialogTitle>
-                    <DialogDescription>
-                      Trending GIFs with search.
-                    </DialogDescription>
-                  </DialogHeader>
+              <CollapsibleContent className="divide-y">
+                {/* Image */}
+                <div className="p-4 space-y-3.5">
+                  <p className="text-xs font-medium">Image</p>
+                  <input
+                    ref={sectionImageInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+                    onChange={handleSectionImageUpload}
+                    className="hidden"
+                  />
 
-                  <div className="relative w-full">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 transition-colors duration-200 peer-focus:text-[#ea00ff] pointer-events-none" />
-
-                    <Input
-                      value={gifSearch}
-                      onChange={(e) => setGifSearch(e.target.value)}
-                      placeholder="Search GIPHY"
-                      className="peer w-full pl-10 pr-12 bg-[#121212] border-neutral-800 text-white placeholder:text-neutral-500 transition-all duration-200 focus-visible:ring-1 focus-visible:ring-[#ea00ff] focus-visible:border-[#00CCFF] focus-visible:drop-shadow-[0_0_6px_rgba(0,204,255,0.15)]"
-                    />
-
-                    {/* Sello de Marca Isotipo de GIPHY a la derecha */}
-                    <div
-                      className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 w-4 flex-col gap-0.5 pointer-events-none opacity-80 peer-focus:opacity-100 transition-opacity"
-                      aria-hidden="true"
-                    >
-                      <div className="h-1 w-full bg-[#00FF99]" />
-                      <div className="h-1 w-full bg-[#00CCFF]" />
-                      <div className="h-1 w-full bg-[#9933FF]" />
-                      <div className="h-1 w-full bg-[#FF3366]" />
+                  {/* Preview */}
+                  {(section.custom?.imageAssetPath ||
+                    section.custom?.imageUrl) && (
+                    <div className="rounded-md border overflow-hidden">
+                      <img
+                        src={
+                          section.custom?.imageAssetPath
+                            ? getFormAssetPublicUrl(
+                                section.custom.imageAssetPath,
+                              )
+                            : section.custom?.imageUrl
+                        }
+                        alt="Section image preview"
+                        className="max-h-44 w-full object-contain"
+                      />
                     </div>
-                  </div>
-                  <span className="text-muted-foreground text-xs">
-                    Powered by{" "}
-                    <span className="font-black tracking-wider hover:animate-pulse bg-gradient-to-r from-[#00FF99] via-[#00CCFF] via-[#9933FF] to-[#FF3366] bg-clip-text text-transparent">
-                      <a
-                        href="https://giphy.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        GIPHY
-                      </a>
-                    </span>
-                  </span>
+                  )}
 
-                  <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
-                    {gifLoading ? (
-                      <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading GIFs...
-                      </div>
-                    ) : gifError ? (
-                      <div className="space-y-2 py-8 text-center">
-                        <p className="text-sm text-destructive">{gifError}</p>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="cursor-pointer"
-                          onClick={() =>
-                            void loadGifs({
-                              reset: true,
-                              query: debouncedGifSearch,
-                              offset: 0,
-                            })
-                          }
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="cursor-pointer w-full"
+                      disabled={isUploadingImage}
+                      onClick={() => sectionImageInputRef.current?.click()}
+                    >
+                      {isUploadingImage ? (
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ImageIcon className="mr-2 h-3.5 w-3.5" />
+                      )}
+                      {section.custom?.imageAssetPath
+                        ? "Replace uploaded"
+                        : "Upload file"}
+                    </Button>
+                    {section.custom?.imageAssetPath && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="cursor-pointer text-destructive"
+                        onClick={handleRemoveSectionImage}
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      Or paste an image URL
+                    </Label>
+                    <Input
+                      value={section.custom?.imageUrl || ""}
+                      onChange={(e) =>
+                        onUpdate({
+                          ...section,
+                          custom: {
+                            ...(section.custom || {}),
+                            imageUrl: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="https://example.com/image.jpg"
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Uploaded files take priority over URL if both are set.
+                    </p>
+                  </div>
+                </div>
+
+                {/* GIF */}
+                <div className="p-4 space-y-2.5">
+                  <Label className="text-xs font-medium">GIF</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="cursor-pointer font-medium"
+                      onClick={() => setGifDialogOpen(true)}
+                    >
+                      <Sparkles className="mr-2 h-3.5 w-3.5 text-primary animate-pulse" />
+                      <span>
+                        {section.custom?.gifUrl ? "Replace GIF" : "Pick GIF"}
+                      </span>
+                      <span className="mx-1 text-muted-foreground">·</span>
+                      <span className="text-muted-foreground text-xs">
+                        Powered by{" "}
+                        <span className="font-black tracking-wider bg-gradient-to-r from-[#00FF99] via-[#00CCFF] via-[#9933FF] to-[#FF3366] bg-clip-text text-transparent">
+                          GIPHY
+                        </span>
+                      </span>
+                    </Button>
+                    {section.custom?.gifUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="cursor-pointer text-destructive"
+                        onClick={() =>
+                          onUpdate({
+                            ...section,
+                            custom: {
+                              ...(section.custom || {}),
+                              gifUrl: "",
+                            },
+                          })
+                        }
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
+                      </Button>
+                    )}
+                  </div>
+                  {section.custom?.gifUrl && (
+                    <div className="rounded-md border overflow-hidden">
+                      <img
+                        src={section.custom.gifUrl}
+                        alt="Selected gif"
+                        className="max-h-44 w-full object-contain"
+                      />
+                    </div>
+                  )}
+
+                  <Dialog open={gifDialogOpen} onOpenChange={setGifDialogOpen}>
+                    <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
+                      <DialogHeader>
+                        <DialogTitle>Select a GIF</DialogTitle>
+                        <DialogDescription>
+                          Trending GIFs with search.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 transition-colors duration-200 peer-focus:text-[#ea00ff] pointer-events-none" />
+
+                        <Input
+                          value={gifSearch}
+                          onChange={(e) => setGifSearch(e.target.value)}
+                          placeholder="Search GIPHY"
+                          className="peer w-full pl-10 pr-12 bg-[#121212] border-neutral-800 text-white placeholder:text-neutral-500 transition-all duration-200 focus-visible:ring-1 focus-visible:ring-[#ea00ff] focus-visible:border-[#00CCFF] focus-visible:drop-shadow-[0_0_6px_rgba(0,204,255,0.15)]"
+                        />
+
+                        {/* Sello de Marca Isotipo de GIPHY a la derecha */}
+                        <div
+                          className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 w-4 flex-col gap-0.5 pointer-events-none opacity-80 peer-focus:opacity-100 transition-opacity"
+                          aria-hidden="true"
                         >
-                          Retry
-                        </Button>
-                      </div>
-                    ) : gifItems.length === 0 ? (
-                      <p className="py-8 text-center text-sm text-muted-foreground">
-                        No GIFs found.
-                      </p>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                          {gifItems.map((gif) => {
-                            const preview =
-                              gif.images.fixed_width_downsampled?.url ||
-                              gif.images.fixed_width?.url ||
-                              gif.images.original?.url;
-                            if (!preview) return null;
-                            return (
-                              <button
-                                key={gif.id}
-                                type="button"
-                                className="overflow-hidden rounded-md border border-border/60 transition hover:scale-[1.01] hover:border-primary/60"
-                                onClick={(e) => handleGifSelect(gif, e)}
-                              >
-                                <img
-                                  src={preview}
-                                  alt={gif.title || "GIF"}
-                                  className="h-32 w-full object-cover"
-                                  loading="lazy"
-                                />
-                              </button>
-                            );
-                          })}
+                          <div className="h-1 w-full bg-[#00FF99]" />
+                          <div className="h-1 w-full bg-[#00CCFF]" />
+                          <div className="h-1 w-full bg-[#9933FF]" />
+                          <div className="h-1 w-full bg-[#FF3366]" />
                         </div>
-                        {gifHasMore && (
-                          <div className="pt-3 text-center">
+                      </div>
+                      <span className="text-muted-foreground text-xs">
+                        Powered by{" "}
+                        <span className="font-black tracking-wider hover:animate-pulse bg-gradient-to-r from-[#00FF99] via-[#00CCFF] via-[#9933FF] to-[#FF3366] bg-clip-text text-transparent">
+                          <a
+                            href="https://giphy.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            GIPHY
+                          </a>
+                        </span>
+                      </span>
+
+                      <div className="min-h-0 flex-1 overflow-y-auto rounded-md border p-2">
+                        {gifLoading ? (
+                          <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Loading GIFs...
+                          </div>
+                        ) : gifError ? (
+                          <div className="space-y-2 py-8 text-center">
+                            <p className="text-sm text-destructive">
+                              {gifError}
+                            </p>
                             <Button
                               type="button"
-                              variant="outline"
                               size="sm"
+                              variant="outline"
                               className="cursor-pointer"
-                              disabled={gifLoadingMore}
                               onClick={() =>
                                 void loadGifs({
-                                  reset: false,
+                                  reset: true,
                                   query: debouncedGifSearch,
-                                  offset: gifOffset,
+                                  offset: 0,
                                 })
                               }
                             >
-                              {gifLoadingMore ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Loading...
-                                </>
-                              ) : (
-                                "Load more"
-                              )}
+                              Retry
                             </Button>
-                            <Image
-                              src="/giphy-logo.png"
-                              alt="Giphy Logo"
-                              width={84}
-                              height={84}
-                              loading="lazy"
-                            />
                           </div>
+                        ) : gifItems.length === 0 ? (
+                          <p className="py-8 text-center text-sm text-muted-foreground">
+                            No GIFs found.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="columns-2 gap-2 sm:columns-3">
+                              {gifItems.map((gif) => {
+                                const preview =
+                                  gif.images.fixed_width_downsampled?.url ||
+                                  gif.images.fixed_width?.url ||
+                                  gif.images.original?.url;
+                                if (!preview) return null;
+                                return (
+                                  <button
+                                    key={gif.id}
+                                    type="button"
+                                    className="mb-2 block w-full break-inside-avoid overflow-hidden rounded-md border border-border/60 bg-muted/10 p-1 text-left transition hover:scale-[1.01] hover:border-primary/60"
+                                    onClick={(e) => handleGifSelect(gif, e)}
+                                  >
+                                    <img
+                                      src={preview}
+                                      alt={gif.title || "GIF"}
+                                      className="h-auto w-full object-contain"
+                                      loading="lazy"
+                                    />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {gifHasMore && (
+                              <div className="pt-3 text-center">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="cursor-pointer"
+                                  disabled={gifLoadingMore}
+                                  onClick={() =>
+                                    void loadGifs({
+                                      reset: false,
+                                      query: debouncedGifSearch,
+                                      offset: gifOffset,
+                                    })
+                                  }
+                                >
+                                  {gifLoadingMore ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Loading...
+                                    </>
+                                  ) : (
+                                    "Load more"
+                                  )}
+                                </Button>
+                                <Image
+                                  src="/giphy-logo.png"
+                                  alt="Giphy Logo"
+                                  width={84}
+                                  height={84}
+                                  loading="lazy"
+                                />
+                              </div>
+                            )}
+                          </>
                         )}
-                      </>
-                    )}
-                  </div>
-                </DialogContent>
-              </Dialog>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CollapsibleContent>
             </div>
-          </div>
-        </div>
-        <div className="absolute right-4 top-3 flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground cursor-pointer"
-            title="Move section up"
-            onClick={onMoveUp}
-            disabled={disableMoveUp}
-          >
-            <ArrowUp className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground cursor-pointer"
-            title="Move section down"
-            onClick={onMoveDown}
-            disabled={disableMoveDown}
-          >
-            <ArrowDown className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground cursor-grab"
-            title="Reorder section"
-            draggable
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-          >
-            <GripVertical className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground hover:text-destructive cursor-pointer"
-            onClick={onDelete}
-            title="Delete section"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          </Collapsible>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 overflow-hidden">
+      <CardContent className="space-y-4 overflow-hidden border-t border-border/60 bg-background/30 p-4">
         {/* Fields */}
+        {section.fields.length === 0 && (
+          <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-6 text-center">
+            <p className="text-sm font-medium">No fields in this section yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add your first component below to start building this section.
+            </p>
+          </div>
+        )}
+
         {section.fields.map((field, index) => (
           <React.Fragment key={field.id}>
             <div
@@ -1584,7 +1620,7 @@ function SectionEditor({
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              className="w-full border-dashed cursor-pointer"
+              className="w-full border-dashed border-border/80 bg-background/70 cursor-pointer"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Field
@@ -1646,6 +1682,8 @@ export function FormBuilder({
   const [appearance, setAppearance] = useState(
     resolveFormAppearance(initialForm?.appearance || defaultFormAppearance),
   );
+  const PreviewHeaderIcon =
+    headerIconMap[appearance.headerIcon || "sparkles"] || Sparkles;
 
   const [sections, setSections] = useState<FormSection[]>(
     initialForm?.sections || [
@@ -2057,12 +2095,12 @@ export function FormBuilder({
         </CollapsibleContent>
       </Collapsible>
       {/* Form Details */}
+      <h3 className="text-lg font-semibold">Form Details</h3>
       <Card
         className={appearanceClasses.preset.shell}
         style={appearanceClasses.surfaceStyle}
       >
         <CardHeader>
-          <CardTitle>Form Details</CardTitle>
           <CardDescription>
             Basic information about your request form
           </CardDescription>
@@ -2150,8 +2188,8 @@ export function FormBuilder({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Contact Form, Commission Request"
               rows={2}
-              minEditorHeightRem={8}
-              previewMaxHeightRem={18}
+              minEditorHeightRem={4}
+              previewMaxHeightRem={4}
               className="text-lg font-semibold"
             />
             <p className="text-[11px] text-muted-foreground">
@@ -2167,7 +2205,9 @@ export function FormBuilder({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe what this form is for…"
               rows={3}
-              className="min-h-[8rem] border-none px-0 bg-transparent w-full text-sm"
+              minEditorHeightRem={18}
+              previewMaxHeightRem={18}
+              className="min-h-32 border-none px-3 bg-transparent w-full text-sm"
             />
           </div>
 
@@ -2179,7 +2219,9 @@ export function FormBuilder({
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Preset</Label>
+                <Label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Preset
+                </Label>
                 <Select
                   value={appearance.preset}
                   onValueChange={(value) =>
@@ -2245,23 +2287,28 @@ export function FormBuilder({
               </div>
             </div>
 
-            {/* Text colors */}
-            <div className="space-y-1.5">
-              <p className="text-sm font-medium leading-none">Text Colors</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Text colors
+            </p>
+            <div className="space-y-1.5 rounded-lg border border-border/70 bg-background/75 p-3">
               <p className="text-xs text-muted-foreground">
-                Override the accent color for the form title and description.
+                Optional overrides for form title and description. Markdown
+                color tags still take priority on selected fragments.
               </p>
-              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+              <div className="grid gap-3 pt-1 sm:grid-cols-2">
                 <CustomColorPicker
                   label="Title color"
-                  value={appearance.titleColor || "#0f172a"}
+                  value={appearance.titleColor || appearanceClasses.accent.hex}
                   onChange={(value) =>
                     setAppearance((prev) => ({ ...prev, titleColor: value }))
                   }
                 />
                 <CustomColorPicker
                   label="Description color"
-                  value={appearance.descriptionColor || "#475569"}
+                  value={
+                    appearance.descriptionColor ||
+                    "hsl(var(--muted-foreground))"
+                  }
                   onChange={(value) =>
                     setAppearance((prev) => ({
                       ...prev,
@@ -2272,10 +2319,80 @@ export function FormBuilder({
               </div>
             </div>
 
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Header icon
+            </p>
+            <div className="space-y-2 rounded-lg border border-border/70 bg-background/75 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Choose the icon shown at the top of the public form.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="hide-header-icon"
+                    checked={appearance.hideHeaderIcon === true}
+                    onCheckedChange={(checked) =>
+                      setAppearance((prev) => ({
+                        ...prev,
+                        hideHeaderIcon: checked,
+                      }))
+                    }
+                  />
+                  <Label
+                    htmlFor="hide-header-icon"
+                    className="text-xs cursor-pointer"
+                  >
+                    Hide icon
+                  </Label>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Icon</Label>
+                  <Select
+                    value={appearance.headerIcon || "sparkles"}
+                    onValueChange={(value) =>
+                      setAppearance((prev) => ({
+                        ...prev,
+                        headerIcon: value as any,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="border-border/80 bg-background/90 shadow-sm">
+                      <SelectValue placeholder="Icon" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formAppearanceHeaderIcons.map((icon) => (
+                        <SelectItem key={icon.value} value={icon.value}>
+                          {icon.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <CustomColorPicker
+                  label="Icon color"
+                  value={
+                    appearance.headerIconColor || appearanceClasses.accent.hex
+                  }
+                  onChange={(value) =>
+                    setAppearance((prev) => ({
+                      ...prev,
+                      headerIconColor: value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
             {/* Preview pill */}
             <div
               className={cn(
-                "flex items-center gap-3 rounded-lg border border-border/80 bg-card/85 px-4 py-3 shadow-sm",
+                "overflow-hidden rounded-xl border border-border/80 bg-card/90 shadow-sm",
                 appearanceClasses.preset.shell,
               )}
               style={{
@@ -2283,39 +2400,168 @@ export function FormBuilder({
                 ...appearanceClasses.sectionCardStyle,
               }}
             >
-              <div className={appearanceClasses.heroIcon}>
-                <Sparkles
-                  className={cn("h-4 w-4", appearanceClasses.accent.text)}
-                />
+              <div className="border-b border-border/60 bg-muted/25 px-4 py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      Live Preview
+                    </p>
+                    <Badge variant="outline" className="text-[10px]">
+                      {appearance.preset}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {appearance.accent}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {appearance.density}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {appearance.hideHeaderIcon
+                      ? "Header icon hidden"
+                      : `Header icon: ${appearance.headerIcon || "sparkles"}`}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">
-                  {appearanceClasses.resolved.preset} ·{" "}
-                  {appearanceClasses.resolved.accent} ·{" "}
-                  {appearanceClasses.resolved.density}
-                </p>
+
+              <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_240px]">
+                <div className="min-w-0 space-y-4">
+                  <div className="flex items-start gap-3">
+                    {appearance.hideHeaderIcon !== true && (
+                      <div className={appearanceClasses.heroIcon}>
+                        <PreviewHeaderIcon
+                          className={cn(
+                            "h-4 w-4",
+                            !appearance.headerIconColor &&
+                              appearanceClasses.accent.text,
+                          )}
+                          style={
+                            appearance.headerIconColor
+                              ? { color: appearance.headerIconColor }
+                              : undefined
+                          }
+                        />
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div
+                        className={cn(
+                          "rendered-markdown text-base font-semibold leading-snug break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+                          !appearance.titleColor &&
+                            appearanceClasses.accent.text,
+                        )}
+                        style={
+                          appearance.titleColor
+                            ? { color: appearance.titleColor }
+                            : undefined
+                        }
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkdown(
+                            title.trim() || "**Form title preview**",
+                          ),
+                        }}
+                      ></div>
+                      <div
+                        className="rendered-markdown line-clamp-3 text-xs leading-relaxed text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                        style={
+                          appearance.descriptionColor
+                            ? { color: appearance.descriptionColor }
+                            : undefined
+                        }
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkdown(
+                            description.trim() ||
+                              "Description preview. Here you can quickly validate **readability** and style choices.",
+                          ),
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "rounded-lg border border-border/70 px-3 py-2 text-xs",
+                      appearanceClasses.density.fieldGroup,
+                    )}
+                  >
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <span className="font-medium">Sample field spacing</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {appearance.density === "compact"
+                          ? "Tighter layout"
+                          : "More breathing room"}
+                      </span>
+                    </div>
+                    <div
+                      className={cn(
+                        "space-y-2.5",
+                        appearanceClasses.density.formGap,
+                      )}
+                    >
+                      <div className="h-2 rounded bg-muted" />
+                      <div className="h-2 rounded bg-muted/80" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border border-border/70 bg-background/80 p-3.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Active color tokens
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span>Accent</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {appearanceClasses.accent.hex}
+                      </span>
+                    </div>
+                    <div className="h-6 rounded-full bg-muted">
+                      <div
+                        className="h-6 rounded-full"
+                        style={{
+                          backgroundColor: appearanceClasses.accent.hex,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground">Icon</p>
+                      <span
+                        className="block h-22 rounded border"
+                        style={{
+                          backgroundColor:
+                            appearance.headerIconColor ||
+                            appearanceClasses.accent.hex,
+                        }}
+                        title={`Icon: ${appearance.headerIconColor || appearanceClasses.accent.hex}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-muted-foreground">
+                        Accent badge
+                      </p>
+                      <span
+                        className="block h-22 rounded border"
+                        style={{
+                          backgroundColor: appearanceClasses.accent.hex,
+                        }}
+                        title={`Accent: ${appearanceClasses.accent.hex}`}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              {appearance.titleColor && (
-                <span
-                  className="h-4 w-4 rounded-full border shadow-sm"
-                  style={{ backgroundColor: appearance.titleColor }}
-                  title={`Title: ${appearance.titleColor}`}
-                />
-              )}
-              {appearance.descriptionColor && (
-                <span
-                  className="h-4 w-4 rounded-full border shadow-sm"
-                  style={{ backgroundColor: appearance.descriptionColor }}
-                  title={`Description: ${appearance.descriptionColor}`}
-                />
-              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Sections */}
-      <div className="space-y-4">
+      <div className="">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-lg font-semibold">Form Sections</h3>
           <Button

@@ -1623,7 +1623,7 @@ export function CollaborationWorkspace({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
+                          className="h-7 w-7 text-destructive hover:text-white cursor-pointer"
                           onClick={() => handleRemove(c.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -1732,7 +1732,8 @@ export function CollaborationWorkspace({
           </div>
           {loadingComments ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+              <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading
+              comments...
             </div>
           ) : comments.length > 0 ? (
             <div className="space-y-3">
@@ -1766,7 +1767,7 @@ export function CollaborationWorkspace({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="h-6 w-6 text-destructive hover:text-white cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => handleDeleteComment(comment.id)}
                     >
                       <Trash2 className="h-3 w-3" />

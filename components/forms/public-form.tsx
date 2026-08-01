@@ -155,8 +155,13 @@ function renderMarkdownInline(md?: string | null) {
 }
 
 import {
+  Flame,
+  Gem,
   Send,
+  Heart,
   Sparkles,
+  Star,
+  Wand2,
   CheckCircle,
   AlertCircle,
   ArrowLeft,
@@ -258,6 +263,15 @@ function resolveReadableTextColor(hexColor: string, isDarkMode: boolean) {
     ? safeHex
     : undefined;
 }
+
+const headerIconMap = {
+  sparkles: Sparkles,
+  star: Star,
+  wand: Wand2,
+  heart: Heart,
+  flame: Flame,
+  gem: Gem,
+} as const;
 
 interface PublicFormProps {
   form: {
@@ -571,16 +585,7 @@ function SectionRenderer({
   errors,
   onChange,
   appearance,
-  isDarkMode,
 }: any) {
-  const sectionTextColor = String(section?.custom?.textColor || "").trim();
-  const safeSectionTextColor = resolveReadableTextColor(
-    sectionTextColor,
-    isDarkMode,
-  );
-  const sectionTextStyle = safeSectionTextColor
-    ? { color: safeSectionTextColor }
-    : undefined;
   const sectionImageUrl = getFormAssetPublicUrl(
     section?.custom?.imageAssetPath,
   );
@@ -609,6 +614,8 @@ function SectionRenderer({
       : section?.custom?.headerAlignment === "right"
         ? "items-end"
         : "items-start";
+  const fieldShellClass =
+    "rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4";
   const hasRequiredFields = section.fields.some((f: any) => f.required);
 
   if (section?.custom?.collapsible) {
@@ -618,10 +625,11 @@ function SectionRenderer({
         style={appearance.sectionCardStyle}
       >
         <details className="group">
-          <summary className={`cursor-pointer p-4 ${alignClass}`}>
+          <summary
+            className={`cursor-pointer list-none p-4 sm:p-5 ${alignClass} [&::-webkit-details-marker]:hidden`}
+          >
             <span
-              className="rendered-markdown"
-              style={sectionTextStyle}
+              className="rendered-markdown text-sm sm:text-base font-semibold"
               dangerouslySetInnerHTML={{
                 __html:
                   renderMarkdownInline(section.title) +
@@ -632,8 +640,7 @@ function SectionRenderer({
             />
             {section.description && (
               <div
-                className="mt-1 text-xs text-muted-foreground rendered-markdown wrap-break-word"
-                style={sectionTextStyle}
+                className={`mt-2 text-xs text-muted-foreground rendered-markdown wrap-break-word ${alignClass}`}
                 dangerouslySetInnerHTML={{
                   __html: renderMarkdown(section.description),
                 }}
@@ -661,7 +668,12 @@ function SectionRenderer({
               </div>
             )}
           </summary>
-          <CardContent className={appearance.density.sectionContent}>
+          <CardContent
+            className={cn(
+              "space-y-3 sm:space-y-4",
+              appearance.density.sectionContent,
+            )}
+          >
             {section.fields.map((field: any) => {
               const fieldTextAlignClass =
                 field.textAlignment === "center"
@@ -677,7 +689,10 @@ function SectionRenderer({
                     : "justify-start";
 
               return (
-                <div key={field.id} className={appearance.density.fieldGroup}>
+                <div
+                  key={field.id}
+                  className={cn(fieldShellClass, appearance.density.fieldGroup)}
+                >
                   <Label
                     className={`flex w-full items-center gap-1 flex-nowrap ${fieldLabelJustifyClass}`}
                   >
@@ -730,11 +745,10 @@ function SectionRenderer({
       className={appearance.sectionCard}
       style={appearance.sectionCardStyle}
     >
-      <CardHeader>
+      <CardHeader className="space-y-3 pb-4 sm:pb-5">
         <CardTitle className={`${alignClass} wrap-break-word`}>
           <span
-            className="block wrap-break-word"
-            style={sectionTextStyle}
+            className="block wrap-break-word rendered-markdown text-sm sm:text-base font-semibold"
             dangerouslySetInnerHTML={{
               __html:
                 renderMarkdownInline(section.title) +
@@ -746,8 +760,7 @@ function SectionRenderer({
         </CardTitle>
         {section.description && (
           <div
-            className="text-left text-xs text-muted-foreground wrap-break-word"
-            style={sectionTextStyle}
+            className={`text-xs text-muted-foreground wrap-break-word rendered-markdown ${alignClass}`}
             dangerouslySetInnerHTML={{
               __html: renderMarkdown(section.description),
             }}
@@ -775,7 +788,12 @@ function SectionRenderer({
           </div>
         )}
       </CardHeader>
-      <CardContent className={appearance.density.sectionContent}>
+      <CardContent
+        className={cn(
+          "space-y-3 sm:space-y-4",
+          appearance.density.sectionContent,
+        )}
+      >
         {section.fields.map((field: any) => {
           const fieldTextAlignClass =
             field.textAlignment === "center"
@@ -791,7 +809,10 @@ function SectionRenderer({
                 : "justify-start";
 
           return (
-            <div key={field.id} className={appearance.density.fieldGroup}>
+            <div
+              key={field.id}
+              className={cn(fieldShellClass, appearance.density.fieldGroup)}
+            >
               <Label
                 className={`flex w-full items-center gap-1 flex-nowrap ${fieldLabelJustifyClass}`}
               >
@@ -844,26 +865,32 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const formTitleColor = String(
+  const formHeaderIconKey = String(
+    (form as any)?.appearance?.headerIcon || "sparkles",
+  ).trim() as keyof typeof headerIconMap;
+  const hideHeaderIcon = (form as any)?.appearance?.hideHeaderIcon === true;
+  const formHeaderIconColor = String(
+    (form as any)?.appearance?.headerIconColor || "",
+  ).trim();
+  const formTitleColorRaw = String(
     (form as any)?.appearance?.titleColor || "",
   ).trim();
-  const formDescriptionColor = String(
+  const formDescriptionColorRaw = String(
     (form as any)?.appearance?.descriptionColor || "",
   ).trim();
-  const safeFormTitleColor = resolveReadableTextColor(
-    formTitleColor,
+  const formTitleColor = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(formTitleColorRaw)
+    ? formTitleColorRaw
+    : "";
+  const formDescriptionColor = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(
+    formDescriptionColorRaw,
+  )
+    ? formDescriptionColorRaw
+    : "";
+  const HeaderIcon = headerIconMap[formHeaderIconKey] || Sparkles;
+  const safeHeaderIconColor = resolveReadableTextColor(
+    formHeaderIconColor,
     isDarkMode,
   );
-  const safeFormDescriptionColor = resolveReadableTextColor(
-    formDescriptionColor,
-    isDarkMode,
-  );
-  const formTitleStyle = safeFormTitleColor
-    ? { color: safeFormTitleColor }
-    : undefined;
-  const formDescriptionStyle = safeFormDescriptionColor
-    ? { color: safeFormDescriptionColor }
-    : undefined;
   const uploadedBannerUrl = getFormBannerPublicUrl(form.bannerAssetPath);
   const externalBannerUrl = String(form.bannerUrl || "").trim();
   const safeExternalBannerUrl = /^https?:\/\//i.test(externalBannerUrl)
@@ -1086,21 +1113,35 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
 
           {isEditorial ? (
             <aside
-              className={cn("order-1 md:order-0", appearance.preset.sidebar)}
+              className={cn(appearance.preset.sidebar, "order-2 md:order-0")}
             >
               <div
                 className={cn("space-y-5", appearance.density.headerSpacing)}
               >
                 <div className="flex justify-start">
-                  <div className={appearance.heroIcon}>
-                    <Sparkles
-                      className={cn("h-6 w-6", appearance.accent.text)}
-                    />
-                  </div>
+                  {!hideHeaderIcon && (
+                    <div className={appearance.heroIcon}>
+                      <HeaderIcon
+                        className={cn(
+                          "h-6 w-6",
+                          !safeHeaderIconColor && appearance.accent.text,
+                        )}
+                        style={
+                          safeHeaderIconColor
+                            ? { color: safeHeaderIconColor }
+                            : undefined
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
                 <h1
-                  className={cn("font-bold", appearance.title)}
-                  style={formTitleStyle}
+                  className={cn(
+                    "font-bold rendered-markdown",
+                    appearance.title,
+                    !formTitleColor && appearance.accent.text,
+                  )}
+                  style={formTitleColor ? { color: formTitleColor } : undefined}
                 >
                   <div
                     dangerouslySetInnerHTML={{
@@ -1110,8 +1151,12 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                 </h1>
                 {form.description && (
                   <div
-                    className="text-sm sm:text-base text-muted-foreground text-left leading-relaxed"
-                    style={formDescriptionStyle}
+                    className="text-sm sm:text-base text-muted-foreground text-left leading-relaxed rendered-markdown"
+                    style={
+                      formDescriptionColor
+                        ? { color: formDescriptionColor }
+                        : undefined
+                    }
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(form.description),
                     }}
@@ -1125,15 +1170,29 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                 className={cn("text-center", appearance.density.headerSpacing)}
               >
                 <div className="mb-4 flex justify-center">
-                  <div className={appearance.heroIcon}>
-                    <Sparkles
-                      className={cn("h-6 w-6", appearance.accent.text)}
-                    />
-                  </div>
+                  {!hideHeaderIcon && (
+                    <div className={appearance.heroIcon}>
+                      <HeaderIcon
+                        className={cn(
+                          "h-6 w-6",
+                          !safeHeaderIconColor && appearance.accent.text,
+                        )}
+                        style={
+                          safeHeaderIconColor
+                            ? { color: safeHeaderIconColor }
+                            : undefined
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
                 <h1
-                  className={cn("font-bold", appearance.title)}
-                  style={formTitleStyle}
+                  className={cn(
+                    "font-bold rendered-markdown",
+                    appearance.title,
+                    !formTitleColor && appearance.accent.text,
+                  )}
+                  style={formTitleColor ? { color: formTitleColor } : undefined}
                 >
                   <div
                     dangerouslySetInnerHTML={{
@@ -1143,8 +1202,12 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                 </h1>
                 {form.description && (
                   <div
-                    className="mt-2 text-sm sm:text-base text-muted-foreground text-left"
-                    style={formDescriptionStyle}
+                    className="mt-2 text-sm sm:text-base text-muted-foreground text-left rendered-markdown"
+                    style={
+                      formDescriptionColor
+                        ? { color: formDescriptionColor }
+                        : undefined
+                    }
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(form.description),
                     }}
@@ -1167,7 +1230,6 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                     values={values}
                     errors={errors}
                     appearance={appearance}
-                    isDarkMode={isDarkMode}
                     onChange={(id: string, label: string, v: any) =>
                       handleChange(id, label, v)
                     }
@@ -1175,7 +1237,6 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                 ))}
 
                 <Button
-                  type="submit"
                   className={cn(
                     "w-full cursor-pointer",
                     appearance.submitButton,
@@ -1205,8 +1266,8 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
           >
             <Card
               className={cn(
-                "w-full border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75",
-                isEditorial && "max-w-2xl",
+                "w-full max-w-2xl border border-border/60 bg-card/90 shadow-sm",
+                isEditorial ? "md:max-w-3xl" : "",
               )}
             >
               <CardContent className="p-4 sm:p-5">
@@ -1233,7 +1294,12 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
             </Card>
           </div>
 
-          <div className="mt-8 pt-8 border-t text-center text-xs text-muted-foreground">
+          <div
+            className={cn(
+              "mt-8 pt-8 border-t text-center text-xs text-muted-foreground",
+              isEditorial && "md:col-span-2",
+            )}
+          >
             <p>
               Powered by{" "}
               <Link href="/" className="hover:underline text-primary">

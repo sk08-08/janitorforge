@@ -15,10 +15,22 @@ import {
   Link,
   List,
   ListOrdered,
+  Palette,
   Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
+
+const COLOR_PRESETS = [
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#06b6d4",
+  "#3b82f6",
+  "#a855f7",
+  "#f43f5e",
+] as const;
 
 // Ported from components/forms/form-builder.tsx (not exported from source)
 function applyToggleWrap(
@@ -210,12 +222,14 @@ export function MarkdownField({
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(
     null,
   );
+  const colorInputRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<
     Array<{ value: string; start: number; end: number }>
   >([]);
   const redoRef = useRef<Array<{ value: string; start: number; end: number }>>(
     [],
   );
+  const [selectedColor, setSelectedColor] = useState("#ef4444");
 
   const setSelectionFromTextArea = useCallback(() => {
     const ta = taRef.current;
@@ -391,6 +405,43 @@ export function MarkdownField({
     applyValue(newValue, { start: start + 1, end: start + 10 });
   }, [applyValue, setSelectionFromTextArea, value]);
 
+  const applyColor = useCallback(
+    (color: string) => {
+      const ta = taRef.current;
+      if (!ta) return;
+
+      const safeColor = /^#[0-9a-fA-F]{6}$/.test(color)
+        ? color.toLowerCase()
+        : selectedColor;
+      setSelectionFromTextArea();
+
+      const val = String(value || "");
+      const start = ta.selectionStart ?? 0;
+      const end = ta.selectionEnd ?? start;
+      const selectedText = val.substring(start, end);
+
+      if (start !== end) {
+        const coloredChunkMatch = selectedText.match(
+          /^\[([\s\S]+)\]\{#[0-9a-fA-F]{3,6}\}$/,
+        );
+        const content = coloredChunkMatch ? coloredChunkMatch[1] : selectedText;
+        const replacement = `[${content}]{${safeColor}}`;
+        const newValue =
+          val.substring(0, start) + replacement + val.substring(end);
+        const innerStart = start + 1;
+        const innerEnd = innerStart + content.length;
+        applyValue(newValue, { start: innerStart, end: innerEnd });
+        return;
+      }
+
+      const replacement = `[text]{${safeColor}}`;
+      const newValue =
+        val.substring(0, start) + replacement + val.substring(end);
+      applyValue(newValue, { start: start + 1, end: start + 5 });
+    },
+    [applyValue, selectedColor, setSelectionFromTextArea, value],
+  );
+
   const undo = useCallback(() => {
     if (historyRef.current.length === 0) return;
     const previous = historyRef.current.pop();
@@ -502,8 +553,8 @@ export function MarkdownField({
       )}
     >
       {/* Formatting toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-1 border-b border-border/50 bg-muted/30 px-2 py-1">
-        <div className="flex items-center gap-0.5">
+      <div className="flex flex-col gap-2 border-b border-border/50 bg-muted/30 px-2 py-1.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-0.5 min-w-0">
           <MdButton
             onClick={() => applyFormat("**", "**")}
             title="Bold (Ctrl+B)"
@@ -534,6 +585,44 @@ export function MarkdownField({
           </MdButton>
           <div className="mx-1 h-4 w-px bg-border/60" />
           <MdButton
+            onClick={() => colorInputRef.current?.click()}
+            title="Text color"
+          >
+            <Palette className="h-3.5 w-3.5" style={{ color: selectedColor }} />
+          </MdButton>
+          <input
+            ref={colorInputRef}
+            type="color"
+            value={selectedColor}
+            onChange={(e) => {
+              const next = e.target.value;
+              setSelectedColor(next);
+              applyColor(next);
+            }}
+            className="sr-only"
+            aria-label="Pick markdown text color"
+          />
+          <div className="flex items-center gap-1 pr-1">
+            {COLOR_PRESETS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                className={cn(
+                  "h-4 w-4 rounded-full border border-border/70 transition-transform hover:scale-110",
+                  selectedColor === color && "ring-2 ring-ring ring-offset-1",
+                )}
+                style={{ backgroundColor: color }}
+                onClick={() => {
+                  setSelectedColor(color);
+                  applyColor(color);
+                }}
+                title={`Apply ${color}`}
+                aria-label={`Apply ${color}`}
+              />
+            ))}
+          </div>
+          <div className="mx-1 h-4 w-px bg-border/60" />
+          <MdButton
             onClick={() => applyList("ul")}
             title="Bullet list"
             active={activeState.ul}
@@ -550,7 +639,7 @@ export function MarkdownField({
         </div>
 
         {/* Edit / Preview toggle */}
-        <div className="flex shrink-0 overflow-hidden rounded border border-border/60 bg-background text-xs">
+        <div className="flex w-full shrink-0 overflow-hidden rounded border border-border/60 bg-background text-xs sm:ml-auto sm:w-auto">
           <button
             type="button"
             onClick={() => {
@@ -558,7 +647,7 @@ export function MarkdownField({
               requestAnimationFrame(() => taRef.current?.focus());
             }}
             className={cn(
-              "flex cursor-pointer items-center gap-1 px-2.5 py-1 transition-colors",
+              "flex flex-1 cursor-pointer items-center justify-center gap-1 px-2.5 py-1 transition-colors sm:flex-none",
               mode === "edit"
                 ? "bg-secondary text-secondary-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -571,7 +660,7 @@ export function MarkdownField({
             type="button"
             onClick={() => setMode("preview")}
             className={cn(
-              "flex cursor-pointer items-center gap-1 border-l border-border/60 px-2.5 py-1 transition-colors",
+              "flex flex-1 cursor-pointer items-center justify-center gap-1 border-l border-border/60 px-2.5 py-1 transition-colors sm:flex-none",
               mode === "preview"
                 ? "bg-secondary text-secondary-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -598,7 +687,7 @@ export function MarkdownField({
           placeholder={placeholder}
           style={{ minHeight }}
           className={cn(
-            "w-full resize-y bg-transparent px-3 py-2 text-base outline-none",
+            "w-full resize-y bg-transparent px-4 py-2 text-base outline-none",
             "placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
             className,
           )}
@@ -607,7 +696,7 @@ export function MarkdownField({
       ) : (
         /* Preview mode */
         <div
-          className={cn("overflow-y-auto px-3 py-2", className)}
+          className={cn("overflow-y-auto px-4 py-2", className)}
           style={{
             minHeight,
             maxHeight: `min(72vh, ${previewMaxHeightRem}rem)`,

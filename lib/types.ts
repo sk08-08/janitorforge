@@ -68,8 +68,23 @@ export interface FormField {
 }
 
 export type FormPreset = "clean" | "bold" | "editorial" | "minimal";
-export type FormAccent = "indigo" | "emerald" | "amber" | "rose" | "slate";
+export type FormAccent =
+  | "indigo"
+  | "emerald"
+  | "amber"
+  | "rose"
+  | "slate"
+  | "teal"
+  | "sky"
+  | "violet";
 export type FormDensity = "comfortable" | "compact";
+export type FormHeaderIcon =
+  | "sparkles"
+  | "star"
+  | "wand"
+  | "heart"
+  | "flame"
+  | "gem";
 
 export interface FormAppearance {
   preset: FormPreset;
@@ -77,6 +92,9 @@ export interface FormAppearance {
   density: FormDensity;
   titleColor?: string;
   descriptionColor?: string;
+  headerIcon?: FormHeaderIcon;
+  hideHeaderIcon?: boolean;
+  headerIconColor?: string;
 }
 
 export interface FormSection {
@@ -88,7 +106,6 @@ export interface FormSection {
   custom?: {
     headerAlignment?: "left" | "center" | "right";
     collapsible?: boolean;
-    textColor?: string;
     imageAssetPath?: string;
     imageUrl?: string;
     gifUrl?: string;

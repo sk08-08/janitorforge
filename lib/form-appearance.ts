@@ -3,6 +3,7 @@ import type {
   FormAccent,
   FormAppearance,
   FormDensity,
+  FormHeaderIcon,
   FormPreset,
 } from "@/lib/types";
 import type { CSSProperties } from "react";
@@ -11,7 +12,38 @@ export const defaultFormAppearance: FormAppearance = {
   preset: "clean",
   accent: "indigo",
   density: "comfortable",
+  headerIcon: "sparkles",
+  hideHeaderIcon: false,
 };
+
+export const formAppearanceHeaderIcons: Array<{
+  value: FormHeaderIcon;
+  label: string;
+}> = [
+  { value: "sparkles", label: "Sparkles" },
+  { value: "star", label: "Star" },
+  { value: "wand", label: "Magic Wand" },
+  { value: "heart", label: "Heart" },
+  { value: "flame", label: "Flame" },
+  { value: "gem", label: "Gem" },
+];
+
+const validHeaderIcons = new Set<FormHeaderIcon>(
+  formAppearanceHeaderIcons.map((icon) => icon.value),
+);
+
+function isValidHeaderIcon(value: unknown): value is FormHeaderIcon {
+  return (
+    typeof value === "string" && validHeaderIcons.has(value as FormHeaderIcon)
+  );
+}
+
+function normalizeOptionalHexColor(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(trimmed)) return undefined;
+  return trimmed;
+}
 
 export const formAppearancePresets: Array<{
   value: FormPreset;
@@ -49,6 +81,9 @@ export const formAppearanceAccents: Array<{
   { value: "amber", label: "Amber" },
   { value: "rose", label: "Rose" },
   { value: "slate", label: "Slate" },
+  { value: "teal", label: "Teal" },
+  { value: "sky", label: "Sky" },
+  { value: "violet", label: "Violet" },
 ];
 
 export const formAppearanceDensityOptions: Array<{
@@ -141,6 +176,42 @@ const accentMap: Record<
     glow: "rgba(51, 65, 85, 0.18)",
     focus: "focus-visible:border-slate-500 focus-visible:ring-slate-500/20",
   },
+  teal: {
+    softBg: "bg-teal-600/12 dark:bg-teal-400/18",
+    border: "border-teal-600/32 dark:border-teal-400/34",
+    text: "text-teal-700 dark:text-teal-300",
+    button:
+      "bg-teal-700 hover:bg-teal-800 text-white dark:bg-teal-600 dark:hover:bg-teal-500",
+    badge:
+      "bg-teal-600/12 text-teal-800 border-teal-600/28 dark:bg-teal-400/20 dark:text-teal-200 dark:border-teal-400/34",
+    hex: "#0f766e",
+    glow: "rgba(15, 118, 110, 0.18)",
+    focus: "focus-visible:border-teal-500 focus-visible:ring-teal-500/20",
+  },
+  sky: {
+    softBg: "bg-sky-600/12 dark:bg-sky-400/18",
+    border: "border-sky-600/32 dark:border-sky-400/34",
+    text: "text-sky-700 dark:text-sky-300",
+    button:
+      "bg-sky-700 hover:bg-sky-800 text-white dark:bg-sky-600 dark:hover:bg-sky-500",
+    badge:
+      "bg-sky-600/12 text-sky-800 border-sky-600/28 dark:bg-sky-400/20 dark:text-sky-200 dark:border-sky-400/34",
+    hex: "#0284c7",
+    glow: "rgba(2, 132, 199, 0.18)",
+    focus: "focus-visible:border-sky-500 focus-visible:ring-sky-500/20",
+  },
+  violet: {
+    softBg: "bg-violet-600/12 dark:bg-violet-400/18",
+    border: "border-violet-600/32 dark:border-violet-400/34",
+    text: "text-violet-700 dark:text-violet-300",
+    button:
+      "bg-violet-700 hover:bg-violet-800 text-white dark:bg-violet-600 dark:hover:bg-violet-500",
+    badge:
+      "bg-violet-600/12 text-violet-800 border-violet-600/28 dark:bg-violet-400/20 dark:text-violet-200 dark:border-violet-400/34",
+    hex: "#7c3aed",
+    glow: "rgba(124, 58, 237, 0.18)",
+    focus: "focus-visible:border-violet-500 focus-visible:ring-violet-500/20",
+  },
 };
 
 export function resolveFormAppearance(
@@ -150,8 +221,13 @@ export function resolveFormAppearance(
     preset: appearance?.preset ?? defaultFormAppearance.preset,
     accent: appearance?.accent ?? defaultFormAppearance.accent,
     density: appearance?.density ?? defaultFormAppearance.density,
-    titleColor: appearance?.titleColor,
-    descriptionColor: appearance?.descriptionColor,
+    titleColor: normalizeOptionalHexColor(appearance?.titleColor),
+    descriptionColor: normalizeOptionalHexColor(appearance?.descriptionColor),
+    headerIcon: isValidHeaderIcon(appearance?.headerIcon)
+      ? appearance.headerIcon
+      : defaultFormAppearance.headerIcon,
+    hideHeaderIcon: appearance?.hideHeaderIcon === true,
+    headerIconColor: normalizeOptionalHexColor(appearance?.headerIconColor),
   };
 }
 
