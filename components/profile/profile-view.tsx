@@ -42,6 +42,11 @@ import {
   unfollowUser,
   checkIsFollowing,
 } from "@/app/actions/profile";
+import type { ProfileBadgeRecord } from "@/lib/profile-badges";
+import {
+  getProfileBackgroundTintColor,
+  getReadableProfileAccentColor,
+} from "@/lib/profile-theme";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ProfileBadgesSection } from "./profile-badges";
@@ -55,14 +60,6 @@ interface ProfileViewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit: () => void;
-}
-
-interface ProfileBadge {
-  id: string;
-  label: string;
-  icon?: string;
-  color?: string;
-  awardedAt?: string;
 }
 
 const socialIconMap: Record<
@@ -94,6 +91,8 @@ function AvatarDisplay({
   size?: "sm" | "md" | "lg";
 }) {
   const [error, setError] = useState(false);
+  const readableColor = getReadableProfileAccentColor(color);
+  const backgroundTint = getProfileBackgroundTintColor(color, 12);
   const sizeClasses = {
     sm: "h-14 w-14 border-2",
     md: "h-20 w-20 border-4",
@@ -119,9 +118,12 @@ function AvatarDisplay({
       ) : (
         <div
           className="h-full w-full flex items-center justify-center"
-          style={{ backgroundColor: `${color}22` }}
+          style={{ backgroundColor: backgroundTint }}
         >
-          <UserRound className={iconSizes[size]} style={{ color }} />
+          <UserRound
+            className={iconSizes[size]}
+            style={{ color: readableColor }}
+          />
         </div>
       )}
     </div>
@@ -207,10 +209,11 @@ function StatBox({
   color: string;
   icon: React.ElementType;
 }) {
+  const readableColor = getReadableProfileAccentColor(color);
   return (
     <div className="flex flex-col items-center gap-1 rounded-lg border p-3 bg-card/50">
       <Icon className="h-4 w-4 text-muted-foreground" />
-      <p className="text-lg font-bold" style={{ color }}>
+      <p className="text-lg font-bold" style={{ color: readableColor }}>
         {value}
       </p>
       <p className="text-[10px] text-muted-foreground text-center">{label}</p>
@@ -267,9 +270,11 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
   const p = profile as Record<string, unknown>;
   const theme = (p.theme as Record<string, unknown>) || {};
   const primaryColor = (theme.primaryColor as string) || "#7c3aed";
+  const readablePrimaryColor = getReadableProfileAccentColor(primaryColor);
+  const primarySoftTint = getProfileBackgroundTintColor(primaryColor, 12);
   const avatarBorderColor = (theme.avatarBorderColor as string) || primaryColor;
   const socialLinks = (p.social_links as Record<string, string>) || {};
-  const badges = (p.profile_badges as ProfileBadge[]) || [];
+  const badges = (p.profile_badges as ProfileBadgeRecord[]) || [];
   const specialtiesList = (p.specialties as string[]) || [];
   const showStats = theme.showStats !== false;
   const showBadges = theme.showBadges !== false;
@@ -428,8 +433,8 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
                     variant="secondary"
                     className="text-xs"
                     style={{
-                      backgroundColor: `${primaryColor}15`,
-                      color: primaryColor,
+                      backgroundColor: primarySoftTint,
+                      color: readablePrimaryColor,
                     }}
                   >
                     {s}
@@ -453,19 +458,19 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
               <StatBox
                 value={`${completeness}%`}
                 label="Complete"
-                color={primaryColor}
+                color={readablePrimaryColor}
                 icon={Star}
               />
               <StatBox
                 value={followCounts.followers}
                 label="Followers"
-                color={primaryColor}
+                color={readablePrimaryColor}
                 icon={Users}
               />
               <StatBox
                 value={badges.length}
                 label="Badges"
-                color={primaryColor}
+                color={readablePrimaryColor}
                 icon={Award}
               />
             </div>
@@ -508,9 +513,11 @@ export function PublicProfileCard({
   const p = profile;
   const theme = (p.theme as Record<string, unknown>) || {};
   const primaryColor = (theme.primaryColor as string) || "#7c3aed";
+  const readablePrimaryColor = getReadableProfileAccentColor(primaryColor);
+  const primarySoftTint = getProfileBackgroundTintColor(primaryColor, 10);
   const avatarBorderColor = (theme.avatarBorderColor as string) || primaryColor;
   const socialLinks = (p.social_links as Record<string, string>) || {};
-  const badges = (p.profile_badges as ProfileBadge[]) || [];
+  const badges = (p.profile_badges as ProfileBadgeRecord[]) || [];
   const specialtiesList = (p.specialties as string[]) || [];
   const showBadges = theme.showBadges !== false;
   const [isFollowing, setIsFollowing] = useState(false);
@@ -592,8 +599,8 @@ export function PublicProfileCard({
                 variant="secondary"
                 className="text-[10px] px-1.5 py-0"
                 style={{
-                  backgroundColor: `${primaryColor}10`,
-                  color: primaryColor,
+                  backgroundColor: primarySoftTint,
+                  color: readablePrimaryColor,
                 }}
               >
                 {s}

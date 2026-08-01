@@ -212,6 +212,8 @@ export async function getAllSubmissions(
   limit = 25,
   statusFilter?: string,
   userFilter?: string,
+  sortBy: "created_at" | "status" | "submitter_name" = "created_at",
+  sortDirection: "asc" | "desc" = "desc",
 ) {
   const { supabase, error } = await requireAdmin();
   if (error) return { success: false, error, items: [], total: 0 };
@@ -237,6 +239,11 @@ export async function getAllSubmissions(
       return { success: true, items: [], total: 0 };
   }
 
+  const safeSortBy = ["created_at", "status", "submitter_name"].includes(sortBy)
+    ? sortBy
+    : "created_at";
+  const ascending = sortDirection === "asc";
+
   // Step 2: Fetch requests (admin RLS allows seeing deleted records)
   let query = supabase
     .from("requests")
@@ -244,7 +251,7 @@ export async function getAllSubmissions(
       "id, status, submitter_name, created_at, deleted_at, form_id, request_forms(title, user_id)",
       { count: "exact" },
     )
-    .order("created_at", { ascending: false })
+    .order(safeSortBy, { ascending, nullsFirst: false })
     .range(from, to);
 
   if (statusFilter && statusFilter !== "all") {
@@ -296,7 +303,13 @@ export async function getAllSubmissions(
 // Forms (all users, admins see deleted too)
 // ============================================================================
 
-export async function getAllForms(page = 1, limit = 25, userFilter?: string) {
+export async function getAllForms(
+  page = 1,
+  limit = 25,
+  userFilter?: string,
+  sortBy: "created_at" | "title" | "is_active" = "created_at",
+  sortDirection: "asc" | "desc" = "desc",
+) {
   const { supabase, error } = await requireAdmin();
   if (error) return { success: false, error, items: [], total: 0 };
 
@@ -315,13 +328,18 @@ export async function getAllForms(page = 1, limit = 25, userFilter?: string) {
       return { success: true, items: [], total: 0 };
   }
 
+  const safeSortBy = ["created_at", "title", "is_active"].includes(sortBy)
+    ? sortBy
+    : "created_at";
+  const ascending = sortDirection === "asc";
+
   // Step 2: Fetch forms (admin RLS allows seeing deleted records)
   let query = supabase
     .from("request_forms")
     .select("id, title, is_active, created_at, deleted_at, user_id", {
       count: "exact",
     })
-    .order("created_at", { ascending: false })
+    .order(safeSortBy, { ascending, nullsFirst: false })
     .range(from, to);
 
   if (targetUserIds) {
@@ -363,20 +381,40 @@ export async function getAllForms(page = 1, limit = 25, userFilter?: string) {
 // Users
 // ============================================================================
 
-export async function getAdminUsers(page = 1, limit = 25, search?: string) {
+export async function getAdminUsers(
+  page = 1,
+  limit = 25,
+  search?: string,
+  sortBy:
+    | "created_at"
+    | "updated_at"
+    | "username"
+    | "display_name" = "created_at",
+  sortDirection: "asc" | "desc" = "desc",
+) {
   const { supabase, error } = await requireAdmin();
   if (error) return { success: false, error, items: [], total: 0 };
 
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
+  const safeSortBy = [
+    "created_at",
+    "updated_at",
+    "username",
+    "display_name",
+  ].includes(sortBy)
+    ? sortBy
+    : "created_at";
+  const ascending = sortDirection === "asc";
+
   let query = supabase
     .from("profiles")
     .select(
-      "id, username, display_name, avatar_url, is_admin, is_blocked, created_at",
+      "id, username, display_name, avatar_url, is_admin, is_blocked, created_at, updated_at",
       { count: "exact" },
     )
-    .order("created_at", { ascending: false })
+    .order(safeSortBy, { ascending, nullsFirst: false })
     .range(from, to);
 
   if (search) {
@@ -481,6 +519,324 @@ export async function deleteUserAsAdmin(userId: string) {
 }
 
 // ============================================================================
+// Moderation (admin)
+// ============================================================================
+
+export async function getAdminModerationStats() {
+  const { supabase, error } = await requireAdmin();
+  if (error) {
+    return {
+      success: false,
+      error,
+      stats: null,
+    };
+  }
+
+  const [
+    { count: openFlags },
+    { count: dangerousOpenFlags },
+    { count: blockedIps },
+    { count: globalBlockPatterns },
+    { count: customBlockPatterns },
+    { count: strictForms },
+  ] = await Promise.all([
+    supabase
+      .from("flagged_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("reviewed", false),
+    supabase
+      .from("flagged_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("reviewed", false)
+      .eq("risk_level", "dangerous"),
+    supabase.from("blocked_ips").select("id", { count: "exact", head: true }),
+    supabase
+      .from("global_blocklists")
+      .select("id", { count: "exact", head: true }),
+    supabase
+      .from("custom_blocklists")
+      .select("id", { count: "exact", head: true }),
+    supabase
+      .from("active_request_forms")
+      .select("id", { count: "exact", head: true })
+      .in("security_sensitivity", ["high", "strict"]),
+  ]);
+
+  return {
+    success: true,
+    stats: {
+      open_flags: openFlags ?? 0,
+      dangerous_open_flags: dangerousOpenFlags ?? 0,
+      blocked_ips: blockedIps ?? 0,
+      global_block_patterns: globalBlockPatterns ?? 0,
+      custom_block_patterns: customBlockPatterns ?? 0,
+      high_security_forms: strictForms ?? 0,
+    },
+  };
+}
+
+export async function getAdminModerationForms(search?: string) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error, items: [] as any[] };
+
+  let query = supabase
+    .from("active_request_forms")
+    .select("id, title, user_id, security_sensitivity, is_active, updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(200);
+
+  const safeSearch = String(search || "").trim();
+  if (safeSearch) {
+    query = query.ilike("title", `%${safeSearch}%`);
+  }
+
+  const { data: forms, error: formsError } = await query;
+  if (formsError) {
+    return { success: false, error: formsError.message, items: [] as any[] };
+  }
+
+  const ownerIds = [
+    ...new Set((forms || []).map((form: any) => form.user_id).filter(Boolean)),
+  ];
+
+  let ownersMap = new Map<string, any>();
+  if (ownerIds.length > 0) {
+    const { data: owners } = await supabase
+      .from("profiles")
+      .select("id, username, display_name")
+      .in("id", ownerIds);
+    ownersMap = new Map((owners || []).map((owner: any) => [owner.id, owner]));
+  }
+
+  const items = (forms || []).map((form: any) => ({
+    id: form.id,
+    title: form.title,
+    user_id: form.user_id,
+    security_sensitivity: form.security_sensitivity || "medium",
+    is_active: form.is_active,
+    updated_at: form.updated_at,
+    owner: form.user_id ? ownersMap.get(form.user_id) || null : null,
+  }));
+
+  return { success: true, items };
+}
+
+export async function getAdminModerationFlags(options?: {
+  riskLevel?: "all" | "warning" | "dangerous";
+  reviewed?: "open" | "reviewed" | "all";
+  limit?: number;
+}) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error, items: [] as any[] };
+
+  const riskLevel = options?.riskLevel || "all";
+  const reviewed = options?.reviewed || "open";
+  const limit = Math.max(1, Math.min(200, Math.trunc(options?.limit || 80)));
+
+  let query = supabase
+    .from("flagged_requests")
+    .select(
+      "id, form_id, request_id, risk_level, flagged_fields, reason, reviewed, review_action, review_notes, reviewed_at, created_at",
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (riskLevel !== "all") {
+    query = query.eq("risk_level", riskLevel);
+  }
+
+  if (reviewed === "open") {
+    query = query.eq("reviewed", false);
+  } else if (reviewed === "reviewed") {
+    query = query.eq("reviewed", true);
+  }
+
+  const { data: flags, error: flagsError } = await query;
+  if (flagsError) {
+    return { success: false, error: flagsError.message, items: [] as any[] };
+  }
+
+  const formIds = [
+    ...new Set((flags || []).map((flag: any) => flag.form_id).filter(Boolean)),
+  ];
+  const requestIds = [
+    ...new Set(
+      (flags || []).map((flag: any) => flag.request_id).filter(Boolean),
+    ),
+  ];
+
+  let formsMap = new Map<string, any>();
+  if (formIds.length > 0) {
+    const { data: forms } = await supabase
+      .from("request_forms")
+      .select("id, title, user_id")
+      .in("id", formIds);
+    formsMap = new Map((forms || []).map((form: any) => [form.id, form]));
+  }
+
+  let requestsMap = new Map<string, any>();
+  if (requestIds.length > 0) {
+    const { data: requests } = await supabase
+      .from("requests")
+      .select("id, submitter_name, ip_address")
+      .in("id", requestIds);
+    requestsMap = new Map(
+      (requests || []).map((request: any) => [request.id, request]),
+    );
+  }
+
+  const ownerIds = [
+    ...new Set(
+      Array.from(formsMap.values())
+        .map((form: any) => form.user_id)
+        .filter(Boolean),
+    ),
+  ];
+
+  let ownersMap = new Map<string, any>();
+  if (ownerIds.length > 0) {
+    const { data: owners } = await supabase
+      .from("profiles")
+      .select("id, username, display_name")
+      .in("id", ownerIds);
+    ownersMap = new Map((owners || []).map((owner: any) => [owner.id, owner]));
+  }
+
+  const items = (flags || []).map((flag: any) => {
+    const form = formsMap.get(flag.form_id) || null;
+    const request = requestsMap.get(flag.request_id) || null;
+    const owner = form?.user_id ? ownersMap.get(form.user_id) || null : null;
+
+    return {
+      ...flag,
+      form,
+      request,
+      owner,
+    };
+  });
+
+  return { success: true, items };
+}
+
+export async function getAdminBlockedIps(options?: {
+  limit?: number;
+  search?: string;
+}) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error, items: [] as any[] };
+
+  const limit = Math.max(1, Math.min(300, Math.trunc(options?.limit || 120)));
+  const search = String(options?.search || "").trim();
+
+  let query = supabase
+    .from("blocked_ips")
+    .select("id, form_id, ip_address, reason, blocked_at")
+    .order("blocked_at", { ascending: false })
+    .limit(limit);
+
+  if (search) {
+    query = query.or(`ip_address.ilike.%${search}%,reason.ilike.%${search}%`);
+  }
+
+  const { data: blockedIps, error: blockedIpsError } = await query;
+  if (blockedIpsError) {
+    return {
+      success: false,
+      error: blockedIpsError.message,
+      items: [] as any[],
+    };
+  }
+
+  const formIds = [
+    ...new Set(
+      (blockedIps || []).map((row: any) => row.form_id).filter(Boolean),
+    ),
+  ];
+
+  let formsMap = new Map<string, any>();
+  if (formIds.length > 0) {
+    const { data: forms } = await supabase
+      .from("request_forms")
+      .select("id, title, user_id")
+      .in("id", formIds);
+    formsMap = new Map((forms || []).map((form: any) => [form.id, form]));
+  }
+
+  const items = (blockedIps || []).map((row: any) => ({
+    ...row,
+    form: formsMap.get(row.form_id) || null,
+  }));
+
+  return { success: true, items };
+}
+
+export async function adminBlockIpAddress(
+  formId: string,
+  ipAddress: string,
+  reason: string,
+) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error };
+
+  const payload = {
+    form_id: formId,
+    ip_address: ipAddress,
+    reason,
+  };
+
+  const { error: insertError } = await supabase
+    .from("blocked_ips")
+    .insert(payload);
+
+  if (insertError) {
+    return { success: false, error: insertError.message };
+  }
+
+  return { success: true };
+}
+
+export async function adminUnblockIpAddress(blockedIpId: string) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error };
+
+  const { error: deleteError } = await supabase
+    .from("blocked_ips")
+    .delete()
+    .eq("id", blockedIpId);
+
+  if (deleteError) {
+    return { success: false, error: deleteError.message };
+  }
+
+  return { success: true };
+}
+
+export async function adminReviewFlaggedRequest(
+  flaggedRequestId: string,
+  action: "approved" | "rejected",
+  notes?: string,
+) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error };
+
+  const { error: updateError } = await supabase
+    .from("flagged_requests")
+    .update({
+      reviewed: true,
+      review_action: action,
+      review_notes: notes || null,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", flaggedRequestId);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  return { success: true };
+}
+
+// ============================================================================
 // Bots (all users, admins see deleted too)
 // ============================================================================
 
@@ -489,6 +845,8 @@ export async function getAllBots(
   limit = 25,
   userFilter?: string,
   ratingFilter?: string,
+  sortBy: "created_at" | "name" | "rating" = "created_at",
+  sortDirection: "asc" | "desc" = "desc",
 ) {
   const { supabase, error } = await requireAdmin();
   if (error) return { success: false, error, items: [], total: 0 };
@@ -508,13 +866,18 @@ export async function getAllBots(
       return { success: true, items: [], total: 0 };
   }
 
+  const safeSortBy = ["created_at", "name", "rating"].includes(sortBy)
+    ? sortBy
+    : "created_at";
+  const ascending = sortDirection === "asc";
+
   // Step 2: Fetch bots
   let query = supabase
     .from("bots")
     .select("id, name, rating, tags, created_at, deleted_at, user_id", {
       count: "exact",
     })
-    .order("created_at", { ascending: false })
+    .order(safeSortBy, { ascending, nullsFirst: false })
     .range(from, to);
 
   if (targetUserIds) query = query.in("user_id", targetUserIds);

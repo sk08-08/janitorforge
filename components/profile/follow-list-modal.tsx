@@ -16,6 +16,7 @@ import {
 import { Loader2, UserRound, UsersRound } from "lucide-react";
 import { getFollowers, getFollowing } from "@/app/actions/profile";
 import Link from "next/link";
+import { getReadableProfileAccentColor } from "@/lib/profile-theme";
 
 interface FollowUser {
   id: string;
@@ -42,6 +43,7 @@ export function FollowListModal({
   tab,
   themeColor = "#7c3aed",
 }: FollowListModalProps) {
+  const readableThemeColor = getReadableProfileAccentColor(themeColor);
   const [users, setUsers] = useState<FollowUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"followers" | "following">(tab);
@@ -136,7 +138,7 @@ export function FollowListModal({
                       ) : (
                         <UserRound
                           className="h-5 w-5"
-                          style={{ color: themeColor }}
+                          style={{ color: readableThemeColor }}
                         />
                       )}
                     </div>

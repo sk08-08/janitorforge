@@ -51,8 +51,8 @@ import {
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn, formatDateTime } from "@/lib/utils";
+import { stripMarkdownToText } from "@/lib/markdown";
 import type { Request, RequestStatus } from "@/lib/types";
-import { MarkdownRenderer } from "./markdown-renderer";
 
 // ----------------------------------------------------------------------------
 // Column Configuration
@@ -131,13 +131,17 @@ function RequestCard({
   const resolveLabel = (key: string) => request.responseLabels?.[key] || key;
 
   // Get primary response fields for preview
-  const previewFields = useMemo(() => {
-    return getOrderedResponseEntries(request).slice(0, 2);
-  }, [getOrderedResponseEntries, request]);
-  const extraFieldsCount = Math.max(
-    getOrderedResponseEntries(request).length - 2,
-    0,
+  const orderedResponseEntries = useMemo(
+    () => getOrderedResponseEntries(request),
+    [getOrderedResponseEntries, request],
   );
+  const previewFields = useMemo(() => {
+    return orderedResponseEntries.slice(0, 2);
+  }, [orderedResponseEntries]);
+  const expandedFields = useMemo(() => {
+    return orderedResponseEntries.slice(2);
+  }, [orderedResponseEntries]);
+  const extraFieldsCount = Math.max(orderedResponseEntries.length - 2, 0);
 
   const getNextStatus = (): RequestStatus | null => {
     switch (request.status) {
@@ -282,7 +286,7 @@ function RequestCard({
           </div>
 
           {/* Expandable full details */}
-          {getOrderedResponseEntries(request).length > 2 && !isExpanded && (
+          {expandedFields.length > 0 && !isExpanded && (
             <Button
               type="button"
               variant="ghost"
@@ -295,21 +299,19 @@ function RequestCard({
             </Button>
           )}
 
-          {getOrderedResponseEntries(request).length > 2 && isExpanded && (
+          {expandedFields.length > 0 && isExpanded && (
             <>
-              <div className="mt-2 max-h-48 overflow-y-auto space-y-1 rounded-md border border-dashed border-border/70 bg-muted/30 p-2">
-                {getOrderedResponseEntries(request)
-                  .slice(2)
-                  .map(([label, value]) => (
-                    <div key={label} className="text-sm">
-                      <span className="text-muted-foreground">
-                        {resolveLabel(label)}:{" "}
-                      </span>
-                      <span>
-                        {Array.isArray(value) ? value.join(", ") : value}
-                      </span>
-                    </div>
-                  ))}
+              <div className="mt-2 max-h-42 space-y-1 overflow-y-auto pr-1 sm:max-h-44">
+                {expandedFields.map(([label, value]) => (
+                  <div key={label} className="text-sm">
+                    <span className="text-muted-foreground">
+                      {resolveLabel(label)}:{" "}
+                    </span>
+                    <span className="break-words">
+                      {Array.isArray(value) ? value.join(", ") : value}
+                    </span>
+                  </div>
+                ))}
               </div>
               <Button
                 type="button"
@@ -336,7 +338,7 @@ function RequestCard({
           <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Badge variant="outline" className="text-xs">
-                <MarkdownRenderer content={request.formTitle} />
+                {stripMarkdownToText(request.formTitle) || "Untitled form"}
               </Badge>
               {isAdmin && request.ownerId && (
                 <Badge variant="secondary" className="text-[10px]">
@@ -586,7 +588,7 @@ function RequestDetailsDialog({
               </DialogTitle>
               <DialogDescription>
                 Submitted on {request.createdAt.toLocaleDateString()} via{" "}
-                {request.formTitle}
+                {stripMarkdownToText(request.formTitle) || "Untitled form"}
               </DialogDescription>
             </DialogHeader>
 

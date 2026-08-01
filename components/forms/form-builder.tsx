@@ -2174,7 +2174,7 @@ export function FormBuilder({
           <Separator />
 
           {/* Appearance */}
-          <div className="space-y-4">
+          <div className="space-y-4 rounded-xl border border-border/80 bg-muted/20 p-4 sm:p-5">
             <p className="text-sm font-medium leading-none">Appearance</p>
 
             <div className="grid gap-3 sm:grid-cols-3">
@@ -2186,7 +2186,7 @@ export function FormBuilder({
                     setAppearance((prev) => ({ ...prev, preset: value as any }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-border/80 bg-background/90 shadow-sm">
                     <SelectValue placeholder="Preset" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2207,7 +2207,7 @@ export function FormBuilder({
                     setAppearance((prev) => ({ ...prev, accent: value as any }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-border/80 bg-background/90 shadow-sm">
                     <SelectValue placeholder="Accent" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2231,7 +2231,7 @@ export function FormBuilder({
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="border-border/80 bg-background/90 shadow-sm">
                     <SelectValue placeholder="Density" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2254,14 +2254,14 @@ export function FormBuilder({
               <div className="grid gap-3 sm:grid-cols-2 pt-1">
                 <CustomColorPicker
                   label="Title color"
-                  value={appearance.titleColor || "#f8fafc"}
+                  value={appearance.titleColor || "#0f172a"}
                   onChange={(value) =>
                     setAppearance((prev) => ({ ...prev, titleColor: value }))
                   }
                 />
                 <CustomColorPicker
                   label="Description color"
-                  value={appearance.descriptionColor || "#94a3b8"}
+                  value={appearance.descriptionColor || "#475569"}
                   onChange={(value) =>
                     setAppearance((prev) => ({
                       ...prev,
@@ -2275,7 +2275,7 @@ export function FormBuilder({
             {/* Preview pill */}
             <div
               className={cn(
-                "flex items-center gap-3 rounded-lg border px-4 py-3",
+                "flex items-center gap-3 rounded-lg border border-border/80 bg-card/85 px-4 py-3 shadow-sm",
                 appearanceClasses.preset.shell,
               )}
               style={{

@@ -1,30 +1,33 @@
 // ============================================================================
 // JanitorForge - Dashboard Home View
-// Overview panel with statistics, activity feed, and quick actions
+// Dynamic workspace dashboard with animated hero, timeline, and quick actions
 // ============================================================================
 
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  BarChart3,
+  BookOpen,
   Bot,
+  CalendarDays,
+  CheckCircle,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
   FileText,
   Inbox,
-  CheckCircle,
-  Clock,
-  Activity,
-  ArrowRight,
-  AlertTriangle,
-  Sparkles,
-  Upload,
-  Star,
-  Calendar,
-  Zap,
-  BookOpen,
-  BarChart3,
-  ChevronRight,
+  Lightbulb,
   MessageSquare,
+  RefreshCw,
+  Sparkles,
+  Star,
+  Upload,
   UsersRound,
+  WandSparkles,
 } from "lucide-react";
 import {
   Card,
@@ -41,6 +44,8 @@ import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { FeedbackActions } from "@/components/feedback/feedback-actions";
+import type { NavigationView } from "@/lib/types";
+import { Spinner } from "../ui/spinner";
 
 // ----------------------------------------------------------------------------
 // Helpers
@@ -70,526 +75,158 @@ function getGreeting(): string {
   return "Good evening";
 }
 
-function getMotivationalMessage(stats: {
+function getDailyFlavorText(hour: number): string {
+  if (hour < 10) return "Fresh start. Shape the day before the day shapes you.";
+  if (hour < 14)
+    return "Momentum window is open. Push one important thing to done.";
+  if (hour < 19)
+    return "Perfect time to review submissions and ship a few updates.";
+  return "Wind down with cleanup: close loops and prep tomorrow's flow.";
+}
+
+// ----------------------------------------------------------------------------
+// UI Components
+// ----------------------------------------------------------------------------
+
+interface WorkspaceStats {
   totalBots: number;
   activeForms: number;
   pendingRequests: number;
   completedRequests: number;
-}): string {
-  if (stats.totalBots === 0) return "Ready to create your first character?";
-  if (stats.pendingRequests > 5)
-    return "You've got requests waiting — let's tackle them!";
-  if (stats.completedRequests > 10)
-    return "Impressive output! Keep up the great work.";
-  if (stats.activeForms > 0 && stats.pendingRequests === 0)
-    return "All clear! Your forms are live and waiting.";
-  return "Here's what's happening in your workspace.";
 }
 
-// ----------------------------------------------------------------------------
-// Stat Card Component
-// ----------------------------------------------------------------------------
-
-interface StatCardProps {
+interface StatTileProps {
   title: string;
   value: number;
-  description: string;
+  subtitle: string;
   icon: typeof Bot;
-  trend?: "up" | "down" | "neutral";
-  trendValue?: string;
-  accentColor?: string;
-  footer?: string;
+  toneClassName: string;
   onClick?: () => void;
 }
 
-function StatCard({
+function StatTile({
   title,
   value,
-  description,
+  subtitle,
   icon: Icon,
-  trend,
-  trendValue,
-  accentColor,
-  footer,
+  toneClassName,
   onClick,
-}: StatCardProps) {
+}: StatTileProps) {
   return (
     <Card
-      className={cn(
-        "relative overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75 transition-all",
-        onClick &&
-          "cursor-pointer hover:border-primary/40 hover:shadow-md hover:shadow-primary/5",
-      )}
       onClick={onClick}
+      className={cn(
+        "dashboard-rise-item overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75 transition-all",
+        onClick &&
+          "cursor-pointer hover:-translate-y-0.5 hover:border-primary/40",
+      )}
     >
-      <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
-        <div className="space-y-1">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-sm font-medium text-muted-foreground">
             {title}
           </CardTitle>
-          <p className="text-xs text-muted-foreground">{description}</p>
-        </div>
-        <div
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset ring-border/50",
-            accentColor || "bg-primary/10",
-          )}
-        >
-          <Icon
-            className={cn(
-              "h-5 w-5",
-              accentColor ? "text-foreground" : "text-primary",
-            )}
-          />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex items-end justify-between gap-3">
-          <div className="text-3xl font-bold tracking-tight">{value}</div>
-          {trend && trendValue && (
-            <span
-              className={cn(
-                "flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                trend === "up" && "bg-emerald-500/10 text-emerald-500",
-                trend === "down" && "bg-red-500/10 text-red-500",
-                trend === "neutral" && "bg-muted text-muted-foreground",
-              )}
-            >
-              {trend === "up" && "↑"}
-              {trend === "down" && "↓"}
-              {trendValue}
-            </span>
-          )}
-          {footer && !trendValue && (
-            <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
-              {footer}
-            </span>
-          )}
-        </div>
-      </CardContent>
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-linear-to-r from-primary/50 via-primary/20 to-transparent" />
-    </Card>
-  );
-}
-
-// ----------------------------------------------------------------------------
-// Insight Card Component
-// ----------------------------------------------------------------------------
-
-interface InsightCardProps {
-  title: string;
-  value: string;
-  description: string;
-  icon: typeof Activity;
-  accentClassName?: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}
-
-function InsightCard({
-  title,
-  value,
-  description,
-  icon: Icon,
-  accentClassName,
-  actionLabel,
-  onAction,
-}: InsightCardProps) {
-  return (
-    <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <div className="text-2xl font-semibold tracking-tight">{value}</div>
-            <p className="text-xs text-muted-foreground">{description}</p>
-          </div>
           <div
             className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-xl ring-1 ring-inset ring-border/50",
-              accentClassName || "bg-primary/10",
+              "flex h-9 w-9 items-center justify-center rounded-lg ring-1 ring-border/60",
+              toneClassName,
             )}
           >
-            <Icon className="h-5 w-5 text-primary" />
+            <Icon className="h-4 w-4" />
           </div>
-        </div>
-
-        {actionLabel && onAction && (
-          <Button
-            variant="ghost"
-            className="mt-4 h-8 w-full justify-between px-2 text-xs cursor-pointer"
-            onClick={onAction}
-          >
-            {actionLabel}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ----------------------------------------------------------------------------
-// Recent Request Card
-// ----------------------------------------------------------------------------
-
-interface RecentRequestCardProps {
-  formTitle: string;
-  status: "new" | "accepted" | "completed" | "rejected";
-  submitterName?: string;
-  createdAt: Date;
-  notes?: string;
-  onClick?: () => void;
-}
-
-function RecentRequestCard({
-  formTitle,
-  status,
-  submitterName,
-  createdAt,
-  notes,
-  onClick,
-}: RecentRequestCardProps) {
-  const statusMeta: Record<
-    RecentRequestCardProps["status"],
-    { label: string; className: string }
-  > = {
-    new: { label: "New", className: "bg-primary/10 text-primary" },
-    accepted: {
-      label: "In Progress",
-      className: "bg-chart-2/10 text-chart-2",
-    },
-    completed: {
-      label: "Completed",
-      className: "bg-success/10 text-success",
-    },
-    rejected: {
-      label: "Rejected",
-      className: "bg-destructive/10 text-destructive",
-    },
-  };
-
-  return (
-    <Card
-      className={cn(
-        "overflow-hidden border-border/70 transition-all hover:border-primary/40 hover:shadow-md",
-        onClick && "cursor-pointer",
-      )}
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <div className="truncate text-sm font-medium rendered-markdown [&>*:last-child]:mb-0">
-              <MarkdownRenderer content={formTitle} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {submitterName || "Anonymous submitter"}
-            </p>
-          </div>
-          <span
-            className={cn(
-              "shrink-0 rounded-full px-2 py-1 text-[11px] font-medium",
-              statusMeta[status].className,
-            )}
-          >
-            {statusMeta[status].label}
-          </span>
-        </div>
-
-        {notes && (
-          <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
-            {notes}
-          </p>
-        )}
-
-        <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {formatRelativeTime(createdAt)}
-          </span>
-          <span className="truncate rendered-markdown [&>*:last-child]:mb-0">
-            <MarkdownRenderer content={formTitle} />
-          </span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ----------------------------------------------------------------------------
-// Recent Bot Card
-// ----------------------------------------------------------------------------
-
-interface RecentBotCardProps {
-  name: string;
-  description: string;
-  rating: "SFW" | "NSFW";
-  tags: string[];
-  updatedAt: Date;
-  collaboratorCount?: number;
-  onEdit: () => void;
-}
-
-function RecentBotCard({
-  name,
-  description,
-  rating,
-  tags,
-  updatedAt,
-  collaboratorCount,
-  onEdit,
-}: RecentBotCardProps) {
-  return (
-    <Card className="group transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-base font-semibold">{name}</CardTitle>
-            <CardDescription className="mt-1 line-clamp-2">
-              {description}
-            </CardDescription>
-          </div>
-          <Badge
-            variant={rating === "SFW" ? "secondary" : "destructive"}
-            className="ml-2 shrink-0"
-          >
-            {rating}
-          </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        {/* Tags */}
-        <div className="flex flex-wrap gap-1.5">
-          {tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-            >
-              {tag}
-            </span>
-          ))}
-          {tags.length > 3 && (
-            <span className="text-xs text-muted-foreground">
-              +{tags.length - 3} more
-            </span>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span
-              className="flex items-center gap-1.5 text-xs text-muted-foreground"
-              suppressHydrationWarning
-            >
-              <Clock className="h-3 w-3" />
-              {formatRelativeTime(updatedAt)}
-            </span>
-            {collaboratorCount && collaboratorCount > 0 && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <UsersRound className="h-3 w-3" />
-                {collaboratorCount}
-              </span>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="opacity-0 transition-opacity group-hover:opacity-100 cursor-pointer"
-            onClick={onEdit}
-          >
-            Edit
-          </Button>
-        </div>
+        <p className="text-3xl font-bold tracking-tight">{value}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
       </CardContent>
     </Card>
   );
 }
 
-// ----------------------------------------------------------------------------
-// Activity Feed Item
-// ----------------------------------------------------------------------------
-
-interface ActivityItem {
+interface TimelineItem {
   id: string;
-  type:
-    | "bot_created"
-    | "bot_updated"
-    | "request_received"
-    | "request_completed"
-    | "form_created"
-    | "collaborator_joined";
   title: string;
   description: string;
-  formTitle?: string;
-  timestamp: Date;
-  icon: typeof Bot;
-  accentColor: string;
+  when: Date;
+  icon: typeof Activity;
+  toneClassName: string;
+  targetView?: NavigationView;
 }
 
-function ActivityFeedItem({ item }: { item: ActivityItem }) {
-  return (
-    <div className="flex items-start gap-3 rounded-lg p-3 transition-colors hover:bg-muted/30">
-      <div
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-full shrink-0",
-          item.accentColor,
-        )}
-      >
-        <item.icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{item.title}</p>
-        <MarkdownRenderer
-          className="text-xs text-muted-foreground truncate"
-          content={item.description}
-        />
-      </div>
-      <span className="text-[11px] text-muted-foreground/60 shrink-0">
-        {formatRelativeTime(item.timestamp)}
-      </span>
-    </div>
-  );
-}
-
-// ----------------------------------------------------------------------------
-// Empty State Component
-// ----------------------------------------------------------------------------
-
-function EmptyState({
+function EmptyPanel({
   icon: Icon,
   title,
   description,
   actionLabel,
   onAction,
 }: {
-  icon: typeof Bot;
+  icon: typeof Activity;
   title: string;
   description: string;
   actionLabel: string;
   onAction: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-        <Icon className="h-8 w-8 text-muted-foreground" />
+    <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-8 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+        <Icon className="h-6 w-6 text-muted-foreground" />
       </div>
       <h3 className="mt-4 text-lg font-semibold">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
         {description}
       </p>
-      <Button className="mt-4" onClick={onAction}>
+      <Button className="mt-5 cursor-pointer" onClick={onAction}>
         {actionLabel}
       </Button>
     </div>
   );
 }
 
-// ----------------------------------------------------------------------------
-// Onboarding Banner
-// ----------------------------------------------------------------------------
-
-function OnboardingBanner({
-  totalBots,
-  totalForms,
-  onCreateBot,
-  onCreateForm,
+function ChecklistStep({
+  label,
+  done,
+  onAction,
 }: {
-  totalBots: number;
-  totalForms: number;
-  onCreateBot: () => void;
-  onCreateForm: () => void;
+  label: string;
+  done: boolean;
+  onAction: () => void;
 }) {
-  const steps = [
-    {
-      label: "Create your first bot",
-      done: totalBots > 0,
-      action: onCreateBot,
-    },
-    {
-      label: "Design a form",
-      done: totalForms > 0,
-      action: onCreateForm,
-    },
-    {
-      label: "Share and receive submissions",
-      done: false,
-      action: onCreateForm,
-    },
-  ];
-
-  const completedSteps = steps.filter((s) => s.done).length;
-
   return (
-    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-card to-chart-2/5">
-      <CardContent className="p-6">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-            <Zap className="h-6 w-6 text-primary" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold">Welcome to JanitorForge!</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Get started in {3 - completedSteps} easy steps to set up your
-              creator workspace.
-            </p>
-            <div className="mt-4 space-y-2">
-              {steps.map((step, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={step.action}
-                  disabled={step.done}
-                  className={cn(
-                    "flex items-center gap-3 w-full rounded-lg p-2.5 text-left transition-colors cursor-pointer",
-                    step.done
-                      ? "bg-emerald-500/5"
-                      : "bg-background/50 hover:bg-primary/5 border border-border/50",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "flex h-6 w-6 items-center justify-center rounded-full shrink-0",
-                      step.done
-                        ? "bg-emerald-500/20 text-emerald-500"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {step.done ? (
-                      <CheckCircle className="h-4 w-4" />
-                    ) : (
-                      <span className="text-xs font-medium">{i + 1}</span>
-                    )}
-                  </div>
-                  <span
-                    className={cn(
-                      "text-sm",
-                      step.done
-                        ? "text-muted-foreground line-through"
-                        : "font-medium",
-                    )}
-                  >
-                    {step.label}
-                  </span>
-                  {!step.done && (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
-                  )}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{
-                  width: `${(completedSteps / steps.length) * 100}%`,
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <button
+      type="button"
+      onClick={onAction}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
+        done
+          ? "border-emerald-500/30 bg-emerald-500/10"
+          : "border-border/70 bg-background/60 hover:bg-primary/5",
+      )}
+    >
+      <div
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+          done
+            ? "bg-emerald-500/20 text-emerald-600"
+            : "bg-muted text-muted-foreground",
+        )}
+      >
+        {done ? (
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        ) : (
+          <Clock3 className="h-3.5 w-3.5" />
+        )}
+      </div>
+      <span
+        className={cn(
+          "text-sm",
+          done ? "text-muted-foreground line-through" : "font-medium",
+        )}
+      >
+        {label}
+      </span>
+      <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+    </button>
   );
 }
 
@@ -607,6 +244,7 @@ export function DashboardHome() {
     collaborativeBots,
     refreshCollaborativeBots,
   } = useStore();
+
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [accessLoaded, setAccessLoaded] = useState(false);
@@ -640,7 +278,6 @@ export function DashboardHome() {
     };
   }, []);
 
-  // Refresh collaborative bots
   useEffect(() => {
     if (accessLoaded && currentUserId) {
       refreshCollaborativeBots();
@@ -671,19 +308,19 @@ export function DashboardHome() {
         })
       : [];
 
-  // Calculate stats
-  const stats = {
+  const stats: WorkspaceStats = {
     totalBots: visibleBots.length,
-    activeForms: visibleForms.filter((f) => f.isActive).length,
+    activeForms: visibleForms.filter((form) => form.isActive).length,
     pendingRequests: visibleRequests.filter(
-      (r) => r.status === "new" || r.status === "accepted",
+      (request) => request.status === "new" || request.status === "accepted",
     ).length,
-    completedRequests: visibleRequests.filter((r) => r.status === "completed")
-      .length,
+    completedRequests: visibleRequests.filter(
+      (request) => request.status === "completed",
+    ).length,
   };
 
   const totalRequests = visibleRequests.length;
-  const responseRate =
+  const completionRate =
     totalRequests > 0
       ? Math.round((stats.completedRequests / totalRequests) * 100)
       : 0;
@@ -692,14 +329,11 @@ export function DashboardHome() {
       ? Math.round((stats.activeForms / visibleForms.length) * 100)
       : 0;
 
-  // Get recent bots (sorted by updatedAt)
   const recentBots = [...visibleBots]
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     .slice(0, 4);
 
-  const mostRecentBot = recentBots[0];
-
-  const recentRequestItems = [...visibleRequests]
+  const recentRequests = [...visibleRequests]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     .slice(0, 4);
 
@@ -709,44 +343,203 @@ export function DashboardHome() {
     )
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0];
 
-  // Build activity feed from real data
-  const activityFeed = useMemo((): ActivityItem[] => {
-    const items: ActivityItem[] = [];
+  const heroMessage = useMemo(() => {
+    if (stats.totalBots === 0) {
+      return "Start your first character and turn ideas into playable personalities.";
+    }
+    if (stats.pendingRequests >= 6) {
+      return "Queue is heating up. Triage a few submissions to keep your momentum smooth.";
+    }
+    if (stats.activeForms === 0 && visibleForms.length > 0) {
+      return "Your forms are paused. Reactivate one to reopen the flow.";
+    }
+    if (stats.completedRequests >= 12) {
+      return "Strong cadence. You are converting requests into finished work at a great pace.";
+    }
+    return "Your workspace is live. Keep polishing bots, forms, and submission flow.";
+  }, [stats, visibleForms.length]);
 
-    // Recent bot updates
+  const heroPrimaryAction = useMemo(() => {
+    if (stats.totalBots === 0) {
+      return {
+        label: "Create first bot",
+        subtitle: "Start from scratch or import a card",
+        icon: Bot,
+        onClick: () => setCurrentView("bots"),
+      };
+    }
+
+    if (stats.pendingRequests > 0) {
+      return {
+        label: "Review submissions",
+        subtitle: `${stats.pendingRequests} waiting in queue`,
+        icon: Inbox,
+        onClick: () => setCurrentView("requests"),
+      };
+    }
+
+    return {
+      label: "Design next form",
+      subtitle: "Add a new entry point for requests",
+      icon: FileText,
+      onClick: () => setCurrentView("forms"),
+    };
+  }, [setCurrentView, stats]);
+
+  const checklistSteps = useMemo(
+    () => [
+      {
+        id: "bot",
+        label: "Create or update one bot",
+        done: stats.totalBots > 0,
+        onAction: () => setCurrentView("bots"),
+      },
+      {
+        id: "form",
+        label: "Keep at least one form active",
+        done: stats.activeForms > 0,
+        onAction: () => setCurrentView("forms"),
+      },
+      {
+        id: "submission",
+        label: "Process pending submissions",
+        done: stats.pendingRequests === 0,
+        onAction: () => setCurrentView("requests"),
+      },
+      {
+        id: "profile",
+        label: "Polish your public profile",
+        done: false,
+        onAction: () => setCurrentView("profile"),
+      },
+    ],
+    [setCurrentView, stats],
+  );
+
+  const completedChecklistSteps = checklistSteps.filter(
+    (step) => step.done,
+  ).length;
+  const checklistProgress = Math.round(
+    (completedChecklistSteps / checklistSteps.length) * 100,
+  );
+
+  const timelineItems = useMemo(() => {
+    const items: TimelineItem[] = [];
+
     recentBots.slice(0, 3).forEach((bot) => {
       items.push({
         id: `bot-${bot.id}`,
-        type: "bot_updated",
-        title: `"${bot.name}" was updated`,
-        description: `Modified ${formatRelativeTime(bot.updatedAt)}`,
-        timestamp: bot.updatedAt,
+        title: `Updated ${bot.name}`,
+        description: "Bot content and metadata adjusted",
+        when: bot.updatedAt,
         icon: Bot,
-        accentColor: "bg-primary/10 text-primary",
+        toneClassName: "bg-primary/10 text-primary",
+        targetView: "bots",
       });
     });
 
-    // Recent requests
-    recentRequestItems.slice(0, 3).forEach((req) => {
-      const isCompleted = req.status === "completed";
+    recentRequests.slice(0, 4).forEach((request) => {
+      const done = request.status === "completed";
       items.push({
-        id: `req-${req.id}`,
-        type: isCompleted ? "request_completed" : "request_received",
-        title: isCompleted ? `Request completed` : `New request received`,
-        description: `${req.formTitle} — ${req.submitterName || "Anonymous"}`,
-        timestamp: req.createdAt,
-        icon: isCompleted ? CheckCircle : Inbox,
-        accentColor: isCompleted
-          ? "bg-emerald-500/10 text-emerald-500"
-          : "bg-amber-500/10 text-amber-500",
+        id: `req-${request.id}`,
+        title: done ? "Submission completed" : "Submission received",
+        description: `${request.submitterName || "Anonymous"} • ${request.formTitle}`,
+        when: request.createdAt,
+        icon: done ? CheckCircle : Inbox,
+        toneClassName: done
+          ? "bg-emerald-500/10 text-emerald-600"
+          : "bg-amber-500/10 text-amber-600",
+        targetView: "requests",
       });
     });
 
-    // Sort by timestamp descending
+    visibleForms.slice(0, 2).forEach((form) => {
+      items.push({
+        id: `form-${form.id}`,
+        title: `Form ${form.isActive ? "live" : "paused"}`,
+        description: form.title,
+        when: form.updatedAt,
+        icon: FileText,
+        toneClassName: form.isActive
+          ? "bg-cyan-500/10 text-cyan-600"
+          : "bg-muted text-muted-foreground",
+        targetView: "forms",
+      });
+    });
+
+    collaborativeBots.slice(0, 2).forEach((bot) => {
+      items.push({
+        id: `shared-${bot.id}`,
+        title: `Shared bot: ${bot.name}`,
+        description: `Role: ${bot.collaborator_role || "collaborator"}`,
+        when: bot.updated_at ? new Date(bot.updated_at) : new Date(),
+        icon: UsersRound,
+        toneClassName: "bg-violet-500/10 text-violet-600",
+        targetView: "bots",
+      });
+    });
+
     return items
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, 6);
-  }, [recentBots, recentRequestItems]);
+      .sort((a, b) => b.when.getTime() - a.when.getTime())
+      .slice(0, 8);
+  }, [collaborativeBots, recentBots, recentRequests, visibleForms]);
+
+  const quickActions = useMemo(
+    () => [
+      {
+        id: "bot-create",
+        title: "Create new bot",
+        description: "Draft personality, scenario, and first message",
+        icon: Bot,
+        toneClassName: "bg-primary/10 text-primary",
+        onClick: () => setCurrentView("bots"),
+      },
+      {
+        id: "import-card",
+        title: "Import character",
+        description: "Bring PNG/JSON card data into your workspace",
+        icon: Upload,
+        toneClassName: "bg-emerald-500/10 text-emerald-600",
+        onClick: () => setCurrentView("bots"),
+      },
+      {
+        id: "new-form",
+        title: "Design form",
+        description: "Create an intake flow for submissions",
+        icon: FileText,
+        toneClassName: "bg-cyan-500/10 text-cyan-600",
+        onClick: () => setCurrentView("forms"),
+      },
+      {
+        id: "review-queue",
+        title: "Triage queue",
+        description:
+          stats.pendingRequests > 0
+            ? `${stats.pendingRequests} pending items`
+            : "Queue currently clear",
+        icon: BarChart3,
+        toneClassName: "bg-amber-500/10 text-amber-600",
+        onClick: () => setCurrentView("requests"),
+      },
+      {
+        id: "atlas",
+        title: "Open atlas",
+        description: "Organize worlds, lorebooks, and relationships",
+        icon: BookOpen,
+        toneClassName: "bg-violet-500/10 text-violet-600",
+        onClick: () => setCurrentView("atlas"),
+      },
+      {
+        id: "profile",
+        title: "Improve profile",
+        description: "Refine your public creator page",
+        icon: Star,
+        toneClassName: "bg-pink-500/10 text-pink-600",
+        onClick: () => setCurrentView("profile"),
+      },
+    ],
+    [setCurrentView, stats.pendingRequests],
+  );
 
   const isNewUser =
     accessLoaded &&
@@ -756,458 +549,545 @@ export function DashboardHome() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 lg:p-10">
-      {/* Header with greeting */}
-      <div className="mb-6 sm:mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">
-            {new Date().toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </span>
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-          {getGreeting()}
-          {userName ? `, ${userName}` : ""}
-        </h1>
-        <p className="mt-1 text-sm sm:text-base text-muted-foreground">
-          {getMotivationalMessage(stats)}
-        </p>
-      </div>
+      <div className="mx-auto max-w-7xl space-y-8">
+        <Card className="dashboard-hero overflow-hidden border-border/60">
+          <CardContent className="relative z-10 grid gap-6 p-6 sm:p-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-center">
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  {new Date().toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </div>
+                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                  {getGreeting()}
+                  {userName ? `, ${userName}` : ""}
+                </h1>
+                <p className="text-sm text-muted-foreground sm:text-base">
+                  {heroMessage}
+                </p>
+                <p className="text-xs text-muted-foreground/90 sm:text-sm">
+                  {getDailyFlavorText(new Date().getHours())}
+                </p>
+              </div>
 
-      {/* Onboarding Banner for new users */}
-      {isNewUser && (
-        <div className="mb-8">
-          <OnboardingBanner
-            totalBots={stats.totalBots}
-            totalForms={visibleForms.length}
-            onCreateBot={() => setCurrentView("bots")}
-            onCreateForm={() => setCurrentView("forms")}
-          />
-        </div>
-      )}
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="bg-background/70">
+                  {stats.totalBots} bots
+                </Badge>
+                <Badge variant="outline" className="bg-background/70">
+                  {stats.activeForms} active forms
+                </Badge>
+                <Badge variant="outline" className="bg-background/70">
+                  {stats.pendingRequests} pending requests
+                </Badge>
+                <Badge variant="outline" className="bg-background/70">
+                  {completionRate}% completion
+                </Badge>
+              </div>
 
-      {/* Stats Grid */}
-      <div className="mb-8 grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Total Bots"
-          value={stats.totalBots}
-          description="Characters created"
-          icon={Bot}
-          trend={stats.totalBots > 0 ? "up" : "neutral"}
-          trendValue={
-            stats.totalBots > 0 ? `${stats.totalBots} active` : undefined
-          }
-          footer={stats.totalBots > 0 ? "Ready to publish" : "Create one now"}
-          onClick={() => setCurrentView("bots")}
-        />
-        <StatCard
-          title="Active Forms"
-          value={stats.activeForms}
-          description="Accepting submissions"
-          icon={FileText}
-          accentColor="bg-chart-2/20"
-          trend={
-            visibleForms.length > 0
-              ? stats.activeForms > 0
-                ? "up"
-                : "down"
-              : "neutral"
-          }
-          trendValue={
-            visibleForms.length > 0 ? `${activeFormRate}% active` : undefined
-          }
-          footer={`${activeFormRate}% of forms active`}
-          onClick={() => setCurrentView("forms")}
-        />
-        <StatCard
-          title="Pending Submissions"
-          value={stats.pendingRequests}
-          description="Awaiting response"
-          icon={Inbox}
-          accentColor="bg-chart-3/20"
-          trend={stats.pendingRequests > 0 ? "up" : "neutral"}
-          trendValue={
-            stats.pendingRequests > 0 ? " needs attention" : undefined
-          }
-          footer={
-            oldestPendingRequest
-              ? `Oldest: ${formatDate(oldestPendingRequest.createdAt)}`
-              : "No backlog"
-          }
-          onClick={() => setCurrentView("requests")}
-        />
-        <StatCard
-          title="Completed"
-          value={stats.completedRequests}
-          description="Submissions fulfilled"
-          icon={CheckCircle}
-          accentColor="bg-success/20"
-          trend={stats.completedRequests > 0 ? "up" : "neutral"}
-          trendValue={
-            stats.completedRequests > 0 ? `${responseRate}% rate` : undefined
-          }
-          footer={`${responseRate}% completion rate`}
-          onClick={() => setCurrentView("requests")}
-        />
-      </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="cursor-pointer"
+                  onClick={heroPrimaryAction.onClick}
+                >
+                  <heroPrimaryAction.icon className="mr-2 h-4 w-4" />
+                  {heroPrimaryAction.label}
+                </Button>
+              </div>
 
-      {/* Insight Cards */}
-      <div className="mb-8 grid gap-4 lg:grid-cols-3">
-        <InsightCard
-          title="Workspace health"
-          value={`${responseRate}%`}
-          description="Share of submissions already completed in this workspace."
-          icon={Activity}
-          accentClassName="bg-primary/10"
-          actionLabel="Open Submissions"
-          onAction={() => setCurrentView("requests")}
-        />
-        <InsightCard
-          title="Form activity"
-          value={`${activeFormRate}%`}
-          description="Percentage of your forms that are currently accepting submissions."
-          icon={Sparkles}
-          accentClassName="bg-chart-2/10"
-          actionLabel="Manage Forms"
-          onAction={() => setCurrentView("forms")}
-        />
-        <InsightCard
-          title="Queue pressure"
-          value={
-            stats.pendingRequests > 0
-              ? `${stats.pendingRequests} open`
-              : "Clear"
-          }
-          description="Outstanding submissions that need attention."
-          icon={AlertTriangle}
-          accentClassName="bg-chart-3/10"
-          actionLabel="Review queue"
-          onAction={() => setCurrentView("requests")}
-        />
-      </div>
-
-      {/* Two-column layout: Activity Feed + Recent Submissions */}
-      <div className="mb-8 grid gap-6 lg:grid-cols-5">
-        {/* Activity Feed */}
-        <div className="lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">Activity Feed</h2>
-              <p className="text-sm text-muted-foreground">
-                Latest updates across your workspace
+              <p className="text-xs text-muted-foreground">
+                {heroPrimaryAction.subtitle}
               </p>
             </div>
-          </div>
 
-          <Card className="border-border/70">
-            {activityFeed.length > 0 ? (
-              <CardContent className="p-2">
-                {activityFeed.map((item) => (
-                  <ActivityFeedItem key={item.id} item={item} />
-                ))}
-              </CardContent>
-            ) : (
-              <CardContent className="p-0">
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Activity className="h-6 w-6 text-muted-foreground/40 mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    No recent activity
-                  </p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">
-                    Activity will appear here as you create and manage content
-                  </p>
+            <div className="dashboard-rise-item relative overflow-hidden rounded-3xl border border-primary/20 bg-background/55 p-5 backdrop-blur">
+              <div className="dashboard-orb dashboard-orb-a" />
+              <div className="dashboard-orb dashboard-orb-b" />
+              <div className="dashboard-orb dashboard-orb-c" />
+
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Live workspace</p>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[11px] text-primary">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary dashboard-ping" />
+                    Online
+                  </span>
                 </div>
-              </CardContent>
-            )}
-          </Card>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-border/70 bg-card/70 p-3">
+                    <p className="text-xs text-muted-foreground">Collab bots</p>
+                    <p className="mt-1 text-2xl font-semibold">
+                      {collaborativeBots.length}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-card/70 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Queue pressure
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold">
+                      {stats.pendingRequests > 0 ? "High" : "Clear"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border/70 bg-card/70 p-3">
+                  <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Weekly consistency</span>
+                    <span>{checklistProgress}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary via-chart-2 to-chart-4 transition-all duration-700"
+                      style={{ width: `${checklistProgress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="dashboard-stagger-grid grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+          <StatTile
+            title="Total Bots"
+            value={stats.totalBots}
+            subtitle="Characters created"
+            icon={Bot}
+            toneClassName="bg-primary/10 text-primary"
+            onClick={() => setCurrentView("bots")}
+          />
+          <StatTile
+            title="Active Forms"
+            value={stats.activeForms}
+            subtitle={
+              visibleForms.length > 0
+                ? `${activeFormRate}% active right now`
+                : "No forms yet"
+            }
+            icon={FileText}
+            toneClassName="bg-cyan-500/10 text-cyan-600"
+            onClick={() => setCurrentView("forms")}
+          />
+          <StatTile
+            title="Pending"
+            value={stats.pendingRequests}
+            subtitle={
+              oldestPendingRequest
+                ? `Oldest from ${formatDate(oldestPendingRequest.createdAt)}`
+                : "Queue is clear"
+            }
+            icon={Inbox}
+            toneClassName="bg-amber-500/10 text-amber-600"
+            onClick={() => setCurrentView("requests")}
+          />
+          <StatTile
+            title="Completed"
+            value={stats.completedRequests}
+            subtitle={`${completionRate}% completion rate`}
+            icon={CheckCircle}
+            toneClassName="bg-emerald-500/10 text-emerald-600"
+            onClick={() => setCurrentView("requests")}
+          />
         </div>
 
-        {/* Recent Submissions */}
-        <div className="lg:col-span-3">
-          <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+          <div className="space-y-6">
+            <Card className="dashboard-rise-item border-border/70">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <WandSparkles className="h-5 w-5 text-primary" />
+                  Today in your studio
+                </CardTitle>
+                <CardDescription>
+                  A quick glance at rhythm, priorities, and last actions.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {timelineItems.length > 0 ? (
+                  timelineItems.map((item, index) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() =>
+                        item.targetView && setCurrentView(item.targetView)
+                      }
+                      className={cn(
+                        "dashboard-rise-item flex w-full items-start gap-3 rounded-xl border border-border/60 bg-card/70 p-3 text-left transition-colors",
+                        item.targetView && "cursor-pointer hover:bg-primary/5",
+                      )}
+                      style={{ animationDelay: `${index * 70}ms` }}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                          item.toneClassName,
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {item.title}
+                        </p>
+                        <MarkdownRenderer
+                          className="truncate text-xs text-muted-foreground"
+                          content={item.description}
+                        />
+                      </div>
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {formatRelativeTime(item.when)}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <EmptyPanel
+                    icon={Activity}
+                    title="Nothing on the timeline yet"
+                    description="Once you create bots, forms, or receive submissions, your activity stream will become your command log."
+                    actionLabel="Create first bot"
+                    onAction={() => setCurrentView("bots")}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-rise-item border-border/70">
+              <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg">Recent submissions</CardTitle>
+                  <CardDescription>
+                    Latest requests across your forms.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={() => setCurrentView("requests")}
+                >
+                  View all
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {recentRequests.length > 0 ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {recentRequests.map((request) => {
+                      const requestTone =
+                        request.status === "completed"
+                          ? "bg-emerald-500/10 text-emerald-600"
+                          : request.status === "accepted"
+                            ? "bg-cyan-500/10 text-cyan-600"
+                            : request.status === "rejected"
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-amber-500/10 text-amber-600";
+
+                      return (
+                        <button
+                          key={request.id}
+                          type="button"
+                          onClick={() => setCurrentView("requests")}
+                          className="dashboard-rise-item w-full rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium rendered-markdown [&>*:last-child]:mb-0">
+                                <MarkdownRenderer content={request.formTitle} />
+                              </div>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {request.submitterName || "Anonymous submitter"}
+                              </p>
+                            </div>
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-1 text-[11px] font-medium",
+                                requestTone,
+                              )}
+                            >
+                              {request.status}
+                            </span>
+                          </div>
+
+                          {request.notes && (
+                            <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                              {request.notes}
+                            </p>
+                          )}
+
+                          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock3 className="h-3 w-3" />
+                              {formatRelativeTime(request.createdAt)}
+                            </span>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <EmptyPanel
+                    icon={Inbox}
+                    title="No submissions yet"
+                    description="When people use your forms, requests will appear here for quick triage."
+                    actionLabel="Open forms"
+                    onAction={() => setCurrentView("forms")}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card className="dashboard-rise-item border-border/70">
+              <CardHeader>
+                <CardTitle className="text-lg">Progress checklist</CardTitle>
+                <CardDescription>
+                  Small wins that keep your workspace healthy.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-xl border border-border/70 bg-card/70 p-3">
+                  <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Completion</span>
+                    <span>{checklistProgress}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary via-chart-2 to-chart-4 transition-all duration-700"
+                      style={{ width: `${checklistProgress}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {checklistSteps.map((step) => (
+                    <ChecklistStep
+                      key={step.id}
+                      label={step.label}
+                      done={step.done}
+                      onAction={step.onAction}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-rise-item border-border/70">
+              <CardHeader>
+                <CardTitle className="text-lg">Quick actions</CardTitle>
+                <CardDescription>
+                  Jump to the most frequent workflows.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-2 sm:grid-cols-2">
+                {quickActions.map((action, index) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={action.onClick}
+                    className="dashboard-rise-item group rounded-xl border border-border/70 bg-card/80 p-3 text-left transition-colors hover:bg-primary/5"
+                    style={{ animationDelay: `${index * 60}ms` }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                          action.toneClassName,
+                        )}
+                      >
+                        <action.icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{action.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {action.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-end text-xs text-muted-foreground transition-transform group-hover:translate-x-0.5">
+                      Open <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                    </div>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="dashboard-rise-item border-border/70">
+              <CardHeader>
+                <CardTitle className="text-lg">Signals</CardTitle>
+                <CardDescription>
+                  Fast quality indicators for your current flow.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-card/70 px-3 py-2">
+                  <span className="text-sm text-muted-foreground">
+                    Completion rate
+                  </span>
+                  <span className="font-semibold">{completionRate}%</span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-card/70 px-3 py-2">
+                  <span className="text-sm text-muted-foreground">
+                    Forms active
+                  </span>
+                  <span className="font-semibold">{activeFormRate}%</span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-card/70 px-3 py-2">
+                  <span className="text-sm text-muted-foreground">
+                    Backlog level
+                  </span>
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      stats.pendingRequests > 5
+                        ? "text-destructive"
+                        : stats.pendingRequests > 0
+                          ? "text-amber-600"
+                          : "text-emerald-600",
+                    )}
+                  >
+                    {stats.pendingRequests > 5
+                      ? "High"
+                      : stats.pendingRequests > 0
+                        ? "Moderate"
+                        : "Low"}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {collaborativeBots.length > 0 && (
+          <Card className="dashboard-rise-item border-border/70">
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <UsersRound className="h-5 w-5 text-primary" />
+                  Shared with you
+                </CardTitle>
+                <CardDescription>
+                  Bots where you are collaborating.
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                className="cursor-pointer"
+                onClick={() => setCurrentView("bots")}
+              >
+                Open Bot Manager
+              </Button>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {collaborativeBots.slice(0, 4).map((bot) => (
+                <button
+                  key={bot.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedBotId(bot.id);
+                    setCurrentView("bots");
+                  }}
+                  className="dashboard-rise-item rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-sm font-semibold">{bot.name}</p>
+                    <Badge variant="outline" className="text-[10px]">
+                      {bot.collaborator_role || "collaborator"}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {bot.short_description}
+                  </p>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    by{" "}
+                    {bot.owner_display_name || bot.owner_username || "Unknown"}
+                  </p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="dashboard-rise-item border-border/70">
+          <CardHeader className="flex flex-row items-start justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold">Recent Submissions</h2>
-              <p className="text-sm text-muted-foreground">
-                The latest submissions across your active forms
-              </p>
+              <CardTitle className="text-lg">Recent bots</CardTitle>
+              <CardDescription>
+                Your latest character edits and creations.
+              </CardDescription>
             </div>
             <Button
               variant="outline"
               className="cursor-pointer"
-              onClick={() => setCurrentView("requests")}
+              onClick={() => setCurrentView("bots")}
             >
-              View All
+              View all bots
             </Button>
-          </div>
-
-          {recentRequestItems.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {recentRequestItems.map((request) => (
-                <RecentRequestCard
-                  key={request.id}
-                  formTitle={request.formTitle}
-                  status={request.status}
-                  submitterName={request.submitterName}
-                  createdAt={request.createdAt}
-                  notes={request.notes}
-                  onClick={() => setCurrentView("requests")}
-                />
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <EmptyState
-                icon={Inbox}
-                title="No submissions yet"
-                description="Once people submit submissions, the latest ones will show up here for quick triage."
-                actionLabel="Open Submissions"
-                onAction={() => setCurrentView("requests")}
-              />
-            </Card>
-          )}
-        </div>
-      </div>
-
-      {/* Collaborative Bots Section */}
-      {collaborativeBots.length > 0 && (
-        <div className="mb-8">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <UsersRound className="h-5 w-5 text-primary" />
-                Shared With You
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Bots where you're a collaborator
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {collaborativeBots.slice(0, 4).map((bot) => (
-              <Card
-                key={bot.id}
-                className="group cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5"
-                onClick={() => {
-                  setSelectedBotId(bot.id);
-                  setCurrentView("bots");
-                }}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-sm font-semibold truncate">
+          </CardHeader>
+          <CardContent>
+            {recentBots.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {recentBots.map((bot, index) => (
+                  <button
+                    key={bot.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedBotId(bot.id);
+                      setCurrentView("bots");
+                    }}
+                    className="dashboard-rise-item group rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5"
+                    style={{ animationDelay: `${index * 70}ms` }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate text-sm font-semibold">
                         {bot.name}
-                      </CardTitle>
-                      <CardDescription className="mt-1 line-clamp-1 text-xs">
-                        {bot.short_description}
-                      </CardDescription>
+                      </p>
+                      <Badge
+                        variant={
+                          bot.rating === "SFW" ? "secondary" : "destructive"
+                        }
+                        className="text-[10px]"
+                      >
+                        {bot.rating}
+                      </Badge>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] ml-2 shrink-0"
-                    >
-                      {bot.collaborator_role || "collaborator"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <UsersRound className="h-3 w-3" />
-                    <span>
-                      by{" "}
-                      {bot.owner_display_name ||
-                        bot.owner_username ||
-                        "Unknown"}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recent Bots Section */}
-      <div className="mb-8">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold">Recent Bots</h2>
-            <p className="text-sm text-muted-foreground">
-              Your most recently updated characters
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            className="cursor-pointer"
-            onClick={() => setCurrentView("bots")}
-          >
-            View All
-          </Button>
-        </div>
-
-        {recentBots.length > 0 ? (
-          <>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              {recentBots.map((bot) => (
-                <RecentBotCard
-                  key={bot.id}
-                  name={bot.name}
-                  description={bot.shortDescription}
-                  rating={bot.rating}
-                  tags={bot.tags}
-                  updatedAt={bot.updatedAt}
-                  onEdit={() => {
-                    setSelectedBotId(bot.id);
-                    setCurrentView("bots");
-                  }}
-                />
-              ))}
-            </div>
-            {mostRecentBot && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Last updated bot: {mostRecentBot.name}
-              </p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {bot.shortDescription}
+                    </p>
+                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{formatRelativeTime(bot.updatedAt)}</span>
+                      <span className="group-hover:translate-x-0.5 transition-transform inline-flex items-center">
+                        Edit <ChevronRight className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyPanel
+                icon={Bot}
+                title="No bots yet"
+                description="Create your first bot to unlock recommendations, analytics, and a richer dashboard timeline."
+                actionLabel="Create your first bot"
+                onAction={() => setCurrentView("bots")}
+              />
             )}
-          </>
-        ) : (
-          <Card>
-            <EmptyState
-              icon={Bot}
-              title="No bots yet"
-              description="Create your first bot to get started. You can import existing character cards or create from scratch."
-              actionLabel="Create Your First Bot"
-              onAction={() => setCurrentView("bots")}
-            />
-          </Card>
-        )}
-      </div>
+          </CardContent>
+        </Card>
 
-      {/* Quick Actions */}
-      <div className="mb-8">
-        <h2 className="mb-4 text-xl font-semibold">Quick Actions</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
-            onClick={() => setCurrentView("bots")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <Bot className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-medium">Create New Bot</h3>
-                <p className="text-sm text-muted-foreground">
-                  Start building a new character
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
-            onClick={() => setCurrentView("forms")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-2/10">
-                <FileText className="h-6 w-6 text-chart-2" />
-              </div>
-              <div>
-                <h3 className="font-medium">Design Request Form</h3>
-                <p className="text-sm text-muted-foreground">
-                  Create custom intake forms
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
-            onClick={() => setCurrentView("atlas")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-4/10">
-                <BookOpen className="h-6 w-6 text-chart-4" />
-              </div>
-              <div>
-                <h3 className="font-medium">Open Atlas</h3>
-                <p className="text-sm text-muted-foreground">
-                  Organize series, lore, and creator spaces
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
-            onClick={() => setCurrentView("profile")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-5/10">
-                <Star className="h-6 w-6 text-chart-5" />
-              </div>
-              <div>
-                <h3 className="font-medium">Edit Profile</h3>
-                <p className="text-sm text-muted-foreground">
-                  Update your public creator page
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
-            onClick={() => setCurrentView("requests")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-500/10">
-                <BarChart3 className="h-6 w-6 text-amber-500" />
-              </div>
-              <div>
-                <h3 className="font-medium">Review Submissions</h3>
-                <p className="text-sm text-muted-foreground">
-                  {stats.pendingRequests > 0
-                    ? `${stats.pendingRequests} pending`
-                    : "View all submissions"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card
-            className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/5"
-            onClick={() => setCurrentView("bots")}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/10">
-                <Upload className="h-6 w-6 text-emerald-500" />
-              </div>
-              <div>
-                <h3 className="font-medium">Import Character Card</h3>
-                <p className="text-sm text-muted-foreground">
-                  Import from PNG or JSON
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Feedback Section */}
-      <div>
-        <h2 className="mb-4 text-xl font-semibold">Feedback</h2>
         <div className="grid gap-4 md:grid-cols-2">
-          <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+          <Card className="dashboard-rise-item overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
             <CardHeader className="space-y-2 pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-primary" />
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Lightbulb className="h-4 w-4 text-primary" />
                 Send a suggestion
               </CardTitle>
               <CardDescription>
-                Share ideas to improve JanitorForge or ask for a new workflow.
+                Share ideas for improvements, workflows, or features.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
@@ -1223,14 +1103,14 @@ export function DashboardHome() {
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+          <Card className="dashboard-rise-item overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
             <CardHeader className="space-y-2 pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-base">
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
                 Report a bug
               </CardTitle>
               <CardDescription>
-                Tell us when something is broken so we can fix it faster.
+                Found something broken? Send details so we can fix it faster.
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
@@ -1246,6 +1126,36 @@ export function DashboardHome() {
             </CardContent>
           </Card>
         </div>
+
+        {isNewUser && (
+          <Card className="dashboard-rise-item overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 via-card to-chart-2/5">
+            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">
+                  First-time creator boost
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Start with one bot, one form, then test one submission flow.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="cursor-pointer"
+                  onClick={() => setCurrentView("bots")}
+                >
+                  Start with bot
+                </Button>
+                <Button
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={() => setCurrentView("forms")}
+                >
+                  Build first form
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

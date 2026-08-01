@@ -23,10 +23,56 @@ export interface ResolvedProfileTheme {
   hideCompletenessNudge: boolean;
 }
 
+function isHexColor(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());
+}
+
 function asString(value: unknown, fallback: string): string {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+export function getReadableProfileAccentColor(
+  color: string,
+  intensity: "strong" | "medium" | "soft" = "strong",
+): string {
+  if (!isHexColor(color)) return "var(--foreground)";
+
+  const mixPercentage =
+    intensity === "strong" ? 58 : intensity === "medium" ? 46 : 34;
+
+  return `color-mix(in oklab, ${color} ${mixPercentage}%, var(--foreground))`;
+}
+
+export function getReadableProfileMutedAccentColor(color: string): string {
+  if (!isHexColor(color)) return "var(--muted-foreground)";
+  return `color-mix(in oklab, ${color} 42%, var(--muted-foreground))`;
+}
+
+export function getProfileBorderTintColor(
+  color: string,
+  strength = 34,
+): string {
+  if (!isHexColor(color)) {
+    return "color-mix(in oklab, var(--border) 82%, transparent)";
+  }
+
+  const ratio = Math.max(10, Math.min(70, Math.trunc(strength)));
+  return `color-mix(in oklab, ${color} ${ratio}%, transparent)`;
+}
+
+export function getProfileBackgroundTintColor(
+  color: string,
+  strength = 16,
+): string {
+  if (!isHexColor(color)) {
+    return "color-mix(in oklab, var(--muted) 50%, transparent)";
+  }
+
+  const ratio = Math.max(6, Math.min(40, Math.trunc(strength)));
+  return `color-mix(in oklab, ${color} ${ratio}%, transparent)`;
 }
 
 function asBooleanDefaultTrue(value: unknown): boolean {

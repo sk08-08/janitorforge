@@ -139,6 +139,7 @@ interface TokenSummaryProps {
   initialMessages: string[];
   scenario: string;
   exampleDialogues: string;
+  initialMessageIndex?: number;
 }
 
 export function TokenSummary({
@@ -146,15 +147,22 @@ export function TokenSummary({
   initialMessages,
   scenario,
   exampleDialogues,
+  initialMessageIndex = 0,
 }: TokenSummaryProps) {
   const totals = useMemo(() => {
-    const mainInitialMessage =
-      initialMessages.length > 0 && initialMessages[0]
-        ? initialMessages[0]
+    const activeInitialMessage =
+      initialMessages.length > 0 && initialMessages[initialMessageIndex]
+        ? initialMessages[initialMessageIndex]
         : "";
     const fields = [
       { name: "Personality", text: personality },
-      { name: "First Message", text: mainInitialMessage },
+      {
+        name:
+          initialMessages.length > 1
+            ? `Message ${initialMessageIndex + 1}`
+            : "First Message",
+        text: activeInitialMessage,
+      },
       { name: "Scenario", text: scenario },
       { name: "Example Dialogues", text: exampleDialogues },
     ];
@@ -171,7 +179,13 @@ export function TokenSummary({
     const validation = validateVariables(allText);
 
     return { fieldCounts, total, validation };
-  }, [personality, initialMessages, scenario, exampleDialogues]);
+  }, [
+    personality,
+    initialMessages,
+    initialMessageIndex,
+    scenario,
+    exampleDialogues,
+  ]);
 
   const getTotalColor = () => {
     if (totals.total > 8000) return "border-destructive bg-destructive/10";

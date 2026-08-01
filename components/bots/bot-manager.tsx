@@ -79,6 +79,7 @@ import { CollaboratorDialog } from "./collaborator-dialog";
 import { CollaborationWorkspace } from "./collaboration-workspace";
 import { forkBot } from "@/app/actions/collaboration";
 import { PendingInvites } from "./pending-invites";
+import { BotTagBadge, BotTagCountBadge } from "./bot-tag-badge";
 import type { CollaborativeBot, CollaboratorRole } from "@/lib/types";
 import { roleConfig } from "@/lib/types";
 
@@ -267,14 +268,10 @@ function CollaborativeBotCard({
       <CardContent>
         <div className="flex flex-wrap gap-1.5">
           {bot.tags.slice(0, 2).map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs">
-              {tag}
-            </Badge>
+            <BotTagBadge key={tag} tag={tag} />
           ))}
           {bot.tags.length > 2 && (
-            <Badge variant="outline" className="text-xs">
-              +{bot.tags.length - 2}
-            </Badge>
+            <BotTagCountBadge count={bot.tags.length - 2} />
           )}
         </div>
       </CardContent>
@@ -463,14 +460,10 @@ function BotCard({
         {/* Tags */}
         <div className="flex flex-wrap gap-1.5">
           {bot.tags.slice(0, 2).map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs">
-              {tag}
-            </Badge>
+            <BotTagBadge key={tag} tag={tag} />
           ))}
           {bot.tags.length > 2 && (
-            <Badge variant="outline" className="text-xs">
-              +{bot.tags.length - 2}
-            </Badge>
+            <BotTagCountBadge count={bot.tags.length - 2} />
           )}
         </div>
 

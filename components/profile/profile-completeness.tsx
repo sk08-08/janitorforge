@@ -7,6 +7,11 @@
 
 import { CheckCircle2, Pencil, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  getProfileBackgroundTintColor,
+  getProfileBorderTintColor,
+  getReadableProfileAccentColor,
+} from "@/lib/profile-theme";
 import { cn } from "@/lib/utils";
 
 type ProfileCompletionSource = {
@@ -116,6 +121,9 @@ export function ProfileCompletenessCard({
   className?: string;
 }) {
   if (hideNudge || completeness >= 100) return null;
+  const readableThemeColor = getReadableProfileAccentColor(themeColor);
+  const borderTint = getProfileBorderTintColor(themeColor, 30);
+  const softTint = getProfileBackgroundTintColor(themeColor, 10);
 
   const missingItems = getProfileCompletionItems(profile).filter(
     (item) => !item.done,
@@ -127,12 +135,15 @@ export function ProfileCompletenessCard({
         "rounded-2xl border border-dashed bg-card/70 p-4 sm:p-5 shadow-sm",
         className,
       )}
-      style={{ borderColor: `${themeColor}33` }}
+      style={{ borderColor: borderTint }}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5" style={{ color: themeColor }} />
+            <Sparkles
+              className="h-3.5 w-3.5"
+              style={{ color: readableThemeColor }}
+            />
             Profile completeness
           </div>
           <h3 className="text-base font-semibold leading-tight">
@@ -144,9 +155,12 @@ export function ProfileCompletenessCard({
         </div>
         <div
           className="rounded-2xl border px-3 py-2 text-right"
-          style={{ borderColor: `${themeColor}33` }}
+          style={{ borderColor: borderTint }}
         >
-          <p className="text-2xl font-bold" style={{ color: themeColor }}>
+          <p
+            className="text-2xl font-bold"
+            style={{ color: readableThemeColor }}
+          >
             {completeness}%
           </p>
           <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
@@ -160,7 +174,7 @@ export function ProfileCompletenessCard({
           className="h-full rounded-full transition-all duration-300"
           style={{
             width: `${Math.max(0, Math.min(completeness, 100))}%`,
-            backgroundColor: themeColor,
+            backgroundColor: readableThemeColor,
           }}
         />
       </div>
@@ -175,8 +189,8 @@ export function ProfileCompletenessCard({
               key={item.key}
               className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs"
               style={{
-                borderColor: `${themeColor}33`,
-                backgroundColor: `${themeColor}08`,
+                borderColor: borderTint,
+                backgroundColor: softTint,
               }}
             >
               <CheckCircle2 className="h-3.5 w-3.5 opacity-60" />

@@ -839,10 +839,6 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                               ? `Signed in as @${sessionInfo.username} · ${new Date(sessionInfo.loggedInAt).toLocaleString()}`
                               : "No active session found"}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            This browser session is read from the live auth
-                            cookie, not hardcoded text.
-                          </p>
                         </div>
                         <Badge
                           variant="default"

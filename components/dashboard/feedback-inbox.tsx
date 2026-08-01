@@ -5,11 +5,10 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MessageSquareMore,
   RefreshCw,
-  Search,
   Bug,
   Lightbulb,
   AlertTriangle,
@@ -31,12 +30,13 @@ import {
   MoreHorizontal,
   SquareCheck,
   Square,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   Card,
   CardContent,
@@ -80,9 +80,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { createClient } from "@/lib/supabase/client";
-import { getCurrentUserAccess } from "@/lib/access";
-import { cachedBrowserRequest } from "@/lib/browser-request-cache";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -94,6 +91,9 @@ import {
   addFeedbackNote,
   getFeedbackNotes,
   deleteFeedback,
+  getAdminFeedbackInbox,
+  assignFeedbackToMe,
+  unassignFeedback,
 } from "@/app/actions/feedback-admin";
 
 // ---------------------------------------------------------------------------
@@ -110,6 +110,7 @@ interface FeedbackItem {
   status: FeedbackStatus;
   priority: FeedbackPriority;
   is_read: boolean;
+  assigned_to: string | null;
   subject: string;
   message: string;
   source_label: string;
@@ -119,6 +120,11 @@ interface FeedbackItem {
   contact: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
+  assignee?: {
+    id: string;
+    username: string | null;
+    display_name: string | null;
+  } | null;
 }
 
 interface FeedbackNote {
@@ -126,6 +132,96 @@ interface FeedbackNote {
   author_id: string;
   note: string;
   created_at: string;
+}
+
+interface FeedbackInboxStats {
+  total: number;
+  unread: number;
+  bugs: number;
+  suggestions: number;
+  newCount: number;
+  reviewing: number;
+}
+
+type InboxPersistedState = {
+  searchQuery: string;
+  typeFilter: "all" | FeedbackType;
+  statusFilter: "all" | FeedbackStatus;
+  priorityFilter: "all" | FeedbackPriority;
+  assignmentFilter: "all" | "mine" | "unassigned";
+  showUnreadOnly: boolean;
+};
+
+const FEEDBACK_INBOX_STORAGE_KEY = "janitorforge.feedback.inboxState";
+
+const defaultInboxState: InboxPersistedState = {
+  searchQuery: "",
+  typeFilter: "all",
+  statusFilter: "all",
+  priorityFilter: "all",
+  assignmentFilter: "all",
+  showUnreadOnly: false,
+};
+
+function isTypingElement(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName;
+  return (
+    target.isContentEditable ||
+    tagName === "INPUT" ||
+    tagName === "TEXTAREA" ||
+    tagName === "SELECT"
+  );
+}
+
+function getPersistedInboxState(): InboxPersistedState {
+  if (typeof window === "undefined") {
+    return defaultInboxState;
+  }
+
+  const raw = window.localStorage.getItem(FEEDBACK_INBOX_STORAGE_KEY);
+  if (!raw) {
+    return defaultInboxState;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<InboxPersistedState>;
+    return {
+      searchQuery:
+        typeof parsed.searchQuery === "string" ? parsed.searchQuery : "",
+      typeFilter:
+        parsed.typeFilter === "suggestion" ||
+        parsed.typeFilter === "bug" ||
+        parsed.typeFilter === "all"
+          ? parsed.typeFilter
+          : "all",
+      statusFilter:
+        parsed.statusFilter === "new" ||
+        parsed.statusFilter === "reviewing" ||
+        parsed.statusFilter === "resolved" ||
+        parsed.statusFilter === "closed" ||
+        parsed.statusFilter === "all"
+          ? parsed.statusFilter
+          : "all",
+      priorityFilter:
+        parsed.priorityFilter === "low" ||
+        parsed.priorityFilter === "medium" ||
+        parsed.priorityFilter === "high" ||
+        parsed.priorityFilter === "urgent" ||
+        parsed.priorityFilter === "all"
+          ? parsed.priorityFilter
+          : "all",
+      assignmentFilter:
+        parsed.assignmentFilter === "mine" ||
+        parsed.assignmentFilter === "unassigned" ||
+        parsed.assignmentFilter === "all"
+          ? parsed.assignmentFilter
+          : "all",
+      showUnreadOnly: Boolean(parsed.showUnreadOnly),
+    };
+  } catch {
+    return defaultInboxState;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -247,18 +343,43 @@ function KpiCard({
 // ---------------------------------------------------------------------------
 
 export function FeedbackInbox() {
+  const persistedState = getPersistedInboxState();
+  const LIMIT = 25;
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | FeedbackType>("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState<
+    "created_at" | "priority" | "status" | "feedback_type" | "is_read"
+  >("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [stats, setStats] = useState<FeedbackInboxStats>({
+    total: 0,
+    unread: 0,
+    bugs: 0,
+    suggestions: 0,
+    newCount: 0,
+    reviewing: 0,
+  });
+  const [searchQuery, setSearchQuery] = useState(persistedState.searchQuery);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<"all" | FeedbackType>(
+    persistedState.typeFilter,
+  );
   const [statusFilter, setStatusFilter] = useState<"all" | FeedbackStatus>(
-    "all",
+    persistedState.statusFilter,
   );
   const [priorityFilter, setPriorityFilter] = useState<
     "all" | FeedbackPriority
-  >("all");
-  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  >(persistedState.priorityFilter);
+  const [assignmentFilter, setAssignmentFilter] = useState<
+    "all" | "mine" | "unassigned"
+  >(persistedState.assignmentFilter);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(
+    persistedState.showUnreadOnly,
+  );
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
 
   // Detail panel
   const [selectedItem, setSelectedItem] = useState<FeedbackItem | null>(null);
@@ -274,49 +395,98 @@ export function FeedbackInbox() {
   const [deleteTarget, setDeleteTarget] = useState<FeedbackItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+
   // Load data
-  const loadFeedback = useCallback(async (force = false) => {
+  const loadFeedback = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await cachedBrowserRequest(
-        "feedback-inbox:load",
-        10_000,
-        async () => {
-          const supabase = createClient();
-          const access = await getCurrentUserAccess(supabase);
+      const result = await getAdminFeedbackInbox({
+        page,
+        limit: LIMIT,
+        query: searchQuery,
+        typeFilter,
+        statusFilter,
+        priorityFilter,
+        assignmentFilter,
+        unreadOnly: showUnreadOnly,
+        sortBy,
+        sortDirection,
+      });
 
-          if (!access.user || !access.isAdmin) {
-            return { items: [] as FeedbackItem[], isAdmin: access.isAdmin };
-          }
+      setIsAdmin(result.isAdmin ?? false);
+      setCurrentUserId(result.userId ?? null);
 
-          const { data, error } = await supabase
-            .from("active_feedback_submissions")
-            .select("*")
-            .order("created_at", { ascending: false })
-            .limit(200);
+      if (!result.success) {
+        setItems([]);
+        setTotal(0);
+        setStats({
+          total: 0,
+          unread: 0,
+          bugs: 0,
+          suggestions: 0,
+          newCount: 0,
+          reviewing: 0,
+        });
+        setCurrentUserId(null);
+        return;
+      }
 
-          if (error) {
-            throw error;
-          }
-
-          return { items: (data ?? []) as FeedbackItem[], isAdmin: true };
-        },
-        force,
-      );
-
-      setIsAdmin(result.isAdmin);
-      setItems(result.items);
+      setItems((result.items ?? []) as FeedbackItem[]);
+      setTotal(result.total ?? 0);
+      if (result.stats) {
+        setStats(result.stats as FeedbackInboxStats);
+      }
+      setLastRefreshedAt(new Date().toISOString());
     } catch (error) {
       console.error("Error loading feedback inbox:", error);
       setItems([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [
+    page,
+    searchQuery,
+    typeFilter,
+    statusFilter,
+    priorityFilter,
+    assignmentFilter,
+    showUnreadOnly,
+    sortBy,
+    sortDirection,
+  ]);
 
   useEffect(() => {
     loadFeedback();
   }, [loadFeedback]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [items]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nextState: InboxPersistedState = {
+      searchQuery,
+      typeFilter,
+      statusFilter,
+      priorityFilter,
+      assignmentFilter,
+      showUnreadOnly,
+    };
+    window.localStorage.setItem(
+      FEEDBACK_INBOX_STORAGE_KEY,
+      JSON.stringify(nextState),
+    );
+  }, [
+    searchQuery,
+    typeFilter,
+    statusFilter,
+    priorityFilter,
+    assignmentFilter,
+    showUnreadOnly,
+  ]);
 
   // Load notes when selected item changes
   useEffect(() => {
@@ -352,56 +522,12 @@ export function FeedbackInbox() {
     };
   }, [selectedItem]);
 
-  // Filtered items
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesType =
-        typeFilter === "all" || item.feedback_type === typeFilter;
-      const matchesStatus =
-        statusFilter === "all" || item.status === statusFilter;
-      const matchesPriority =
-        priorityFilter === "all" ||
-        (item.priority || "medium") === priorityFilter;
-      const matchesRead = !showUnreadOnly || !item.is_read;
-      const matchesSearch =
-        !searchQuery ||
-        item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.source_label || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
-
-      return (
-        matchesType &&
-        matchesStatus &&
-        matchesPriority &&
-        matchesRead &&
-        matchesSearch
-      );
-    });
-  }, [
-    items,
-    typeFilter,
-    statusFilter,
-    priorityFilter,
-    showUnreadOnly,
-    searchQuery,
-  ]);
-
-  // Stats
-  const stats = useMemo(
-    () => ({
-      total: items.length,
-      unread: items.filter((i) => !i.is_read).length,
-      bugs: items.filter((i) => i.feedback_type === "bug").length,
-      suggestions: items.filter((i) => i.feedback_type === "suggestion").length,
-      newCount: items.filter((i) => i.status === "new").length,
-      reviewing: items.filter((i) => i.status === "reviewing").length,
-    }),
-    [items],
+  // Selection helpers
+  const selectedOnPageCount = useMemo(
+    () => items.filter((item) => selectedIds.has(item.id)).length,
+    [items, selectedIds],
   );
 
-  // Selection helpers
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -412,10 +538,22 @@ export function FeedbackInbox() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === filteredItems.length) {
-      setSelectedIds(new Set());
+    if (selectedOnPageCount === items.length && items.length > 0) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const item of items) {
+          next.delete(item.id);
+        }
+        return next;
+      });
     } else {
-      setSelectedIds(new Set(filteredItems.map((i) => i.id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const item of items) {
+          next.add(item.id);
+        }
+        return next;
+      });
     }
   };
 
@@ -432,6 +570,7 @@ export function FeedbackInbox() {
         setSelectedItem((prev) => (prev ? { ...prev, status } : null));
       }
       toast.success(`Status changed to ${statusConfig[status].label}`);
+      void loadFeedback();
     } else {
       toast.error(result.error || "Failed to update status");
     }
@@ -450,6 +589,7 @@ export function FeedbackInbox() {
         setSelectedItem((prev) => (prev ? { ...prev, priority } : null));
       }
       toast.success(`Priority changed to ${priorityConfig[priority].label}`);
+      void loadFeedback();
     } else {
       toast.error(result.error || "Failed to update priority");
     }
@@ -463,6 +603,7 @@ export function FeedbackInbox() {
           item.id === id ? { ...item, is_read: !currentRead } : item,
         ),
       );
+      void loadFeedback();
     }
   };
 
@@ -480,6 +621,7 @@ export function FeedbackInbox() {
       toast.success(
         `${ids.length} items marked as ${isRead ? "read" : "unread"}`,
       );
+      void loadFeedback();
     }
   };
 
@@ -497,7 +639,91 @@ export function FeedbackInbox() {
       toast.success(
         `${ids.length} items moved to ${statusConfig[status].label}`,
       );
+      void loadFeedback();
     }
+  };
+
+  const handleAssignToMe = async (id: string) => {
+    const result = await assignFeedbackToMe(id);
+    if (!result.success) {
+      toast.error(result.error || "Failed to assign");
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              assigned_to: currentUserId,
+              assignee:
+                item.assignee ??
+                (currentUserId
+                  ? {
+                      id: currentUserId,
+                      username: null,
+                      display_name: "You",
+                    }
+                  : null),
+            }
+          : item,
+      ),
+    );
+    if (selectedItem?.id === id) {
+      setSelectedItem((prev) =>
+        prev
+          ? {
+              ...prev,
+              assigned_to: currentUserId,
+            }
+          : null,
+      );
+    }
+
+    toast.success("Assigned to you");
+    void loadFeedback();
+  };
+
+  const handleUnassign = async (id: string) => {
+    const result = await unassignFeedback(id);
+    if (!result.success) {
+      toast.error(result.error || "Failed to unassign");
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              assigned_to: null,
+              assignee: null,
+            }
+          : item,
+      ),
+    );
+    if (selectedItem?.id === id) {
+      setSelectedItem((prev) =>
+        prev
+          ? {
+              ...prev,
+              assigned_to: null,
+              assignee: null,
+            }
+          : null,
+      );
+    }
+
+    toast.success("Unassigned");
+    void loadFeedback();
+  };
+
+  const handleTransitionToReviewing = async (id: string) => {
+    await handleStatusChange(id, "reviewing");
+  };
+
+  const handleTransitionToResolved = async (id: string) => {
+    await handleStatusChange(id, "resolved");
   };
 
   const handleDelete = async () => {
@@ -510,6 +736,7 @@ export function FeedbackInbox() {
       if (selectedItem?.id === deleteTarget.id) setSelectedItem(null);
       setDeleteTarget(null);
       toast.success("Feedback deleted");
+      void loadFeedback();
     } else {
       toast.error(result.error || "Failed to delete");
     }
@@ -531,22 +758,55 @@ export function FeedbackInbox() {
 
   // Navigate between items
   const currentIndex = selectedItem
-    ? filteredItems.findIndex((i) => i.id === selectedItem.id)
+    ? items.findIndex((i) => i.id === selectedItem.id)
     : -1;
 
   const navigateItem = (direction: "prev" | "next") => {
     if (currentIndex === -1) return;
     const nextIndex =
       direction === "next"
-        ? Math.min(currentIndex + 1, filteredItems.length - 1)
+        ? Math.min(currentIndex + 1, items.length - 1)
         : Math.max(currentIndex - 1, 0);
     if (nextIndex !== currentIndex) {
-      setSelectedItem(filteredItems[nextIndex]);
+      setSelectedItem(items[nextIndex]);
     }
   };
 
-  // Check if columns exist (graceful fallback if migration not applied)
-  const hasNewFields = items.length > 0 && "priority" in items[0];
+  useEffect(() => {
+    if (!selectedItem) return;
+
+    const handleDialogKeys = (event: KeyboardEvent) => {
+      if (isTypingElement(event.target)) return;
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        navigateItem("prev");
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        navigateItem("next");
+      }
+
+      if (event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        void handleToggleRead(selectedItem.id, selectedItem.is_read);
+      }
+    };
+
+    document.addEventListener("keydown", handleDialogKeys);
+    return () => document.removeEventListener("keydown", handleDialogKeys);
+  }, [selectedItem, currentIndex, items]);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    const existsOnPage = items.some((item) => item.id === selectedItem.id);
+    if (!existsOnPage) {
+      setSelectedItem(null);
+    }
+  }, [items, selectedItem]);
+
+  const hasNewFields = true;
 
   // No access
   if (!loading && !isAdmin) {
@@ -577,11 +837,16 @@ export function FeedbackInbox() {
         </div>
 
         <div className="flex items-center gap-2">
+          {lastRefreshedAt && (
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              Updated {timeAgo(lastRefreshedAt)}
+            </span>
+          )}
           <Button
             variant="outline"
             size="sm"
             className="cursor-pointer"
-            onClick={() => loadFeedback(true)}
+            onClick={() => loadFeedback()}
             disabled={loading}
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -630,23 +895,17 @@ export function FeedbackInbox() {
         <CardContent className="p-4">
           <div className="flex flex-col gap-3">
             {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search feedback by subject, message, or source..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-              {searchQuery && (
-                <button
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSearchQuery("")}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setPage(1);
+              }}
+              placeholder="Search feedback by subject, message, or source..."
+              className="w-full"
+              debounce={180}
+              shortcutKey="/"
+            />
 
             {/* Filter row */}
             <div className="flex flex-wrap items-center gap-2">
@@ -657,7 +916,10 @@ export function FeedbackInbox() {
 
               <Select
                 value={typeFilter}
-                onValueChange={(v) => setTypeFilter(v as any)}
+                onValueChange={(v) => {
+                  setTypeFilter(v as any);
+                  setPage(1);
+                }}
               >
                 <SelectTrigger className="w-32.5 h-8 text-xs">
                   <SelectValue placeholder="Type" />
@@ -671,7 +933,10 @@ export function FeedbackInbox() {
 
               <Select
                 value={statusFilter}
-                onValueChange={(v) => setStatusFilter(v as any)}
+                onValueChange={(v) => {
+                  setStatusFilter(v as any);
+                  setPage(1);
+                }}
               >
                 <SelectTrigger className="w-35 h-8 text-xs">
                   <SelectValue placeholder="Status" />
@@ -688,7 +953,10 @@ export function FeedbackInbox() {
               {hasNewFields && (
                 <Select
                   value={priorityFilter}
-                  onValueChange={(v) => setPriorityFilter(v as any)}
+                  onValueChange={(v) => {
+                    setPriorityFilter(v as any);
+                    setPage(1);
+                  }}
                 >
                   <SelectTrigger className="w-35 h-8 text-xs">
                     <SelectValue placeholder="Priority" />
@@ -703,11 +971,31 @@ export function FeedbackInbox() {
                 </Select>
               )}
 
+              <Select
+                value={assignmentFilter}
+                onValueChange={(value) => {
+                  setAssignmentFilter(value as "all" | "mine" | "unassigned");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-40 h-8 text-xs">
+                  <SelectValue placeholder="Assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All assignees</SelectItem>
+                  <SelectItem value="mine">Assigned to me</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Button
                 variant={showUnreadOnly ? "secondary" : "ghost"}
                 size="sm"
                 className="h-8 text-xs cursor-pointer"
-                onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+                onClick={() => {
+                  setShowUnreadOnly(!showUnreadOnly);
+                  setPage(1);
+                }}
               >
                 <EyeOff className="h-3.5 w-3.5 mr-1" />
                 Unread only
@@ -716,6 +1004,7 @@ export function FeedbackInbox() {
               {(typeFilter !== "all" ||
                 statusFilter !== "all" ||
                 priorityFilter !== "all" ||
+                assignmentFilter !== "all" ||
                 showUnreadOnly ||
                 searchQuery) && (
                 <Button
@@ -726,13 +1015,57 @@ export function FeedbackInbox() {
                     setTypeFilter("all");
                     setStatusFilter("all");
                     setPriorityFilter("all");
+                    setAssignmentFilter("all");
                     setShowUnreadOnly(false);
                     setSearchQuery("");
+                    setPage(1);
                   }}
                 >
                   Clear all
                 </Button>
               )}
+
+              <Select
+                value={sortBy}
+                onValueChange={(value) => {
+                  setSortBy(
+                    value as
+                      | "created_at"
+                      | "priority"
+                      | "status"
+                      | "feedback_type"
+                      | "is_read",
+                  );
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-38 h-8 text-xs">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Sort: Date</SelectItem>
+                  <SelectItem value="priority">Sort: Priority</SelectItem>
+                  <SelectItem value="status">Sort: Status</SelectItem>
+                  <SelectItem value="feedback_type">Sort: Type</SelectItem>
+                  <SelectItem value="is_read">Sort: Read</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={sortDirection}
+                onValueChange={(value) => {
+                  setSortDirection(value as "asc" | "desc");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-34 h-8 text-xs">
+                  <SelectValue placeholder="Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Order: Desc</SelectItem>
+                  <SelectItem value="asc">Order: Asc</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -803,12 +1136,12 @@ export function FeedbackInbox() {
             </Card>
           ))}
         </div>
-      ) : filteredItems.length > 0 ? (
+      ) : items.length > 0 ? (
         <div className="space-y-2">
           {/* List header */}
           <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
             <span>
-              {filteredItems.length} result{filteredItems.length !== 1 && "s"}
+              {total} result{total !== 1 && "s"} · Page {page} / {totalPages}
             </span>
             <Button
               variant="ghost"
@@ -816,14 +1149,14 @@ export function FeedbackInbox() {
               className="h-6 text-xs cursor-pointer"
               onClick={toggleSelectAll}
             >
-              {selectedIds.size === filteredItems.length
+              {selectedOnPageCount === items.length && items.length > 0
                 ? "Deselect all"
                 : "Select all"}
             </Button>
           </div>
 
           {/* Items */}
-          {filteredItems.map((item) => {
+          {items.map((item) => {
             const isSelected = selectedIds.has(item.id);
             const isCurrentlyViewing = selectedItem?.id === item.id;
             const statusConf = statusConfig[item.status];
@@ -930,6 +1263,20 @@ export function FeedbackInbox() {
                           </span>
                         )}
 
+                        {item.assigned_to && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0"
+                          >
+                            <UserRound className="mr-0.5 h-2.5 w-2.5" />
+                            {item.assignee?.display_name ||
+                              item.assignee?.username ||
+                              (item.assigned_to === currentUserId
+                                ? "You"
+                                : "Assigned")}
+                          </Badge>
+                        )}
+
                         {/* Unread dot */}
                         {!item.is_read && (
                           <span className="flex h-1.5 w-1.5 rounded-full bg-primary" />
@@ -1019,6 +1366,28 @@ export function FeedbackInbox() {
 
                         <DropdownMenuSeparator />
 
+                        {!item.assigned_to ? (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleAssignToMe(item.id);
+                            }}
+                          >
+                            <UserRound className="h-4 w-4 mr-2" /> Assign to me
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleUnassign(item.id);
+                            }}
+                          >
+                            <UserRound className="h-4 w-4 mr-2" /> Unassign
+                          </DropdownMenuItem>
+                        )}
+
+                        <DropdownMenuSeparator />
+
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
                           onClick={(e) => {
@@ -1035,6 +1404,34 @@ export function FeedbackInbox() {
               </Card>
             );
           })}
+
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <span className="text-xs text-muted-foreground">
+              Showing {items.length} of {total}
+            </span>
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 cursor-pointer"
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                disabled={page <= 1 || loading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 cursor-pointer"
+                onClick={() =>
+                  setPage((prev) => Math.min(totalPages, prev + 1))
+                }
+                disabled={page >= totalPages || loading}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       ) : (
         <Card>
@@ -1073,13 +1470,13 @@ export function FeedbackInbox() {
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <span className="text-xs text-muted-foreground">
-                    {currentIndex + 1} of {filteredItems.length}
+                    {currentIndex + 1} of {items.length}
                   </span>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 cursor-pointer"
-                    disabled={currentIndex >= filteredItems.length - 1}
+                    disabled={currentIndex >= items.length - 1}
                     onClick={() => navigateItem("next")}
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -1176,6 +1573,54 @@ export function FeedbackInbox() {
 
                   {/* Quick actions */}
                   <div className="flex flex-wrap gap-2">
+                    {selectedItem.status === "new" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs cursor-pointer"
+                        onClick={() =>
+                          void handleTransitionToReviewing(selectedItem.id)
+                        }
+                      >
+                        <Eye className="mr-1.5 h-3.5 w-3.5" /> Start review
+                      </Button>
+                    )}
+
+                    {selectedItem.status === "reviewing" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs cursor-pointer"
+                        onClick={() =>
+                          void handleTransitionToResolved(selectedItem.id)
+                        }
+                      >
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" /> Mark
+                        resolved
+                      </Button>
+                    )}
+
+                    {!selectedItem.assigned_to ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs cursor-pointer"
+                        onClick={() => void handleAssignToMe(selectedItem.id)}
+                      >
+                        <UserRound className="mr-1.5 h-3.5 w-3.5" /> Assign to
+                        me
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs cursor-pointer"
+                        onClick={() => void handleUnassign(selectedItem.id)}
+                      >
+                        <UserRound className="mr-1.5 h-3.5 w-3.5" /> Unassign
+                      </Button>
+                    )}
+
                     <Select
                       value={selectedItem.status}
                       onValueChange={(v) =>
@@ -1276,6 +1721,20 @@ export function FeedbackInbox() {
                             <p className="break-all">{selectedItem.contact}</p>
                           </div>
                         )}
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                            Assigned to
+                          </p>
+                          <p>
+                            {selectedItem.assignee?.display_name ||
+                              selectedItem.assignee?.username ||
+                              (selectedItem.assigned_to
+                                ? selectedItem.assigned_to === currentUserId
+                                  ? "You"
+                                  : "Assigned"
+                                : "Unassigned")}
+                          </p>
+                        </div>
                       </CardContent>
                     </Card>
                   </div>

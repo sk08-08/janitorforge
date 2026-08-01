@@ -197,6 +197,68 @@ import {
   getFormBannerPublicUrl,
 } from "@/lib/form-assets";
 
+function parseHexColor(hex: string) {
+  const raw = String(hex || "")
+    .trim()
+    .replace(/^#/, "");
+  const normalized =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((ch) => ch + ch)
+          .join("")
+      : raw;
+
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) return null;
+
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function toRelativeLuminance(channel: number) {
+  const normalized = channel / 255;
+  return normalized <= 0.03928
+    ? normalized / 12.92
+    : Math.pow((normalized + 0.055) / 1.055, 2.4);
+}
+
+function getContrastRatio(hexA: string, hexB: string) {
+  const colorA = parseHexColor(hexA);
+  const colorB = parseHexColor(hexB);
+  if (!colorA || !colorB) return 0;
+
+  const lumA =
+    0.2126 * toRelativeLuminance(colorA.r) +
+    0.7152 * toRelativeLuminance(colorA.g) +
+    0.0722 * toRelativeLuminance(colorA.b);
+  const lumB =
+    0.2126 * toRelativeLuminance(colorB.r) +
+    0.7152 * toRelativeLuminance(colorB.g) +
+    0.0722 * toRelativeLuminance(colorB.b);
+
+  const lighter = Math.max(lumA, lumB);
+  const darker = Math.min(lumA, lumB);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function resolveReadableTextColor(hexColor: string, isDarkMode: boolean) {
+  const safeHex = String(hexColor || "").trim();
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(safeHex)) {
+    return undefined;
+  }
+
+  // Approximate form surface background by theme mode.
+  const backgroundHex = isDarkMode ? "#0f1115" : "#ffffff";
+  const minContrast = 3.6;
+
+  return getContrastRatio(safeHex, backgroundHex) >= minContrast
+    ? safeHex
+    : undefined;
+}
+
 interface PublicFormProps {
   form: {
     id: string;
@@ -509,12 +571,15 @@ function SectionRenderer({
   errors,
   onChange,
   appearance,
+  isDarkMode,
 }: any) {
   const sectionTextColor = String(section?.custom?.textColor || "").trim();
-  const sectionTextStyle = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(
+  const safeSectionTextColor = resolveReadableTextColor(
     sectionTextColor,
-  )
-    ? { color: sectionTextColor }
+    isDarkMode,
+  );
+  const sectionTextStyle = safeSectionTextColor
+    ? { color: safeSectionTextColor }
     : undefined;
   const sectionImageUrl = getFormAssetPublicUrl(
     section?.custom?.imageAssetPath,
@@ -774,6 +839,7 @@ function SectionRenderer({
 export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
   const appearance = getFormAppearanceClasses(form.appearance || null);
   const isEditorial = appearance.resolved.preset === "editorial";
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [values, setValues] = useState<Record<string, string | string[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -784,13 +850,19 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
   const formDescriptionColor = String(
     (form as any)?.appearance?.descriptionColor || "",
   ).trim();
-  const formTitleStyle = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(formTitleColor)
-    ? { color: formTitleColor }
-    : undefined;
-  const formDescriptionStyle = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(
+  const safeFormTitleColor = resolveReadableTextColor(
+    formTitleColor,
+    isDarkMode,
+  );
+  const safeFormDescriptionColor = resolveReadableTextColor(
     formDescriptionColor,
-  )
-    ? { color: formDescriptionColor }
+    isDarkMode,
+  );
+  const formTitleStyle = safeFormTitleColor
+    ? { color: safeFormTitleColor }
+    : undefined;
+  const formDescriptionStyle = safeFormDescriptionColor
+    ? { color: safeFormDescriptionColor }
     : undefined;
   const uploadedBannerUrl = getFormBannerPublicUrl(form.bannerAssetPath);
   const externalBannerUrl = String(form.bannerUrl || "").trim();
@@ -798,6 +870,24 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
     ? externalBannerUrl
     : "";
   const resolvedBannerUrl = uploadedBannerUrl || safeExternalBannerUrl;
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const root = document.documentElement;
+    const syncThemeMode = () => {
+      setIsDarkMode(root.classList.contains("dark"));
+    };
+
+    syncThemeMode();
+    const observer = new MutationObserver(syncThemeMode);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleChange = (
     fieldId: string,
@@ -1077,6 +1167,7 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                     values={values}
                     errors={errors}
                     appearance={appearance}
+                    isDarkMode={isDarkMode}
                     onChange={(id: string, label: string, v: any) =>
                       handleChange(id, label, v)
                     }
@@ -1142,14 +1233,15 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
             </Card>
           </div>
 
-          <p
-            className={cn(
-              "mt-8 text-center text-xs text-muted-foreground",
-              isEditorial && "md:col-span-2",
-            )}
-          >
-            Powered by JanitorForge
-          </p>
+          <div className="mt-8 pt-8 border-t text-center text-xs text-muted-foreground">
+            <p>
+              Powered by{" "}
+              <Link href="/" className="hover:underline text-primary">
+                JanitorForge
+              </Link>{" "}
+              — Bot Creator Toolkit
+            </p>
+          </div>
         </div>
       </div>
     </ScrollArea>

@@ -7,6 +7,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
+  Award,
   BarChart3,
   FileText,
   Inbox,
@@ -78,11 +79,12 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SearchInput } from "@/components/ui/search-input";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { renderMarkdown, renderMarkdownInline } from "@/lib/markdown";
 import { formatDateTime } from "@/lib/utils";
-import ModerationPageContent from "@/app/dashboard/moderation/content";
+import { ModerationAdminTab } from "@/components/admin/moderation-admin-tab";
 import {
   getAdminStats,
   getRecentActivity,
@@ -106,6 +108,7 @@ import {
   hardDeleteForm,
   hardDeleteBot,
 } from "@/app/actions/admin";
+import { BadgeAdminTab } from "./badge-admin-tab";
 import { toast } from "sonner";
 
 // ============================================================================
@@ -117,8 +120,24 @@ type AdminTab =
   | "submissions"
   | "forms"
   | "bots"
+  | "badges"
   | "users"
   | "moderation";
+
+const ADMIN_TAB_STORAGE_KEY = "janitorforge.admin.activeTab";
+const ADMIN_TAB_IDS: AdminTab[] = [
+  "overview",
+  "submissions",
+  "forms",
+  "bots",
+  "badges",
+  "users",
+  "moderation",
+];
+
+function isAdminTab(value: string): value is AdminTab {
+  return ADMIN_TAB_IDS.includes(value as AdminTab);
+}
 
 // ============================================================================
 // Pagination helper
@@ -504,7 +523,10 @@ function SubmissionsTab({
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
   const [userFilter, setUserFilter] = useState("");
-  const [searchInput, setSearchInput] = useState("");
+  const [sortBy, setSortBy] = useState<
+    "created_at" | "status" | "submitter_name"
+  >("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -517,13 +539,15 @@ function SubmissionsTab({
       LIMIT,
       statusFilter,
       userFilter,
+      sortBy,
+      sortDirection,
     );
     if (result.success) {
       setItems(result.items);
       setTotal(result.total);
     }
     setLoading(false);
-  }, [page, statusFilter, userFilter]);
+  }, [page, statusFilter, userFilter, sortBy, sortDirection]);
 
   useEffect(() => {
     load();
@@ -547,11 +571,6 @@ function SubmissionsTab({
     handleOpenDetail(openId);
     onClearOpenId?.();
   }, [openId]);
-
-  const handleSearch = () => {
-    setUserFilter(searchInput);
-    setPage(1);
-  };
 
   const statusBadgeVariant = (status: string) => {
     switch (status) {
@@ -589,23 +608,48 @@ function SubmissionsTab({
             <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex gap-1">
-          <Input
-            placeholder="Filter by username…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="w-48"
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleSearch}
-            className="cursor-pointer"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
+        <SearchInput
+          value={userFilter}
+          onChange={(value) => {
+            setUserFilter(value.trim());
+            setPage(1);
+          }}
+          placeholder="Filter by username..."
+          className="w-full sm:max-w-xs"
+          debounce={220}
+          shortcutKey="/"
+        />
+        <Select
+          value={sortBy}
+          onValueChange={(value) => {
+            setSortBy(value as "created_at" | "status" | "submitter_name");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="created_at">Sort: Date</SelectItem>
+            <SelectItem value="status">Sort: Status</SelectItem>
+            <SelectItem value="submitter_name">Sort: Submitter</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={sortDirection}
+          onValueChange={(value) => {
+            setSortDirection(value as "asc" | "desc");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Order" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Most recent / Z-A</SelectItem>
+            <SelectItem value="asc">Oldest / A-Z</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           variant="outline"
           size="icon"
@@ -943,8 +987,11 @@ function FormsTab() {
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
   const [userFilter, setUserFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"created_at" | "title" | "is_active">(
+    "created_at",
+  );
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -952,22 +999,23 @@ function FormsTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const result = await getAllForms(page, LIMIT, userFilter);
+    const result = await getAllForms(
+      page,
+      LIMIT,
+      userFilter,
+      sortBy,
+      sortDirection,
+    );
     if (result.success) {
       setItems(result.items);
       setTotal(result.total);
     }
     setLoading(false);
-  }, [page, userFilter]);
+  }, [page, userFilter, sortBy, sortDirection]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  const handleSearch = () => {
-    setUserFilter(searchInput);
-    setPage(1);
-  };
 
   const handleOpenDetail = async (id: string) => {
     setSelectedItem({ id, _loading: true });
@@ -985,23 +1033,48 @@ function FormsTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <div className="flex gap-1">
-          <Input
-            placeholder="Filter by username…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="w-48"
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleSearch}
-            className="cursor-pointer"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
+        <SearchInput
+          value={userFilter}
+          onChange={(value) => {
+            setUserFilter(value.trim());
+            setPage(1);
+          }}
+          placeholder="Filter by username..."
+          className="w-full sm:max-w-xs"
+          debounce={220}
+          shortcutKey="/"
+        />
+        <Select
+          value={sortBy}
+          onValueChange={(value) => {
+            setSortBy(value as "created_at" | "title" | "is_active");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="created_at">Sort: Date</SelectItem>
+            <SelectItem value="title">Sort: Title</SelectItem>
+            <SelectItem value="is_active">Sort: Active</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={sortDirection}
+          onValueChange={(value) => {
+            setSortDirection(value as "asc" | "desc");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Order" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Most recent / Z-A</SelectItem>
+            <SelectItem value="asc">Oldest / A-Z</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           variant="outline"
           size="icon"
@@ -1352,9 +1425,12 @@ function BotsTab() {
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
   const [userFilter, setUserFilter] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"created_at" | "name" | "rating">(
+    "created_at",
+  );
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -1362,22 +1438,24 @@ function BotsTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const result = await getAllBots(page, LIMIT, userFilter, ratingFilter);
+    const result = await getAllBots(
+      page,
+      LIMIT,
+      userFilter,
+      ratingFilter,
+      sortBy,
+      sortDirection,
+    );
     if (result.success) {
       setItems(result.items);
       setTotal(result.total);
     }
     setLoading(false);
-  }, [page, userFilter, ratingFilter]);
+  }, [page, userFilter, ratingFilter, sortBy, sortDirection]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  const handleSearch = () => {
-    setUserFilter(searchInput);
-    setPage(1);
-  };
 
   const handleOpenDetail = async (id: string) => {
     setSelectedItem({ id, _loading: true });
@@ -1411,23 +1489,48 @@ function BotsTab() {
             <SelectItem value="NSFW">NSFW</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex gap-1">
-          <Input
-            placeholder="Filter by username…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="w-48"
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleSearch}
-            className="cursor-pointer"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
+        <SearchInput
+          value={userFilter}
+          onChange={(value) => {
+            setUserFilter(value.trim());
+            setPage(1);
+          }}
+          placeholder="Filter by username..."
+          className="w-full sm:max-w-xs"
+          debounce={220}
+          shortcutKey="/"
+        />
+        <Select
+          value={sortBy}
+          onValueChange={(value) => {
+            setSortBy(value as "created_at" | "name" | "rating");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="created_at">Sort: Date</SelectItem>
+            <SelectItem value="name">Sort: Bot Name</SelectItem>
+            <SelectItem value="rating">Sort: Rating</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={sortDirection}
+          onValueChange={(value) => {
+            setSortDirection(value as "asc" | "desc");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Order" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Most recent / Z-A</SelectItem>
+            <SelectItem value="asc">Oldest / A-Z</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           variant="outline"
           size="icon"
@@ -1797,14 +1900,18 @@ interface UserItem {
   is_admin: boolean;
   is_blocked: boolean;
   created_at: string;
+  updated_at: string | null;
 }
 
 function UsersTab() {
   const [items, setItems] = useState<UserItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<
+    "created_at" | "updated_at" | "username" | "display_name"
+  >("created_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: "admin" | "block" | "reset-name" | "clear-avatar" | "delete";
@@ -1816,22 +1923,23 @@ function UsersTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const result = await getAdminUsers(page, LIMIT, search);
+    const result = await getAdminUsers(
+      page,
+      LIMIT,
+      search,
+      sortBy,
+      sortDirection,
+    );
     if (result.success) {
       setItems(result.items as UserItem[]);
       setTotal(result.total);
     }
     setLoading(false);
-  }, [page, search]);
+  }, [page, search, sortBy, sortDirection]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  const handleSearch = () => {
-    setSearch(searchInput);
-    setPage(1);
-  };
 
   const confirmAction = async () => {
     if (!pendingAction) return;
@@ -1930,23 +2038,55 @@ function UsersTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <div className="flex gap-1">
-          <Input
-            placeholder="Search by username or name…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            className="w-56"
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleSearch}
-            className="cursor-pointer"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(value) => {
+            setSearch(value.trim());
+            setPage(1);
+          }}
+          placeholder="Search by username or name..."
+          className="w-full sm:max-w-sm"
+          debounce={220}
+          shortcutKey="/"
+        />
+        <Select
+          value={sortBy}
+          onValueChange={(value) => {
+            setSortBy(
+              value as
+                | "created_at"
+                | "updated_at"
+                | "username"
+                | "display_name",
+            );
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="created_at">Sort: Joined</SelectItem>
+            <SelectItem value="updated_at">Sort: Profile Updated</SelectItem>
+            <SelectItem value="username">Sort: Username</SelectItem>
+            <SelectItem value="display_name">Sort: Display Name</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={sortDirection}
+          onValueChange={(value) => {
+            setSortDirection(value as "asc" | "desc");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Order" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Most recent / Z-A</SelectItem>
+            <SelectItem value="asc">Oldest / A-Z</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           variant="outline"
           size="icon"
@@ -1967,6 +2107,7 @@ function UsersTab() {
               <TableHead>User</TableHead>
               <TableHead>Roles</TableHead>
               <TableHead>Joined</TableHead>
+              <TableHead>Profile Updated</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -1974,7 +2115,7 @@ function UsersTab() {
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="text-center py-8 text-muted-foreground"
                 >
                   Loading…
@@ -1983,7 +2124,7 @@ function UsersTab() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="text-center py-8 text-muted-foreground"
                 >
                   No users found.
@@ -2040,6 +2181,9 @@ function UsersTab() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                     {formatDateTime(user.created_at)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                    {user.updated_at ? formatDateTime(user.updated_at) : "-"}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -2197,7 +2341,16 @@ function UsersTab() {
 
 export function AdminPanel() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    if (typeof window === "undefined") return "overview";
+
+    const savedTab = window.localStorage.getItem(ADMIN_TAB_STORAGE_KEY);
+    if (savedTab && isAdminTab(savedTab)) {
+      return savedTab;
+    }
+
+    return "overview";
+  });
   const [openSubmissionId, setOpenSubmissionId] = useState<string | null>(null);
 
   const handleNavigateToSubmission = (id: string) => {
@@ -2212,6 +2365,12 @@ export function AdminPanel() {
       setIsAdmin(admin);
     })();
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ADMIN_TAB_STORAGE_KEY, activeTab);
+    }
+  }, [activeTab]);
 
   if (isAdmin === null) {
     return (
@@ -2269,6 +2428,13 @@ export function AdminPanel() {
       icon: Bot,
       color: "text-green-500",
       style: "border-green-500 text-green-500",
+    },
+    {
+      id: "badges",
+      label: "Badges",
+      icon: Award,
+      color: "text-amber-500",
+      style: "border-amber-500 text-amber-500",
     },
     {
       id: "users",
@@ -2333,8 +2499,9 @@ export function AdminPanel() {
       )}
       {activeTab === "forms" && <FormsTab />}
       {activeTab === "bots" && <BotsTab />}
+      {activeTab === "badges" && <BadgeAdminTab />}
       {activeTab === "users" && <UsersTab />}
-      {activeTab === "moderation" && <ModerationPageContent adminView />}
+      {activeTab === "moderation" && <ModerationAdminTab />}
     </div>
   );
 }

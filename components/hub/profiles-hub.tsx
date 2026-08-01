@@ -2,27 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import {
   ArrowRight,
   Calendar,
   Globe,
   Loader2,
   MapPin,
-  Search,
-  Shield,
   Sparkles,
   SlidersHorizontal,
   Star,
-  Users,
   BadgeCheck,
 } from "lucide-react";
 
@@ -82,6 +78,7 @@ const PROFILES_CACHE_TTL_MS = 15_000;
 const profilesHubCache = new Map<string, ProfilesCacheEntry>();
 
 export function ProfilesHub() {
+  const router = useRouter();
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -91,11 +88,15 @@ export function ProfilesHub() {
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("discover");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [hasScrolledPastIntro, setHasScrolledPastIntro] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
 
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const heroCardRef = useRef<HTMLDivElement | null>(null);
   const profilesLengthRef = useRef(0);
   const requestIdRef = useRef(0);
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     profilesLengthRef.current = profiles.length;
@@ -252,6 +253,56 @@ export function ProfilesHub() {
     void loadProfiles(true);
   }, [authResolved, loadProfiles]);
 
+  useEffect(() => {
+    const root = rootRef.current;
+    const scrollContainer =
+      root?.closest("main") instanceof HTMLElement
+        ? root.closest("main")
+        : null;
+    scrollContainerRef.current = scrollContainer;
+
+    const handleScroll = () => {
+      const scrollTop = scrollContainerRef.current?.scrollTop ?? window.scrollY;
+      const heroHeight = heroCardRef.current?.offsetHeight ?? 0;
+      const switchThreshold = Math.max(480, heroHeight - 80);
+      setHasScrolledPastIntro(scrollTop > switchThreshold);
+    };
+
+    handleScroll();
+    const target: HTMLElement | Window = scrollContainer || window;
+    target.addEventListener("scroll", handleScroll, {
+      passive: true,
+    } as AddEventListenerOptions);
+    return () => {
+      target.removeEventListener("scroll", handleScroll as EventListener);
+    };
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  const applySortMode = useCallback(
+    (value: SortMode) => {
+      setSortMode(value);
+      scrollToTop();
+    },
+    [scrollToTop],
+  );
+
+  const applyFilterMode = useCallback(
+    (value: FilterMode) => {
+      setFilterMode(value);
+      scrollToTop();
+    },
+    [scrollToTop],
+  );
+
   const visibleCount = profiles.length;
   const featuredProfiles = useMemo(() => profiles.slice(0, 3), [profiles]);
 
@@ -261,9 +312,12 @@ export function ProfilesHub() {
   };
 
   return (
-    <div className="min-h-full p-4 sm:p-6 md:p-8">
+    <div ref={rootRef} className="min-h-full p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-8">
-        <Card className="relative isolate overflow-hidden border-border/70 bg-card/95 shadow-lg">
+        <Card
+          ref={heroCardRef}
+          className="relative isolate overflow-hidden border-border/70 bg-card/95 shadow-lg"
+        >
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(124,58,237,0.18),transparent_42%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.12),transparent_34%),linear-gradient(to_br,rgba(255,255,255,0.02),transparent_40%)]" />
           <CardContent className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
             <div className="space-y-4">
@@ -348,15 +402,14 @@ export function ProfilesHub() {
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Search</label>
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Search by username or display name"
-                        className="h-11 pl-9"
-                      />
-                    </div>
+                    <SearchInput
+                      value={search}
+                      onChange={setSearch}
+                      placeholder="Search by username or display name"
+                      className="w-full"
+                      debounce={250}
+                      shortcutKey="/"
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -376,7 +429,7 @@ export function ProfilesHub() {
                           variant={sortMode === value ? "default" : "outline"}
                           data-state={sortMode === value ? "on" : "off"}
                           className="justify-center rounded-full data-[state=off]:cursor-pointer data-[state=on]:cursor-default"
-                          onClick={() => setSortMode(value)}
+                          onClick={() => applySortMode(value)}
                         >
                           {label}
                         </Button>
@@ -401,7 +454,7 @@ export function ProfilesHub() {
                       data-state={filterMode === value ? "on" : "off"}
                       size="sm"
                       className="rounded-full data-[state=off]:cursor-pointer data-[state=on]:cursor-default"
-                      onClick={() => setFilterMode(value)}
+                      onClick={() => applyFilterMode(value)}
                     >
                       {label}
                     </Button>
@@ -453,9 +506,13 @@ export function ProfilesHub() {
                       <Link
                         key={profile.id}
                         href={`/profile/${handle}`}
-                        className="group block"
+                        className="group block touch-manipulation"
+                        onClick={(event) => {
+                          if (event.defaultPrevented) return;
+                          router.push(`/profile/${handle}`);
+                        }}
                       >
-                        <Card className="h-full overflow-hidden border-border/70 bg-card/95 transition-all group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md">
+                        <Card className="h-full cursor-pointer overflow-hidden border-border/70 bg-card/95 transition-all group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md">
                           <CardContent className="space-y-5 p-5">
                             <div className="relative rounded-3xl border border-border/70 bg-linear-to-br from-primary/8 via-background to-emerald-500/5 p-4 sm:p-5">
                               <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.10),transparent_38%)]" />
@@ -598,28 +655,89 @@ export function ProfilesHub() {
                 <div className="flex items-center gap-2">
                   <BadgeCheck className="h-4 w-4 text-primary" />
                   <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Ways to explore
+                    {hasScrolledPastIntro ? "Quick filters" : "Ways to explore"}
                   </h2>
                 </div>
-                <div className="space-y-3">
-                  {discoveryTracks.map((track) => {
-                    const Icon = track.icon;
-                    return (
-                      <div
-                        key={track.title}
-                        className="rounded-2xl border border-border/70 bg-background/60 p-4 transition-transform hover:-translate-y-0.5"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-primary" />
-                          <p className="font-medium">{track.title}</p>
-                        </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {track.description}
-                        </p>
+                {hasScrolledPastIntro ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                        Filter profiles
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {(
+                          [
+                            ["all", "All profiles"],
+                            ["avatar", "With avatar"],
+                            ["bio", "With bio"],
+                            ["complete", "Most complete"],
+                          ] as Array<[FilterMode, string]>
+                        ).map(([value, label]) => (
+                          <Button
+                            key={value}
+                            type="button"
+                            size="sm"
+                            variant={
+                              filterMode === value ? "secondary" : "ghost"
+                            }
+                            data-state={filterMode === value ? "on" : "off"}
+                            className="rounded-full data-[state=off]:cursor-pointer data-[state=on]:cursor-default"
+                            onClick={() => applyFilterMode(value)}
+                          >
+                            {label}
+                          </Button>
+                        ))}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                        Sort results
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(
+                          [
+                            ["discover", "Discover"],
+                            ["top", "Top"],
+                            ["new", "Newest"],
+                            ["alpha", "A-Z"],
+                          ] as Array<[SortMode, string]>
+                        ).map(([value, label]) => (
+                          <Button
+                            key={value}
+                            type="button"
+                            size="sm"
+                            data-state={sortMode === value ? "on" : "off"}
+                            className="justify-center rounded-full data-[state=off]:cursor-pointer data-[state=on]:cursor-default"
+                            variant={sortMode === value ? "default" : "outline"}
+                            onClick={() => applySortMode(value)}
+                          >
+                            {label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {discoveryTracks.map((track) => {
+                      const Icon = track.icon;
+                      return (
+                        <div
+                          key={track.title}
+                          className="rounded-2xl border border-border/70 bg-background/60 p-4 transition-transform hover:-translate-y-0.5"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-primary" />
+                            <p className="font-medium">{track.title}</p>
+                          </div>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {track.description}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

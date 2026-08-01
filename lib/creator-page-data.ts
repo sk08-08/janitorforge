@@ -13,6 +13,8 @@ import type {
   WorldPreview,
   CreatorPageConfig,
 } from "./types";
+import { loadProfileBadges } from "./profile-badges";
+import type { ProfileBadgeRecord } from "./profile-badges";
 
 export interface CreatorPageLoadResult {
   creatorPage: {
@@ -43,7 +45,7 @@ export interface CreatorPageLoadResult {
     status_message: string | null;
     social_links: unknown;
     visibility: string | null;
-    profile_badges: unknown;
+    profile_badges: ProfileBadgeRecord[];
     profile_completeness: number | null;
   } | null;
   sections: CreatorPageSection[];
@@ -76,7 +78,7 @@ export async function fetchCreatorPageData(
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, profile_badges, profile_completeness",
+      "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, profile_completeness",
     )
     .eq("id", creatorPage.user_id)
     .maybeSingle();
@@ -87,6 +89,13 @@ export async function fetchCreatorPageData(
     const { data: authData } = await supabase.auth.getUser();
     if (!authData.user) return null;
   }
+
+  const normalizedProfile = profile
+    ? {
+        ...profile,
+        profile_badges: await loadProfileBadges(supabase, profile.id),
+      }
+    : null;
 
   // Fetch sections, bots, all pages, and worlds in parallel
   const [
@@ -125,7 +134,7 @@ export async function fetchCreatorPageData(
 
   return {
     creatorPage,
-    profile,
+    profile: normalizedProfile,
     sections: ((sections || []) as CreatorPageSection[]).map((s) => ({
       id: s.id,
       page_id: s.page_id,

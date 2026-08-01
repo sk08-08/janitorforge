@@ -44,10 +44,10 @@ export function CustomColorPicker({
           <Button
             type="button"
             variant="outline"
-            className="h-10 w-full justify-start gap-3 px-3 cursor-pointer"
+            className="h-10 w-full justify-start gap-3 border-border/80 bg-card/85 px-3 shadow-sm transition-colors hover:bg-muted/55 cursor-pointer"
           >
             <span
-              className="h-5 w-5 rounded-full border shadow-sm"
+              className="h-5 w-5 rounded-full border border-foreground/15 shadow-sm ring-1 ring-black/5"
               style={{ backgroundColor: normalized }}
             />
             <span className="flex flex-1 flex-col items-start text-left">
@@ -58,7 +58,10 @@ export function CustomColorPicker({
             </span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-80 p-4" align="start">
+        <PopoverContent
+          className="w-80 border-border/80 bg-popover p-4 shadow-xl"
+          align="start"
+        >
           <div className="space-y-3">
             <div>
               <p className="text-sm font-medium">Suggested colors</p>
@@ -77,9 +80,9 @@ export function CustomColorPicker({
                       : "off"
                   }
                   className={cn(
-                    "group flex flex-col items-center gap-1 rounded-xl border p-2 transition-all hover:-translate-y-0.5 hover:border-primary/40",
+                    "group flex flex-col items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-2 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-muted/40",
                     normalized.toLowerCase() === preset.value.toLowerCase() &&
-                      "border-primary bg-primary/5",
+                      "border-primary/70 bg-primary/10 shadow-sm",
                   )}
                   onClick={() => onChange(preset.value)}
                 >

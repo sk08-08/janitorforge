@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { PublicProfile } from "@/components/profile/public-profile";
+import { loadProfileBadges } from "@/lib/profile-badges";
 
 interface PageProps {
   params: Promise<{ username: string }>;
@@ -35,7 +36,7 @@ export async function generateMetadata({
     `Profile of ${title} on JanitorForge`;
 
   return {
-    title: `${title} — JanitorForge`,
+    title: `@${title}`,
     description: description.slice(0, 160),
     openGraph: {
       title,
@@ -55,7 +56,7 @@ export default async function UserProfilePage({ params }: PageProps) {
     .from("profiles")
     .select(
       `
-      id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, profile_badges, profile_completeness,
+      id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, profile_completeness,
       active_profile_featured_bots (
         sort_order,
         bot:active_bots (*)
@@ -69,12 +70,17 @@ export default async function UserProfilePage({ params }: PageProps) {
     notFound();
   }
 
+  const normalizedProfile = {
+    ...profile,
+    profile_badges: await loadProfileBadges(supabase, profile.id),
+  };
+
   // Check visibility
   if (profile.visibility === "private") {
     notFound();
   }
 
-  if (profile.visibility === "followers") {
+  if (normalizedProfile.visibility === "followers") {
     const { data: authData } = await supabase.auth.getUser();
     if (!authData.user) {
       notFound();
@@ -83,7 +89,7 @@ export default async function UserProfilePage({ params }: PageProps) {
 
   // Check if viewing own profile — redirect to dashboard
   const { data: authData } = await supabase.auth.getUser();
-  if (authData.user && authData.user.id === profile.id) {
+  if (authData.user && authData.user.id === normalizedProfile.id) {
     redirect("/");
   }
 
@@ -91,7 +97,7 @@ export default async function UserProfilePage({ params }: PageProps) {
   const { data: pages } = await supabase
     .from("active_creator_pages")
     .select("*")
-    .eq("user_id", profile.id)
+    .eq("user_id", normalizedProfile.id)
     .eq("is_published", true)
     .order("updated_at", { ascending: false });
 
@@ -101,14 +107,14 @@ export default async function UserProfilePage({ params }: PageProps) {
     .select(
       "id, name, short_description, tags, rating, image_url, created_at, hide_sensitive_fields, personality, first_message, scenario, example_dialogues",
     )
-    .eq("user_id", profile.id)
+    .eq("user_id", normalizedProfile.id)
     .order("updated_at", { ascending: false });
 
   // Fetch worlds (same strategy as own profile: worlds + links in separate queries)
   const { data: worldRows } = await supabase
     .from("active_atlas_worlds")
     .select("id, title, slug, kind, status, description")
-    .eq("user_id", profile.id)
+    .eq("user_id", normalizedProfile.id)
     .order("updated_at", { ascending: false });
 
   const worldIds = (worldRows || []).map((world: any) => world.id);
@@ -137,7 +143,7 @@ export default async function UserProfilePage({ params }: PageProps) {
 
   // Fetch public forms for this profile
   const { data: forms } = await supabase.rpc("get_public_profile_forms", {
-    p_user_id: profile.id,
+    p_user_id: normalizedProfile.id,
   });
 
   // Fetch follow counts
@@ -145,18 +151,18 @@ export default async function UserProfilePage({ params }: PageProps) {
     supabase
       .from("profile_follows")
       .select("*", { count: "exact", head: true })
-      .eq("following_id", profile.id),
+      .eq("following_id", normalizedProfile.id),
     supabase
       .from("profile_follows")
       .select("*", { count: "exact", head: true })
-      .eq("follower_id", profile.id),
+      .eq("follower_id", normalizedProfile.id),
   ]);
 
   return (
     <PublicProfile
       profile={
         {
-          ...(profile as Record<string, unknown>),
+          ...(normalizedProfile as Record<string, unknown>),
           _followers: followers || 0,
           _following: following || 0,
         } as any

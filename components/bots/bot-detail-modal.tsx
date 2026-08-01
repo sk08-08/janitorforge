@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { BotTagBadge, BotTagCountBadge } from "./bot-tag-badge";
 
 interface BotDetailData {
   id: string;
@@ -86,10 +87,14 @@ export function BotDetailModal({
           {bot.tags && bot.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {bot.tags.slice(0, 8).map((t) => (
-                <Badge key={t} variant="outline" className="text-[11px]">
-                  {t}
-                </Badge>
+                <BotTagBadge key={t} tag={t} className="text-[11px]" />
               ))}
+              {bot.tags.length > 8 && (
+                <BotTagCountBadge
+                  count={bot.tags.length - 8}
+                  className="text-[11px]"
+                />
+              )}
             </div>
           )}
 

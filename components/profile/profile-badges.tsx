@@ -6,17 +6,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Award,
-  Badge,
-  BadgeCheck,
-  Crown,
-  Gem,
-  Shield,
-  Sparkles,
-  Star,
-  Trophy,
-} from "lucide-react";
+import { Award, Badge } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Empty,
@@ -35,20 +25,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getProfileBadgeIcon } from "@/lib/profile-badge-icons";
+import type { ProfileBadgeRecord } from "@/lib/profile-badges";
+import {
+  getProfileBackgroundTintColor,
+  getProfileBorderTintColor,
+  getReadableProfileAccentColor,
+} from "@/lib/profile-theme";
 import { cn } from "@/lib/utils";
 
-type ProfileBadge = {
-  id: string;
-  label: string;
-  icon?: string;
-  color?: string;
-  awardedAt?: string;
-  note?: string;
-  metadata?: Record<string, unknown>;
-};
-
 interface ProfileBadgesProps {
-  badges: ProfileBadge[];
+  badges: ProfileBadgeRecord[];
   themeColor: string;
   showBadges?: boolean;
   className?: string;
@@ -58,22 +45,6 @@ interface ProfileBadgesProps {
   emptyClassName?: string;
   emptyTitle?: string;
   emptyDescription?: string;
-}
-
-const badgeIconMap: Record<string, React.ElementType> = {
-  Award,
-  BadgeCheck,
-  Crown,
-  Gem,
-  Shield,
-  Sparkles,
-  Star,
-  Trophy,
-};
-
-function getBadgeIcon(iconName?: string) {
-  if (!iconName) return Award;
-  return badgeIconMap[iconName] || Award;
 }
 
 function formatAwardedAt(dateValue?: string) {
@@ -93,10 +64,16 @@ function BadgeDetailsPanel({
   badge,
   accentColor,
 }: {
-  badge: ProfileBadge;
+  badge: ProfileBadgeRecord;
   accentColor: string;
 }) {
-  const Icon = getBadgeIcon(badge.icon);
+  const Icon = getProfileBadgeIcon(badge.icon);
+  const readableAccentColor = getReadableProfileAccentColor(
+    accentColor,
+    "medium",
+  );
+  const borderTint = getProfileBorderTintColor(accentColor, 36);
+  const backgroundTint = getProfileBackgroundTintColor(accentColor, 14);
 
   return (
     <div className="space-y-3">
@@ -104,11 +81,11 @@ function BadgeDetailsPanel({
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
           style={{
-            borderColor: accentColor,
-            backgroundColor: `${accentColor}14`,
+            borderColor: borderTint,
+            backgroundColor: backgroundTint,
           }}
         >
-          <Icon className="h-5 w-5" style={{ color: accentColor }} />
+          <Icon className="h-5 w-5" style={{ color: readableAccentColor }} />
         </div>
         <div className="min-w-0 space-y-0.5">
           <p className="font-semibold leading-tight">{badge.label}</p>
@@ -150,14 +127,19 @@ function BadgePill({
   themeColor,
   className,
 }: {
-  badge: ProfileBadge;
+  badge: ProfileBadgeRecord;
   themeColor: string;
   className?: string;
 }) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
-  const Icon = getBadgeIcon(badge.icon);
+  const Icon = getProfileBadgeIcon(badge.icon);
   const accentColor = badge.color || themeColor;
+  const readableAccentColor = getReadableProfileAccentColor(
+    accentColor,
+    "medium",
+  );
+  const borderTint = getProfileBorderTintColor(accentColor, 32);
   const triggerClassName = cn(
     "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
     className,
@@ -166,7 +148,7 @@ function BadgePill({
 
   const pill = (
     <span className="flex items-center gap-1.5">
-      <Icon className="h-3.5 w-3.5" style={{ color: accentColor }} />
+      <Icon className="h-3.5 w-3.5" style={{ color: readableAccentColor }} />
       <span className="text-xs font-medium leading-none">{badge.label}</span>
     </span>
   );
@@ -178,7 +160,7 @@ function BadgePill({
           <button
             type="button"
             className={triggerClassName}
-            style={{ borderColor: accentColor }}
+            style={{ borderColor: borderTint }}
             aria-label={triggerLabel}
           >
             {pill}
@@ -202,7 +184,7 @@ function BadgePill({
         <button
           type="button"
           className={triggerClassName}
-          style={{ borderColor: accentColor }}
+          style={{ borderColor: borderTint }}
           aria-label={triggerLabel}
         >
           {pill}
@@ -232,11 +214,12 @@ export function ProfileBadgesSection({
   emptyDescription = "Badges will appear here once they are awarded.",
 }: ProfileBadgesProps) {
   if (!showBadges) return null;
+  const readableThemeColor = getReadableProfileAccentColor(themeColor);
 
   return (
     <div className={className}>
       <div className="flex items-center gap-3 mb-4">
-        <Award className="h-5 w-5" style={{ color: themeColor }} />
+        <Award className="h-5 w-5" style={{ color: readableThemeColor }} />
         <h2 className="text-lg font-semibold">Badges</h2>
       </div>
 
@@ -263,7 +246,7 @@ export function ProfileBadgesSection({
               <Award
                 className="h-5 w-5"
                 style={{
-                  color: themeColor,
+                  color: readableThemeColor,
                 }}
               />
             </EmptyMedia>

@@ -57,11 +57,16 @@ import {
   ProfileFeaturedBotListCard,
 } from "./profile-bot-cards";
 import { cn } from "@/lib/utils";
+import type { ProfileBadgeRecord } from "@/lib/profile-badges";
 import {
+  getProfileBackgroundTintColor,
   getProfileBackgroundStyles,
+  getProfileBorderTintColor,
   getProfileCardClass,
   getProfileFontStyle,
   getProfileGridClass,
+  getReadableProfileAccentColor,
+  getReadableProfileMutedAccentColor,
   resolveProfileTheme,
 } from "@/lib/profile-theme";
 
@@ -91,12 +96,7 @@ interface Profile {
     sort_order: number;
     bot: BotPreview;
   }> | null;
-  profile_badges?: Array<{
-    id: string;
-    label: string;
-    icon?: string;
-    color?: string;
-  }> | null;
+  profile_badges?: ProfileBadgeRecord[] | null;
   _followers?: number;
   _following?: number;
 }
@@ -158,6 +158,10 @@ function FollowButton({
   profileId: string;
   themeColor: string;
 }) {
+  const readablePrimaryColor = getReadableProfileAccentColor(themeColor);
+  const readablePrimaryMutedColor =
+    getReadableProfileMutedAccentColor(themeColor);
+  const primaryBorderTint = getProfileBorderTintColor(themeColor, 30);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -203,8 +207,11 @@ function FollowButton({
       className="cursor-pointer transition-all"
       style={
         isFollowing
-          ? { borderColor: `${themeColor}44`, color: themeColor }
-          : { background: themeColor }
+          ? { borderColor: primaryBorderTint, color: readablePrimaryMutedColor }
+          : {
+              backgroundColor: readablePrimaryColor,
+              color: "var(--background)",
+            }
       }
       onClick={handleToggle}
       disabled={loading}
@@ -274,6 +281,17 @@ export function PublicProfile({
     showWorlds,
     showForms,
   } = resolvedTheme;
+  const readablePrimaryColor = getReadableProfileAccentColor(primaryColor);
+  const readablePrimaryMutedColor =
+    getReadableProfileMutedAccentColor(primaryColor);
+  const readableAccentColor = getReadableProfileAccentColor(
+    accentColor,
+    "medium",
+  );
+  const accentBorderTint = getProfileBorderTintColor(accentColor, 30);
+  const primaryBorderTint = getProfileBorderTintColor(primaryColor, 30);
+  const primarySoftTint = getProfileBackgroundTintColor(primaryColor, 10);
+  const accentSoftTint = getProfileBackgroundTintColor(accentColor, 18);
   const profileBackground = getProfileBackgroundStyles(
     resolvedTheme.profileBackground,
     primaryColor,
@@ -284,7 +302,7 @@ export function PublicProfile({
   const cardClass = getProfileCardClass(cardStyle);
   const sectionCardStyle =
     cardStyle !== "minimal"
-      ? ({ borderColor: `${accentColor}4a` } as const)
+      ? ({ borderColor: accentBorderTint } as const)
       : undefined;
   const themeColor = primaryColor;
   const socialLinks = profile.social_links || {};
@@ -372,7 +390,10 @@ export function PublicProfile({
                   variant="outline"
                   size="sm"
                   className="w-full cursor-pointer border-background/70 bg-background/80 backdrop-blur-sm sm:w-auto"
-                  style={{ borderColor: `${themeColor}44`, color: themeColor }}
+                  style={{
+                    borderColor: primaryBorderTint,
+                    color: readablePrimaryMutedColor,
+                  }}
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back
@@ -403,11 +424,11 @@ export function PublicProfile({
               ) : (
                 <div
                   className="h-full w-full flex items-center justify-center"
-                  style={{ backgroundColor: `${themeColor}22` }}
+                  style={{ backgroundColor: primarySoftTint }}
                 >
                   <span
                     className="text-3xl font-bold"
-                    style={{ color: themeColor }}
+                    style={{ color: readablePrimaryColor }}
                   >
                     {displayName.charAt(0).toUpperCase()}
                   </span>
@@ -431,7 +452,7 @@ export function PublicProfile({
               {profile.username && (
                 <p
                   className="text-sm mt-0.5"
-                  style={{ color: `${themeColor}aa` }}
+                  style={{ color: readablePrimaryMutedColor }}
                 >
                   @{profile.username}
                 </p>
@@ -455,7 +476,7 @@ export function PublicProfile({
                   >
                     <p
                       className="text-lg font-bold"
-                      style={{ color: themeColor }}
+                      style={{ color: readablePrimaryColor }}
                     >
                       {profile._followers || 0}
                     </p>
@@ -470,7 +491,7 @@ export function PublicProfile({
                   >
                     <p
                       className="text-lg font-bold"
-                      style={{ color: themeColor }}
+                      style={{ color: readablePrimaryColor }}
                     >
                       {profile._following || 0}
                     </p>
@@ -509,7 +530,7 @@ export function PublicProfile({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 hover:underline"
-                    style={{ color: themeColor }}
+                    style={{ color: readablePrimaryMutedColor }}
                   >
                     <Globe className="h-3 w-3" />
                     {(() => {
@@ -552,8 +573,8 @@ export function PublicProfile({
                           variant="outline"
                           className="text-xs cursor-pointer hover:opacity-80 transition-opacity"
                           style={{
-                            borderColor: `${themeColor}44`,
-                            color: themeColor,
+                            borderColor: primaryBorderTint,
+                            color: readablePrimaryMutedColor,
                           }}
                         >
                           <Icon className="h-3 w-3 mr-1" />
@@ -565,7 +586,7 @@ export function PublicProfile({
                         key={key}
                         variant="outline"
                         className="text-xs"
-                        style={{ borderColor: `${themeColor}44` }}
+                        style={{ borderColor: primaryBorderTint }}
                       >
                         <Icon className="h-3 w-3 mr-1" /> {value}
                       </Badge>
@@ -587,8 +608,8 @@ export function PublicProfile({
                         variant="secondary"
                         className="text-xs"
                         style={{
-                          backgroundColor: `${accentColor}1a`,
-                          color: accentColor,
+                          backgroundColor: accentSoftTint,
+                          color: readableAccentColor,
                         }}
                       >
                         {s}
@@ -604,7 +625,10 @@ export function PublicProfile({
           {showFeatured && (
             <div className="space-y-4 mt-4">
               <div className="flex items-center gap-3">
-                <Star className="h-5 w-5" style={{ color: themeColor }} />
+                <Star
+                  className="h-5 w-5"
+                  style={{ color: readablePrimaryColor }}
+                />
                 <h2 className="text-lg font-semibold">Featured Bots</h2>
                 <Badge variant="outline">{featuredBots.length}</Badge>
               </div>
@@ -644,7 +668,10 @@ export function PublicProfile({
             <div className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <Bot className="h-5 w-5" style={{ color: themeColor }} />
+                  <Bot
+                    className="h-5 w-5"
+                    style={{ color: readablePrimaryColor }}
+                  />
                   <h2 className="text-lg font-semibold">Bots</h2>
                   <Badge variant="outline">{bots.length}</Badge>
                 </div>
@@ -747,7 +774,7 @@ export function PublicProfile({
               </div>
               <hr
                 className="border-t"
-                style={{ borderColor: `${accentColor}40` }}
+                style={{ borderColor: accentBorderTint }}
               />
             </div>
           )}
@@ -756,7 +783,10 @@ export function PublicProfile({
           {showCreatorPages && (
             <div className="space-y-4 mt-4">
               <div className="flex items-center gap-3">
-                <AppWindow className="h-5 w-5" style={{ color: themeColor }} />
+                <AppWindow
+                  className="h-5 w-5"
+                  style={{ color: readablePrimaryColor }}
+                />
                 <h2 className="text-lg font-semibold">Creator Pages</h2>
                 <Badge variant="outline">{creatorPages.length}</Badge>
               </div>
@@ -806,7 +836,10 @@ export function PublicProfile({
           {showWorlds && (
             <div className="space-y-4 mt-12">
               <div className="flex items-center gap-3">
-                <Globe className="h-5 w-5" style={{ color: themeColor }} />
+                <Globe
+                  className="h-5 w-5"
+                  style={{ color: readablePrimaryColor }}
+                />
                 <h2 className="text-lg font-semibold">Worlds</h2>
                 <Badge variant="outline">{worlds.length}</Badge>
               </div>
@@ -868,7 +901,10 @@ export function PublicProfile({
           {showForms && (
             <div className="space-y-4 mt-12">
               <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5" style={{ color: themeColor }} />
+                <FileText
+                  className="h-5 w-5"
+                  style={{ color: readablePrimaryColor }}
+                />
                 <h2 className="text-lg font-semibold">Forms</h2>
                 <Badge variant="outline">{forms.length}</Badge>
               </div>
@@ -891,6 +927,7 @@ export function PublicProfile({
                         <div className="flex items-center gap-2 mb-1">
                           <p
                             className="text-sm font-medium truncate rendered-markdown"
+                            style={{ color: readablePrimaryMutedColor }}
                             dangerouslySetInnerHTML={{
                               __html: renderMarkdown(form.title),
                             }}
@@ -931,14 +968,14 @@ export function PublicProfile({
           {/* Footer */}
           <div
             className="mt-20 pt-8 border-t text-center text-xs text-muted-foreground"
-            style={{ borderColor: `${accentColor}40` }}
+            style={{ borderColor: accentBorderTint }}
           >
             <p>
               Powered by{" "}
               <Link
                 href="/"
                 className="hover:underline"
-                style={{ color: themeColor }}
+                style={{ color: readablePrimaryMutedColor }}
               >
                 JanitorForge
               </Link>{" "}

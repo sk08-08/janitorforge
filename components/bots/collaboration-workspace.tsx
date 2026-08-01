@@ -49,6 +49,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownField } from "@/components/ui/markdown-field";
+import { BotTagSelector } from "./bot-tag-selector";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -73,6 +74,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
+import { applyRatingTagToBotTags, type BotContentRating } from "@/lib/bot-tags";
 import {
   getBotCollaborators,
   inviteCollaborator,
@@ -174,6 +176,14 @@ export function CollaborationWorkspace({
   onBack,
   onBotUpdated,
 }: WorkspaceProps) {
+  const initialRating: BotContentRating = (
+    "rating" in bot ? bot.rating : "SFW"
+  ) as BotContentRating;
+  const initialTags = applyRatingTagToBotTags(
+    "tags" in bot ? bot.tags : [],
+    initialRating,
+  );
+
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("editor");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -202,12 +212,8 @@ export function CollaborationWorkspace({
       ? bot.exampleDialogues
       : (bot as any).example_dialogues || "",
   );
-  const [editTags, setEditTags] = useState<string[]>(
-    "tags" in bot ? bot.tags : [],
-  );
-  const [editRating, setEditRating] = useState<"SFW" | "NSFW">(
-    ("rating" in bot ? bot.rating : "SFW") as "SFW" | "NSFW",
-  );
+  const [editTags, setEditTags] = useState<string[]>(initialTags);
+  const [editRating, setEditRating] = useState<BotContentRating>(initialRating);
   const [editImageUrl, setEditImageUrl] = useState(
     "imageUrl" in bot
       ? bot.imageUrl || ""
@@ -241,8 +247,8 @@ export function CollaborationWorkspace({
         "exampleDialogues" in bot
           ? bot.exampleDialogues
           : (bot as any).example_dialogues || "",
-      tags: "tags" in bot ? bot.tags : [],
-      rating: ("rating" in bot ? bot.rating : "SFW") as "SFW" | "NSFW",
+      tags: initialTags,
+      rating: initialRating,
       imageUrl:
         "imageUrl" in bot
           ? bot.imageUrl || ""
@@ -250,7 +256,28 @@ export function CollaborationWorkspace({
             ? (bot as any).image_url || ""
             : "",
     }),
-    [bot],
+    [bot, initialRating, initialTags],
+  );
+
+  const syncTagsWithRating = useCallback(
+    (nextTags: string[], nextRating: BotContentRating) =>
+      applyRatingTagToBotTags(nextTags, nextRating),
+    [],
+  );
+
+  const handleEditTagsChange = useCallback(
+    (nextTags: string[]) => {
+      setEditTags(syncTagsWithRating(nextTags, editRating));
+    },
+    [editRating, syncTagsWithRating],
+  );
+
+  const handleEditRatingChange = useCallback(
+    (nextRating: BotContentRating) => {
+      setEditRating(nextRating);
+      setEditTags((current) => syncTagsWithRating(current, nextRating));
+    },
+    [syncTagsWithRating],
   );
 
   // ---- Dirty field detection ----
@@ -422,22 +449,6 @@ export function CollaborationWorkspace({
     if (activeTab === "changes") loadChangeRequests();
   }, [activeTab, loadActivity, loadComments, loadChangeRequests]);
 
-  // ---- Tag management ----
-  const addTag = useCallback(() => {
-    const t = tagInput.trim();
-    if (t && !editTags.includes(t)) {
-      setEditTags([...editTags, t]);
-      setTagInput("");
-    }
-  }, [tagInput, editTags]);
-
-  const removeTag = useCallback(
-    (tag: string) => {
-      setEditTags(editTags.filter((t) => t !== tag));
-    },
-    [editTags],
-  );
-
   // ---- Save handler ----
   const handleSave = async () => {
     if (!isOwner && !canEdit) return;
@@ -468,7 +479,7 @@ export function CollaborationWorkspace({
         first_message: editFirstMessage,
         scenario: editScenario,
         example_dialogues: editExampleDialogues,
-        tags: editTags,
+        tags: syncTagsWithRating(editTags, editRating),
       };
       for (const [key, value] of Object.entries(cur)) {
         const origVal = orig[key as keyof typeof orig];
@@ -502,7 +513,7 @@ export function CollaborationWorkspace({
       firstMessage: editFirstMessage,
       scenario: editScenario,
       exampleDialogues: editExampleDialogues,
-      tags: editTags,
+      tags: syncTagsWithRating(editTags, editRating),
       rating: editRating,
       imageUrl: editImageUrl.trim() || undefined,
     };
@@ -525,7 +536,7 @@ export function CollaborationWorkspace({
         firstMessage: editFirstMessage,
         scenario: editScenario,
         exampleDialogues: editExampleDialogues,
-        tags: editTags,
+        tags: syncTagsWithRating(editTags, editRating),
         rating: editRating,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -880,7 +891,9 @@ export function CollaborationWorkspace({
                   <Label className="text-xs">Rating</Label>
                   <RadioGroup
                     value={editRating}
-                    onValueChange={(v) => setEditRating(v as "SFW" | "NSFW")}
+                    onValueChange={(v) =>
+                      handleEditRatingChange(v as BotContentRating)
+                    }
                     disabled={!canEdit}
                     className="flex gap-4 mt-2"
                   >
@@ -1004,51 +1017,27 @@ export function CollaborationWorkspace({
               </CardHeader>
               <CardContent>
                 {canEdit && (
-                  <div className="flex gap-2 mb-3">
-                    <Input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addTag();
-                        }
-                      }}
-                      placeholder="Add a tag..."
-                      className="text-sm"
-                      maxLength={40}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addTag}
-                      className="cursor-pointer shrink-0"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  <BotTagSelector
+                    tags={editTags}
+                    onTagsChange={handleEditTagsChange}
+                    inputValue={tagInput}
+                    onInputValueChange={setTagInput}
+                    placeholder="Add a tag..."
+                    maxLength={40}
+                    className="mb-3"
+                  />
                 )}
-                <div className="flex flex-wrap gap-1.5">
-                  {editTags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
-                      {canEdit && (
-                        <button
-                          onClick={() => removeTag(tag)}
-                          className="ml-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </Badge>
-                  ))}
-                  {editTags.length === 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      No tags added
-                    </span>
-                  )}
-                </div>
+                {!canEdit && (
+                  <BotTagSelector
+                    tags={editTags}
+                    onTagsChange={handleEditTagsChange}
+                    inputValue=""
+                    onInputValueChange={() => {}}
+                    showInput={false}
+                    disabled
+                    emptyLabel="No tags added"
+                  />
+                )}
               </CardContent>
             </Card>
 

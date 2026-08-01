@@ -8,6 +8,7 @@ import {
   extractStorageObjectPathFromPublicUrl,
   getStoragePublicUrl,
 } from "@/lib/storage-assets";
+import { loadProfileBadges } from "@/lib/profile-badges";
 
 const ALLOWED_PROFILE_IMAGE_TYPES = [
   "image/jpeg",
@@ -94,7 +95,13 @@ export async function getOwnProfile() {
   if (error) {
     return { success: false, error: error.message, profile: null };
   }
-  return { success: true, profile: data };
+
+  const profile = {
+    ...data,
+    profile_badges: await loadProfileBadges(supabase, access.user.id),
+  };
+
+  return { success: true, profile };
 }
 
 // ---------------------------------------------------------------------------
@@ -108,7 +115,7 @@ export async function getPublicProfile(slug: string) {
     .from("profiles")
     .select(
       `
-      id, username, display_name, bio, tagline, avatar_url, banner_url, social_links, theme, slug, created_at, pronouns, location, website_url, specialties, status_message, visibility, profile_badges, profile_completeness,
+      id, username, display_name, bio, tagline, avatar_url, banner_url, social_links, theme, slug, created_at, pronouns, location, website_url, specialties, status_message, visibility, profile_completeness,
       active_profile_featured_bots (
         sort_order,
         bot:active_bots (*)
@@ -120,7 +127,13 @@ export async function getPublicProfile(slug: string) {
   if (error || !data) {
     return { success: false, error: "Profile not found", profile: null };
   }
-  return { success: true, profile: data };
+
+  const profile = {
+    ...data,
+    profile_badges: await loadProfileBadges(supabase, data.id),
+  };
+
+  return { success: true, profile };
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +156,6 @@ interface UpdateProfileInput {
   status_message?: string;
   visibility?: string;
   featuredBotIds?: string[];
-  profile_badges?: Array<Record<string, string>>;
   custom_css?: string;
 }
 
@@ -205,8 +217,6 @@ export async function updateProfile(input: UpdateProfileInput) {
   if (input.status_message !== undefined)
     payload.status_message = input.status_message.trim();
   if (input.visibility !== undefined) payload.visibility = input.visibility;
-  if (input.profile_badges !== undefined)
-    payload.profile_badges = input.profile_badges;
   if (input.custom_css !== undefined) payload.custom_css = input.custom_css;
 
   if (

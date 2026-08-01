@@ -64,23 +64,20 @@ import {
 } from "./profile-bot-cards";
 import { cn } from "@/lib/utils";
 import { BotPreview } from "@/lib/types";
+import type { ProfileBadgeRecord } from "@/lib/profile-badges";
 import {
+  getProfileBackgroundTintColor,
   getProfileBackgroundStyles,
+  getProfileBorderTintColor,
   getProfileCardClass,
   getProfileFontStyle,
   getProfileGridClass,
+  getReadableProfileAccentColor,
+  getReadableProfileMutedAccentColor,
   resolveProfileTheme,
 } from "@/lib/profile-theme";
 
 const PROFILE_BOTS_PAGE_SIZE = 12;
-
-interface ProfileBadge {
-  id: string;
-  label: string;
-  icon?: string;
-  color?: string;
-  awardedAt?: string;
-}
 
 const socialIconMap: Record<
   string,
@@ -112,7 +109,7 @@ interface Profile {
   specialties?: string[] | null;
   status_message?: string | null;
   social_links?: Record<string, string> | null;
-  profile_badges?: ProfileBadge[] | null;
+  profile_badges?: ProfileBadgeRecord[] | null;
   profile_completeness?: number | null;
   active_profile_featured_bots?: Array<{
     sort_order: number;
@@ -310,6 +307,16 @@ export function ProfilePage() {
     showForms,
     hideCompletenessNudge,
   } = resolvedTheme;
+  const readablePrimaryColor = getReadableProfileAccentColor(primaryColor);
+  const readableAccentColor = getReadableProfileAccentColor(
+    accentColor,
+    "medium",
+  );
+  const readablePrimaryMutedColor =
+    getReadableProfileMutedAccentColor(primaryColor);
+  const accentBorderTint = getProfileBorderTintColor(accentColor, 30);
+  const accentSoftTint = getProfileBackgroundTintColor(accentColor, 18);
+  const primarySoftTint = getProfileBackgroundTintColor(primaryColor, 10);
   const profileBackground = getProfileBackgroundStyles(
     resolvedTheme.profileBackground,
     primaryColor,
@@ -320,7 +327,7 @@ export function ProfilePage() {
   const cardClass = getProfileCardClass(cardStyle);
   const sectionCardStyle =
     cardStyle !== "minimal"
-      ? ({ borderColor: `${accentColor}4a` } as const)
+      ? ({ borderColor: accentBorderTint } as const)
       : undefined;
 
   const socialLinks = p.social_links || {};
@@ -394,7 +401,7 @@ export function ProfilePage() {
         {/* Main Profile Card */}
         <Card
           className="overflow-hidden"
-          style={{ borderColor: `${accentColor}55` }}
+          style={{ borderColor: accentBorderTint }}
         >
           {/* Banner */}
           <div
@@ -431,11 +438,11 @@ export function ProfilePage() {
               ) : (
                 <div
                   className="h-full w-full flex items-center justify-center"
-                  style={{ backgroundColor: `${primaryColor}22` }}
+                  style={{ backgroundColor: primarySoftTint }}
                 >
                   <UserRound
                     className="h-10 w-10"
-                    style={{ color: primaryColor }}
+                    style={{ color: readablePrimaryColor }}
                   />
                 </div>
               )}
@@ -475,7 +482,7 @@ export function ProfilePage() {
                 >
                   <p
                     className="text-lg font-bold"
-                    style={{ color: primaryColor }}
+                    style={{ color: readablePrimaryColor }}
                   >
                     {followCounts.followers}
                   </p>
@@ -490,7 +497,7 @@ export function ProfilePage() {
                 >
                   <p
                     className="text-lg font-bold"
-                    style={{ color: primaryColor }}
+                    style={{ color: readablePrimaryColor }}
                   >
                     {followCounts.following}
                   </p>
@@ -500,7 +507,7 @@ export function ProfilePage() {
                   <div className="text-center">
                     <p
                       className="text-lg font-bold"
-                      style={{ color: primaryColor }}
+                      style={{ color: readablePrimaryColor }}
                     >
                       {completeness}%
                     </p>
@@ -606,8 +613,8 @@ export function ProfilePage() {
                       variant="secondary"
                       className="text-xs"
                       style={{
-                        backgroundColor: `${accentColor}1a`,
-                        color: accentColor,
+                        backgroundColor: accentSoftTint,
+                        color: readableAccentColor,
                       }}
                     >
                       {s}
@@ -682,7 +689,11 @@ export function ProfilePage() {
         {showBots && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Bot className="h-5 w-5" style={{ color: primaryColor }} />
+              <Bot
+                className="h-5 w-5"
+                style={{ color: readablePrimaryColor }}
+              />
+
               <h2 className="text-lg font-semibold">Bots</h2>
               <Badge variant="outline">{bots.length}</Badge>
             </div>
@@ -769,7 +780,7 @@ export function ProfilePage() {
             )}
             <hr
               className="border-t"
-              style={{ borderColor: `${accentColor}40` }}
+              style={{ borderColor: accentBorderTint }}
             />
           </div>
         )}
@@ -778,7 +789,11 @@ export function ProfilePage() {
         {showCreatorPages && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <AppWindow className="h-5 w-5" style={{ color: primaryColor }} />
+              <AppWindow
+                className="h-5 w-5"
+                style={{ color: readablePrimaryColor }}
+              />
+
               <h2 className="text-lg font-semibold">Creator Pages</h2>
               <Badge variant="outline">{creatorPages.length}</Badge>
             </div>
@@ -826,7 +841,7 @@ export function ProfilePage() {
             )}
             <hr
               className="border-t"
-              style={{ borderColor: `${accentColor}40` }}
+              style={{ borderColor: accentBorderTint }}
             />
           </div>
         )}
@@ -835,7 +850,11 @@ export function ProfilePage() {
         {showWorlds && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Globe className="h-5 w-5" style={{ color: primaryColor }} />
+              <Globe
+                className="h-5 w-5"
+                style={{ color: readablePrimaryColor }}
+              />
+
               <h2 className="text-lg font-semibold">Worlds</h2>
               <Badge variant="outline">{worlds.length}</Badge>
             </div>
@@ -880,7 +899,7 @@ export function ProfilePage() {
             )}
             <hr
               className="border-t"
-              style={{ borderColor: `${accentColor}40` }}
+              style={{ borderColor: accentBorderTint }}
             />
           </div>
         )}
@@ -889,7 +908,10 @@ export function ProfilePage() {
         {showForms && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5" style={{ color: primaryColor }} />
+              <FileText
+                className="h-5 w-5"
+                style={{ color: readablePrimaryColor }}
+              />
               <h2 className="text-lg font-semibold">Forms</h2>
               <Badge variant="outline">{ownForms.length}</Badge>
             </div>
@@ -903,13 +925,13 @@ export function ProfilePage() {
                     rel="noopener noreferrer"
                   >
                     <div
-                      key={form.id}
                       className={cn(cardClass, "h-full")}
                       style={sectionCardStyle}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <p
                           className="text-sm font-medium truncate rendered-markdown"
+                          style={{ color: readablePrimaryMutedColor }}
                           dangerouslySetInnerHTML={{
                             __html: renderMarkdown(form.title),
                           }}

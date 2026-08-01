@@ -43,10 +43,17 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { BotTagSelector } from "./bot-tag-selector";
 import { TokenCounter, TokenSummary } from "./token-counter";
 import { cn } from "@/lib/utils";
 import type { BotFormData } from "@/lib/types";
 import type { JanitorForgeCharacterCardExtension } from "@/lib/types";
+import {
+  applyRatingTagToBotTags,
+  canonicalizeBotTag,
+  normalizeBotTags,
+  type BotContentRating,
+} from "@/lib/bot-tags";
 import {
   exportCharacterCardPNG,
   importCharacterCardPNG,
@@ -166,6 +173,11 @@ export function BotForm({
   isEditing = false,
 }: BotFormProps) {
   const MAX_INITIAL_MESSAGES = 10;
+  const initialRating: BotContentRating = initialData?.rating || "SFW";
+  const initialTags = applyRatingTagToBotTags(
+    initialData?.tags || [],
+    initialRating,
+  );
 
   // Form state
   const [name, setName] = useState(initialData?.name || "");
@@ -195,42 +207,14 @@ export function BotForm({
   const [exampleDialogues, setExampleDialogues] = useState(
     initialData?.exampleDialogues || "",
   );
-  const [tags, setTags] = useState<string[]>(initialData?.tags || []);
-  const [rating, setRating] = useState<"SFW" | "NSFW">(
-    initialData?.rating || "SFW",
-  );
+  const [tags, setTags] = useState<string[]>(initialTags);
+  const [rating, setRating] = useState<BotContentRating>(initialRating);
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || "");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [hideSensitiveFields, setHideSensitiveFields] = useState(
     initialData?.hideSensitiveFields || false,
   );
   const [tagInput, setTagInput] = useState("");
-
-  // Tag management
-  const addTag = useCallback(() => {
-    const trimmedTag = tagInput.trim();
-    if (trimmedTag && !tags.includes(trimmedTag)) {
-      setTags([...tags, trimmedTag]);
-      setTagInput("");
-    }
-  }, [tagInput, tags]);
-
-  const removeTag = useCallback(
-    (tagToRemove: string) => {
-      setTags(tags.filter((t) => t !== tagToRemove));
-    },
-    [tags],
-  );
-
-  const handleTagKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        addTag();
-      }
-    },
-    [addTag],
-  );
 
   const updateInitialMessage = useCallback((index: number, value: string) => {
     setInitialMessages((current) =>
@@ -278,6 +262,27 @@ export function BotForm({
   const normalizeInitialMessages = useCallback(
     () => initialMessages.map((message) => message.trim()).filter(Boolean),
     [initialMessages],
+  );
+
+  const syncTagsWithRating = useCallback(
+    (nextTags: string[], nextRating: BotContentRating) =>
+      applyRatingTagToBotTags(nextTags, nextRating),
+    [],
+  );
+
+  const handleTagsChange = useCallback(
+    (nextTags: string[]) => {
+      setTags(syncTagsWithRating(nextTags, rating));
+    },
+    [rating, syncTagsWithRating],
+  );
+
+  const handleRatingChange = useCallback(
+    (nextRating: BotContentRating) => {
+      setRating(nextRating);
+      setTags((current) => syncTagsWithRating(current, nextRating));
+    },
+    [syncTagsWithRating],
   );
 
   const handleImageUpload = useCallback(
@@ -366,7 +371,7 @@ export function BotForm({
         alternateGreetings: normalizedInitialMessages.slice(1),
         scenario,
         exampleDialogues,
-        tags,
+        tags: syncTagsWithRating(tags, rating),
         rating,
         imageUrl: imageUrl.trim() || undefined,
         hideSensitiveFields,
@@ -384,6 +389,7 @@ export function BotForm({
       rating,
       imageUrl,
       hideSensitiveFields,
+      syncTagsWithRating,
       onSubmit,
     ],
   );
@@ -401,7 +407,7 @@ export function BotForm({
         alternateGreetings: normalizedInitialMessages.slice(1),
         scenario,
         exampleDialogues,
-        tags,
+        tags: syncTagsWithRating(tags, rating),
         rating,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -429,6 +435,7 @@ export function BotForm({
     exampleDialogues,
     tags,
     rating,
+    syncTagsWithRating,
   ]);
 
   // Import character card
@@ -445,9 +452,12 @@ export function BotForm({
               | JanitorForgeCharacterCardExtension
               | undefined
           )?.rating;
-          const importedTags = cardData.data.tags || [];
+          const importedTags = normalizeBotTags(cardData.data.tags || []);
           const hasLimitlessTag = importedTags.some(
-            (tag) => tag.trim().toLowerCase() === "limitless",
+            (tag) => canonicalizeBotTag(tag) === "Limitless",
+          );
+          const hasLimitedTag = importedTags.some(
+            (tag) => canonicalizeBotTag(tag) === "Limited",
           );
           const botData = characterCardToBot(cardData);
           setName(botData.name);
@@ -461,12 +471,16 @@ export function BotForm({
           );
           setScenario(botData.scenario);
           setExampleDialogues(botData.exampleDialogues);
-          setTags(botData.tags);
-          if (hasLimitlessTag) {
-            setRating("NSFW");
-          } else if (importedRating === "SFW" || importedRating === "NSFW") {
-            setRating(importedRating);
-          }
+          const nextRating: BotContentRating = hasLimitlessTag
+            ? "NSFW"
+            : hasLimitedTag
+              ? "SFW"
+              : importedRating === "SFW" || importedRating === "NSFW"
+                ? importedRating
+                : "SFW";
+
+          setRating(nextRating);
+          setTags(syncTagsWithRating(botData.tags, nextRating));
           toast.success("Character card imported successfully!");
         } else {
           toast.error("Could not read character data from this file");
@@ -478,7 +492,7 @@ export function BotForm({
       // Reset input
       e.target.value = "";
     },
-    [],
+    [syncTagsWithRating],
   );
 
   return (
@@ -642,7 +656,7 @@ export function BotForm({
             <Label>Content Rating</Label>
             <RadioGroup
               value={rating}
-              onValueChange={(v) => setRating(v as "SFW" | "NSFW")}
+              onValueChange={(v) => handleRatingChange(v as BotContentRating)}
               className="flex gap-4"
             >
               <div className="flex items-center space-x-2">
@@ -734,38 +748,13 @@ export function BotForm({
           {/* Tags */}
           <div className="space-y-2">
             <Label>Tags</Label>
-            <div className="flex gap-2">
-              <Input
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleTagKeyDown}
-                placeholder="Add a tag..."
-                className="min-w-0"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={addTag}
-                className="cursor-pointer"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-2">
-                {tags.map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-                    onClick={() => removeTag(tag)}
-                  >
-                    {tag}
-                    <X className="ml-1 h-3 w-3" />
-                  </Badge>
-                ))}
-              </div>
-            )}
+            <BotTagSelector
+              tags={tags}
+              onTagsChange={handleTagsChange}
+              inputValue={tagInput}
+              onInputValueChange={setTagInput}
+              placeholder="Add a tag..."
+            />
           </div>
         </CardContent>
       </Card>
@@ -821,8 +810,8 @@ export function BotForm({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label>Initial Message(s)</Label>
               <TokenCounter
-                text={initialMessages}
-                fieldName="Initial Messages(s)"
+                text={initialMessages[selectedInitialMessageIndex] || ""}
+                fieldName={`Message ${selectedInitialMessageIndex + 1}`}
               />
             </div>
             <div className="space-y-3 rounded-lg border p-3">
@@ -1017,6 +1006,7 @@ export function BotForm({
       <TokenSummary
         personality={personality}
         initialMessages={initialMessages}
+        initialMessageIndex={selectedInitialMessageIndex}
         scenario={scenario}
         exampleDialogues={exampleDialogues}
       />

@@ -82,51 +82,61 @@ const accentMap: Record<
   }
 > = {
   indigo: {
-    softBg: "bg-indigo-500/10",
-    border: "border-indigo-500/20",
-    text: "text-indigo-600",
-    button: "bg-indigo-600 hover:bg-indigo-700 text-white",
-    badge: "bg-indigo-500/10 text-indigo-700 border-indigo-500/20",
+    softBg: "bg-indigo-600/12 dark:bg-indigo-400/18",
+    border: "border-indigo-600/32 dark:border-indigo-400/34",
+    text: "text-indigo-700 dark:text-indigo-300",
+    button:
+      "bg-indigo-700 hover:bg-indigo-800 text-white dark:bg-indigo-600 dark:hover:bg-indigo-500",
+    badge:
+      "bg-indigo-600/12 text-indigo-800 border-indigo-600/28 dark:bg-indigo-400/20 dark:text-indigo-200 dark:border-indigo-400/34",
     hex: "#4f46e5",
     glow: "rgba(79, 70, 229, 0.18)",
     focus: "focus-visible:border-indigo-500 focus-visible:ring-indigo-500/20",
   },
   emerald: {
-    softBg: "bg-emerald-500/10",
-    border: "border-emerald-500/20",
-    text: "text-emerald-600",
-    button: "bg-emerald-600 hover:bg-emerald-700 text-white",
-    badge: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+    softBg: "bg-emerald-600/12 dark:bg-emerald-400/18",
+    border: "border-emerald-600/32 dark:border-emerald-400/34",
+    text: "text-emerald-700 dark:text-emerald-300",
+    button:
+      "bg-emerald-700 hover:bg-emerald-800 text-white dark:bg-emerald-600 dark:hover:bg-emerald-500",
+    badge:
+      "bg-emerald-600/12 text-emerald-800 border-emerald-600/28 dark:bg-emerald-400/20 dark:text-emerald-200 dark:border-emerald-400/34",
     hex: "#059669",
     glow: "rgba(5, 150, 105, 0.18)",
     focus: "focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20",
   },
   amber: {
-    softBg: "bg-amber-500/10",
-    border: "border-amber-500/20",
-    text: "text-amber-600",
-    button: "bg-amber-600 hover:bg-amber-700 text-white",
-    badge: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+    softBg: "bg-amber-600/12 dark:bg-amber-400/20",
+    border: "border-amber-600/34 dark:border-amber-400/36",
+    text: "text-amber-800 dark:text-amber-300",
+    button:
+      "bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-600 dark:hover:bg-amber-500",
+    badge:
+      "bg-amber-600/12 text-amber-900 border-amber-600/28 dark:bg-amber-400/22 dark:text-amber-200 dark:border-amber-400/36",
     hex: "#d97706",
     glow: "rgba(217, 119, 6, 0.18)",
     focus: "focus-visible:border-amber-500 focus-visible:ring-amber-500/20",
   },
   rose: {
-    softBg: "bg-rose-500/10",
-    border: "border-rose-500/20",
-    text: "text-rose-600",
-    button: "bg-rose-600 hover:bg-rose-700 text-white",
-    badge: "bg-rose-500/10 text-rose-700 border-rose-500/20",
+    softBg: "bg-rose-600/12 dark:bg-rose-400/18",
+    border: "border-rose-600/32 dark:border-rose-400/34",
+    text: "text-rose-700 dark:text-rose-300",
+    button:
+      "bg-rose-700 hover:bg-rose-800 text-white dark:bg-rose-600 dark:hover:bg-rose-500",
+    badge:
+      "bg-rose-600/12 text-rose-800 border-rose-600/28 dark:bg-rose-400/20 dark:text-rose-200 dark:border-rose-400/34",
     hex: "#e11d48",
     glow: "rgba(225, 29, 72, 0.18)",
     focus: "focus-visible:border-rose-500 focus-visible:ring-rose-500/20",
   },
   slate: {
-    softBg: "bg-slate-500/10",
-    border: "border-slate-500/20",
-    text: "text-slate-600",
-    button: "bg-slate-700 hover:bg-slate-800 text-white",
-    badge: "bg-slate-500/10 text-slate-700 border-slate-500/20",
+    softBg: "bg-slate-600/12 dark:bg-slate-400/18",
+    border: "border-slate-600/30 dark:border-slate-400/34",
+    text: "text-slate-700 dark:text-slate-300",
+    button:
+      "bg-slate-700 hover:bg-slate-800 text-white dark:bg-slate-600 dark:hover:bg-slate-500",
+    badge:
+      "bg-slate-600/12 text-slate-800 border-slate-600/26 dark:bg-slate-400/20 dark:text-slate-200 dark:border-slate-400/34",
     hex: "#334155",
     glow: "rgba(51, 65, 85, 0.18)",
     focus: "focus-visible:border-slate-500 focus-visible:ring-slate-500/20",
@@ -201,8 +211,9 @@ export function getFormPresetClasses(preset: FormPreset) {
   switch (preset) {
     case "bold":
       return {
-        shell: "border-2 shadow-2xl shadow-foreground/10 bg-background",
-        card: "border-2 rounded-2xl bg-background/90 shadow-lg",
+        shell:
+          "border-2 border-border/80 shadow-xl shadow-foreground/8 bg-background",
+        card: "border-2 border-border/70 rounded-2xl bg-background/95 shadow-lg",
         heroIcon: "shadow-xl rounded-2xl",
         title: "tracking-tight text-xl",
         wrapper: "",
@@ -212,8 +223,8 @@ export function getFormPresetClasses(preset: FormPreset) {
       };
     case "editorial":
       return {
-        shell: "border-border/40 shadow-xl bg-background",
-        card: "rounded-none border-x-0 border-t-0 border-b-2 border-dotted shadow-none bg-transparent",
+        shell: "border-border/70 shadow-lg bg-background",
+        card: "rounded-none border-x-0 border-t-0 border-b-2 border-dotted border-border/70 shadow-none bg-transparent",
         heroIcon: "shadow-md rounded-2xl ring-1 ring-border/20",
         title: "tracking-tight text-balance text-xl font-semibold",
         wrapper: "",
@@ -225,8 +236,9 @@ export function getFormPresetClasses(preset: FormPreset) {
       };
     case "minimal":
       return {
-        shell: "border-dashed border-border/70 shadow-none bg-muted/20",
-        card: "rounded-sm border-dashed border-border/70 bg-muted/20 shadow-none",
+        shell:
+          "border-dashed border-border/80 shadow-sm bg-background/80 backdrop-blur-[1px]",
+        card: "rounded-sm border-dashed border-border/80 bg-background/75 shadow-none",
         heroIcon: "rounded-lg opacity-90",
         title:
           "tracking-tight uppercase text-sm tracking-[0.18em] text-muted-foreground",
@@ -238,8 +250,8 @@ export function getFormPresetClasses(preset: FormPreset) {
     case "clean":
     default:
       return {
-        shell: "border-border/60 shadow-sm bg-background",
-        card: "rounded-xl bg-background shadow-sm",
+        shell: "border-border/75 shadow-sm bg-background",
+        card: "rounded-xl border-border/70 bg-background shadow-sm",
         heroIcon: "rounded-xl",
         title: "tracking-tight text-lg",
         wrapper: "",
