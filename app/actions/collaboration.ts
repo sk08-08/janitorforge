@@ -22,10 +22,9 @@ export async function inviteCollaborator(
 
   // Verify bot ownership
   const { data: bot } = await supabase
-    .from("bots")
+    .from("active_bots")
     .select("id, user_id, name")
     .eq("id", botId)
-    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -136,10 +135,9 @@ export async function removeCollaborator(collaboratorId: string) {
 
   // Check if the user is the bot owner OR the collaborator themselves
   const { data: bot } = await supabase
-    .from("bots")
+    .from("active_bots")
     .select("user_id")
     .eq("id", collabRecord.bot_id)
-    .is("deleted_at", null)
     .single();
 
   const isOwner = bot?.user_id === access.user.id;
@@ -264,10 +262,9 @@ export async function updateCollaboratorRole(
 
   // Verify ownership
   const { data: bot } = await supabase
-    .from("bots")
+    .from("active_bots")
     .select("user_id")
     .eq("id", collabRecord.bot_id)
-    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -311,10 +308,9 @@ export async function forkBot(originalBotId: string, reason?: string) {
 
   // Get original bot
   const { data: originalBot } = await supabase
-    .from("bots")
+    .from("active_bots")
     .select("*")
     .eq("id", originalBotId)
-    .is("deleted_at", null)
     .single();
 
   if (!originalBot) {
@@ -323,7 +319,7 @@ export async function forkBot(originalBotId: string, reason?: string) {
 
   // Create forked bot
   const { data: forkedBot, error: insertError } = await supabase
-    .from("bots")
+    .from("active_bots")
     .insert({
       user_id: access.user.id,
       name: `${originalBot.name} (Fork)`,
@@ -468,12 +464,7 @@ export async function getCollaborativeBots() {
     return { success: false, error: error.message, bots: [] };
   }
 
-  // Client-side filter: exclude soft-deleted bots (backup until SQL migration runs)
-  const filtered = (data || []).filter(
-    (b: any) => b.deleted_at === null || b.deleted_at === undefined,
-  );
-
-  return { success: true, bots: filtered };
+  return { success: true, bots: data || [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -690,10 +681,9 @@ export async function approveChangeRequest(changeRequestId: string) {
 
   // Verify ownership
   const { data: bot } = await supabase
-    .from("bots")
+    .from("active_bots")
     .select("user_id")
     .eq("id", cr.bot_id)
-    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -763,10 +753,9 @@ export async function rejectChangeRequest(
     return { success: false, error: "Already reviewed" };
 
   const { data: bot } = await supabase
-    .from("bots")
+    .from("active_bots")
     .select("user_id")
     .eq("id", cr.bot_id)
-    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -840,10 +829,9 @@ export async function getBotApprovalSetting(botId: string) {
   }
 
   const { data: bot } = await supabase
-    .from("bots")
+    .from("active_bots")
     .select("require_collab_approval")
     .eq("id", botId)
-    .is("deleted_at", null)
     .single();
 
   if (!bot) {
@@ -867,10 +855,9 @@ export async function toggleBotApproval(
   }
 
   const { data: bot } = await supabase
-    .from("bots")
+    .from("active_bots")
     .select("user_id")
     .eq("id", botId)
-    .is("deleted_at", null)
     .single();
 
   if (!bot || bot.user_id !== access.user.id) {
@@ -878,7 +865,7 @@ export async function toggleBotApproval(
   }
 
   const { error } = await supabase
-    .from("bots")
+    .from("active_bots")
     .update({ require_collab_approval: requireApproval })
     .eq("id", botId);
 

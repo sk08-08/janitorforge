@@ -65,6 +65,7 @@ import { checkSlugAvailability } from "@/app/actions/slug-check";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { stripMarkdownToText } from "@/lib/markdown";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -219,15 +220,13 @@ export function CreatorPages() {
             { data: sectionData, error: sectionError },
           ] = await Promise.all([
             supabase
-              .from("creator_pages")
+              .from("active_creator_pages")
               .select("*")
               .eq("user_id", access.user.id)
-              .is("deleted_at", null)
               .order("updated_at", { ascending: false }),
             supabase
-              .from("creator_page_sections")
+              .from("active_creator_page_sections")
               .select("*")
-              .is("deleted_at", null)
               .order("position", { ascending: true }),
           ]);
 
@@ -417,7 +416,6 @@ export function CreatorPages() {
           layout: editLayout,
           config: pageConfig,
         })
-        .is("deleted_at", null)
         .eq("id", editingPage.id)
         .eq("user_id", currentUserId);
 
@@ -451,7 +449,6 @@ export function CreatorPages() {
       const { error } = await supabase
         .from("creator_pages")
         .update({ is_published: newPublished })
-        .is("deleted_at", null)
         .eq("id", page.id)
         .eq("user_id", currentUserId);
 
@@ -479,7 +476,6 @@ export function CreatorPages() {
       const { error } = await supabase
         .from("creator_pages")
         .update({ deleted_at: new Date().toISOString() })
-        .is("deleted_at", null)
         .eq("id", pageId)
         .eq("user_id", currentUserId);
 
@@ -603,16 +599,15 @@ export function CreatorPages() {
     try {
       const supabase = createClient();
       const { data } = await supabase
-        .from("request_forms")
+        .from("active_request_forms")
         .select("id, title, shareable_link")
         .eq("user_id", currentUserId)
-        .is("deleted_at", null)
         .order("title");
       if (data)
         setAvailableForms(
           data.map((f: any) => ({
             id: f.id,
-            form_title: f.title,
+            form_title: stripMarkdownToText(f.title) || "Untitled form",
             shareable_link: f.shareable_link || "",
           })),
         );
@@ -625,10 +620,9 @@ export function CreatorPages() {
     try {
       const supabase = createClient();
       const { data } = await supabase
-        .from("bots")
+        .from("active_bots")
         .select("id, name, image_url")
         .eq("user_id", currentUserId)
-        .is("deleted_at", null)
         .order("name");
       if (data) setAvailableBots(data);
     } catch (error) {
@@ -640,7 +634,7 @@ export function CreatorPages() {
     try {
       const supabase = createClient();
       const { data } = await supabase
-        .from("worlds")
+        .from("active_atlas_worlds")
         .select("id, title")
         .eq("user_id", currentUserId)
         .order("title");
@@ -692,7 +686,6 @@ export function CreatorPages() {
         supabase
           .from("creator_page_sections")
           .update({ position: s.position })
-          .is("deleted_at", null)
           .eq("id", s.id),
       );
       await Promise.all(updates);
@@ -829,7 +822,6 @@ export function CreatorPages() {
           title: sectionTitleEdit.trim() || editingSection.title,
           config,
         })
-        .is("deleted_at", null)
         .eq("id", editingSection.id);
 
       if (error) throw error;
@@ -855,7 +847,6 @@ export function CreatorPages() {
       const { error } = await supabase
         .from("creator_page_sections")
         .update({ deleted_at: new Date().toISOString() })
-        .is("deleted_at", null)
         .eq("id", sectionId);
 
       if (error) throw error;
@@ -895,7 +886,6 @@ export function CreatorPages() {
         supabase
           .from("creator_page_sections")
           .update({ position: s.position })
-          .is("deleted_at", null)
           .eq("id", s.id),
       );
       await Promise.all(updates);
@@ -2348,7 +2338,8 @@ export function CreatorPages() {
                           <SelectContent>
                             {availableForms.map((form) => (
                               <SelectItem key={form.id} value={form.id}>
-                                {form.form_title || "Untitled form"}
+                                {stripMarkdownToText(form.form_title) ||
+                                  "Untitled form"}
                               </SelectItem>
                             ))}
                           </SelectContent>

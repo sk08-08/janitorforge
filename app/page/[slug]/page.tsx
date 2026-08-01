@@ -24,11 +24,10 @@ export async function generateMetadata({
   const supabase = await createClient();
 
   const { data: creatorPage } = await supabase
-    .from("creator_pages")
+    .from("active_creator_pages")
     .select("title, description, user_id")
     .eq("slug", slug)
     .eq("is_published", true)
-    .is("deleted_at", null)
     .maybeSingle();
 
   if (!creatorPage) {

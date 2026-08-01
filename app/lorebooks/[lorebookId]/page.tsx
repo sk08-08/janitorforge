@@ -205,11 +205,10 @@ export default function LorebookPage() {
         }
 
         const { data: lorebookData, error: lorebookError } = await supabase
-          .from("atlas_lorebooks")
+          .from("active_atlas_lorebooks")
           .select("*")
           .eq("id", lorebookId)
           .eq("user_id", userId)
-          .is("deleted_at", null)
           .single();
 
         if (lorebookError) throw lorebookError;
@@ -222,18 +221,16 @@ export default function LorebookPage() {
           { data: entriesData, error: entriesError },
         ] = await Promise.all([
           supabase
-            .from("atlas_worlds")
+            .from("active_atlas_worlds")
             .select("id,title,slug")
             .eq("id", nextLorebook.world_id)
             .eq("user_id", userId)
-            .is("deleted_at", null)
             .single(),
           supabase
-            .from("atlas_entries")
+            .from("active_atlas_entries")
             .select("*")
             .eq("lorebook_id", lorebookId)
             .eq("user_id", userId)
-            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
         ]);
 
@@ -501,34 +498,17 @@ export default function LorebookPage() {
     try {
       const supabase = createClient();
 
-      const { data: worldData, error: worldLoadError } = await supabase
-        .from("atlas_worlds")
-        .select("featured_lorebook_ids")
-        .eq("id", lorebook.world_id)
-        .eq("user_id", currentUserId)
-        .single();
+      const { error: relationDeleteError } = await supabase
+        .from("atlas_world_featured_lorebooks")
+        .delete()
+        .eq("world_id", lorebook.world_id)
+        .eq("lorebook_id", lorebook.id);
 
-      if (!worldLoadError && worldData) {
-        const currentFeatured = Array.isArray(worldData.featured_lorebook_ids)
-          ? (worldData.featured_lorebook_ids as string[])
-          : [];
-
-        const nextFeatured = currentFeatured.filter(
-          (featuredLorebookId) => featuredLorebookId !== lorebook.id,
+      if (relationDeleteError) {
+        console.warn(
+          "Could not unpin lorebook before delete:",
+          relationDeleteError,
         );
-
-        const { error: worldUpdateError } = await supabase
-          .from("atlas_worlds")
-          .update({ featured_lorebook_ids: nextFeatured })
-          .eq("id", lorebook.world_id)
-          .eq("user_id", currentUserId);
-
-        if (worldUpdateError) {
-          console.warn(
-            "Could not unpin lorebook before delete:",
-            worldUpdateError,
-          );
-        }
       }
 
       const { error } = await supabase

@@ -196,22 +196,21 @@ export function AtlasHub() {
               { data: entryData, error: entryError },
             ] = await Promise.all([
               supabase
-                .from("atlas_worlds")
-                .select("*")
+                .from("active_atlas_worlds")
+                .select(
+                  "id,user_id,title,slug,kind,status,description,lore_summary,created_at,updated_at,active_atlas_world_bots(bot_id),active_atlas_world_featured_lorebooks(lorebook_id)",
+                )
                 .eq("user_id", userId)
-                .is("deleted_at", null)
                 .order("updated_at", { ascending: false }),
               supabase
-                .from("atlas_lorebooks")
+                .from("active_atlas_lorebooks")
                 .select("*")
                 .eq("user_id", userId)
-                .is("deleted_at", null)
                 .order("updated_at", { ascending: false }),
               supabase
-                .from("atlas_entries")
+                .from("active_atlas_entries")
                 .select("*")
                 .eq("user_id", userId)
-                .is("deleted_at", null)
                 .order("updated_at", { ascending: false }),
             ]);
 
@@ -656,6 +655,56 @@ export function AtlasHub() {
     await handleImportFile(fileList[0]);
   };
 
+  const syncWorldRelations = async (
+    supabase: ReturnType<typeof createClient>,
+    worldId: string,
+    botIds: string[],
+    featuredLorebookIds: string[],
+  ) => {
+    const normalizedBotIds = Array.from(new Set(botIds.filter(Boolean)));
+    const normalizedFeaturedLorebookIds = Array.from(
+      new Set(featuredLorebookIds.filter(Boolean)),
+    );
+
+    const { error: clearBotsError } = await supabase
+      .from("atlas_world_bots")
+      .delete()
+      .eq("world_id", worldId);
+    if (clearBotsError) throw clearBotsError;
+
+    const { error: clearFeaturedError } = await supabase
+      .from("atlas_world_featured_lorebooks")
+      .delete()
+      .eq("world_id", worldId);
+    if (clearFeaturedError) throw clearFeaturedError;
+
+    if (normalizedBotIds.length > 0) {
+      const { error: insertBotsError } = await supabase
+        .from("atlas_world_bots")
+        .insert(
+          normalizedBotIds.map((botId, index) => ({
+            world_id: worldId,
+            bot_id: botId,
+            sort_order: index,
+          })),
+        );
+      if (insertBotsError) throw insertBotsError;
+    }
+
+    if (normalizedFeaturedLorebookIds.length > 0) {
+      const { error: insertFeaturedError } = await supabase
+        .from("atlas_world_featured_lorebooks")
+        .insert(
+          normalizedFeaturedLorebookIds.map((lorebookId, index) => ({
+            world_id: worldId,
+            lorebook_id: lorebookId,
+            sort_order: index,
+          })),
+        );
+      if (insertFeaturedError) throw insertFeaturedError;
+    }
+  };
+
   const saveWorld = async () => {
     if (!currentUserId) {
       toast.error("Sign in to save Atlas worlds");
@@ -690,14 +739,33 @@ export function AtlasHub() {
         .upsert([buildWorldRow(normalizedWorld, currentUserId)], {
           onConflict: "id",
         })
-        .select("*")
+        .select("id")
         .single();
 
       if (error) throw error;
 
-      const savedWorld = data
-        ? mapWorldRow(data as AtlasWorldRow)
-        : normalizedWorld;
+      const savedWorldId = data?.id || normalizedWorld.id;
+
+      await syncWorldRelations(
+        supabase,
+        savedWorldId,
+        normalizedWorld.botIds,
+        normalizedWorld.featuredLorebookIds,
+      );
+
+      const { data: refreshedWorld, error: refreshError } = await supabase
+        .from("active_atlas_worlds")
+        .select(
+          "id,user_id,title,slug,kind,status,description,lore_summary,created_at,updated_at,active_atlas_world_bots(bot_id),active_atlas_world_featured_lorebooks(lorebook_id)",
+        )
+        .eq("id", savedWorldId)
+        .maybeSingle();
+
+      if (refreshError) throw refreshError;
+
+      const savedWorld = refreshedWorld
+        ? mapWorldRow(refreshedWorld as AtlasWorldRow)
+        : { ...normalizedWorld, id: savedWorldId };
       setWorlds((prev) => {
         const exists = prev.some((world) => world.id === savedWorld.id);
         return exists
@@ -754,30 +822,27 @@ export function AtlasHub() {
       );
 
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("atlas_worlds")
-        .update({ featured_lorebook_ids: nextFeaturedLorebookIds })
-        .eq("id", selectedWorld.id)
-        .eq("user_id", currentUserId)
-        .select("*")
-        .single();
+      const { error } = await supabase
+        .from("atlas_world_featured_lorebooks")
+        .delete()
+        .eq("world_id", selectedWorld.id)
+        .eq("lorebook_id", lorebookId);
 
       if (error) throw error;
 
-      if (data) {
-        const updatedWorld = mapWorldRow(data as AtlasWorldRow);
-        setWorlds((prev) =>
-          prev.map((world) =>
-            world.id === updatedWorld.id ? updatedWorld : world,
-          ),
-        );
+      setWorlds((prev) =>
+        prev.map((world) =>
+          world.id === selectedWorld.id
+            ? { ...world, featuredLorebookIds: nextFeaturedLorebookIds }
+            : world,
+        ),
+      );
 
-        setWorldEditorState((prev) =>
-          prev.id === updatedWorld.id
-            ? { ...prev, featuredLorebookIds: updatedWorld.featuredLorebookIds }
-            : prev,
-        );
-      }
+      setWorldEditorState((prev) =>
+        prev.id === selectedWorld.id
+          ? { ...prev, featuredLorebookIds: nextFeaturedLorebookIds }
+          : prev,
+      );
 
       toast.success("Lorebook removed from world");
     } catch (error) {
@@ -913,6 +978,9 @@ export function AtlasHub() {
       let targetWorldId = worldId;
 
       if (isAtlasPackage(parsed) && parsed.world) {
+        const importedBotIds = Array.isArray(parsed.world.botIds)
+          ? parsed.world.botIds
+          : [];
         const worldPayload = {
           id: crypto.randomUUID(),
           user_id: currentUserId,
@@ -924,21 +992,47 @@ export function AtlasHub() {
           status: parsed.world.status ?? "draft",
           description: parsed.world.description ?? "",
           lore_summary: parsed.world.loreSummary ?? "",
-          bot_ids: parsed.world.botIds ?? [],
-          featured_lorebook_ids: [],
         };
 
         const { data: worldData, error: worldError } = await supabase
           .from("atlas_worlds")
           .insert(worldPayload)
-          .select("*")
+          .select("id")
           .single();
 
         if (worldError) throw worldError;
-        if (worldData) {
-          const importedWorld = mapWorldRow(worldData as AtlasWorldRow);
-          setWorlds((prev) => [importedWorld, ...prev]);
-          targetWorldId = importedWorld.id;
+        if (worldData?.id) {
+          if (importedBotIds.length > 0) {
+            const { error: worldBotError } = await supabase
+              .from("atlas_world_bots")
+              .insert(
+                importedBotIds.map((botId, index) => ({
+                  world_id: worldData.id,
+                  bot_id: botId,
+                  sort_order: index,
+                })),
+              );
+            if (worldBotError) throw worldBotError;
+          }
+
+          const { data: refreshedWorld, error: refreshedWorldError } =
+            await supabase
+              .from("active_atlas_worlds")
+              .select(
+                "id,user_id,title,slug,kind,status,description,lore_summary,created_at,updated_at,active_atlas_world_bots(bot_id),active_atlas_world_featured_lorebooks(lorebook_id)",
+              )
+              .eq("id", worldData.id)
+              .maybeSingle();
+
+          if (refreshedWorldError) throw refreshedWorldError;
+
+          if (refreshedWorld) {
+            const importedWorld = mapWorldRow(refreshedWorld as AtlasWorldRow);
+            setWorlds((prev) => [importedWorld, ...prev]);
+            targetWorldId = importedWorld.id;
+          } else {
+            targetWorldId = worldData.id;
+          }
         }
       }
 
@@ -971,21 +1065,52 @@ export function AtlasHub() {
             (isAtlasPackage(parsed) && parsed.world?.description) || "",
           lore_summary:
             (isAtlasPackage(parsed) && parsed.world?.loreSummary) || "",
-          bot_ids: (isAtlasPackage(parsed) && parsed.world?.botIds) || [],
-          featured_lorebook_ids: [],
         };
 
         const { data: worldData, error: worldError } = await supabase
           .from("atlas_worlds")
           .insert(worldPayload)
-          .select("*")
+          .select("id")
           .single();
 
         if (worldError) throw worldError;
-        if (worldData) {
-          const importedWorld = mapWorldRow(worldData as AtlasWorldRow);
-          setWorlds((prev) => [importedWorld, ...prev]);
-          targetWorldId = importedWorld.id;
+        if (worldData?.id) {
+          const importedBotIds =
+            isAtlasPackage(parsed) && Array.isArray(parsed.world?.botIds)
+              ? parsed.world.botIds
+              : [];
+
+          if (importedBotIds.length > 0) {
+            const { error: worldBotError } = await supabase
+              .from("atlas_world_bots")
+              .insert(
+                importedBotIds.map((botId, index) => ({
+                  world_id: worldData.id,
+                  bot_id: botId,
+                  sort_order: index,
+                })),
+              );
+            if (worldBotError) throw worldBotError;
+          }
+
+          const { data: refreshedWorld, error: refreshedWorldError } =
+            await supabase
+              .from("active_atlas_worlds")
+              .select(
+                "id,user_id,title,slug,kind,status,description,lore_summary,created_at,updated_at,active_atlas_world_bots(bot_id),active_atlas_world_featured_lorebooks(lorebook_id)",
+              )
+              .eq("id", worldData.id)
+              .maybeSingle();
+
+          if (refreshedWorldError) throw refreshedWorldError;
+
+          if (refreshedWorld) {
+            const importedWorld = mapWorldRow(refreshedWorld as AtlasWorldRow);
+            setWorlds((prev) => [importedWorld, ...prev]);
+            targetWorldId = importedWorld.id;
+          } else {
+            targetWorldId = worldData.id;
+          }
         }
       }
 
@@ -1102,25 +1227,26 @@ export function AtlasHub() {
           new Set([...existingFeaturedLorebookIds, importedLorebook.id]),
         );
 
-        const { data: updatedWorldData, error: worldUpdateError } =
-          await supabase
-            .from("atlas_worlds")
-            .update({ featured_lorebook_ids: nextFeaturedLorebookIds })
-            .eq("id", targetWorldId)
-            .eq("user_id", currentUserId)
-            .select("*")
-            .single();
+        const { error: worldUpdateError } = await supabase
+          .from("atlas_world_featured_lorebooks")
+          .upsert(
+            {
+              world_id: targetWorldId,
+              lorebook_id: importedLorebook.id,
+              sort_order: nextFeaturedLorebookIds.length - 1,
+            },
+            { onConflict: "world_id,lorebook_id" },
+          );
 
         if (worldUpdateError) throw worldUpdateError;
 
-        if (updatedWorldData) {
-          const updatedWorld = mapWorldRow(updatedWorldData as AtlasWorldRow);
-          setWorlds((prev) =>
-            prev.map((world) =>
-              world.id === updatedWorld.id ? updatedWorld : world,
-            ),
-          );
-        }
+        setWorlds((prev) =>
+          prev.map((world) =>
+            world.id === targetWorldId
+              ? { ...world, featuredLorebookIds: nextFeaturedLorebookIds }
+              : world,
+          ),
+        );
       }
 
       setSelectedWorldId(targetWorldId);

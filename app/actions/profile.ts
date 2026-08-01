@@ -79,7 +79,15 @@ export async function getOwnProfile() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select(
+      `
+      *,
+      active_profile_featured_bots (
+        sort_order,
+        bot:active_bots (*)
+      )
+    `,
+    )
     .eq("id", access.user.id)
     .single();
 
@@ -99,11 +107,16 @@ export async function getPublicProfile(slug: string) {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, username, display_name, bio, tagline, avatar_url, banner_url, social_links, theme, slug, created_at, pronouns, location, website_url, specialties, status_message, visibility, featured_bot_ids, profile_badges, profile_completeness",
+      `
+      id, username, display_name, bio, tagline, avatar_url, banner_url, social_links, theme, slug, created_at, pronouns, location, website_url, specialties, status_message, visibility, profile_badges, profile_completeness,
+      active_profile_featured_bots (
+        sort_order,
+        bot:active_bots (*)
+      )
+    `,
     )
     .eq("slug", slug)
     .maybeSingle();
-
   if (error || !data) {
     return { success: false, error: "Profile not found", profile: null };
   }
@@ -129,6 +142,8 @@ interface UpdateProfileInput {
   specialties?: string[];
   status_message?: string;
   visibility?: string;
+  featuredBotIds?: string[];
+  // Backward-compatible input key; now persisted through profile_featured_bots
   featured_bot_ids?: string[];
   profile_badges?: Array<Record<string, string>>;
   custom_css?: string;
@@ -140,6 +155,10 @@ export async function updateProfile(input: UpdateProfileInput) {
   if (!access.user) {
     return { success: false, error: "Not authenticated" };
   }
+  const userId = access.user.id;
+
+  const requestedFeaturedBotIds =
+    input.featuredBotIds ?? input.featured_bot_ids;
 
   // Validate slug format if provided
   if (input.slug !== undefined) {
@@ -161,7 +180,7 @@ export async function updateProfile(input: UpdateProfileInput) {
       .from("profiles")
       .select("id")
       .eq("slug", cleanSlug)
-      .neq("id", access.user.id)
+      .neq("id", userId)
       .maybeSingle();
 
     if (existingSlug) {
@@ -189,13 +208,14 @@ export async function updateProfile(input: UpdateProfileInput) {
   if (input.status_message !== undefined)
     payload.status_message = input.status_message.trim();
   if (input.visibility !== undefined) payload.visibility = input.visibility;
-  if (input.featured_bot_ids !== undefined)
-    payload.featured_bot_ids = input.featured_bot_ids;
   if (input.profile_badges !== undefined)
     payload.profile_badges = input.profile_badges;
   if (input.custom_css !== undefined) payload.custom_css = input.custom_css;
 
-  if (Object.keys(payload).length === 0) {
+  if (
+    Object.keys(payload).length === 0 &&
+    requestedFeaturedBotIds === undefined
+  ) {
     return { success: false, error: "Nothing to update" };
   }
 
@@ -207,18 +227,51 @@ export async function updateProfile(input: UpdateProfileInput) {
     const { data } = await supabase
       .from("profiles")
       .select("avatar_url, banner_url")
-      .eq("id", access.user.id)
+      .eq("id", userId)
       .maybeSingle();
     existingAssets = data ?? null;
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update(payload)
-    .eq("id", access.user.id);
+  if (Object.keys(payload).length > 0) {
+    const { error } = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", userId);
 
-  if (error) {
-    return { success: false, error: error.message };
+    if (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  if (requestedFeaturedBotIds !== undefined) {
+    const normalizedFeaturedBotIds = Array.from(
+      new Set((requestedFeaturedBotIds || []).filter(Boolean)),
+    );
+
+    const { error: clearError } = await supabase
+      .from("profile_featured_bots")
+      .delete()
+      .eq("profile_id", userId);
+
+    if (clearError) {
+      return { success: false, error: clearError.message };
+    }
+
+    if (normalizedFeaturedBotIds.length > 0) {
+      const { error: insertError } = await supabase
+        .from("profile_featured_bots")
+        .insert(
+          normalizedFeaturedBotIds.map((botId, index) => ({
+            profile_id: userId,
+            bot_id: botId,
+            sort_order: index,
+          })),
+        );
+
+      if (insertError) {
+        return { success: false, error: insertError.message };
+      }
+    }
   }
 
   if (existingAssets) {

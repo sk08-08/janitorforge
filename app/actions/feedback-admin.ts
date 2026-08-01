@@ -36,7 +36,6 @@ export async function updateFeedbackStatus(
     const { error } = await supabase
       .from("feedback_submissions")
       .update({ status })
-      .is("deleted_at", null)
       .eq("id", feedbackId);
 
     if (error) {
@@ -61,7 +60,6 @@ export async function updateFeedbackPriority(
     const { error } = await supabase
       .from("feedback_submissions")
       .update({ priority })
-      .is("deleted_at", null)
       .eq("id", feedbackId);
 
     if (error) {
@@ -83,7 +81,6 @@ export async function markFeedbackRead(feedbackId: string, isRead: boolean) {
     const { error } = await supabase
       .from("feedback_submissions")
       .update({ is_read: isRead })
-      .is("deleted_at", null)
       .eq("id", feedbackId);
 
     if (error) {
@@ -105,7 +102,6 @@ export async function markMultipleRead(feedbackIds: string[], isRead: boolean) {
     const { error } = await supabase
       .from("feedback_submissions")
       .update({ is_read: isRead })
-      .is("deleted_at", null)
       .in("id", feedbackIds);
 
     if (error) {
@@ -130,7 +126,6 @@ export async function bulkUpdateStatus(
     const { error } = await supabase
       .from("feedback_submissions")
       .update({ status })
-      .is("deleted_at", null)
       .in("id", feedbackIds);
 
     if (error) {
@@ -204,7 +199,6 @@ export async function deleteFeedback(feedbackId: string) {
     const { error } = await supabase
       .from("feedback_submissions")
       .update({ deleted_at: new Date().toISOString() })
-      .is("deleted_at", null)
       .eq("id", feedbackId);
 
     if (error) {

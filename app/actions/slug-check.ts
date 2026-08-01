@@ -69,10 +69,9 @@ export async function checkSlugAvailability(
 
   // Check creator_pages table
   const { data: pageMatch } = await supabase
-    .from("creator_pages")
+    .from("active_creator_pages")
     .select("id, title, user_id")
     .eq("slug", clean)
-    .is("deleted_at", null)
     .maybeSingle();
 
   if (pageMatch && pageMatch.user_id === currentUserId) {
@@ -127,10 +126,9 @@ export async function checkSlugAvailability(
   // The user's own creator pages can be overridden since profile takes priority.
   if (context === "profile") {
     const { data: otherPageWithSlug } = await supabase
-      .from("creator_pages")
+      .from("active_creator_pages")
       .select("id, title, user_id")
       .eq("slug", clean)
-      .is("deleted_at", null)
       .neq("user_id", currentUserId)
       .limit(1)
       .maybeSingle();

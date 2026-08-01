@@ -129,9 +129,8 @@ export function SensitivityLevelSettings({
         }
 
         const query = supabase
-          .from("request_forms")
+          .from("active_request_forms")
           .select("security_sensitivity")
-          .is("deleted_at", null)
           .eq("id", formId);
 
         const { data, error } = isAdmin
@@ -183,7 +182,6 @@ export function SensitivityLevelSettings({
       const query = supabase
         .from("request_forms")
         .update({ security_sensitivity: newLevel })
-        .is("deleted_at", null)
         .eq("id", formId);
 
       const { error } = isAdmin

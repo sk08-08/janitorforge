@@ -11,6 +11,20 @@ interface ExportRow {
   [key: string]: string | number | boolean | string[];
 }
 
+function formatExportValue(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value))
+    return value.map((item) => String(item)).join(" | ");
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
 // ---------------------------------------------------------------------------
 // CSV Export
 // ---------------------------------------------------------------------------
@@ -25,11 +39,11 @@ function escapeCsvValue(value: unknown): string {
   return str;
 }
 
-export function exportToCsv(data: ExportRow[], filename: string): void {
-  if (data.length === 0) {
-    console.warn("No data to export");
-    return;
-  }
+export function serializeExportRowsToCsv(
+  data: ExportRow[],
+  options?: { includeBom?: boolean },
+): string {
+  if (data.length === 0) return "";
 
   // Collect all unique column names preserving order
   const columns = new Set<string>();
@@ -43,8 +57,27 @@ export function exportToCsv(data: ExportRow[], filename: string): void {
   );
   const csv = [header, ...rows].join("\n");
 
+  if (options?.includeBom === false) {
+    return csv;
+  }
+
+  return `\uFEFF${csv}`;
+}
+
+export function serializeExportDataToJson(data: unknown): string {
+  return JSON.stringify(data, null, 2);
+}
+
+export function exportToCsv(data: ExportRow[], filename: string): void {
+  if (data.length === 0) {
+    console.warn("No data to export");
+    return;
+  }
+
+  const csvWithBom = serializeExportRowsToCsv(data, { includeBom: true });
+
   // Download
-  downloadFile(csv, filename, "text/csv;charset=utf-8;");
+  downloadFile(csvWithBom, filename, "text/csv;charset=utf-8;");
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +85,7 @@ export function exportToCsv(data: ExportRow[], filename: string): void {
 // ---------------------------------------------------------------------------
 
 export function exportToJson(data: unknown, filename: string): void {
-  const json = JSON.stringify(data, null, 2);
+  const json = serializeExportDataToJson(data);
   downloadFile(json, filename, "application/json;charset=utf-8;");
 }
 
@@ -89,6 +122,8 @@ export interface SubmissionExportItem {
 
 export function transformSubmissionsForExport(
   submissions: Array<{
+    id?: string;
+    form_title?: string;
     created_at?: string;
     status?: string;
     submitter_name?: string;
@@ -99,17 +134,22 @@ export function transformSubmissionsForExport(
     string,
     { label: string; fields: Record<string, string> }
   >,
+  options?: { includeMetadata?: boolean },
 ): ExportRow[] {
   return submissions.map((sub) => {
     const responses = sub.responses || {};
     const labelMap = sub.response_labels || {};
-    const flattened: ExportRow = {
-      "Fecha de envío": sub.created_at
+    const flattened: ExportRow = {};
+
+    if (options?.includeMetadata !== false) {
+      flattened["Request ID"] = sub.id || "";
+      flattened["Form Title"] = sub.form_title || "";
+      flattened["Submission Date"] = sub.created_at
         ? new Date(sub.created_at).toLocaleString()
-        : "",
-      Estado: sub.status || "pending",
-      "Nombre del remitente": sub.submitter_name || "Anónimo",
-    };
+        : "";
+      flattened["Status"] = sub.status || "new";
+      flattened["Submitter Name"] = sub.submitter_name || "Anonymous";
+    }
 
     // Flatten responses into columns using field labels instead of IDs
     Object.entries(responses).forEach(([fieldId, value]) => {
@@ -123,13 +163,7 @@ export function transformSubmissionsForExport(
         colName = `${label} (${suffix++})`;
       }
 
-      if (Array.isArray(value)) {
-        flattened[colName] = value.join("; ");
-      } else if (value !== null && value !== undefined) {
-        flattened[colName] = String(value);
-      } else {
-        flattened[colName] = "";
-      }
+      flattened[colName] = formatExportValue(value);
     });
 
     return flattened;

@@ -285,36 +285,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         { data: lorebooks },
         { data: entries },
       ] = await Promise.all([
+        supabase.from("active_bots").select("*").eq("user_id", userId),
+        supabase.from("active_request_forms").select("*").eq("user_id", userId),
+        supabase.from("active_requests").select("*").eq("user_id", userId),
+        supabase.from("active_atlas_worlds").select("*").eq("user_id", userId),
         supabase
-          .from("bots")
+          .from("active_atlas_lorebooks")
           .select("*")
-          .eq("user_id", userId)
-          .is("deleted_at", null),
-        supabase
-          .from("request_forms")
-          .select("*")
-          .eq("user_id", userId)
-          .is("deleted_at", null),
-        supabase
-          .from("requests")
-          .select("*")
-          .eq("user_id", userId)
-          .is("deleted_at", null),
-        supabase
-          .from("atlas_worlds")
-          .select("*")
-          .eq("user_id", userId)
-          .is("deleted_at", null),
-        supabase
-          .from("atlas_lorebooks")
-          .select("*")
-          .eq("user_id", userId)
-          .is("deleted_at", null),
-        supabase
-          .from("atlas_entries")
-          .select("*")
-          .eq("user_id", userId)
-          .is("deleted_at", null),
+          .eq("user_id", userId),
+        supabase.from("active_atlas_entries").select("*").eq("user_id", userId),
       ]);
 
       const exportData = {
@@ -355,8 +334,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         const { data, error } = await supabase
           .from(table)
           .select("*")
-          .eq(ownerColumn, userId)
-          .is("deleted_at", null);
+          .eq(ownerColumn, userId);
         if (error) throw error;
 
         const blob = new Blob([JSON.stringify(data ?? [], null, 2)], {
@@ -615,31 +593,31 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                     {(
                       [
                         {
-                          table: "bots",
+                          table: "active_bots",
                           label: "Bots",
                           icon: FileJson,
                           ownerColumn: "user_id",
                         },
                         {
-                          table: "request_forms",
+                          table: "active_request_forms",
                           label: "Forms",
                           icon: FileSpreadsheet,
                           ownerColumn: "user_id",
                         },
                         {
-                          table: "atlas_worlds",
+                          table: "active_atlas_worlds",
                           label: "Atlas Worlds",
                           icon: FileJson,
                           ownerColumn: "user_id",
                         },
                         {
-                          table: "atlas_lorebooks",
+                          table: "active_atlas_lorebooks",
                           label: "Lorebooks",
                           icon: FileJson,
                           ownerColumn: "user_id",
                         },
                         {
-                          table: "atlas_entries",
+                          table: "active_atlas_entries",
                           label: "Entries",
                           icon: FileJson,
                           ownerColumn: "user_id",

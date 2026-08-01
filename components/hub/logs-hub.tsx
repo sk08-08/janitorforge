@@ -248,10 +248,9 @@ export function LogsHub() {
             .select("post_id, reaction")
             .in("post_id", postIds),
           supabase
-            .from("hub_log_post_comments")
+            .from("active_hub_log_post_comments")
             .select("post_id")
-            .in("post_id", postIds)
-            .is("deleted_at", null),
+            .in("post_id", postIds),
           userId
             ? supabase
                 .from("hub_log_post_reactions")
@@ -313,12 +312,11 @@ export function LogsHub() {
   const loadPostComments = useCallback(async (postId: string) => {
     const supabase = createClient();
     const { data, error } = await supabase
-      .from("hub_log_post_comments")
+      .from("active_hub_log_post_comments")
       .select(
         "id, post_id, user_id, body, created_at, profiles:user_id(username, display_name, avatar_url)",
       )
       .eq("post_id", postId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (error) return;

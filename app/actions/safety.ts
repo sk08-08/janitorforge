@@ -45,10 +45,9 @@ async function assertOwnedForm(
   }
 
   const query = supabase
-    .from("request_forms")
+    .from("active_request_forms")
     .select("id")
-    .eq("id", formId)
-    .is("deleted_at", null);
+    .eq("id", formId);
   const { data, error } = access.isAdmin
     ? await query.maybeSingle()
     : await query.eq("user_id", userId).maybeSingle();

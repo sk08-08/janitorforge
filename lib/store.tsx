@@ -271,24 +271,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         // Fetch only data belonging to the authenticated user
         const formsQuery = isAdmin
-          ? supabase.from("request_forms").select("*")
-          : supabase.from("request_forms").select("*").eq("user_id", user.id);
+          ? supabase.from("active_request_forms").select("*")
+          : supabase
+              .from("active_request_forms")
+              .select("*")
+              .eq("user_id", user.id);
         const requestsQuery = isAdmin
-          ? supabase.from("requests").select("*")
-          : supabase.from("requests").select("*").eq("user_id", user.id);
+          ? supabase.from("active_requests").select("*")
+          : supabase.from("active_requests").select("*").eq("user_id", user.id);
         const [
           { data: botsData, error: botsError },
           { data: formsData, error: formsError },
           { data: requestsData, error: requestsError },
         ] = await Promise.all([
           supabase
-            .from("bots")
+            .from("active_bots")
             .select("*")
             .eq("user_id", user.id)
-            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
-          formsQuery.is("deleted_at", null),
-          requestsQuery.is("deleted_at", null),
+          formsQuery,
+          requestsQuery,
         ]);
 
         if (botsError) throw botsError;
@@ -603,7 +605,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             notes: notes ?? null,
             updated_at: new Date().toISOString(),
           })
-          .is("deleted_at", null)
           .eq("id", id);
 
         if (error) {
@@ -634,7 +635,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           notes,
           updated_at: new Date().toISOString(),
         })
-        .is("deleted_at", null)
         .eq("id", id);
 
       if (error) {
@@ -656,7 +656,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase
         .from("requests")
         .update({ deleted_at: new Date().toISOString() })
-        .is("deleted_at", null)
         .eq("id", id);
 
       if (error) {

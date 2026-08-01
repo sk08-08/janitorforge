@@ -35,8 +35,8 @@ export interface AtlasWorldRow {
   status: AtlasWorldStatus;
   description: string;
   lore_summary: string;
-  bot_ids: string[];
-  featured_lorebook_ids: string[];
+  active_atlas_world_bots?: Array<{ bot_id: string }>;
+  active_atlas_world_featured_lorebooks?: Array<{ lorebook_id: string }>;
   created_at: string;
   updated_at: string;
 }

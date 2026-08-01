@@ -47,7 +47,6 @@ import {
   YoutubeIcon,
   TwitchIcon,
   WebsiteIcon,
-  socialIcons,
 } from "@/components/ui/social-icons";
 import { getOwnProfile, getFollowCounts } from "@/app/actions/profile";
 import { useStore } from "@/lib/store";
@@ -64,6 +63,7 @@ import {
   ProfileFeaturedBotListCard,
 } from "./profile-bot-cards";
 import { cn } from "@/lib/utils";
+import { BotPreview } from "@/lib/types";
 
 const PROFILE_BOTS_PAGE_SIZE = 12;
 
@@ -107,7 +107,10 @@ interface Profile {
   social_links?: Record<string, string> | null;
   profile_badges?: ProfileBadge[] | null;
   profile_completeness?: number | null;
-  featured_bot_ids?: string[] | null;
+  active_profile_featured_bots?: Array<{
+    sort_order: number;
+    bot: BotPreview;
+  }> | null;
 }
 
 export function ProfilePage() {
@@ -146,7 +149,7 @@ export function ProfilePage() {
       slug: string;
       kind: string;
       description: string;
-      bot_ids: string[];
+      active_atlas_world_bots?: { bot_id: string }[];
     }>
   >([]);
 
@@ -166,17 +169,23 @@ export function ProfilePage() {
 
           const supabase = createClient();
           const [{ data: pages }, { data: worldData }] = await Promise.all([
+            // Query the secure view directly without manual filters
             supabase
-              .from("creator_pages")
+              .from("active_creator_pages")
               .select("id, title, slug, description, is_published")
               .eq("user_id", ownProfileResult.profile.id)
-              .is("deleted_at", null)
               .order("updated_at", { ascending: false }),
+
+            // Query the secure view directly
             supabase
-              .from("atlas_worlds")
-              .select("id, title, slug, kind, description, bot_ids")
+              .from("active_atlas_worlds")
+              .select(
+                `
+                id, title, slug, kind, description,
+                active_atlas_world_bots ( bot_id )
+              `,
+              )
               .eq("user_id", ownProfileResult.profile.id)
-              .is("deleted_at", null)
               .order("updated_at", { ascending: false }),
           ]);
 
@@ -206,10 +215,9 @@ export function ProfilePage() {
     loadProfile();
   }, [loadProfile]);
 
-  const activeBots = bots.filter((bot: any) => !bot.deleted_at);
   const totalBotPages = Math.max(
     1,
-    Math.ceil(activeBots.length / PROFILE_BOTS_PAGE_SIZE),
+    Math.ceil(bots.length / PROFILE_BOTS_PAGE_SIZE),
   );
 
   useEffect(() => {
@@ -254,31 +262,62 @@ export function ProfilePage() {
   const showCreatorPages = theme.showCreatorPages !== false;
   const showWorlds = theme.showWorlds !== false;
   const showForms = theme.showForms !== false;
-  const activeCreatorPages = creatorPages.filter(
-    (page: any) => !page.deleted_at,
-  );
-  const activeWorlds = worlds.filter((world: any) => !world.deleted_at);
-  const activeForms = forms.filter((form: any) => !form.deleted_at);
   const hideCompletenessNudge =
     theme.hideCompletenessNudge === true ||
     theme.hideCompletenessNudge === "true";
-  const featuredBotIds = p.featured_bot_ids || [];
-  const featuredBots = featuredBotIds
-    .map((id) => bots.find((b) => b.id === id))
+  const featuredBots = (profile.active_profile_featured_bots || [])
+    .sort((a: any, b: any) => a.sort_order - b.sort_order)
+    .map((relation: any) => {
+      const rawBot = relation.bot;
+      if (!rawBot) return null;
+
+      // 1. Evaluate the privacy flag
+      const isHidden = rawBot.hide_sensitive_fields === true;
+
+      // 2. Map snake_case to camelCase and enforce privacy masking
+      return {
+        ...rawBot, // Keep raw properties just in case, but override specific ones
+        id: rawBot.id,
+        name: rawBot.name,
+        rating: rawBot.rating,
+        tags: rawBot.tags || [],
+
+        // Fix the image rendering issue
+        imageUrl: rawBot.image_url,
+
+        // Enforce the hide_sensitive_fields rule
+        personality: isHidden ? "" : rawBot.personality,
+        firstMessage: isHidden
+          ? ""
+          : rawBot.firstMessage || rawBot.first_message,
+        scenario: isHidden ? "" : rawBot.scenario,
+        exampleDialogues: isHidden
+          ? ""
+          : rawBot.exampleDialogues || rawBot.example_dialogues,
+
+        // Ensure the frontend flag matches the DB flag
+        hideSensitiveFields: isHidden,
+      };
+    })
     .filter(Boolean);
-  const ownForms = activeForms.filter(
-    (f) => f.ownerId === (p.id as string) || f.ownerId === undefined,
-  );
-  const paginatedBots = activeBots.slice(
+
+  const paginatedBots = bots.slice(
     botsPage * PROFILE_BOTS_PAGE_SIZE,
     (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
   );
+
   const botsRangeStart =
-    activeBots.length === 0 ? 0 : botsPage * PROFILE_BOTS_PAGE_SIZE + 1;
+    bots.length === 0 ? 0 : botsPage * PROFILE_BOTS_PAGE_SIZE + 1;
   const botsRangeEnd = Math.min(
     (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
-    activeBots.length,
+    bots.length,
   );
+
+  // Use 'forms' directly for 'ownForms'
+  const ownForms = forms.filter(
+    (f) => f.ownerId === (p.id as string) || f.ownerId === undefined,
+  );
+
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
 
   return (
@@ -571,7 +610,7 @@ export function ProfilePage() {
             <div className="flex items-center gap-3">
               <Bot className="h-5 w-5" style={{ color: primaryColor }} />
               <h2 className="text-lg font-semibold">Bots</h2>
-              <Badge variant="outline">{activeBots.length}</Badge>
+              <Badge variant="outline">{bots.length}</Badge>
             </div>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {paginatedBots.map((bot) => (
@@ -585,8 +624,7 @@ export function ProfilePage() {
             {totalBotPages > 1 && (
               <div className="mt-2 flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  Showing {botsRangeStart}-{botsRangeEnd} of {activeBots.length}{" "}
-                  bots
+                  Showing {botsRangeStart}-{botsRangeEnd} of {bots.length} bots
                 </p>
                 <Pagination className="w-auto">
                   <PaginationContent>
@@ -665,11 +703,11 @@ export function ProfilePage() {
             <div className="flex items-center gap-3">
               <AppWindow className="h-5 w-5" style={{ color: primaryColor }} />
               <h2 className="text-lg font-semibold">Creator Pages</h2>
-              <Badge variant="outline">{activeCreatorPages.length}</Badge>
+              <Badge variant="outline">{creatorPages.length}</Badge>
             </div>
-            {activeCreatorPages.length > 0 ? (
+            {creatorPages.length > 0 ? (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {activeCreatorPages.map((page) => (
+                {creatorPages.map((page) => (
                   <a
                     key={page.id}
                     href={page.is_published ? `/page/${page.slug}` : "#"}
@@ -715,11 +753,11 @@ export function ProfilePage() {
             <div className="flex items-center gap-3">
               <Globe className="h-5 w-5" style={{ color: primaryColor }} />
               <h2 className="text-lg font-semibold">Worlds</h2>
-              <Badge variant="outline">{activeWorlds.length}</Badge>
+              <Badge variant="outline">{worlds.length}</Badge>
             </div>
-            {activeWorlds.length > 0 ? (
+            {worlds.length > 0 ? (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {activeWorlds.map((world) => (
+                {worlds.map((world) => (
                   <div
                     key={world.id}
                     className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
@@ -743,7 +781,7 @@ export function ProfilePage() {
                       {world.description || "No description"}
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      {world.bot_ids?.length || 0} bots
+                      {world.active_atlas_world_bots?.length || 0} bots
                     </p>
                   </div>
                 ))}

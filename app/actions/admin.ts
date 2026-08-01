@@ -50,37 +50,32 @@ export async function getAdminStats() {
     { count: total_bots },
     { count: total_forms },
     { count: total_submissions },
+    { count: total_submissions_raw },
     { count: pending_flagged },
     { count: new_today },
     { count: blocked_users },
     { count: admin_users },
     { count: active_forms },
-    { count: deleted_submissions },
     { count: new_users_week },
     { count: sfw_bots },
     { count: nsfw_bots },
   ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }),
+    supabase.from("active_bots").select("id", { count: "exact", head: true }),
     supabase
-      .from("bots")
-      .select("id", { count: "exact", head: true })
-      .is("deleted_at", null),
+      .from("active_request_forms")
+      .select("id", { count: "exact", head: true }),
     supabase
-      .from("request_forms")
-      .select("id", { count: "exact", head: true })
-      .is("deleted_at", null),
-    supabase
-      .from("requests")
-      .select("id", { count: "exact", head: true })
-      .is("deleted_at", null),
+      .from("active_requests")
+      .select("id", { count: "exact", head: true }),
+    supabase.from("requests").select("id", { count: "exact", head: true }),
     supabase
       .from("flagged_requests")
       .select("id", { count: "exact", head: true })
       .eq("reviewed", false),
     supabase
-      .from("requests")
+      .from("active_requests")
       .select("id", { count: "exact", head: true })
-      .is("deleted_at", null)
       .gte("created_at", yesterday),
     supabase
       .from("profiles")
@@ -91,29 +86,27 @@ export async function getAdminStats() {
       .select("id", { count: "exact", head: true })
       .eq("is_admin", true),
     supabase
-      .from("request_forms")
+      .from("active_request_forms")
       .select("id", { count: "exact", head: true })
-      .eq("is_active", true)
-      .is("deleted_at", null),
-    supabase
-      .from("requests")
-      .select("id", { count: "exact", head: true })
-      .not("deleted_at", "is", null),
+      .eq("is_active", true),
     supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .gte("created_at", lastWeek),
     supabase
-      .from("bots")
+      .from("active_bots")
       .select("id", { count: "exact", head: true })
-      .is("deleted_at", null)
       .eq("rating", "SFW"),
     supabase
-      .from("bots")
+      .from("active_bots")
       .select("id", { count: "exact", head: true })
-      .is("deleted_at", null)
       .eq("rating", "NSFW"),
   ]);
+
+  const deleted_submissions = Math.max(
+    0,
+    (total_submissions_raw ?? 0) - (total_submissions ?? 0),
+  );
 
   return {
     success: true,
@@ -674,8 +667,7 @@ export async function softDeleteSubmission(id: string) {
   const { error: dbError } = await supabase
     .from("requests")
     .update({ deleted_at: deletedAt })
-    .eq("id", id)
-    .is("deleted_at", null);
+    .eq("id", id);
 
   if (dbError) return { success: false, error: dbError.message };
   return { success: true, deleted_at: deletedAt };
@@ -700,8 +692,7 @@ export async function softDeleteForm(id: string) {
   const { error: dbError } = await supabase
     .from("request_forms")
     .update({ deleted_at: deletedAt })
-    .eq("id", id)
-    .is("deleted_at", null);
+    .eq("id", id);
 
   if (dbError) return { success: false, error: dbError.message };
   return { success: true, deleted_at: deletedAt };
@@ -726,8 +717,7 @@ export async function softDeleteBot(id: string) {
   const { error: dbError } = await supabase
     .from("bots")
     .update({ deleted_at: deletedAt })
-    .eq("id", id)
-    .is("deleted_at", null);
+    .eq("id", id);
 
   if (dbError) return { success: false, error: dbError.message };
   return { success: true, deleted_at: deletedAt };

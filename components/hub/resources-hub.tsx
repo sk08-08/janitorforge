@@ -413,10 +413,9 @@ export function ResourcesHub() {
           .select("entry_id, reaction")
           .in("entry_id", entryIds),
         supabase
-          .from("hub_resource_entry_comments")
+          .from("active_hub_resource_entry_comments")
           .select("entry_id")
-          .in("entry_id", entryIds)
-          .is("deleted_at", null),
+          .in("entry_id", entryIds),
         userId
           ? supabase
               .from("hub_resource_entry_reactions")
@@ -474,12 +473,11 @@ export function ResourcesHub() {
   const loadEntryComments = useCallback(async (entryId: string) => {
     const supabase = createClient();
     const { data, error } = await supabase
-      .from("hub_resource_entry_comments")
+      .from("active_hub_resource_entry_comments")
       .select(
         "id, entry_id, user_id, body, created_at, profiles:user_id(username, display_name, avatar_url)",
       )
       .eq("entry_id", entryId)
-      .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     if (error) return;

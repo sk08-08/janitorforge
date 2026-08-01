@@ -270,10 +270,9 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
   if (!userId) return { success: false, error: "Unauthenticated" };
 
   const { data: existingForm, error: existingError } = await supabase
-    .from("request_forms")
+    .from("active_request_forms")
     .select("id, user_id, sections, banner_asset_path")
     .eq("id", id)
-    .is("deleted_at", null)
     .single();
 
   if (existingError || !existingForm) {
@@ -311,7 +310,6 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
   const { data: updated, error } = await supabase
     .from("request_forms")
     .update(payload)
-    .is("deleted_at", null)
     .eq("id", id)
     .select("*")
     .single();
@@ -357,10 +355,9 @@ export async function deleteFormAction(id: string) {
 
   // Verify ownership before deleting
   const { data: form, error: fetchError } = await supabase
-    .from("request_forms")
-    .select("user_id, sections, banner_asset_path")
+    .from("active_request_forms")
+    .select("user_id, sections, banner_asset_path, shareable_link")
     .eq("id", id)
-    .is("deleted_at", null)
     .single();
 
   if (fetchError || !form) {
@@ -383,14 +380,15 @@ export async function deleteFormAction(id: string) {
     await supabase.storage.from(FORM_BANNERS_BUCKET).remove([bannerPath]);
   }
 
+  const deletedSuffix = `-deleted-${Date.now()}`;
   const { error } = await supabase
     .from("request_forms")
     .update({
       deleted_at: new Date().toISOString(),
       banner_asset_path: null,
       banner_url: null,
+      shareable_link: `${(form as any).shareable_link}${deletedSuffix}`,
     })
-    .is("deleted_at", null)
     .eq("id", id)
     .eq("user_id", userId);
   if (error) {

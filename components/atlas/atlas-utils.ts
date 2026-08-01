@@ -84,9 +84,13 @@ export function mapWorldRow(row: AtlasWorldRow): AtlasWorld {
     status: row.status,
     description: row.description || "",
     loreSummary: row.lore_summary || "",
-    botIds: Array.isArray(row.bot_ids) ? row.bot_ids : [],
-    featuredLorebookIds: Array.isArray(row.featured_lorebook_ids)
-      ? row.featured_lorebook_ids
+    botIds: Array.isArray(row.active_atlas_world_bots)
+      ? row.active_atlas_world_bots.map((rel) => rel.bot_id)
+      : [],
+    featuredLorebookIds: Array.isArray(
+      row.active_atlas_world_featured_lorebooks,
+    )
+      ? row.active_atlas_world_featured_lorebooks.map((rel) => rel.lorebook_id)
       : [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -130,8 +134,6 @@ export function buildWorldRow(
     status: world.status,
     description: world.description,
     lore_summary: world.loreSummary,
-    bot_ids: world.botIds,
-    featured_lorebook_ids: world.featuredLorebookIds,
     created_at: world.createdAt,
     updated_at: world.updatedAt,
   };

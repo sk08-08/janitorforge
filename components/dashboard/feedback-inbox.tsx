@@ -290,9 +290,8 @@ export function FeedbackInbox() {
           }
 
           const { data, error } = await supabase
-            .from("feedback_submissions")
+            .from("active_feedback_submissions")
             .select("*")
-            .is("deleted_at", null)
             .order("created_at", { ascending: false })
             .limit(200);
 

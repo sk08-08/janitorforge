@@ -63,10 +63,9 @@ export async function searchBots(
 
   // Build base query for counting
   let countQuery = supabase
-    .from("bots")
+    .from("active_bots")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("deleted_at", null);
+    .eq("user_id", userId);
 
   if (query.trim()) {
     const escaped = query.replace(/[,()]/g, " ").trim();
@@ -81,12 +80,11 @@ export async function searchBots(
   const { count } = await countQuery;
 
   let q = supabase
-    .from("bots")
+    .from("active_bots")
     .select(
       "id, name, short_description, personality, tags, rating, image_url, created_at, updated_at",
     )
     .eq("user_id", userId)
-    .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -134,12 +132,11 @@ export async function searchCollaborativeBots(
   const collabMap = new Map(collabs.map((c) => [c.bot_id, c.role]));
 
   let q = supabase
-    .from("bots")
+    .from("active_bots")
     .select(
       "id, user_id, name, short_description, personality, tags, rating, image_url, created_at, updated_at, chat_name, first_message, scenario, example_dialogues, alternate_greetings",
     )
     .in("id", botIds)
-    .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .limit(limit);
 
@@ -211,10 +208,9 @@ export async function searchForms(
   if (!userId) return { success: false, error: "Unauthenticated" };
 
   let countQuery = supabase
-    .from("request_forms")
+    .from("active_request_forms")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("deleted_at", null);
+    .eq("user_id", userId);
   if (query.trim()) {
     const escaped = query.replace(/[,()]/g, " ").trim();
     countQuery = countQuery.or(
@@ -224,12 +220,11 @@ export async function searchForms(
   const { count } = await countQuery;
 
   let q = supabase
-    .from("request_forms")
+    .from("active_request_forms")
     .select(
       "id, title, description, is_active, shareable_link, created_at, updated_at",
     )
     .eq("user_id", userId)
-    .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -278,10 +273,9 @@ export async function searchRequests(
   if (!userId) return { success: false, error: "Unauthenticated" };
 
   let countQuery = supabase
-    .from("requests")
+    .from("active_requests")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("deleted_at", null);
+    .eq("user_id", userId);
   if (query.trim()) {
     const escaped = query.replace(/[,()]/g, " ").trim();
     countQuery = countQuery.or(
@@ -294,12 +288,11 @@ export async function searchRequests(
   const { count } = await countQuery;
 
   let q = supabase
-    .from("requests")
+    .from("active_requests")
     .select(
       "id, form_id, form_title, submitter_name, status, responses, response_labels, notes, created_at, updated_at",
     )
     .eq("user_id", userId)
-    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

@@ -28,12 +28,11 @@ export default async function PublicFormPage({
     // the direct table query used by older schema versions.
     if (!row) {
       const { data: legacyRow, error: legacyError } = await supabase
-        .from("request_forms")
+        .from("active_request_forms")
         .select(
           "id, user_id, title, description, banner_asset_path, banner_url, sections, appearance, is_active, deactivated_message, deactivated_redirect_url, deactivated_redirect_label, deactivated_accent_color",
         )
         .eq("shareable_link", slugValue)
-        .is("deleted_at", null)
         .maybeSingle();
 
       if (!legacyError && legacyRow) {

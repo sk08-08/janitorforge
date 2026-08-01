@@ -110,7 +110,6 @@ export async function updateBotAction(id: string, data: Partial<BotFormData>) {
     .from("bots")
     .select("id, user_id, image_url")
     .eq("id", id)
-    .is("deleted_at", null)
     .single();
 
   if (existingError || !existingBot) {
@@ -146,7 +145,6 @@ export async function updateBotAction(id: string, data: Partial<BotFormData>) {
   const { data: updated, error } = await supabase
     .from("bots")
     .update(payload)
-    .is("deleted_at", null)
     .eq("id", id)
     .select("*")
     .single();
@@ -205,7 +203,6 @@ export async function deleteBotAction(id: string) {
     .from("bots")
     .select("user_id, image_url")
     .eq("id", id)
-    .is("deleted_at", null)
     .single();
 
   if (fetchError || !bot) {
@@ -229,7 +226,6 @@ export async function deleteBotAction(id: string) {
   const { error } = await supabase
     .from("bots")
     .update({ deleted_at: new Date().toISOString(), image_url: null })
-    .is("deleted_at", null)
     .eq("id", id)
     .eq("user_id", userId);
   if (error) {

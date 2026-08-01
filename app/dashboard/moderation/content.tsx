@@ -27,6 +27,7 @@ import { ModerationPanel } from "@/components/dashboard/moderation-panel";
 import type { RequestForm } from "@/lib/types";
 import { getCurrentUserAccess } from "@/lib/access";
 import { cachedBrowserRequest } from "@/lib/browser-request-cache";
+import { stripMarkdownToText } from "@/lib/markdown";
 
 interface ModerationPageContentProps {
   adminView?: boolean;
@@ -64,9 +65,8 @@ export default function ModerationPageContent({
           }
 
           let query = supabase
-            .from("request_forms")
+            .from("active_request_forms")
             .select("*")
-            .is("deleted_at", null)
             .order("created_at", { ascending: false });
 
           if (!canSeeAllForms) {
@@ -202,7 +202,7 @@ export default function ModerationPageContent({
                 <SelectContent>
                   {forms.map((form) => (
                     <SelectItem key={form.id} value={form.id}>
-                      {form.title}
+                      {stripMarkdownToText(form.title) || "Untitled form"}
                     </SelectItem>
                   ))}
                 </SelectContent>

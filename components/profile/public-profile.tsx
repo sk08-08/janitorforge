@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/social-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Pagination,
@@ -81,8 +80,10 @@ interface Profile {
   specialties?: string[] | null;
   status_message?: string | null;
   social_links?: Record<string, string> | null;
-  featured_bot_ids?: string[] | null;
-  profile_completeness?: number | null;
+  active_profile_featured_bots?: Array<{
+    sort_order: number;
+    bot: BotPreview;
+  }> | null;
   profile_badges?: Array<{
     id: string;
     label: string;
@@ -118,7 +119,7 @@ interface WorldPreview {
   kind: string;
   status: string;
   description: string;
-  bot_ids: string[];
+  active_atlas_world_bots?: { bot_id: string }[];
 }
 
 interface FormPreview {
@@ -249,21 +250,45 @@ export function PublicProfile({
   >("followers");
   const [botsPage, setBotsPage] = useState(0);
 
-  const activeBots = bots.filter((bot: any) => !bot.deleted_at);
-  const activeCreatorPages = creatorPages.filter(
-    (page: any) => !page.deleted_at,
-  );
-  const activeWorlds = worlds.filter((world: any) => !world.deleted_at);
-  const activeForms = forms.filter((form: any) => !form.deleted_at);
-
   const displayName = profile.display_name || profile.username || "User";
   const theme = (profile.theme as Record<string, unknown>) || {};
   const themeColor = (theme.primaryColor as string) || "#7c3aed";
   const socialLinks = profile.social_links || {};
   const badges = profile.profile_badges || [];
-  const featuredBotIds = profile.featured_bot_ids || [];
-  const featuredBots = featuredBotIds
-    .map((id) => activeBots.find((bot) => bot.id === id))
+  const featuredBots = (profile.active_profile_featured_bots || [])
+    .sort((a: any, b: any) => a.sort_order - b.sort_order)
+    .map((relation: any) => {
+      const rawBot = relation.bot;
+      if (!rawBot) return null;
+
+      // 1. Evaluate the privacy flag
+      const isHidden = rawBot.hide_sensitive_fields === true;
+
+      // 2. Map snake_case to camelCase and enforce privacy masking
+      return {
+        ...rawBot, // Keep raw properties just in case, but override specific ones
+        id: rawBot.id,
+        name: rawBot.name,
+        rating: rawBot.rating,
+        tags: rawBot.tags || [],
+
+        // Fix the image rendering issue
+        imageUrl: rawBot.image_url,
+
+        // Enforce the hide_sensitive_fields rule
+        personality: isHidden ? "" : rawBot.personality,
+        firstMessage: isHidden
+          ? ""
+          : rawBot.firstMessage || rawBot.first_message,
+        scenario: isHidden ? "" : rawBot.scenario,
+        exampleDialogues: isHidden
+          ? ""
+          : rawBot.exampleDialogues || rawBot.example_dialogues,
+
+        // Ensure the frontend flag matches the DB flag
+        hideSensitiveFields: isHidden,
+      };
+    })
     .filter(Boolean);
   const specialtiesList = profile.specialties || [];
   const showBadges = theme.showBadges !== false;
@@ -273,20 +298,21 @@ export function PublicProfile({
   const showWorlds = theme.showWorlds !== false;
   const showForms = theme.showForms !== false;
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
-  const completeness = (profile.profile_completeness as number) || 0;
   const totalBotPages = Math.max(
     1,
-    Math.ceil(activeBots.length / PROFILE_BOTS_PAGE_SIZE),
+    Math.ceil(bots.length / PROFILE_BOTS_PAGE_SIZE),
   );
-  const paginatedBots = activeBots.slice(
+
+  const paginatedBots = bots.slice(
     botsPage * PROFILE_BOTS_PAGE_SIZE,
     (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
   );
+
   const botsRangeStart =
-    activeBots.length === 0 ? 0 : botsPage * PROFILE_BOTS_PAGE_SIZE + 1;
+    bots.length === 0 ? 0 : botsPage * PROFILE_BOTS_PAGE_SIZE + 1;
   const botsRangeEnd = Math.min(
     (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
-    activeBots.length,
+    bots.length,
   );
 
   useEffect(() => {
@@ -584,9 +610,9 @@ export function PublicProfile({
                 <div className="flex items-center gap-3">
                   <Bot className="h-5 w-5" style={{ color: themeColor }} />
                   <h2 className="text-lg font-semibold">Bots</h2>
-                  <Badge variant="outline">{activeBots.length}</Badge>
+                  <Badge variant="outline">{bots.length}</Badge>
                 </div>
-                {activeBots.length > 0 ? (
+                {bots.length > 0 ? (
                   <>
                     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                       {paginatedBots.map((bot) => (
@@ -601,7 +627,7 @@ export function PublicProfile({
                       <div className="mt-2 flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">
                           Showing {botsRangeStart}-{botsRangeEnd} of{" "}
-                          {activeBots.length} bots
+                          {bots.length} bots
                         </p>
                         <Pagination className="w-auto">
                           <PaginationContent>
@@ -693,11 +719,11 @@ export function PublicProfile({
               <div className="flex items-center gap-3">
                 <AppWindow className="h-5 w-5" style={{ color: themeColor }} />
                 <h2 className="text-lg font-semibold">Creator Pages</h2>
-                <Badge variant="outline">{activeCreatorPages.length}</Badge>
+                <Badge variant="outline">{creatorPages.length}</Badge>
               </div>
-              {activeCreatorPages.length > 0 ? (
+              {creatorPages.length > 0 ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {activeCreatorPages.map((page) => (
+                  {creatorPages.map((page) => (
                     <Link key={page.id} href={`/page/${page.slug}`}>
                       <div className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer h-full">
                         <div className="flex items-center gap-2 mb-1">
@@ -736,11 +762,11 @@ export function PublicProfile({
               <div className="flex items-center gap-3">
                 <Globe className="h-5 w-5" style={{ color: themeColor }} />
                 <h2 className="text-lg font-semibold">Worlds</h2>
-                <Badge variant="outline">{activeWorlds.length}</Badge>
+                <Badge variant="outline">{worlds.length}</Badge>
               </div>
-              {activeWorlds.length > 0 ? (
+              {worlds.length > 0 ? (
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {activeWorlds.map((world) => (
+                  {worlds.map((world) => (
                     <div
                       key={world.id}
                       className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md"
@@ -760,7 +786,7 @@ export function PublicProfile({
                         {world.description || "No description"}
                       </p>
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        {world.bot_ids?.length || 0} bots
+                        {world.active_atlas_world_bots?.length || 0} bots
                       </p>
                     </div>
                   ))}
@@ -797,11 +823,11 @@ export function PublicProfile({
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5" style={{ color: themeColor }} />
                 <h2 className="text-lg font-semibold">Forms</h2>
-                <Badge variant="outline">{activeForms.length}</Badge>
+                <Badge variant="outline">{forms.length}</Badge>
               </div>
-              {activeForms.length > 0 ? (
+              {forms.length > 0 ? (
                 <div className="grid justify-items-stretch gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {activeForms.map((form) => (
+                  {forms.map((form) => (
                     <Link
                       href={`/form/${form.shareable_link}`}
                       target="_blank"

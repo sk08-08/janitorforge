@@ -19,7 +19,10 @@ type ProfileCompletionSource = {
   location?: string | null;
   website_url?: string | null;
   specialties?: string[] | null;
-  featured_bot_ids?: string[] | null;
+  active_profile_featured_bots?: Array<{
+    sort_order?: number;
+    bot?: { id?: string | null } | null;
+  }> | null;
   social_links?: Record<string, string> | null;
 };
 
@@ -43,7 +46,9 @@ export function getProfileCompletionItems(
   profile: ProfileCompletionSource,
 ): CompletionItem[] {
   const specialties = (profile.specialties as string[]) || [];
-  const featuredBotIds = (profile.featured_bot_ids as string[]) || [];
+  const featuredBotIds = (profile.active_profile_featured_bots || [])
+    .map((relation) => relation?.bot?.id)
+    .filter((id): id is string => Boolean(id));
 
   return [
     {
@@ -88,7 +93,7 @@ export function getProfileCompletionItems(
       done: specialties.length > 0,
     },
     {
-      key: "featured_bot_ids",
+      key: "active_profile_featured_bots",
       label: "Pick featured bots",
       done: featuredBotIds.length > 0,
     },

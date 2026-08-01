@@ -54,7 +54,13 @@ export default async function UserProfilePage({ params }: PageProps) {
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, featured_bot_ids, profile_badges, profile_completeness",
+      `
+      id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, profile_badges, profile_completeness,
+      active_profile_featured_bots (
+        sort_order,
+        bot:active_bots (*)
+      )
+    `,
     )
     .eq("username", username)
     .maybeSingle();
@@ -83,28 +89,29 @@ export default async function UserProfilePage({ params }: PageProps) {
 
   // Fetch their published creator pages
   const { data: pages } = await supabase
-    .from("creator_pages")
+    .from("active_creator_pages")
     .select("*")
     .eq("user_id", profile.id)
     .eq("is_published", true)
-    .is("deleted_at", null)
     .order("updated_at", { ascending: false });
 
   // Fetch their public bots
   const { data: bots } = await supabase
-    .from("bots")
-    .select("id, name, short_description, tags, rating, image_url, created_at")
+    .from("active_bots")
+    .select(
+      "id, name, short_description, tags, rating, image_url, created_at, hide_sensitive_fields, personality, first_message, scenario, example_dialogues",
+    )
     .eq("user_id", profile.id)
-    .is("deleted_at", null)
     .order("updated_at", { ascending: false });
 
   // Fetch worlds
   const { data: worlds } = await supabase
-    .from("atlas_worlds")
-    .select("id, title, slug, kind, status, description, bot_ids")
+    .from("active_atlas_worlds")
+    .select(
+      "id, title, slug, kind, status, description, active_atlas_world_bots(bot_id)",
+    )
     .eq("user_id", profile.id)
     .eq("status", "active")
-    .is("deleted_at", null)
     .order("updated_at", { ascending: false });
 
   // Fetch public forms for this profile
@@ -140,15 +147,23 @@ export default async function UserProfilePage({ params }: PageProps) {
         description: p.description,
         is_published: p.is_published,
       }))}
-      bots={(bots || []).map((b: any) => ({
-        id: b.id,
-        name: b.name,
-        shortDescription: b.short_description,
-        tags: b.tags || [],
-        rating: b.rating,
-        imageUrl: b.image_url,
-        created_at: b.created_at,
-      }))}
+      bots={(bots || []).map((b: any) => {
+        const isHidden = b.hide_sensitive_fields === true;
+        return {
+          id: b.id,
+          name: b.name,
+          shortDescription: b.short_description,
+          tags: b.tags || [],
+          rating: b.rating,
+          imageUrl: b.image_url,
+          created_at: b.created_at,
+          hideSensitiveFields: isHidden,
+          personality: isHidden ? "" : b.personality,
+          firstMessage: isHidden ? "" : b.first_message,
+          scenario: isHidden ? "" : b.scenario,
+          exampleDialogues: isHidden ? "" : b.example_dialogues,
+        };
+      })}
       worlds={(worlds || []).map((w: any) => ({
         id: w.id,
         title: w.title,
@@ -156,7 +171,9 @@ export default async function UserProfilePage({ params }: PageProps) {
         kind: w.kind,
         status: w.status,
         description: w.description,
-        bot_ids: w.bot_ids || [],
+        bot_ids: (w.active_atlas_world_bots || []).map(
+          (rel: any) => rel.bot_id,
+        ),
       }))}
       forms={(forms || []).map((form: any) => ({
         id: form.id,

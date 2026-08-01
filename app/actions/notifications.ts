@@ -26,10 +26,9 @@ export async function getNotifications(limit = 20) {
   }
 
   const { data, error } = await supabase
-    .from("notifications")
+    .from("active_notifications")
     .select("id, type, title, message, link, is_read, metadata, created_at")
     .eq("user_id", access.user.id)
-    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -51,10 +50,9 @@ export async function getUnreadCount() {
   }
 
   const { count, error } = await supabase
-    .from("notifications")
+    .from("active_notifications")
     .select("id", { count: "exact", head: true })
     .eq("user_id", access.user.id)
-    .is("deleted_at", null)
     .eq("is_read", false);
 
   if (error) {
@@ -78,7 +76,6 @@ export async function markAsRead(notificationId: string) {
     .from("notifications")
     .update({ is_read: true })
     .eq("id", notificationId)
-    .is("deleted_at", null)
     .eq("user_id", access.user.id);
 
   if (error) {
@@ -102,7 +99,6 @@ export async function markAllAsRead() {
     .from("notifications")
     .update({ is_read: true })
     .eq("user_id", access.user.id)
-    .is("deleted_at", null)
     .eq("is_read", false);
 
   if (error) {
@@ -126,7 +122,6 @@ export async function deleteNotification(notificationId: string) {
     .from("notifications")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", notificationId)
-    .is("deleted_at", null)
     .eq("user_id", access.user.id);
 
   if (error) {

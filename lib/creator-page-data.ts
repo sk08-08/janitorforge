@@ -43,7 +43,6 @@ export interface CreatorPageLoadResult {
     status_message: string | null;
     social_links: unknown;
     visibility: string | null;
-    featured_bot_ids: string[] | null;
     profile_badges: unknown;
     profile_completeness: number | null;
   } | null;
@@ -65,11 +64,10 @@ export async function fetchCreatorPageData(
 ): Promise<CreatorPageLoadResult | null> {
   // Find published creator page by slug
   const { data: creatorPage } = await supabase
-    .from("creator_pages")
+    .from("active_creator_pages")
     .select("*")
     .eq("slug", slug)
     .eq("is_published", true)
-    .is("deleted_at", null)
     .maybeSingle();
 
   if (!creatorPage) return null;
@@ -78,7 +76,7 @@ export async function fetchCreatorPageData(
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, featured_bot_ids, profile_badges, profile_completeness",
+      "id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, profile_badges, profile_completeness",
     )
     .eq("id", creatorPage.user_id)
     .maybeSingle();
@@ -98,32 +96,30 @@ export async function fetchCreatorPageData(
     { data: worlds },
   ] = await Promise.all([
     supabase
-      .from("creator_page_sections")
+      .from("active_creator_page_sections")
       .select("*")
       .eq("page_id", creatorPage.id)
-      .is("deleted_at", null)
       .order("position", { ascending: true }),
     supabase
-      .from("bots")
+      .from("active_bots")
       .select(
-        "id, name, short_description, tags, rating, image_url, created_at",
+        "id, name, short_description, tags, rating, image_url, created_at, hide_sensitive_fields",
       )
       .eq("user_id", creatorPage.user_id)
-      .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(50),
     supabase
-      .from("creator_pages")
+      .from("active_creator_pages")
       .select("id, slug, title, description, layout, is_published")
       .eq("user_id", creatorPage.user_id)
-      .eq("is_published", true)
-      .is("deleted_at", null),
+      .eq("is_published", true),
     supabase
-      .from("atlas_worlds")
-      .select("id, title, slug, kind, status, description, bot_ids")
+      .from("active_atlas_worlds")
+      .select(
+        "id, title, slug, kind, status, description, active_atlas_world_bots(bot_id)",
+      )
       .eq("user_id", creatorPage.user_id)
       .eq("status", "active")
-      .is("deleted_at", null)
       .order("updated_at", { ascending: false }),
   ]);
 
@@ -146,6 +142,7 @@ export async function fetchCreatorPageData(
       rating: b.rating as string,
       image_url: (b.image_url as string) || null,
       created_at: b.created_at as string,
+      hide_sensitive_fields: b.hide_sensitive_fields === true,
     })),
     worlds: (worlds || []).map((w: Record<string, unknown>) => ({
       id: w.id as string,
@@ -154,7 +151,9 @@ export async function fetchCreatorPageData(
       kind: w.kind as string,
       status: w.status as string,
       description: (w.description as string) || "",
-      bot_ids: (w.bot_ids as string[]) || [],
+      bot_ids: (
+        (w.active_atlas_world_bots as Array<{ bot_id: string }> | null) || []
+      ).map((rel) => rel.bot_id),
     })),
     allPages: (allPages || []).map((p: Record<string, unknown>) => ({
       id: p.id as string,

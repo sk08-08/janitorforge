@@ -358,7 +358,11 @@ export function ProfileEditor({
         setSpecialties(p.specialties || []);
         setSocialLinks(p.social_links || {});
         setVisibility(p.visibility || "public");
-        setFeaturedBotIds(p.featured_bot_ids || []);
+        setFeaturedBotIds(
+          (p.active_profile_featured_bots || [])
+            .map((relation: any) => relation?.bot?.id)
+            .filter(Boolean),
+        );
 
         const theme = (p.theme as Record<string, unknown>) || {};
         setPrimaryColor((theme.primaryColor as string) || "#7c3aed");
@@ -418,7 +422,7 @@ export function ProfileEditor({
         specialties,
         social_links: socialLinks,
         visibility,
-        featured_bot_ids: validFeaturedBotIds,
+        featuredBotIds: validFeaturedBotIds,
         theme: {
           primaryColor,
           accentColor,

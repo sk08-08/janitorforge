@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // JanitorForge - Supabase Database Types
 // Auto-generated types for TypeScript integration
 // ============================================================================
@@ -330,6 +330,85 @@ export interface Database {
           updated_at?: string;
         };
       };
+      creator_pages: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          slug: string;
+          description: string | null;
+          layout: string | null;
+          config: Json | null;
+          is_published: boolean;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          slug: string;
+          description?: string | null;
+          layout?: string | null;
+          config?: Json | null;
+          is_published?: boolean;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          slug?: string;
+          description?: string | null;
+          layout?: string | null;
+          config?: Json | null;
+          is_published?: boolean;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      creator_page_sections: {
+        Row: {
+          id: string;
+          page_id: string;
+          type: string;
+          title: string | null;
+          content: string | null;
+          config: Json | null;
+          position: number;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          page_id: string;
+          type: string;
+          title?: string | null;
+          content?: string | null;
+          config?: Json | null;
+          position?: number;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          page_id?: string;
+          type?: string;
+          title?: string | null;
+          content?: string | null;
+          config?: Json | null;
+          position?: number;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       atlas_worlds: {
         Row: {
           id: string;
@@ -340,9 +419,8 @@ export interface Database {
           status: "draft" | "active";
           description: string;
           lore_summary: string;
-          bot_ids: string[];
           form_ids: string[];
-          featured_lorebook_ids: string[];
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -355,9 +433,8 @@ export interface Database {
           status?: "draft" | "active";
           description?: string;
           lore_summary?: string;
-          bot_ids?: string[];
           form_ids?: string[];
-          featured_lorebook_ids?: string[];
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -370,11 +447,90 @@ export interface Database {
           status?: "draft" | "active";
           description?: string;
           lore_summary?: string;
-          bot_ids?: string[];
           form_ids?: string[];
-          featured_lorebook_ids?: string[];
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      profile_featured_bots: {
+        Row: {
+          profile_id: string;
+          bot_id: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          bot_id: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          profile_id?: string;
+          bot_id?: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
+      atlas_world_bots: {
+        Row: {
+          world_id: string;
+          bot_id: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          world_id: string;
+          bot_id: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          world_id?: string;
+          bot_id?: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
+      atlas_world_featured_entries: {
+        Row: {
+          world_id: string;
+          entry_id: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          world_id: string;
+          entry_id: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          world_id?: string;
+          entry_id?: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
+      atlas_world_featured_lorebooks: {
+        Row: {
+          world_id: string;
+          lorebook_id: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          world_id: string;
+          lorebook_id: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          world_id?: string;
+          lorebook_id?: string;
+          sort_order?: number;
+          created_at?: string;
         };
       };
       atlas_lorebooks: {
@@ -443,7 +599,76 @@ export interface Database {
       };
     };
     Views: {
-      [_ in never]: never;
+      active_bots: {
+        Row: Database["public"]["Tables"]["bots"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_request_forms: {
+        Row: Database["public"]["Tables"]["request_forms"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_requests: {
+        Row: Database["public"]["Tables"]["requests"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_atlas_worlds: {
+        Row: Database["public"]["Tables"]["atlas_worlds"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_atlas_entries: {
+        Row: Database["public"]["Tables"]["atlas_entries"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_atlas_lorebooks: {
+        Row: Database["public"]["Tables"]["atlas_lorebooks"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_feedback_submissions: {
+        Row: Database["public"]["Tables"]["feedback_submissions"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_creator_pages: {
+        Row: Database["public"]["Tables"]["creator_pages"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_creator_page_sections: {
+        Row: Database["public"]["Tables"]["creator_page_sections"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_notifications: {
+        Row: Database["public"]["Tables"]["notifications"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_profile_featured_bots: {
+        Row: Database["public"]["Tables"]["profile_featured_bots"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_atlas_world_bots: {
+        Row: Database["public"]["Tables"]["atlas_world_bots"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_atlas_world_featured_entries: {
+        Row: Database["public"]["Tables"]["atlas_world_featured_entries"]["Row"];
+        Insert: never;
+        Update: never;
+      };
+      active_atlas_world_featured_lorebooks: {
+        Row: Database["public"]["Tables"]["atlas_world_featured_lorebooks"]["Row"];
+        Insert: never;
+        Update: never;
+      };
     };
     Functions: {
       [_ in never]: never;

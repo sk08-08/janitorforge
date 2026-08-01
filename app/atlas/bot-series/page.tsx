@@ -16,7 +16,7 @@ type WorldRow = {
   title: string;
   kind: "series" | "universe" | "location" | "timeline";
   description: string;
-  bot_ids: string[];
+  active_atlas_world_bots?: Array<{ bot_id: string }>;
   updated_at: string;
 };
 
@@ -73,16 +73,16 @@ export default function AtlasBotSeriesPage() {
           { data: botData, error: botError },
         ] = await Promise.all([
           supabase
-            .from("atlas_worlds")
-            .select("id,title,kind,description,bot_ids,updated_at")
+            .from("active_atlas_worlds")
+            .select(
+              "id,title,kind,description,updated_at,active_atlas_world_bots(bot_id)",
+            )
             .eq("user_id", userId)
-            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
           supabase
-            .from("bots")
+            .from("active_bots")
             .select("id,name,short_description,rating,tags,updated_at")
             .eq("user_id", userId)
-            .is("deleted_at", null)
             .order("updated_at", { ascending: false }),
         ]);
 
@@ -115,7 +115,12 @@ export default function AtlasBotSeriesPage() {
 
     return worlds
       .map((world) => {
-        const linkedBots = (Array.isArray(world.bot_ids) ? world.bot_ids : [])
+        const linkedBots = (
+          Array.isArray(world.active_atlas_world_bots)
+            ? world.active_atlas_world_bots
+            : []
+        )
+          .map((rel) => rel.bot_id)
           .map((botId) => botMap.get(botId))
           .filter((bot): bot is BotRow => Boolean(bot));
 
@@ -143,7 +148,10 @@ export default function AtlasBotSeriesPage() {
     () =>
       new Set(
         worlds.flatMap((world) =>
-          Array.isArray(world.bot_ids) ? world.bot_ids : [],
+          (Array.isArray(world.active_atlas_world_bots)
+            ? world.active_atlas_world_bots
+            : []
+          ).map((rel) => rel.bot_id),
         ),
       ),
     [worlds],

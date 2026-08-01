@@ -22,11 +22,10 @@ export async function generateMetadata({
 
   // Check creator page
   const { data: creatorPage } = await supabase
-    .from("creator_pages")
+    .from("active_creator_pages")
     .select("title, description")
     .eq("slug", slug)
     .eq("is_published", true)
-    .is("deleted_at", null)
     .maybeSingle();
 
   if (creatorPage) {
@@ -68,11 +67,10 @@ export default async function SlugPage({ params }: PageProps) {
 
   // 1) Creator page → redirect to /page/[slug]
   const { data: creatorPage } = await supabase
-    .from("creator_pages")
+    .from("active_creator_pages")
     .select("id")
     .eq("slug", slug)
     .eq("is_published", true)
-    .is("deleted_at", null)
     .maybeSingle();
 
   if (creatorPage) {
