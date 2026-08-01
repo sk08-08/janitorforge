@@ -25,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import {
   Card,
   CardContent,
@@ -527,7 +527,7 @@ export function BotForm({
           >
             <span className="flex items-center gap-2 font-medium">
               <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-              You can use Markdown in Name, Description, and Initial Message(s)
+              Markdown editor tips
             </span>
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
           </button>
@@ -537,6 +537,13 @@ export function BotForm({
             <div>
               <p className="font-medium mb-1">What you can use:</p>
               <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+                <li>
+                  Use the toolbar or shortcuts:{" "}
+                  <code className="bg-muted px-1 rounded">Ctrl/Cmd+B</code>,{" "}
+                  <code className="bg-muted px-1 rounded">Ctrl/Cmd+I</code>,{" "}
+                  <code className="bg-muted px-1 rounded">Ctrl/Cmd+K</code>,{" "}
+                  <code className="bg-muted px-1 rounded">Ctrl/Cmd+Z</code>.
+                </li>
                 <li className="flex items-start gap-2">
                   <Bold className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <span>
@@ -564,23 +571,22 @@ export function BotForm({
                   <code className="bg-muted px-1 rounded">- item</code> or{" "}
                   <code className="bg-muted px-1 rounded">1. item</code> → lists
                 </li>
-                <li>Line breaks work normally — just press Enter</li>
+                <li>
+                  Switch between Edit and Preview to verify formatting quickly.
+                </li>
               </ul>
             </div>
             <div>
-              <p className="font-medium mb-1">Current limitations:</p>
+              <p className="font-medium mb-1">Notes:</p>
               <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                 <li>
-                  Headings (
-                  <code className="bg-muted px-1 rounded"># Heading</code>) are
-                  not rendered in bot names, so keep that field as plain text
+                  Name and short description are simple text fields; markdown
+                  applies to personality, scenario, initial messages, and
+                  example dialogues.
                 </li>
-                <li>Images and tables are not supported</li>
-                <li>Code blocks render as plain text</li>
                 <li>
-                  Markdown only applies where JanitorForge renders it, such as
-                  previews and public pages; Janitor AI itself may display it
-                  differently
+                  JanitorForge preview may not match 1:1 with how other
+                  platforms render markdown.
                 </li>
               </ul>
             </div>
@@ -780,13 +786,13 @@ export function BotForm({
               <Label htmlFor="personality">Personality</Label>
               <TokenCounter text={personality} fieldName="Personality" />
             </div>
-            <Textarea
+            <MarkdownField
               id="personality"
               value={personality}
               onChange={(e) => setPersonality(e.target.value)}
               placeholder="Describe {{char}}'s personality, traits, background..."
               rows={6}
-              className="font-mono text-sm max-h-56 overflow-auto resize-y"
+              className="min-h-[12rem] md:min-h-[14rem] font-mono text-sm"
             />
           </div>
 
@@ -798,13 +804,13 @@ export function BotForm({
               <Label htmlFor="scenario">Scenario</Label>
               <TokenCounter text={scenario} fieldName="Scenario" />
             </div>
-            <Textarea
+            <MarkdownField
               id="scenario"
               value={scenario}
               onChange={(e) => setScenario(e.target.value)}
               placeholder="The setting and circumstances of the roleplay..."
               rows={4}
-              className="font-mono text-sm max-h-48 overflow-auto resize-y"
+              className="min-h-[10rem] md:min-h-[12rem] font-mono text-sm"
             />
           </div>
 
@@ -919,7 +925,7 @@ export function BotForm({
 
                 <div className="pt-3">
                   {initialMessageMode === "edit" ? (
-                    <Textarea
+                    <MarkdownField
                       id={`initial-message-${selectedInitialMessageIndex}`}
                       value={initialMessages[selectedInitialMessageIndex] || ""}
                       onChange={(e) =>
@@ -930,7 +936,7 @@ export function BotForm({
                       }
                       placeholder="The opening message {{char}} sends to {{user}}..."
                       rows={7}
-                      className="min-h-36 font-mono text-sm max-h-60 overflow-auto resize-y"
+                      className="min-h-[12rem] md:min-h-[14rem] font-mono text-sm"
                     />
                   ) : (
                     <div className="min-h-36 max-h-60 overflow-auto rounded-md border border-border/60 bg-background p-3">
@@ -965,13 +971,13 @@ export function BotForm({
                 fieldName="Example Dialogues"
               />
             </div>
-            <Textarea
+            <MarkdownField
               id="example-dialogues"
               value={exampleDialogues}
               onChange={(e) => setExampleDialogues(e.target.value)}
               placeholder="{{user}}: Hello!\n{{char}}: *smiles* Hello there, {{user}}!"
               rows={8}
-              className="font-mono text-sm max-h-72 overflow-auto resize-y"
+              className="min-h-[13rem] md:min-h-[15rem] font-mono text-sm"
             />
           </div>
         </CardContent>

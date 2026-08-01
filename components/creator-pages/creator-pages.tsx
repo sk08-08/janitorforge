@@ -34,7 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -1058,11 +1058,12 @@ export function CreatorPages() {
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>
-                <Textarea
+                <MarkdownField
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                   placeholder="Describe your creator page..."
                   rows={3}
+                  className="min-h-[8rem]"
                 />
               </div>
               <div className="space-y-2">
@@ -1607,7 +1608,7 @@ export function CreatorPages() {
                   <>
                     <div className="space-y-2">
                       <Label>Content</Label>
-                      <Textarea
+                      <MarkdownField
                         value={sectionConfigEdit.body || ""}
                         onChange={(e) =>
                           setSectionConfigEdit((prev) => ({
@@ -1615,8 +1616,9 @@ export function CreatorPages() {
                             body: e.target.value,
                           }))
                         }
-                        placeholder="Write your content here. Supports plain text."
+                        placeholder="Write your content here. Supports markdown."
                         rows={8}
+                        className="min-h-[12rem] md:min-h-[14rem]"
                       />
                       <p className="text-[10px] text-muted-foreground">
                         {(sectionConfigEdit.body || "").length} characters
@@ -2130,7 +2132,7 @@ export function CreatorPages() {
                   <>
                     <div className="space-y-2">
                       <Label>Description</Label>
-                      <Textarea
+                      <MarkdownField
                         value={sectionConfigEdit.description || ""}
                         onChange={(e) =>
                           setSectionConfigEdit((prev) => ({
@@ -2140,6 +2142,7 @@ export function CreatorPages() {
                         }
                         placeholder="Describe this collection of bots..."
                         rows={3}
+                        className="min-h-[8rem]"
                       />
                     </div>
                     <div className="space-y-2">
@@ -2217,7 +2220,7 @@ export function CreatorPages() {
                   <>
                     <div className="space-y-2">
                       <Label>Description</Label>
-                      <Textarea
+                      <MarkdownField
                         value={sectionConfigEdit.description || ""}
                         onChange={(e) =>
                           setSectionConfigEdit((prev) => ({
@@ -2227,6 +2230,7 @@ export function CreatorPages() {
                         }
                         placeholder="Describe the worlds you want to showcase..."
                         rows={3}
+                        className="min-h-[8rem]"
                       />
                     </div>
                     <div className="space-y-2">
@@ -2282,7 +2286,7 @@ export function CreatorPages() {
                 {editingSection.kind === "lorebook_gallery" && (
                   <div className="space-y-2">
                     <Label>Description</Label>
-                    <Textarea
+                    <MarkdownField
                       value={sectionConfigEdit.description || ""}
                       onChange={(e) =>
                         setSectionConfigEdit((prev) => ({
@@ -2292,6 +2296,7 @@ export function CreatorPages() {
                       }
                       placeholder="Describe your lorebook collection..."
                       rows={3}
+                      className="min-h-[8rem]"
                     />
                   </div>
                 )}
@@ -2300,7 +2305,7 @@ export function CreatorPages() {
                   <>
                     <div className="space-y-2">
                       <Label>Description</Label>
-                      <Textarea
+                      <MarkdownField
                         value={sectionConfigEdit.description || ""}
                         onChange={(e) =>
                           setSectionConfigEdit((prev) => ({
@@ -2310,6 +2315,7 @@ export function CreatorPages() {
                         }
                         placeholder="Describe what this form is for..."
                         rows={2}
+                        className="min-h-[7.5rem]"
                       />
                     </div>
                     <div className="space-y-2">

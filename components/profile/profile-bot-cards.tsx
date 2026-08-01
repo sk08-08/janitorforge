@@ -2,6 +2,9 @@
 
 import { Bot as BotIcon, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import type { ProfileCardStyle, ProfileLayout } from "@/lib/profile-theme";
+import { getProfileCardClass } from "@/lib/profile-theme";
 
 export interface ProfileBotCardData {
   id: string;
@@ -15,15 +18,42 @@ export interface ProfileBotCardData {
 interface ProfileBotCardProps {
   bot: ProfileBotCardData;
   onClick?: () => void;
+  cardStyle?: ProfileCardStyle;
+  layout?: ProfileLayout;
+  accentColor?: string;
 }
 
-export function ProfileBotGridCard({ bot, onClick }: ProfileBotCardProps) {
+export function ProfileBotGridCard({
+  bot,
+  onClick,
+  cardStyle = "default",
+  layout = "grid",
+  accentColor,
+}: ProfileBotCardProps) {
+  const cardClass = getProfileCardClass(cardStyle);
+  const cardStyleOverrides =
+    accentColor && cardStyle !== "minimal"
+      ? ({ borderColor: `${accentColor}4a` } as const)
+      : undefined;
+
   return (
     <div
-      className="rounded-lg border overflow-hidden transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
+      className={cn(
+        "overflow-hidden cursor-pointer",
+        cardClass,
+        layout === "list" && "sm:flex sm:items-start sm:gap-3",
+      )}
+      style={cardStyleOverrides}
       onClick={onClick}
     >
-      <div className="aspect-video bg-muted overflow-hidden">
+      <div
+        className={cn(
+          "bg-muted overflow-hidden",
+          layout === "list"
+            ? "h-28 sm:h-24 sm:w-44 shrink-0 rounded-md"
+            : "aspect-video rounded-md",
+        )}
+      >
         {bot.imageUrl ? (
           <img
             src={bot.imageUrl}
@@ -36,7 +66,9 @@ export function ProfileBotGridCard({ bot, onClick }: ProfileBotCardProps) {
           </div>
         )}
       </div>
-      <div className="p-3">
+      <div
+        className={cn("min-w-0", layout === "list" ? "pt-2 sm:pt-0" : "pt-3")}
+      >
         <div className="flex items-center gap-2 mb-1">
           <p className="text-sm font-medium truncate">{bot.name}</p>
           {bot.rating && (
@@ -48,7 +80,12 @@ export function ProfileBotGridCard({ bot, onClick }: ProfileBotCardProps) {
             </Badge>
           )}
         </div>
-        <p className="text-xs text-muted-foreground line-clamp-2">
+        <p
+          className={cn(
+            "text-xs text-muted-foreground",
+            layout === "list" ? "line-clamp-3" : "line-clamp-2",
+          )}
+        >
           {bot.shortDescription || "No description"}
         </p>
       </div>
@@ -59,10 +96,19 @@ export function ProfileBotGridCard({ bot, onClick }: ProfileBotCardProps) {
 export function ProfileFeaturedBotListCard({
   bot,
   onClick,
+  cardStyle = "default",
+  accentColor,
 }: ProfileBotCardProps) {
+  const cardClass = getProfileCardClass(cardStyle);
+  const cardStyleOverrides =
+    accentColor && cardStyle !== "minimal"
+      ? ({ borderColor: `${accentColor}4a` } as const)
+      : undefined;
+
   return (
     <div
-      className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-primary/30 cursor-pointer"
+      className={cn("flex items-center gap-3 cursor-pointer", cardClass)}
+      style={cardStyleOverrides}
       onClick={onClick}
     >
       <div className="h-14 w-20 rounded bg-muted overflow-hidden shrink-0">

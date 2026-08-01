@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -676,11 +677,12 @@ export default function LorebookPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="lorebook-summary">Summary</Label>
-              <Textarea
+              <MarkdownField
                 id="lorebook-summary"
                 rows={4}
                 value={summaryDraft}
                 onChange={(e) => setSummaryDraft(e.target.value)}
+                className="min-h-[9rem] md:min-h-[10rem]"
               />
             </div>
             <div className="flex gap-2">
@@ -755,12 +757,13 @@ export default function LorebookPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="new-entry-body">Body</Label>
-              <Textarea
+              <MarkdownField
                 id="new-entry-body"
                 rows={5}
                 value={newEntryBody}
                 onChange={(e) => setNewEntryBody(e.target.value)}
                 placeholder="Write the lore, character info, location details…"
+                className="min-h-[11rem] md:min-h-[13rem]"
               />
             </div>
             <Button
@@ -969,7 +972,7 @@ export default function LorebookPage() {
                           </Select>
                         </div>
 
-                        <Textarea
+                        <MarkdownField
                           rows={8}
                           value={entry.body}
                           onChange={(e) =>
@@ -982,6 +985,7 @@ export default function LorebookPage() {
                             )
                           }
                           placeholder="Write the lore, character info, location details…"
+                          className="min-h-[13rem] md:min-h-[15rem]"
                         />
 
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

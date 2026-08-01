@@ -48,6 +48,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -920,7 +921,7 @@ export function CollaborationWorkspace({
                       </span>
                     )}
                   </div>
-                  <Textarea
+                  <MarkdownField
                     value={editPersonality}
                     onChange={(e) => setEditPersonality(e.target.value)}
                     disabled={!canEdit}
@@ -940,7 +941,7 @@ export function CollaborationWorkspace({
                       </span>
                     )}
                   </div>
-                  <Textarea
+                  <MarkdownField
                     value={editFirstMessage}
                     onChange={(e) => setEditFirstMessage(e.target.value)}
                     disabled={!canEdit}
@@ -960,7 +961,7 @@ export function CollaborationWorkspace({
                       </span>
                     )}
                   </div>
-                  <Textarea
+                  <MarkdownField
                     value={editScenario}
                     onChange={(e) => setEditScenario(e.target.value)}
                     disabled={!canEdit}
@@ -980,7 +981,7 @@ export function CollaborationWorkspace({
                       </span>
                     )}
                   </div>
-                  <Textarea
+                  <MarkdownField
                     value={editExampleDialogues}
                     onChange={(e) => setEditExampleDialogues(e.target.value)}
                     disabled={!canEdit}
@@ -1224,7 +1225,7 @@ export function CollaborationWorkspace({
                         {field.label}
                       </Label>
                       {field.type === "textarea" ? (
-                        <Textarea
+                        <MarkdownField
                           value={crChanges[field.key] || ""}
                           onChange={(e) =>
                             setCrChanges((prev) => ({
@@ -1233,7 +1234,7 @@ export function CollaborationWorkspace({
                             }))
                           }
                           placeholder={`Proposed ${field.label.toLowerCase()}...`}
-                          className="min-h-[60px] text-sm mt-1"
+                          className="min-h-[9rem] md:min-h-[10rem] text-sm mt-1"
                         />
                       ) : (
                         <Input

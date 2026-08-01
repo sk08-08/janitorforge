@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import {
   Dialog,
   DialogContent,
@@ -1881,9 +1882,8 @@ export function ResourcesHub() {
               <p className="text-xs text-muted-foreground">
                 Markdown is supported in the summary.
               </p>
-              <Textarea
+              <MarkdownField
                 value={entryForm.summary}
-                className="overflow-y-auto max-h-[68vh]"
                 onChange={(event) =>
                   setEntryForm((prev) => ({
                     ...prev,
@@ -1891,6 +1891,8 @@ export function ResourcesHub() {
                   }))
                 }
                 rows={3}
+                className="min-h-[10rem] md:min-h-[12rem]"
+                previewMaxHeightRem={20}
               />
             </div>
             <div className="space-y-2">

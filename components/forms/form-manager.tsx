@@ -22,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import {
   Card,
   CardContent,
@@ -730,11 +730,12 @@ export function FormManager() {
           <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
             <div className="space-y-2">
               <Label className="text-sm">Custom Message (optional)</Label>
-              <Textarea
+              <MarkdownField
                 value={deactivateMessage}
                 onChange={(e) => setDeactivateMessage(e.target.value)}
                 placeholder="e.g. Commissions are currently closed. Follow me on Twitter for updates!"
                 rows={4}
+                className="min-h-[9rem] md:min-h-[10rem]"
               />
             </div>
             <div className="space-y-2">

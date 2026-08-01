@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/search-input";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -2204,7 +2205,7 @@ export function AtlasHub() {
 
               <div className="space-y-2">
                 <Label htmlFor="atlas-description">Description</Label>
-                <Textarea
+                <MarkdownField
                   id="atlas-description"
                   value={worldEditorState.description}
                   onChange={(e) =>
@@ -2215,12 +2216,13 @@ export function AtlasHub() {
                   }
                   placeholder="One-line overview of the world or series."
                   rows={3}
+                  className="min-h-[8rem]"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="atlas-lore">Lore summary</Label>
-                <Textarea
+                <MarkdownField
                   id="atlas-lore"
                   value={worldEditorState.loreSummary}
                   onChange={(e) =>
@@ -2231,6 +2233,7 @@ export function AtlasHub() {
                   }
                   placeholder="Canon notes, timeline, places, relationships, rules, etc."
                   rows={7}
+                  className="min-h-[12rem] md:min-h-[14rem]"
                 />
               </div>
             </div>
@@ -2457,7 +2460,7 @@ export function AtlasHub() {
 
             <div className="space-y-2">
               <Label htmlFor="entry-body">Body</Label>
-              <Textarea
+              <MarkdownField
                 id="entry-body"
                 value={entryEditorState.body}
                 onChange={(e) =>
@@ -2468,6 +2471,7 @@ export function AtlasHub() {
                 }
                 placeholder="Write the lore, note, or canon block here."
                 rows={8}
+                className="min-h-[13rem] md:min-h-[15rem]"
               />
             </div>
           </div>

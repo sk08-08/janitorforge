@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import {
   Dialog,
   DialogContent,
@@ -841,14 +842,15 @@ export function LogsHub() {
               <p className="text-xs text-muted-foreground">
                 Markdown and image syntax are supported.
               </p>
-              <Textarea
+              <MarkdownField
                 value={postForm.body}
                 onChange={(event) =>
                   setPostForm((prev) => ({ ...prev, body: event.target.value }))
                 }
                 rows={6}
                 placeholder="Use markdown, lists, links, and image syntax like ![alt](https://...)"
-                className="max-h-56 resize-none overflow-y-auto"
+                className="min-h-[12rem] md:min-h-[14rem]"
+                previewMaxHeightRem={24}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

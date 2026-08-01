@@ -48,7 +48,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import Image from "next/image";
 import {
   Card,
@@ -1989,6 +1989,25 @@ export function FormBuilder({
               titles, section descriptions, field labels, and field
               descriptions.
             </p>
+            <p className="text-muted-foreground">
+              Use the toolbar or shortcuts to format quickly:{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                Ctrl/Cmd+B
+              </code>
+              ,{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                Ctrl/Cmd+I
+              </code>
+              ,{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                Ctrl/Cmd+K
+              </code>
+              , and{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                Ctrl/Cmd+Z
+              </code>
+              .
+            </p>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-md border bg-background/70 p-3">
                 <p className="mb-1 flex items-center gap-2 font-medium">
@@ -2023,14 +2042,15 @@ export function FormBuilder({
                 Use plain text for anything that should stay compact inside
                 badges or button labels.
               </li>
-              <li>Tables and code blocks are not supported in these fields.</li>
+              <li>
+                Switch between Edit and Preview to confirm final formatting.
+              </li>
               <li>
                 Color only part of a text using <code>[text]{`{#ff4d4f}`}</code>
                 , for example <code>[A]{`{#ff0000}`}</code>.
               </li>
               <li>
-                Long titles or tags will wrap instead of overflowing off the
-                card.
+                Long titles and descriptions wrap to avoid layout overflow.
               </li>
             </ul>
           </div>
@@ -2124,23 +2144,30 @@ export function FormBuilder({
             <Label htmlFor="form-title">
               Form Title <span className="text-red-400">*</span>
             </Label>
-            <Input
+            <MarkdownField
               id="form-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Contact Form, Commission Request"
-              className="text-lg font-semibold border-none px-0 focus-visible:ring-0 bg-transparent"
+              rows={2}
+              minEditorHeightRem={8}
+              previewMaxHeightRem={18}
+              className="text-lg font-semibold"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Tip: use the toolbar to format your title with bold, italic,
+              links, and lists.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="form-description">Description</Label>
-            <Textarea
+            <MarkdownField
               id="form-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe what this form is for…"
               rows={3}
-              className="resize-none border-none px-0 focus-visible:ring-0 bg-transparent w-full text-sm"
+              className="min-h-[8rem] border-none px-0 bg-transparent w-full text-sm"
             />
           </div>
 

@@ -64,6 +64,13 @@ import {
 } from "./profile-bot-cards";
 import { cn } from "@/lib/utils";
 import { BotPreview } from "@/lib/types";
+import {
+  getProfileBackgroundStyles,
+  getProfileCardClass,
+  getProfileFontStyle,
+  getProfileGridClass,
+  resolveProfileTheme,
+} from "@/lib/profile-theme";
 
 const PROFILE_BOTS_PAGE_SIZE = 12;
 
@@ -168,7 +175,10 @@ export function ProfilePage() {
           const counts = await getFollowCounts(ownProfileResult.profile.id);
 
           const supabase = createClient();
-          const [{ data: pages }, { data: worldData }] = await Promise.all([
+          const [
+            { data: pages, error: pagesError },
+            { data: worldRows, error: worldsError },
+          ] = await Promise.all([
             // Query the secure view directly without manual filters
             supabase
               .from("active_creator_pages")
@@ -176,24 +186,60 @@ export function ProfilePage() {
               .eq("user_id", ownProfileResult.profile.id)
               .order("updated_at", { ascending: false }),
 
-            // Query the secure view directly
+            // Query worlds first; bot links are fetched separately for reliability.
             supabase
               .from("active_atlas_worlds")
-              .select(
-                `
-                id, title, slug, kind, description,
-                active_atlas_world_bots ( bot_id )
-              `,
-              )
+              .select("id, title, slug, kind, description")
               .eq("user_id", ownProfileResult.profile.id)
               .order("updated_at", { ascending: false }),
           ]);
+
+          if (pagesError) {
+            throw pagesError;
+          }
+          if (worldsError) {
+            throw worldsError;
+          }
+
+          const worldIds = (worldRows || []).map((world: any) => world.id);
+          let worldBotRows: Array<{ world_id: string; bot_id: string }> = [];
+
+          if (worldIds.length > 0) {
+            const { data, error } = await supabase
+              .from("active_atlas_world_bots")
+              .select("world_id, bot_id")
+              .in("world_id", worldIds);
+
+            if (error) {
+              throw error;
+            }
+
+            worldBotRows = (data || []) as Array<{
+              world_id: string;
+              bot_id: string;
+            }>;
+          }
+
+          const worldBotsByWorldId = new Map<
+            string,
+            Array<{ bot_id: string }>
+          >();
+          for (const row of worldBotRows) {
+            const existing = worldBotsByWorldId.get(row.world_id) || [];
+            existing.push({ bot_id: row.bot_id });
+            worldBotsByWorldId.set(row.world_id, existing);
+          }
+
+          const normalizedWorlds = (worldRows || []).map((world: any) => ({
+            ...world,
+            active_atlas_world_bots: worldBotsByWorldId.get(world.id) || [],
+          }));
 
           return {
             profile: ownProfileResult.profile,
             counts,
             pages: (pages || []) as typeof creatorPages,
-            worlds: (worldData || []) as typeof worlds,
+            worlds: normalizedWorlds as typeof worlds,
           };
         },
       );
@@ -248,23 +294,39 @@ export function ProfilePage() {
   }
 
   const p = profile;
-  const theme = p.theme || {};
-  const primaryColor = (theme.primaryColor as string) || "#7c3aed";
-  const avatarBorderColor = (theme.avatarBorderColor as string) || primaryColor;
+  const resolvedTheme = resolveProfileTheme(p.theme || {});
+  const {
+    primaryColor,
+    accentColor,
+    avatarBorderColor,
+    cardStyle,
+    layout,
+    showStats,
+    showBadges,
+    showFeatured,
+    showBots,
+    showCreatorPages,
+    showWorlds,
+    showForms,
+    hideCompletenessNudge,
+  } = resolvedTheme;
+  const profileBackground = getProfileBackgroundStyles(
+    resolvedTheme.profileBackground,
+    primaryColor,
+    accentColor,
+  );
+  const profileFontStyle = getProfileFontStyle(resolvedTheme.fontFamily);
+  const collectionGridClass = getProfileGridClass(layout);
+  const cardClass = getProfileCardClass(cardStyle);
+  const sectionCardStyle =
+    cardStyle !== "minimal"
+      ? ({ borderColor: `${accentColor}4a` } as const)
+      : undefined;
+
   const socialLinks = p.social_links || {};
   const badges = p.profile_badges || [];
   const specialtiesList = p.specialties || [];
   const completeness = (p.profile_completeness as number) || 0;
-  const showStats = theme.showStats !== false;
-  const showBadges = theme.showBadges !== false;
-  const showFeatured = theme.showFeatured !== false;
-  const showBots = theme.showBots !== false;
-  const showCreatorPages = theme.showCreatorPages !== false;
-  const showWorlds = theme.showWorlds !== false;
-  const showForms = theme.showForms !== false;
-  const hideCompletenessNudge =
-    theme.hideCompletenessNudge === true ||
-    theme.hideCompletenessNudge === "true";
   const featuredBots = (profile.active_profile_featured_bots || [])
     .sort((a: any, b: any) => a.sort_order - b.sort_order)
     .map((relation: any) => {
@@ -322,12 +384,21 @@ export function ProfilePage() {
 
   return (
     <ScrollArea className="h-screen w-full overflow-hidden">
-      <div className="p-4 sm:p-6 md:p-8 lg:p-10 space-y-6">
+      <div
+        className={cn(
+          "p-4 sm:p-6 md:p-8 lg:p-10 space-y-6",
+          profileBackground.className,
+        )}
+        style={{ ...profileBackground.style, ...profileFontStyle }}
+      >
         {/* Main Profile Card */}
-        <Card className="overflow-hidden">
+        <Card
+          className="overflow-hidden"
+          style={{ borderColor: `${accentColor}55` }}
+        >
           {/* Banner */}
           <div
-            className="h-32 sm:h-44 w-full relative"
+            className="h-32 sm:h-58 w-full relative"
             style={{
               background: p.banner_url
                 ? `url(${p.banner_url}) center/cover no-repeat`
@@ -446,9 +517,10 @@ export function ProfilePage() {
 
             {/* Bio */}
             {typeof p.bio === "string" && p.bio && (
-              <div className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                {p.bio}
-              </div>
+              <div
+                className="mt-3 text-sm text-muted-foreground leading-relaxed rendered-markdown"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(p.bio) }}
+              />
             )}
 
             {/* Meta info */}
@@ -534,8 +606,8 @@ export function ProfilePage() {
                       variant="secondary"
                       className="text-xs"
                       style={{
-                        backgroundColor: `${primaryColor}15`,
-                        color: primaryColor,
+                        backgroundColor: `${accentColor}1a`,
+                        color: accentColor,
                       }}
                     >
                       {s}
@@ -557,6 +629,8 @@ export function ProfilePage() {
                       <ProfileFeaturedBotListCard
                         key={bot!.id}
                         bot={bot!}
+                        cardStyle={cardStyle}
+                        accentColor={accentColor}
                         onClick={() => setBotDetailBot(bot)}
                       />
                     ))}
@@ -612,11 +686,14 @@ export function ProfilePage() {
               <h2 className="text-lg font-semibold">Bots</h2>
               <Badge variant="outline">{bots.length}</Badge>
             </div>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={collectionGridClass}>
               {paginatedBots.map((bot) => (
                 <ProfileBotGridCard
                   key={bot.id}
                   bot={bot}
+                  cardStyle={cardStyle}
+                  layout={layout}
+                  accentColor={accentColor}
                   onClick={() => setBotDetailBot(bot)}
                 />
               ))}
@@ -692,7 +769,7 @@ export function ProfilePage() {
             )}
             <hr
               className="border-t"
-              style={{ borderColor: `${primaryColor}33` }}
+              style={{ borderColor: `${accentColor}40` }}
             />
           </div>
         )}
@@ -706,7 +783,7 @@ export function ProfilePage() {
               <Badge variant="outline">{creatorPages.length}</Badge>
             </div>
             {creatorPages.length > 0 ? (
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={collectionGridClass}>
                 {creatorPages.map((page) => (
                   <a
                     key={page.id}
@@ -714,7 +791,14 @@ export function ProfilePage() {
                     target={page.is_published ? "_blank" : undefined}
                     rel="noopener noreferrer"
                   >
-                    <div className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer h-full">
+                    <div
+                      className={cn(
+                        cardClass,
+                        "cursor-pointer h-full",
+                        layout === "list" && "sm:flex sm:flex-col",
+                      )}
+                      style={sectionCardStyle}
+                    >
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-sm font-medium truncate">
                           {page.title || "Untitled"}
@@ -742,7 +826,7 @@ export function ProfilePage() {
             )}
             <hr
               className="border-t"
-              style={{ borderColor: `${primaryColor}33` }}
+              style={{ borderColor: `${accentColor}40` }}
             />
           </div>
         )}
@@ -756,11 +840,12 @@ export function ProfilePage() {
               <Badge variant="outline">{worlds.length}</Badge>
             </div>
             {worlds.length > 0 ? (
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={collectionGridClass}>
                 {worlds.map((world) => (
                   <div
                     key={world.id}
-                    className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer"
+                    className={cn(cardClass, "cursor-pointer")}
+                    style={sectionCardStyle}
                     onClick={() => {
                       setSelectedItem({ type: "world", data: world });
                       setDetailOpen(true);
@@ -795,7 +880,7 @@ export function ProfilePage() {
             )}
             <hr
               className="border-t"
-              style={{ borderColor: `${primaryColor}33` }}
+              style={{ borderColor: `${accentColor}40` }}
             />
           </div>
         )}
@@ -809,7 +894,7 @@ export function ProfilePage() {
               <Badge variant="outline">{ownForms.length}</Badge>
             </div>
             {ownForms.length > 0 ? (
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={collectionGridClass}>
                 {ownForms.map((form) => (
                   <Link
                     href={`/form/${form.shareableLink}`}
@@ -819,7 +904,8 @@ export function ProfilePage() {
                   >
                     <div
                       key={form.id}
-                      className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md"
+                      className={cn(cardClass, "h-full")}
+                      style={sectionCardStyle}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <p
@@ -901,7 +987,9 @@ export function ProfilePage() {
                       Bots in this world
                     </p>
                     <p className="text-sm">
-                      {(selectedItem.data as any).bot_ids?.length || 0} bots
+                      {(selectedItem.data as any).active_atlas_world_bots
+                        ?.length || 0}{" "}
+                      bots
                     </p>
                   </div>
                 </div>

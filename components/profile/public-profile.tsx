@@ -57,6 +57,13 @@ import {
   ProfileFeaturedBotListCard,
 } from "./profile-bot-cards";
 import { cn } from "@/lib/utils";
+import {
+  getProfileBackgroundStyles,
+  getProfileCardClass,
+  getProfileFontStyle,
+  getProfileGridClass,
+  resolveProfileTheme,
+} from "@/lib/profile-theme";
 
 const PROFILE_BOTS_PAGE_SIZE = 12;
 
@@ -251,8 +258,35 @@ export function PublicProfile({
   const [botsPage, setBotsPage] = useState(0);
 
   const displayName = profile.display_name || profile.username || "User";
-  const theme = (profile.theme as Record<string, unknown>) || {};
-  const themeColor = (theme.primaryColor as string) || "#7c3aed";
+  const resolvedTheme = resolveProfileTheme(
+    (profile.theme as Record<string, unknown>) || {},
+  );
+  const {
+    primaryColor,
+    accentColor,
+    avatarBorderColor,
+    cardStyle,
+    layout,
+    showBadges,
+    showFeatured,
+    showBots,
+    showCreatorPages,
+    showWorlds,
+    showForms,
+  } = resolvedTheme;
+  const profileBackground = getProfileBackgroundStyles(
+    resolvedTheme.profileBackground,
+    primaryColor,
+    accentColor,
+  );
+  const profileFontStyle = getProfileFontStyle(resolvedTheme.fontFamily);
+  const collectionGridClass = getProfileGridClass(layout);
+  const cardClass = getProfileCardClass(cardStyle);
+  const sectionCardStyle =
+    cardStyle !== "minimal"
+      ? ({ borderColor: `${accentColor}4a` } as const)
+      : undefined;
+  const themeColor = primaryColor;
   const socialLinks = profile.social_links || {};
   const badges = profile.profile_badges || [];
   const featuredBots = (profile.active_profile_featured_bots || [])
@@ -291,12 +325,6 @@ export function PublicProfile({
     })
     .filter(Boolean);
   const specialtiesList = profile.specialties || [];
-  const showBadges = theme.showBadges !== false;
-  const showFeatured = theme.showFeatured !== false;
-  const showBots = theme.showBots !== false;
-  const showCreatorPages = theme.showCreatorPages !== false;
-  const showWorlds = theme.showWorlds !== false;
-  const showForms = theme.showForms !== false;
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
   const totalBotPages = Math.max(
     1,
@@ -323,7 +351,10 @@ export function PublicProfile({
 
   return (
     <ScrollArea className="h-screen w-full overflow-hidden bg-background">
-      <div className="min-h-screen bg-background">
+      <div
+        className={cn("min-h-screen", profileBackground.className)}
+        style={{ ...profileBackground.style, ...profileFontStyle }}
+      >
         {/* Banner */}
         <div
           className="relative z-0 h-40 sm:h-56 w-full"
@@ -360,7 +391,7 @@ export function PublicProfile({
               style={{
                 borderWidth: "4px",
                 borderStyle: "solid",
-                borderColor: themeColor,
+                borderColor: avatarBorderColor,
               }}
             >
               {profile.avatar_url ? (
@@ -457,9 +488,12 @@ export function PublicProfile({
 
               {/* Bio */}
               {profile.bio && (
-                <p className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                  {profile.bio}
-                </p>
+                <div
+                  className="mt-3 text-sm text-muted-foreground leading-relaxed rendered-markdown"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(profile.bio),
+                  }}
+                />
               )}
 
               {/* Meta */}
@@ -553,8 +587,8 @@ export function PublicProfile({
                         variant="secondary"
                         className="text-xs"
                         style={{
-                          backgroundColor: `${themeColor}15`,
-                          color: themeColor,
+                          backgroundColor: `${accentColor}1a`,
+                          color: accentColor,
                         }}
                       >
                         {s}
@@ -580,6 +614,8 @@ export function PublicProfile({
                     <ProfileFeaturedBotListCard
                       key={bot!.id}
                       bot={bot!}
+                      cardStyle={cardStyle}
+                      accentColor={accentColor}
                       onClick={() => setBotDetailBot(bot)}
                     />
                   ))}
@@ -614,11 +650,14 @@ export function PublicProfile({
                 </div>
                 {bots.length > 0 ? (
                   <>
-                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className={collectionGridClass}>
                       {paginatedBots.map((bot) => (
                         <ProfileBotGridCard
                           key={bot.id}
                           bot={bot}
+                          cardStyle={cardStyle}
+                          layout={layout}
+                          accentColor={accentColor}
                           onClick={() => setBotDetailBot(bot)}
                         />
                       ))}
@@ -708,7 +747,7 @@ export function PublicProfile({
               </div>
               <hr
                 className="border-t"
-                style={{ borderColor: `${themeColor}33` }}
+                style={{ borderColor: `${accentColor}40` }}
               />
             </div>
           )}
@@ -722,10 +761,17 @@ export function PublicProfile({
                 <Badge variant="outline">{creatorPages.length}</Badge>
               </div>
               {creatorPages.length > 0 ? (
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={collectionGridClass}>
                   {creatorPages.map((page) => (
                     <Link key={page.id} href={`/page/${page.slug}`}>
-                      <div className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md cursor-pointer h-full">
+                      <div
+                        className={cn(
+                          cardClass,
+                          "cursor-pointer h-full",
+                          layout === "list" && "sm:flex sm:flex-col",
+                        )}
+                        style={sectionCardStyle}
+                      >
                         <div className="flex items-center gap-2 mb-1">
                           <p className="text-sm font-medium truncate">
                             {page.title || "Untitled"}
@@ -765,11 +811,12 @@ export function PublicProfile({
                 <Badge variant="outline">{worlds.length}</Badge>
               </div>
               {worlds.length > 0 ? (
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                <div className={collectionGridClass}>
                   {worlds.map((world) => (
                     <div
                       key={world.id}
-                      className="rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md"
+                      className={cardClass}
+                      style={sectionCardStyle}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <Badge
@@ -826,7 +873,9 @@ export function PublicProfile({
                 <Badge variant="outline">{forms.length}</Badge>
               </div>
               {forms.length > 0 ? (
-                <div className="grid justify-items-stretch gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                  className={cn(collectionGridClass, "justify-items-stretch")}
+                >
                   {forms.map((form) => (
                     <Link
                       href={`/form/${form.shareable_link}`}
@@ -835,7 +884,10 @@ export function PublicProfile({
                       rel="noopener noreferrer"
                       className="block h-full w-full"
                     >
-                      <div className="h-full w-full rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md">
+                      <div
+                        className={cn(cardClass, "h-full w-full")}
+                        style={sectionCardStyle}
+                      >
                         <div className="flex items-center gap-2 mb-1">
                           <p
                             className="text-sm font-medium truncate rendered-markdown"
@@ -879,7 +931,7 @@ export function PublicProfile({
           {/* Footer */}
           <div
             className="mt-20 pt-8 border-t text-center text-xs text-muted-foreground"
-            style={{ borderColor: `${themeColor}33` }}
+            style={{ borderColor: `${accentColor}40` }}
           >
             <p>
               Powered by{" "}

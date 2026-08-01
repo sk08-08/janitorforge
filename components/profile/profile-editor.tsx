@@ -23,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownField } from "@/components/ui/markdown-field";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -62,6 +62,16 @@ import {
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  getProfileBackgroundStyles,
+  getProfileCardClass,
+  getProfileFontStyle,
+  getProfileGridClass,
+  type ProfileBackground,
+  type ProfileCardStyle,
+  type ProfileFontFamily,
+  type ProfileLayout,
+} from "@/lib/profile-theme";
 
 // ----------------------------------------------------------------------------
 // Types & Constants
@@ -481,6 +491,14 @@ export function ProfileEditor({
     if (aSelected !== bSelected) return aSelected ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
+  const previewBackground = getProfileBackgroundStyles(
+    profileBackground as ProfileBackground,
+    primaryColor,
+    accentColor,
+  );
+  const previewFont = getProfileFontStyle(fontFamily as ProfileFontFamily);
+  const previewGrid = getProfileGridClass(layout as ProfileLayout);
+  const previewCard = getProfileCardClass(cardStyle as ProfileCardStyle);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -744,13 +762,13 @@ export function ProfileEditor({
               {/* Bio */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Bio</Label>
-                <Textarea
+                <MarkdownField
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell the community about yourself..."
                   rows={4}
                   maxLength={2000}
-                  className="resize-none"
+                  className="min-h-[10rem] md:min-h-[11rem]"
                 />
                 <p className="text-[10px] text-muted-foreground text-right">
                   {bio.length}/2000
@@ -935,6 +953,46 @@ export function ProfileEditor({
                       <SelectItem value="minimal">Minimal</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* Live preview */}
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Live Theme Preview
+                </p>
+                <div
+                  className={cn(
+                    "rounded-lg border p-3 space-y-2",
+                    previewBackground.className,
+                  )}
+                  style={{ ...previewBackground.style, ...previewFont }}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold">
+                      Profile style sample
+                    </p>
+                    <span
+                      className="h-2.5 w-14 rounded-full"
+                      style={{ backgroundColor: accentColor }}
+                    />
+                  </div>
+                  <div className={previewGrid}>
+                    {["Card A", "Card B", "Card C"].map((label) => (
+                      <div
+                        key={label}
+                        className={cn(previewCard, "min-h-16 text-xs")}
+                        style={
+                          cardStyle !== "minimal"
+                            ? { borderColor: `${accentColor}55` }
+                            : undefined
+                        }
+                      >
+                        <p className="font-medium">{label}</p>
+                        <p className="text-muted-foreground">Layout preview</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 

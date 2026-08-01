@@ -130,12 +130,13 @@ export default async function PublicFormPage({
                 </div>
 
                 {deactivatedMsg ? (
-                  <p
-                    className="text-base whitespace-pre-wrap leading-relaxed"
+                  <div
+                    className="text-base leading-relaxed rendered-markdown"
                     style={{ color: "var(--muted-foreground)" }}
-                  >
-                    {deactivatedMsg}
-                  </p>
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(deactivatedMsg),
+                    }}
+                  />
                 ) : (
                   <p
                     className="text-base"

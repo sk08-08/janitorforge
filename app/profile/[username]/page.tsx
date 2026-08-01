@@ -104,15 +104,36 @@ export default async function UserProfilePage({ params }: PageProps) {
     .eq("user_id", profile.id)
     .order("updated_at", { ascending: false });
 
-  // Fetch worlds
-  const { data: worlds } = await supabase
+  // Fetch worlds (same strategy as own profile: worlds + links in separate queries)
+  const { data: worldRows } = await supabase
     .from("active_atlas_worlds")
-    .select(
-      "id, title, slug, kind, status, description, active_atlas_world_bots(bot_id)",
-    )
+    .select("id, title, slug, kind, status, description")
     .eq("user_id", profile.id)
-    .eq("status", "active")
     .order("updated_at", { ascending: false });
+
+  const worldIds = (worldRows || []).map((world: any) => world.id);
+  let worldBotRows: Array<{ world_id: string; bot_id: string }> = [];
+
+  if (worldIds.length > 0) {
+    const { data } = await supabase
+      .from("active_atlas_world_bots")
+      .select("world_id, bot_id")
+      .in("world_id", worldIds);
+
+    worldBotRows = (data || []) as Array<{ world_id: string; bot_id: string }>;
+  }
+
+  const worldBotsByWorldId = new Map<string, Array<{ bot_id: string }>>();
+  for (const row of worldBotRows) {
+    const existing = worldBotsByWorldId.get(row.world_id) || [];
+    existing.push({ bot_id: row.bot_id });
+    worldBotsByWorldId.set(row.world_id, existing);
+  }
+
+  const worlds = (worldRows || []).map((world: any) => ({
+    ...world,
+    active_atlas_world_bots: worldBotsByWorldId.get(world.id) || [],
+  }));
 
   // Fetch public forms for this profile
   const { data: forms } = await supabase.rpc("get_public_profile_forms", {
@@ -164,16 +185,14 @@ export default async function UserProfilePage({ params }: PageProps) {
           exampleDialogues: isHidden ? "" : b.example_dialogues,
         };
       })}
-      worlds={(worlds || []).map((w: any) => ({
+      worlds={worlds.map((w: any) => ({
         id: w.id,
         title: w.title,
         slug: w.slug,
         kind: w.kind,
         status: w.status,
         description: w.description,
-        bot_ids: (w.active_atlas_world_bots || []).map(
-          (rel: any) => rel.bot_id,
-        ),
+        active_atlas_world_bots: w.active_atlas_world_bots || [],
       }))}
       forms={(forms || []).map((form: any) => ({
         id: form.id,

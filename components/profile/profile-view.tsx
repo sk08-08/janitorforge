@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { renderMarkdown } from "@/lib/markdown";
 import {
   Pencil,
   MapPin,
@@ -356,9 +357,12 @@ export function ProfileView({ open, onOpenChange, onEdit }: ProfileViewProps) {
 
           {/* Bio */}
           {(p.bio as string) && (
-            <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-              {p.bio as string}
-            </div>
+            <div
+              className="text-sm text-muted-foreground leading-relaxed rendered-markdown"
+              dangerouslySetInnerHTML={{
+                __html: renderMarkdown(p.bio as string),
+              }}
+            />
           )}
 
           {/* Meta info row */}

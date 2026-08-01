@@ -127,6 +127,7 @@ function RequestCard({
   className,
 }: RequestCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const resolveLabel = (key: string) => request.responseLabels?.[key] || key;
 
   // Get primary response fields for preview
@@ -183,170 +184,207 @@ function RequestCard({
   };
 
   return (
-    <Card
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      className={cn(
-        "cursor-grab transition-all hover:shadow-md active:cursor-grabbing",
-        isSelected && "ring-2 ring-primary/60",
-        className,
-      )}
-    >
-      <CardContent className="p-3 sm:p-4">
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <Checkbox
-              checked={isSelected}
-              className="cursor-pointer"
-              onCheckedChange={(checked) => onSelectionChange(checked === true)}
-              aria-label={`Select request from ${request.submitterName || "anonymous user"}`}
-            />
-            {request.submitterName && (
-              <div className="flex items-center gap-1.5 text-sm">
-                <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="min-w-0 truncate font-medium">
-                  {request.submitterName}
-                </span>
-              </div>
-            )}
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 cursor-pointer"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onViewDetails}>
-                <MessageSquare className="mr-2 h-4 w-4 text-primary" />
-                View Details
-              </DropdownMenuItem>
-              {nextStatus && (
-                <DropdownMenuItem onClick={() => onStatusChange(nextStatus)}>
-                  <ArrowRight className="mr-2 h-4 w-4 text-success" />
-                  Move to {columns.find((c) => c.id === nextStatus)?.title}
-                </DropdownMenuItem>
+    <>
+      <Card
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        className={cn(
+          "cursor-grab transition-all hover:shadow-md active:cursor-grabbing",
+          isSelected && "ring-2 ring-primary/60",
+          className,
+        )}
+      >
+        <CardContent className="p-3 sm:p-4">
+          {/* Header */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Checkbox
+                checked={isSelected}
+                className="cursor-pointer"
+                onCheckedChange={(checked) =>
+                  onSelectionChange(checked === true)
+                }
+                aria-label={`Select request from ${request.submitterName || "anonymous user"}`}
+              />
+              {request.submitterName && (
+                <div className="flex items-center gap-1.5 text-sm">
+                  <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="min-w-0 truncate font-medium">
+                    {request.submitterName}
+                  </span>
+                </div>
               )}
-              {previousStatus && (
-                <DropdownMenuItem
-                  onClick={() => onStatusChange(previousStatus)}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 cursor-pointer"
                 >
-                  <ArrowLeft className="mr-2 h-4 w-4 text-warning" />
-                  Move back to{" "}
-                  {columns.find((c) => c.id === previousStatus)?.title}
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onViewDetails}>
+                  <MessageSquare className="mr-2 h-4 w-4 text-primary" />
+                  View Details
                 </DropdownMenuItem>
-              )}
-              {request.status !== "rejected" &&
-                request.status !== "completed" && (
-                  <DropdownMenuItem onClick={() => onStatusChange("rejected")}>
-                    <XCircle className="mr-2 h-4 w-4 text-destructive" />
-                    Reject
+                {nextStatus && (
+                  <DropdownMenuItem onClick={() => onStatusChange(nextStatus)}>
+                    <ArrowRight className="mr-2 h-4 w-4 text-success" />
+                    Move to {columns.find((c) => c.id === nextStatus)?.title}
                   </DropdownMenuItem>
                 )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="text-destructive hover:text-white"
-              >
-                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                {previousStatus && (
+                  <DropdownMenuItem
+                    onClick={() => onStatusChange(previousStatus)}
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4 text-warning" />
+                    Move back to{" "}
+                    {columns.find((c) => c.id === previousStatus)?.title}
+                  </DropdownMenuItem>
+                )}
+                {request.status !== "rejected" &&
+                  request.status !== "completed" && (
+                    <DropdownMenuItem
+                      onClick={() => onStatusChange("rejected")}
+                    >
+                      <XCircle className="mr-2 h-4 w-4 text-destructive" />
+                      Reject
+                    </DropdownMenuItem>
+                  )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-destructive hover:text-white"
+                >
+                  <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-        {/* Preview Fields */}
-        <div className="mt-2 space-y-1">
-          {previewFields.map(([label, value]) => (
-            <div key={label} className="text-sm">
-              <span className="text-muted-foreground">
-                {resolveLabel(label)}:{" "}
-              </span>
-              <span className="line-clamp-1">
-                {Array.isArray(value) ? value.join(", ") : value}
-              </span>
-            </div>
-          ))}
-        </div>
+          {/* Preview Fields */}
+          <div className="mt-2 space-y-1">
+            {previewFields.map(([label, value]) => (
+              <div key={label} className="text-sm">
+                <span className="text-muted-foreground">
+                  {resolveLabel(label)}:{" "}
+                </span>
+                <span className="line-clamp-1">
+                  {Array.isArray(value) ? value.join(", ") : value}
+                </span>
+              </div>
+            ))}
+          </div>
 
-        {/* Expandable full details */}
-        {getOrderedResponseEntries(request).length > 2 && !isExpanded && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(true)}
-            className="mt-2 h-8 w-full cursor-pointer text-xs sm:h-7"
-          >
-            {toggleIcon}
-            {toggleLabel}
-          </Button>
-        )}
-
-        {getOrderedResponseEntries(request).length > 2 && isExpanded && (
-          <>
-            <div className="mt-2 max-h-48 overflow-y-auto space-y-1 rounded-md border border-dashed border-border/70 bg-muted/30 p-2">
-              {getOrderedResponseEntries(request)
-                .slice(2)
-                .map(([label, value]) => (
-                  <div key={label} className="text-sm">
-                    <span className="text-muted-foreground">
-                      {resolveLabel(label)}:{" "}
-                    </span>
-                    <span>
-                      {Array.isArray(value) ? value.join(", ") : value}
-                    </span>
-                  </div>
-                ))}
-            </div>
+          {/* Expandable full details */}
+          {getOrderedResponseEntries(request).length > 2 && !isExpanded && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setIsExpanded(false)}
+              onClick={() => setIsExpanded(true)}
               className="mt-2 h-8 w-full cursor-pointer text-xs sm:h-7"
             >
               {toggleIcon}
               {toggleLabel}
             </Button>
-          </>
-        )}
+          )}
 
-        {/* Notes */}
-        {request.notes && (
-          <div className="mt-2 rounded bg-muted/50 p-2">
-            <p className="text-xs text-muted-foreground">Notes:</p>
-            <p className="text-sm">{request.notes}</p>
-          </div>
-        )}
+          {getOrderedResponseEntries(request).length > 2 && isExpanded && (
+            <>
+              <div className="mt-2 max-h-48 overflow-y-auto space-y-1 rounded-md border border-dashed border-border/70 bg-muted/30 p-2">
+                {getOrderedResponseEntries(request)
+                  .slice(2)
+                  .map(([label, value]) => (
+                    <div key={label} className="text-sm">
+                      <span className="text-muted-foreground">
+                        {resolveLabel(label)}:{" "}
+                      </span>
+                      <span>
+                        {Array.isArray(value) ? value.join(", ") : value}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsExpanded(false)}
+                className="mt-2 h-8 w-full cursor-pointer text-xs sm:h-7"
+              >
+                {toggleIcon}
+                {toggleLabel}
+              </Button>
+            </>
+          )}
 
-        {/* Footer */}
-        <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge variant="outline" className="text-xs">
-              <MarkdownRenderer content={request.formTitle} />
-            </Badge>
-            {isAdmin && request.ownerId && (
-              <Badge variant="secondary" className="text-[10px]">
-                Admin view
+          {/* Notes */}
+          {request.notes && (
+            <div className="mt-2 rounded bg-muted/50 p-2">
+              <p className="text-xs text-muted-foreground">Notes:</p>
+              <p className="text-sm">{request.notes}</p>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge variant="outline" className="text-xs">
+                <MarkdownRenderer content={request.formTitle} />
               </Badge>
-            )}
+              {isAdmin && request.ownerId && (
+                <Badge variant="secondary" className="text-[10px]">
+                  Admin view
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {formatDateTime(request.createdAt)}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+          <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {formatDateTime(request.createdAt)}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Request</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this request? This action cannot
+              be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              className="w-full cursor-pointer sm:w-auto"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="w-full cursor-pointer sm:w-auto"
+              onClick={() => {
+                onDelete();
+                setShowDeleteConfirm(false);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -535,114 +573,117 @@ function RequestDetailsDialog({
   return (
     <>
       <Dialog open={!!request} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              Request Details
-              {currentColumn && (
-                <Badge variant="outline" className={currentColumn.color}>
-                  {currentColumn.title}
-                </Badge>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              Submitted on {request.createdAt.toLocaleDateString()} via{" "}
-              {request.formTitle}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-2xl max-h-[85vh] overflow-hidden p-0">
+          <div className="max-h-[85vh] overflow-y-auto p-6">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                Request Details
+                {currentColumn && (
+                  <Badge variant="outline" className={currentColumn.color}>
+                    {currentColumn.title}
+                  </Badge>
+                )}
+              </DialogTitle>
+              <DialogDescription>
+                Submitted on {request.createdAt.toLocaleDateString()} via{" "}
+                {request.formTitle}
+              </DialogDescription>
+            </DialogHeader>
 
-          {/* Responses */}
-          <div className="space-y-4">
-            <h4 className="font-medium">Responses</h4>
-            <div className="space-y-3">
-              {getOrderedResponseEntries(request).map(([label, value]) => (
-                <div key={label} className="rounded-lg border p-3">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {resolveLabel(label)}
-                  </p>
-                  <p className="mt-1">
-                    {Array.isArray(value) ? value.join(", ") : value || "-"}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <h4 className="font-medium">Notes</h4>
-              <div className="flex items-center gap-2">
-                <Textarea
-                  value={notes}
-                  onChange={(e) => {
-                    setNotes(e.target.value);
-                    setNotesDirty(true);
-                  }}
-                  placeholder="Add notes about this request..."
-                  rows={3}
-                  className="flex-1"
-                />
+            {/* Responses */}
+            <div className="space-y-4 mb-4">
+              <h4 className="font-medium">Responses</h4>
+              <div className="space-y-3">
+                {getOrderedResponseEntries(request).map(([label, value]) => (
+                  <div key={label} className="min-w-0 rounded-lg border p-3">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {resolveLabel(label)}
+                    </p>
+                    <p className="mt-1 break-words whitespace-pre-wrap">
+                      {Array.isArray(value) ? value.join(", ") : value || "-"}
+                    </p>
+                  </div>
+                ))}
               </div>
-              {notesDirty && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="cursor-pointer"
-                  onClick={() => {
-                    onSaveNotes(notes);
-                    setNotesDirty(false);
-                  }}
-                >
-                  Save Notes
-                </Button>
-              )}
-            </div>
-          </div>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <div className="flex gap-2">
-              {request.status === "new" && (
-                <>
+              {/* Notes */}
+              <div className="space-y-2">
+                <h4 className="font-medium">Notes</h4>
+                <div className="flex items-center gap-2">
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => {
+                      setNotes(e.target.value);
+                      setNotesDirty(true);
+                    }}
+                    placeholder="Add notes about this request..."
+                    rows={3}
+                    className="flex-1"
+                  />
+                </div>
+                {notesDirty && (
                   <Button
-                    className="cursor-pointer"
-                    onClick={() => onStatusChange("accepted", notes)}
-                  >
-                    Accept
-                  </Button>
-                  <Button
+                    size="sm"
                     variant="outline"
-                    className="cursor-pointer"
-                    onClick={() => onStatusChange("rejected", notes)}
+                    className="cursor-pointer w-full sm:w-auto"
+                    onClick={() => {
+                      onSaveNotes(notes);
+                      setNotesDirty(false);
+                    }}
                   >
-                    Reject
+                    Save Notes
                   </Button>
-                </>
-              )}
-              {request.status === "accepted" && (
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                {request.status === "new" && (
+                  <>
+                    <Button
+                      className="w-full cursor-pointer sm:w-auto"
+                      onClick={() => onStatusChange("accepted", notes)}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full cursor-pointer sm:w-auto"
+                      onClick={() => onStatusChange("rejected", notes)}
+                    >
+                      Reject
+                    </Button>
+                  </>
+                )}
+                {request.status === "accepted" && (
+                  <Button
+                    className="w-full cursor-pointer sm:w-auto"
+                    onClick={() => onStatusChange("completed", notes)}
+                  >
+                    Mark Complete
+                  </Button>
+                )}
+              </div>
+              <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:justify-end">
                 <Button
-                  className="cursor-pointer"
-                  onClick={() => onStatusChange("completed", notes)}
+                  variant="destructive"
+                  className="w-full cursor-pointer sm:w-auto"
+                  onClick={() => setShowDeleteConfirm(true)}
                 >
-                  Mark Complete
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
                 </Button>
-              )}
-            </div>
-            <div className="flex gap-2 ml-auto">
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </Button>
-              <Button
-                variant="outline"
-                className="cursor-pointer"
-                onClick={onClose}
-              >
-                Close
-              </Button>
-            </div>
-          </DialogFooter>
+                <Button
+                  variant="outline"
+                  className="w-full cursor-pointer sm:w-auto"
+                  onClick={onClose}
+                >
+                  Close
+                </Button>
+              </div>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -656,17 +697,17 @@ function RequestDetailsDialog({
               be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
-              className="cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
               onClick={() => setShowDeleteConfirm(false)}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              className="cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
               onClick={() => {
                 onDelete();
                 setShowDeleteConfirm(false);
@@ -1011,17 +1052,17 @@ export function KanbanBoard({
               undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
-              className="cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
               onClick={() => setShowBulkDeleteConfirm(false)}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              className="cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
               onClick={handleBulkDelete}
             >
               Delete

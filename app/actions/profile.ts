@@ -143,8 +143,6 @@ interface UpdateProfileInput {
   status_message?: string;
   visibility?: string;
   featuredBotIds?: string[];
-  // Backward-compatible input key; now persisted through profile_featured_bots
-  featured_bot_ids?: string[];
   profile_badges?: Array<Record<string, string>>;
   custom_css?: string;
 }
@@ -157,8 +155,7 @@ export async function updateProfile(input: UpdateProfileInput) {
   }
   const userId = access.user.id;
 
-  const requestedFeaturedBotIds =
-    input.featuredBotIds ?? input.featured_bot_ids;
+  const requestedFeaturedBotIds = input.featuredBotIds;
 
   // Validate slug format if provided
   if (input.slug !== undefined) {
