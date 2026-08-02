@@ -5,6 +5,7 @@ type CurrentUserAccess = {
     | Awaited<ReturnType<SupabaseClient["auth"]["getUser"]>>["data"]["user"]
     | null;
   isAdmin: boolean;
+  isBlocked: boolean;
   profile: UserProfile | null;
 };
 
@@ -23,6 +24,7 @@ export interface UserProfile {
   avatar_url: string | null;
   slug: string | null;
   is_admin: boolean | null;
+  is_blocked: boolean | null;
 }
 
 async function loadCurrentUserAccess(
@@ -38,19 +40,36 @@ async function loadCurrentUserAccess(
   }
 
   if (!user) {
-    return { user: null as null, isAdmin: false, profile: null as null };
+    return {
+      user: null as null,
+      isAdmin: false,
+      isBlocked: false,
+      profile: null as null,
+    };
   }
 
   // Fetch profile data in the same call
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url, slug, is_admin")
+    .select(
+      "id, username, display_name, avatar_url, slug, is_admin, is_blocked",
+    )
     .eq("id", user.id)
     .maybeSingle<UserProfile>();
 
   const isAdmin = !!profile?.is_admin;
+  const isBlocked = !!profile?.is_blocked;
 
-  return { user, isAdmin, profile };
+  if (isBlocked) {
+    return {
+      user: null as null,
+      isAdmin: false,
+      isBlocked: true,
+      profile: null as null,
+    };
+  }
+
+  return { user, isAdmin, isBlocked: false, profile };
 }
 
 function getAccessCacheKey(sessionToken: string | null | undefined) {

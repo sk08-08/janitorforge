@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import {
   FORM_ASSETS_BUCKET,
   FORM_BANNERS_BUCKET,
@@ -25,9 +25,13 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin")
+    .select("is_admin, is_blocked")
     .eq("id", user.id)
     .maybeSingle();
+
+  if (profile?.is_blocked) {
+    return { supabase, userId: user.id, error: "Account is blocked" as const };
+  }
 
   if (!profile?.is_admin)
     return { supabase, userId: user.id, error: "Forbidden" as const };
@@ -457,6 +461,52 @@ export async function blockUser(userId: string) {
     .eq("id", userId);
 
   if (dbError) return { success: false, error: dbError.message };
+  return { success: true };
+}
+
+export async function resetUserPin(userId: string, newPin: string) {
+  const { supabase, error } = await requireAdmin();
+  if (error) return { success: false, error };
+
+  if (!/^\d{4}$/.test(newPin)) {
+    return { success: false, error: "PIN must be exactly 4 digits" };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError) {
+    return { success: false, error: profileError.message };
+  }
+
+  const username = String(profile?.username ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (!username) {
+    return { success: false, error: "User username not found" };
+  }
+
+  const adminClient = await createAdminClient();
+  if (!adminClient) {
+    return {
+      success: false,
+      error: "Service role is not configured for PIN updates",
+    };
+  }
+
+  const { error: updateError } = await adminClient.auth.admin.updateUserById(
+    userId,
+    { password: `${newPin}${username}` },
+  );
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
   return { success: true };
 }
 

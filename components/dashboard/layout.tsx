@@ -228,6 +228,16 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
         const supabase = createClient();
         const access = await getCurrentUserAccess(supabase);
         if (!mounted) return;
+
+        if (access.isBlocked) {
+          await logout();
+          router.replace("/login");
+          router.refresh();
+          setCurrentUserId(null);
+          setIsAdmin(false);
+          return;
+        }
+
         setCurrentUserId(access.user?.id ?? null);
         setIsAdmin(access.isAdmin);
       } catch {

@@ -33,6 +33,7 @@ import {
   ExternalLink,
   Tag,
   UsersRound,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +99,7 @@ import {
   resetUserDisplayName,
   clearUserAvatar,
   deleteUserAsAdmin,
+  resetUserPin,
   getSubmissionById,
   getBotById,
   getFormById,
@@ -1914,11 +1916,19 @@ function UsersTab() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
-    type: "admin" | "block" | "reset-name" | "clear-avatar" | "delete";
+    type:
+      | "admin"
+      | "block"
+      | "reset-name"
+      | "clear-avatar"
+      | "delete"
+      | "reset-pin";
     userId: string;
     value?: boolean;
     username: string;
   } | null>(null);
+  const [pinDraft, setPinDraft] = useState("");
+  const [pinConfirmDraft, setPinConfirmDraft] = useState("");
   const LIMIT = 25;
 
   const load = useCallback(async () => {
@@ -1960,6 +1970,19 @@ function UsersTab() {
       case "clear-avatar":
         result = await clearUserAvatar(userId);
         break;
+      case "reset-pin": {
+        const trimmedPin = pinDraft.trim();
+        if (!/^\d{4}$/.test(trimmedPin)) {
+          toast.error("PIN must be exactly 4 digits");
+          return;
+        }
+        if (trimmedPin !== pinConfirmDraft.trim()) {
+          toast.error("PINs do not match");
+          return;
+        }
+        result = await resetUserPin(userId, trimmedPin);
+        break;
+      }
       case "delete":
         result = await deleteUserAsAdmin(userId);
         break;
@@ -1981,6 +2004,7 @@ function UsersTab() {
         : `@${username} has been unblocked`,
       "reset-name": `Display name reset for @${username}`,
       "clear-avatar": `Avatar cleared for @${username}`,
+      "reset-pin": `PIN updated for @${username}`,
       delete: `Account @${username} has been permanently deleted`,
     };
     toast.success(successMessages[type]);
@@ -1988,18 +2012,7 @@ function UsersTab() {
     if (type === "delete") {
       setItems((prev) => prev.filter((u) => u.id !== userId));
     } else {
-      setItems((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                is_admin: type === "admin" ? value! : u.is_admin,
-                is_blocked: type === "block" ? value! : u.is_blocked,
-                avatar_url: type === "clear-avatar" ? null : u.avatar_url,
-              }
-            : u,
-        ),
-      );
+      await load();
     }
   };
 
@@ -2011,6 +2024,7 @@ function UsersTab() {
     if (type === "block") return value ? "Block User" : "Unblock User";
     if (type === "reset-name") return "Reset Display Name";
     if (type === "clear-avatar") return "Clear Avatar";
+    if (type === "reset-pin") return "Set New PIN";
     if (type === "delete") return "Delete Account Permanently";
     return "";
   };
@@ -2030,6 +2044,8 @@ function UsersTab() {
       return `The display name of @${username} will be reset to their username.`;
     if (type === "clear-avatar")
       return `The avatar of @${username} will be removed.`;
+    if (type === "reset-pin")
+      return `A new 4-digit PIN will be assigned for @${username}. The user can use it on the next login.`;
     if (type === "delete")
       return `This will permanently delete @${username}'s account and ALL associated data (bots, forms, submissions, etc.). This action is irreversible.`;
     return "";
@@ -2274,6 +2290,21 @@ function UsersTab() {
                           <ImageOff className="h-4 w-4 mr-2" />
                           Clear Avatar
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="cursor-pointer"
+                          onClick={() => {
+                            setPinDraft("");
+                            setPinConfirmDraft("");
+                            setPendingAction({
+                              type: "reset-pin",
+                              userId: user.id,
+                              username: user.username ?? user.id,
+                            });
+                          }}
+                        >
+                          <KeyRound className="h-4 w-4 mr-2" />
+                          Change PIN
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="cursor-pointer text-destructive focus:text-destructive"
@@ -2307,7 +2338,13 @@ function UsersTab() {
 
       <AlertDialog
         open={!!pendingAction}
-        onOpenChange={(open) => !open && setPendingAction(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingAction(null);
+            setPinDraft("");
+            setPinConfirmDraft("");
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2316,14 +2353,40 @@ function UsersTab() {
               {dialogDescription()}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {pendingAction?.type === "reset-pin" && (
+            <div className="space-y-3 pt-2">
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="New 4-digit PIN"
+                value={pinDraft}
+                onChange={(event) =>
+                  setPinDraft(event.target.value.replace(/\D/g, ""))
+                }
+              />
+              <Input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="Confirm PIN"
+                value={pinConfirmDraft}
+                onChange={(event) =>
+                  setPinConfirmDraft(event.target.value.replace(/\D/g, ""))
+                }
+              />
+            </div>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="cursor-pointer">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmAction}
               className={
                 pendingAction?.type === "delete"
                   ? "bg-destructive hover:bg-destructive/90"
-                  : ""
+                  : "cursor-pointer"
               }
             >
               Confirm

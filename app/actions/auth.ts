@@ -48,9 +48,13 @@ export async function loginWithPin(username: string, pin: string) {
   // Ensure profile exists (fallback if trigger didn't fire)
   const { data: existingProfile } = await supabase
     .from("profiles")
-    .select("id, username")
+    .select("id, username, is_blocked")
     .eq("id", authUser.id)
     .maybeSingle();
+
+  if (existingProfile?.is_blocked) {
+    return { success: false, error: "This account has been blocked" };
+  }
 
   if (!existingProfile) {
     await supabase.from("profiles").upsert({
@@ -165,6 +169,20 @@ export async function changePin(
   const email = `${clean}@janitorforge.local`;
   const currentPassword = `${currentPin}${clean}`;
   const nextPassword = `${newPin}${clean}`;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("is_blocked")
+    .eq("username", clean)
+    .maybeSingle();
+
+  if (profileError) {
+    return { success: false, error: profileError.message };
+  }
+
+  if (profile?.is_blocked) {
+    return { success: false, error: "This account has been blocked" };
+  }
 
   const { data: signInData, error: signInError } =
     await supabase.auth.signInWithPassword({
