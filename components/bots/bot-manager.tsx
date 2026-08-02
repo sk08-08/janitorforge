@@ -16,11 +16,11 @@ import {
   Trash2,
   Download,
   Clock,
-  Users,
   GitFork,
   Zap,
   AlertTriangle,
   UsersRound,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,6 +67,13 @@ import { toast } from "sonner";
 import type { Bot, BotFormData } from "@/lib/types";
 import { FilteredSearchInput } from "@/components/ui/filtered-search-input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Pagination,
   PaginationContent,
   PaginationItem,
@@ -80,7 +87,7 @@ import { CollaborationWorkspace } from "./collaboration-workspace";
 import { forkBot } from "@/app/actions/collaboration";
 import { PendingInvites } from "./pending-invites";
 import { BotTagBadge, BotTagCountBadge } from "./bot-tag-badge";
-import type { CollaborativeBot, CollaboratorRole } from "@/lib/types";
+import type { CollaborativeBot } from "@/lib/types";
 import { roleConfig } from "@/lib/types";
 
 // ----------------------------------------------------------------------------
@@ -89,6 +96,102 @@ import { roleConfig } from "@/lib/types";
 
 type ViewMode = "grid" | "list";
 type FilterRating = "all" | "SFW" | "NSFW";
+
+type DateRangePreset = "any" | "today" | "last7" | "last30" | "month" | "year";
+
+interface AdvancedBotFilters {
+  createdRange: DateRangePreset;
+  updatedRange: DateRangePreset;
+  selectedTag: string;
+}
+
+function getDateRangeBounds(preset: DateRangePreset) {
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+
+  switch (preset) {
+    case "today":
+      return { from: startOfToday, to: endOfToday };
+    case "last7": {
+      const from = new Date(now);
+      from.setDate(now.getDate() - 6);
+      from.setHours(0, 0, 0, 0);
+      return { from, to: endOfToday };
+    }
+    case "last30": {
+      const from = new Date(now);
+      from.setDate(now.getDate() - 29);
+      from.setHours(0, 0, 0, 0);
+      return { from, to: endOfToday };
+    }
+    case "month": {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      const to = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
+      return { from, to };
+    }
+    case "year": {
+      const from = new Date(now.getFullYear(), 0, 1);
+      const to = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+      return { from, to };
+    }
+    default:
+      return null;
+  }
+}
+
+function matchesAdvancedFilters(
+  bot: Pick<Bot, "tags"> & {
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    created_at?: string;
+    updated_at?: string;
+  },
+  filters: AdvancedBotFilters,
+) {
+  const createdAt = bot.createdAt
+    ? new Date(bot.createdAt)
+    : bot.created_at
+      ? new Date(bot.created_at)
+      : null;
+  const updatedAt = bot.updatedAt
+    ? new Date(bot.updatedAt)
+    : bot.updated_at
+      ? new Date(bot.updated_at)
+      : null;
+
+  const createdBounds = getDateRangeBounds(filters.createdRange);
+  const updatedBounds = getDateRangeBounds(filters.updatedRange);
+
+  if (createdBounds && createdAt) {
+    if (createdAt < createdBounds.from) return false;
+    if (createdAt > createdBounds.to) return false;
+  }
+
+  if (updatedBounds && updatedAt) {
+    if (updatedAt < updatedBounds.from) return false;
+    if (updatedAt > updatedBounds.to) return false;
+  }
+
+  if (filters.selectedTag !== "all") {
+    const normalizedBotTags = (bot.tags || []).map((tag) => tag.toLowerCase());
+    const requiredTag = filters.selectedTag.toLowerCase();
+    if (!normalizedBotTags.includes(requiredTag)) return false;
+  }
+
+  return true;
+}
 
 // ----------------------------------------------------------------------------
 // Bot Card Component
@@ -193,7 +296,7 @@ function CollaborativeBotCard({
   // Grid view for collaborative bot
   return (
     <Card className="group transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/8 hover:-translate-y-1 border-l-2 border-l-primary/40">
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
+      <div className="relative aspect-16/10 w-full overflow-hidden bg-muted">
         {bot.image_url ? (
           <img
             src={bot.image_url}
@@ -201,11 +304,11 @@ function CollaborativeBotCard({
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+          <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-primary/5 to-transparent">
             <BotIcon className="h-14 w-14 text-primary/30" />
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/50 to-transparent" />
         <Badge
           variant="outline"
           className={cn(
@@ -385,7 +488,7 @@ function BotCard({
   return (
     <Card className="group transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/8 hover:-translate-y-1">
       {/* Large cover image */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
+      <div className="relative aspect-16/10 w-full overflow-hidden bg-muted">
         {bot.imageUrl ? (
           <img
             src={bot.imageUrl}
@@ -393,11 +496,11 @@ function BotCard({
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+          <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-primary/5 to-transparent">
             <BotIcon className="h-14 w-14 text-primary/30" />
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/50 to-transparent" />
         <Badge
           variant={bot.rating === "SFW" ? "secondary" : "destructive"}
           className="absolute top-2.5 right-2.5 backdrop-blur-sm shadow-sm"
@@ -523,6 +626,12 @@ export function BotManager() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRating, setFilterRating] = useState<FilterRating>("all");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filterCreatedRange, setFilterCreatedRange] =
+    useState<DateRangePreset>("any");
+  const [filterUpdatedRange, setFilterUpdatedRange] =
+    useState<DateRangePreset>("any");
+  const [filterTag, setFilterTag] = useState("all");
   const [isCreating, setIsCreating] = useState(false);
 
   // Server-side search state
@@ -533,9 +642,55 @@ export function BotManager() {
   const [isSearching, setIsSearching] = useState(false);
   const PAGE_SIZE = 20;
 
+  const hasAdvancedFilters = Boolean(
+    filterCreatedRange !== "any" ||
+    filterUpdatedRange !== "any" ||
+    filterTag !== "all",
+  );
+  const hasServerSearch =
+    searchQuery.trim().length > 0 || filterRating !== "all";
+  const advancedFilters = useMemo<AdvancedBotFilters>(
+    () => ({
+      createdRange: filterCreatedRange,
+      updatedRange: filterUpdatedRange,
+      selectedTag: filterTag,
+    }),
+    [filterCreatedRange, filterUpdatedRange, filterTag],
+  );
+
+  const availableTags = useMemo(() => {
+    const tags = new Set<string>();
+    bots.forEach((bot) => bot.tags.forEach((tag) => tags.add(tag)));
+    collaborativeBots.forEach((bot) =>
+      bot.tags.forEach((tag) => tags.add(tag)),
+    );
+    return Array.from(tags).sort((a, b) => a.localeCompare(b));
+  }, [bots, collaborativeBots]);
+
+  const filteredOwnedBots = useMemo(
+    () => bots.filter((bot) => matchesAdvancedFilters(bot, advancedFilters)),
+    [bots, advancedFilters],
+  );
+
+  const filteredCollaborativeBots = useMemo(
+    () =>
+      collaborativeBots.filter((bot) =>
+        matchesAdvancedFilters(bot, advancedFilters),
+      ),
+    [collaborativeBots, advancedFilters],
+  );
+
+  const filteredSearchResults = useMemo(
+    () =>
+      searchResults.filter((bot) =>
+        matchesAdvancedFilters(bot, advancedFilters),
+      ),
+    [searchResults, advancedFilters],
+  );
+
   // Trigger server-side search when query or filter changes
   useEffect(() => {
-    const isDefault = !searchQuery.trim() && filterRating === "all";
+    const isDefault = !hasServerSearch;
     if (isDefault) {
       setSearchResults([]);
       setSearchTotal(0);
@@ -572,19 +727,27 @@ export function BotManager() {
     return () => {
       cancelled = true;
     };
-  }, [searchQuery, filterRating]);
+  }, [hasServerSearch, searchQuery, filterRating]);
 
   useEffect(() => {
-    if (searchQuery.trim().length > 0 || filterRating !== "all") {
+    if (hasServerSearch || hasAdvancedFilters) {
       setManagerPage(0);
       return;
     }
 
-    const maxPage = Math.max(0, Math.ceil(bots.length / PAGE_SIZE) - 1);
+    const maxPage = Math.max(
+      0,
+      Math.ceil(filteredOwnedBots.length / PAGE_SIZE) - 1,
+    );
     if (managerPage > maxPage) {
       setManagerPage(maxPage);
     }
-  }, [searchQuery, filterRating, bots.length, managerPage]);
+  }, [
+    hasServerSearch,
+    hasAdvancedFilters,
+    filteredOwnedBots.length,
+    managerPage,
+  ]);
 
   const handlePageChange = useCallback(
     async (newPage: number) => {
@@ -620,13 +783,22 @@ export function BotManager() {
   );
 
   // Determine which bots to display
-  const isSearchActive =
-    searchQuery.trim().length > 0 || filterRating !== "all";
-  const paginatedOwnedBots = isSearchActive
-    ? searchResults
-    : bots.slice(managerPage * PAGE_SIZE, (managerPage + 1) * PAGE_SIZE);
-  const ownedTotal = isSearchActive ? searchTotal : bots.length;
-  const currentPage = isSearchActive ? searchPage : managerPage;
+  const isSearchActive = hasServerSearch || hasAdvancedFilters;
+  const visibleOwnedBots = hasServerSearch
+    ? filteredSearchResults
+    : filteredOwnedBots;
+  const paginatedOwnedBots = hasServerSearch
+    ? visibleOwnedBots
+    : visibleOwnedBots.slice(
+        managerPage * PAGE_SIZE,
+        (managerPage + 1) * PAGE_SIZE,
+      );
+  const ownedTotal = hasServerSearch
+    ? hasAdvancedFilters
+      ? visibleOwnedBots.length
+      : searchTotal
+    : filteredOwnedBots.length;
+  const currentPage = hasServerSearch ? searchPage : managerPage;
   const totalPages = Math.max(1, Math.ceil(ownedTotal / PAGE_SIZE));
   const rangeStart = ownedTotal === 0 ? 0 : currentPage * PAGE_SIZE + 1;
   const rangeEnd = Math.min((currentPage + 1) * PAGE_SIZE, ownedTotal);
@@ -808,38 +980,152 @@ export function BotManager() {
       </div>
 
       {/* Filters */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <FilteredSearchInput
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder="Search bots..."
-          shortcutKey="/"
-          filterOptions={[
-            { value: "all", label: "All" },
-            { value: "SFW", label: "SFW" },
-            { value: "NSFW", label: "NSFW" },
-          ]}
-          filterValue={filterRating}
-          onFilterChange={(v) => setFilterRating(v as FilterRating)}
-          className="flex-1"
-        />
-        <div className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto">
-          <Button
-            variant={viewMode === "grid" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("grid")}
-            className="cursor-pointer flex-1 sm:flex-none"
-          >
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("list")}
-            className="cursor-pointer flex-1 sm:flex-none"
-          >
-            <List className="h-4 w-4" />
-          </Button>
+      <div className="mb-6 flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <FilteredSearchInput
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search bots..."
+            shortcutKey="/"
+            filterOptions={[
+              { value: "all", label: "All" },
+              { value: "SFW", label: "SFW" },
+              { value: "NSFW", label: "NSFW" },
+            ]}
+            filterValue={filterRating}
+            onFilterChange={(v) => setFilterRating(v as FilterRating)}
+            className="flex-1"
+          />
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdvancedFilters((value) => !value)}
+              className="cursor-pointer h-10"
+            >
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              {showAdvancedFilters ? "Hide filters" : "More filters"}
+            </Button>
+            <div className="flex items-center gap-1 rounded-lg border p-1 w-full sm:w-auto">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                className="cursor-pointer flex-1 sm:flex-none"
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="cursor-pointer flex-1 sm:flex-none"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "overflow-hidden rounded-xl border bg-muted/20 px-4 py-0 transition-all duration-300 ease-out",
+            showAdvancedFilters
+              ? "mt-2 max-h-80 border-border/70 opacity-100"
+              : "mt-0 max-h-0 border-transparent opacity-0",
+          )}
+        >
+          <div className="py-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">Advanced filters</p>
+                <p className="text-xs text-muted-foreground">
+                  Pick a quick time range and a tag without extra typing
+                </p>
+              </div>
+              {(hasAdvancedFilters ||
+                searchQuery.trim() ||
+                filterRating !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterRating("all");
+                    setFilterCreatedRange("any");
+                    setFilterUpdatedRange("any");
+                    setFilterTag("all");
+                  }}
+                  className="cursor-pointer"
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Created</label>
+                <Select
+                  value={filterCreatedRange}
+                  onValueChange={(value) =>
+                    setFilterCreatedRange(value as DateRangePreset)
+                  }
+                >
+                  <SelectTrigger className="h-10 w-full">
+                    <SelectValue placeholder="Any time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="last7">Last 7 days</SelectItem>
+                    <SelectItem value="last30">Last 30 days</SelectItem>
+                    <SelectItem value="month">This month</SelectItem>
+                    <SelectItem value="year">This year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Updated</label>
+                <Select
+                  value={filterUpdatedRange}
+                  onValueChange={(value) =>
+                    setFilterUpdatedRange(value as DateRangePreset)
+                  }
+                >
+                  <SelectTrigger className="h-10 w-full">
+                    <SelectValue placeholder="Any time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Any time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="last7">Last 7 days</SelectItem>
+                    <SelectItem value="last30">Last 30 days</SelectItem>
+                    <SelectItem value="month">This month</SelectItem>
+                    <SelectItem value="year">This year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Tag</label>
+                <Select value={filterTag} onValueChange={setFilterTag}>
+                  <SelectTrigger className="h-10 w-full">
+                    <SelectValue placeholder="All tags" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All tags</SelectItem>
+                    {availableTags.map((tag) => (
+                      <SelectItem key={tag} value={tag}>
+                        {tag}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -925,7 +1211,7 @@ export function BotManager() {
           ))}
 
           {/* Collaborative bots (shared with me) */}
-          {collaborativeBots.map((collabBot) => (
+          {filteredCollaborativeBots.map((collabBot) => (
             <CollaborativeBotCard
               key={`collab-${collabBot.id}`}
               bot={collabBot}
@@ -960,8 +1246,8 @@ export function BotManager() {
           ))}
         </div>
       ) : !isSearchActive &&
-        bots.length === 0 &&
-        collaborativeBots.length === 0 ? (
+        filteredOwnedBots.length === 0 &&
+        filteredCollaborativeBots.length === 0 ? (
         <Card>
           <EmptyState onCreateNew={() => setIsCreating(true)} />
         </Card>
@@ -970,7 +1256,7 @@ export function BotManager() {
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">
               {isSearchActive
-                ? `No bots found for "${searchQuery || filterRating}"`
+                ? `No bots found for your current filters`
                 : "No bots match your search criteria"}
             </p>
             {isSearchActive && (
@@ -979,6 +1265,9 @@ export function BotManager() {
                 onClick={() => {
                   setSearchQuery("");
                   setFilterRating("all");
+                  setFilterCreatedRange("any");
+                  setFilterUpdatedRange("any");
+                  setFilterTag("all");
                 }}
                 className="cursor-pointer"
               >

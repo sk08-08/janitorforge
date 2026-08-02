@@ -22,6 +22,7 @@ import {
   Inbox,
   Lightbulb,
   MessageSquare,
+  Pencil,
   RefreshCw,
   Sparkles,
   Star,
@@ -550,11 +551,12 @@ export function DashboardHome() {
   return (
     <div className="p-4 sm:p-6 md:p-8 lg:p-10">
       <div className="mx-auto max-w-7xl space-y-8">
-        <Card className="dashboard-hero overflow-hidden border-border/60">
-          <CardContent className="relative z-10 grid gap-6 p-6 sm:p-7 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-center">
+        <Card className="dashboard-hero relative overflow-hidden border border-border/70 bg-linear-to-br from-background via-background/90 to-primary/6 shadow-[0_20px_70px_-30px_rgba(0,0,0,0.35)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(120,119,198,0.12),transparent_48%)]" />
+          <CardContent className="relative z-10 grid gap-6 p-6 sm:p-7 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
             <div className="space-y-5">
               <div className="space-y-2">
-                <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-white/90">
                   <CalendarDays className="h-3.5 w-3.5" />
                   {new Date().toLocaleDateString("en-US", {
                     weekday: "long",
@@ -574,7 +576,7 @@ export function DashboardHome() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              {/* <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="bg-background/70">
                   {stats.totalBots} bots
                 </Badge>
@@ -587,7 +589,7 @@ export function DashboardHome() {
                 <Badge variant="outline" className="bg-background/70">
                   {completionRate}% completion
                 </Badge>
-              </div>
+              </div> */}
 
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -599,53 +601,71 @@ export function DashboardHome() {
                 </Button>
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                {heroPrimaryAction.subtitle}
-              </p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                <span>{heroPrimaryAction.subtitle}</span>
+              </div>
             </div>
 
-            <div className="dashboard-rise-item relative overflow-hidden rounded-3xl border border-primary/20 bg-background/55 p-5 backdrop-blur">
-              <div className="dashboard-orb dashboard-orb-a" />
-              <div className="dashboard-orb dashboard-orb-b" />
-              <div className="dashboard-orb dashboard-orb-c" />
-
-              <div className="relative z-10 space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">Live workspace</p>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-[11px] text-primary">
-                    <span className="h-1.5 w-1.5 rounded-full bg-primary dashboard-ping" />
-                    Online
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-xl border border-border/70 bg-card/70 p-3">
-                    <p className="text-xs text-muted-foreground">Collab bots</p>
-                    <p className="mt-1 text-2xl font-semibold">
-                      {collaborativeBots.length}
+            <div className="relative">
+              <div className="rounded-3xl border border-border/70 bg-card/80 p-4 shadow-sm backdrop-blur">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-muted-foreground">
+                      Today&apos;s focus
                     </p>
+                    <h2 className="mt-1 text-lg font-semibold">
+                      Keep the workspace feeling calm
+                    </h2>
                   </div>
-                  <div className="rounded-xl border border-border/70 bg-card/70 p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Queue pressure
-                    </p>
-                    <p className="mt-1 text-2xl font-semibold">
-                      {stats.pendingRequests > 0 ? "High" : "Clear"}
-                    </p>
+                  <div className="rounded-full border border-primary/20 bg-primary/10 p-2 text-primary">
+                    <Pencil className="h-4 w-4" />
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-border/70 bg-card/70 p-3">
-                  <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Weekly consistency</span>
-                    <span>{checklistProgress}%</span>
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Bots
+                    </p>
+                    <p className="mt-1 text-xl font-semibold">
+                      {stats.totalBots}
+                    </p>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Forms
+                    </p>
+                    <p className="mt-1 text-xl font-semibold">
+                      {stats.activeForms}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                      Requests
+                    </p>
+                    <p className="mt-1 text-xl font-semibold">
+                      {stats.pendingRequests}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-dashed border-primary/20 bg-background/70 p-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">Momentum</span>
+                    <span className="text-muted-foreground">
+                      {checklistProgress}%
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-primary via-chart-2 to-chart-4 transition-all duration-700"
+                      className="h-full rounded-full bg-linear-to-r from-primary via-chart-2 to-chart-4 transition-all duration-700"
                       style={{ width: `${checklistProgress}%` }}
                     />
                   </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Have a great day!
+                  </p>
                 </div>
               </div>
             </div>
@@ -857,7 +877,7 @@ export function DashboardHome() {
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-primary via-chart-2 to-chart-4 transition-all duration-700"
+                      className="h-full rounded-full bg-linear-to-r from-primary via-chart-2 to-chart-4 transition-all duration-700"
                       style={{ width: `${checklistProgress}%` }}
                     />
                   </div>
@@ -1128,7 +1148,7 @@ export function DashboardHome() {
         </div>
 
         {isNewUser && (
-          <Card className="dashboard-rise-item overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 via-card to-chart-2/5">
+          <Card className="dashboard-rise-item overflow-hidden border-primary/20 bg-linear-to-br from-primary/5 via-card to-chart-2/5">
             <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-semibold">

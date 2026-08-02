@@ -132,9 +132,9 @@ export function botToCharacterCard(bot: Bot): CharacterCardV2 {
     spec_version: "2.0",
     data: {
       name: bot.name,
-      // CRUCE 1: La "Personality" masiva de Janitor va al "description" del estándar V2
+      // CROSS 1: The Janitor's massive "Personality" goes to the "description" of the V2 standard
       description: bot.personality,
-      // La "Short Description" de Janitor encaja en el "personality" del estándar V2 (rasgos breves)
+      // The Janitor's "Short Description" fits the "personality" of the V2 standard.
       personality: bot.shortDescription,
       first_mes: bot.firstMessage,
       alternate_greetings:
@@ -167,9 +167,9 @@ export function characterCardToBot(
 
   return {
     name: card.data.name,
-    // CRUCE 2: El "personality" breve del V2 se convierte en tu Short Description
+    // CROSS 2: The V2's "personality" becomes our Janitor short description
     shortDescription: card.data.personality || "",
-    // El "description" masivo del V2 se convierte en tu Personality de Janitor
+    // The V2's massive "description" becomes our Janitor personality
     personality: card.data.description || "",
     firstMessage: card.data.first_mes,
     alternateGreetings,
@@ -181,7 +181,7 @@ export function characterCardToBot(
 }
 
 /**
- * Helper: Calcula el CRC32 necesario para los bloques PNG
+ * Helper: Calculate the CRC32 required for the PNG blocks
  */
 function crc32(data: Uint8Array): number {
   const table = new Uint32Array(256);
@@ -243,49 +243,49 @@ export async function exportCharacterCardPNG(
       });
       ctx.drawImage(img, 0, 0, 400, 600);
     } catch {
-      // Ignorar si falla la imagen
+      // Ignore image loading errors and continue with the gradient background
     }
   }
 
-  // 1. Obtener el blob del canvas original
+  // 1. Generate PNG Blob from Canvas
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/png"),
   );
 
   if (!blob) throw new Error("Failed to create canvas blob");
 
-  // 2. Manipulación Binaria: Inyectar el tEXt chunk real
+  // 2. Binary Manipulation: Injecting the actual tEXt chunk
   const buffer = await blob.arrayBuffer();
   const originalBytes = new Uint8Array(buffer);
   const textEncoder = new TextEncoder();
 
-  // Construir los datos del chunk (keyword + null terminator + data)
+  // Construct the chunk data (keyword + null terminator + data)
   const keyword = textEncoder.encode("chara\0");
   const textData = textEncoder.encode(base64Data);
   const chunkData = new Uint8Array(keyword.length + textData.length);
   chunkData.set(keyword, 0);
   chunkData.set(textData, keyword.length);
 
-  // Calcular el CRC32 usando el "Tipo" + "Data"
+  // Calculate the CRC32 using the "Type" + "Data"
   const type = textEncoder.encode("tEXt");
   const crcData = new Uint8Array(4 + chunkData.length);
   crcData.set(type, 0);
   crcData.set(chunkData, 4);
   const crc = crc32(crcData);
 
-  // Ensamblar el bloque completo (Longitud 4b + Tipo 4b + Datos + CRC 4b)
+  // Assemble the complete chunk (Length 4b + Type 4b + Data + CRC 4b)
   const chunk = new Uint8Array(4 + 4 + chunkData.length + 4);
   const view = new DataView(chunk.buffer);
-  view.setUint32(0, chunkData.length); // Longitud
-  chunk.set(type, 4); // Tipo
-  chunk.set(chunkData, 8); // Datos
+  view.setUint32(0, chunkData.length); // Length
+  chunk.set(type, 4); // Type
+  chunk.set(chunkData, 8); // Data
   view.setUint32(8 + chunkData.length, crc); // CRC32
 
-  // 3. Insertar el bloque justo después del bloque IHDR (siempre ocupa los primeros 33 bytes)
+  // 3. Insert the chunk right after the IHDR chunk (always occupies the first 33 bytes)
   const finalBuffer = new Uint8Array(originalBytes.length + chunk.length);
-  finalBuffer.set(originalBytes.subarray(0, 33), 0); // Firma PNG + IHDR
-  finalBuffer.set(chunk, 33); // Nuestro tEXt chunk
-  finalBuffer.set(originalBytes.subarray(33), 33 + chunk.length); // El resto de la imagen
+  finalBuffer.set(originalBytes.subarray(0, 33), 0); // PNG signature + IHDR
+  finalBuffer.set(chunk, 33); // Our tEXt chunk
+  finalBuffer.set(originalBytes.subarray(33), 33 + chunk.length); // The rest of the image
 
   return new Blob([finalBuffer], { type: "image/png" });
 }
@@ -301,12 +301,12 @@ export async function importCharacterCardPNG(
     const buffer = await file.arrayBuffer();
     const view = new DataView(buffer);
 
-    // Verificar que sea un PNG válido
+    // Verify that it is a valid PNG
     if (view.getUint32(0) !== 0x89504e47) {
       return null;
     }
 
-    let offset = 8; // Empezar después de la firma PNG
+    let offset = 8; // Start after the PNG signature
 
     while (offset < view.byteLength) {
       const length = view.getUint32(offset);
@@ -338,11 +338,11 @@ export async function importCharacterCardPNG(
         }
       }
 
-      // Saltar al siguiente bloque (4 length + 4 type + data + 4 crc)
+      // Skip to the next chunk (4 length + 4 type + data + 4 crc)
       offset += 12 + length;
     }
 
-    return null; // No se encontró el bloque 'chara'
+    return null; // 'chara' chunk not found
   } catch (error) {
     console.error("Error reading PNG metadata:", error);
     return null;

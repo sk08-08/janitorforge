@@ -15,7 +15,7 @@ export interface ContentFilterResult {
 }
 
 // ============================================================================
-// DANGEROUS CONTENT — Targets real people, not fiction
+// DANGEROUS CONTENT — Targets real people
 // ============================================================================
 
 // Suicide/self-harm ENCOURAGEMENT (directed at someone, not self-expression)
