@@ -346,7 +346,6 @@ function Hero() {
             variant="outline"
             className="mb-6 gap-1.5 border-violet-500/30 bg-violet-500/[0.08] px-4 py-1.5 text-violet-400 text-xs tracking-wide uppercase"
           >
-            <Sparkles className="h-3 w-3" />
             Built for character creators
           </Badge>
         </FadeIn>
@@ -411,7 +410,7 @@ function Hero() {
                   <div className="h-3 w-3 rounded-full bg-[#28c840]/80" />
                 </div>
                 <div className="ml-3 flex-1 rounded-md bg-muted/70 px-3 py-1 text-xs text-muted-foreground font-mono">
-                  janitorforge.vercel.app/dashboard
+                  janitorforge.vercel.app
                 </div>
               </div>
 
@@ -525,7 +524,7 @@ function Hero() {
             <div className="absolute -top-4 -right-4 hidden sm:block">
               <div className="rounded-full border border-border/60 bg-background/85 px-3.5 py-1.5 text-xs font-medium shadow-xl backdrop-blur-md">
                 <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live
+                Active Forms: 4
               </div>
             </div>
             <div className="absolute -bottom-4 -left-4 hidden sm:block">
@@ -548,7 +547,7 @@ function Hero() {
 const features = [
   {
     icon: Bot,
-    title: "Characters with depth",
+    title: "Bot Manager",
     description:
       "Full character editor — backstory, personality, scenarios, example dialogues. Not a boring form. A real tool built for creators.",
     accent: "violet",
@@ -851,7 +850,6 @@ function Features() {
             variant="outline"
             className="mb-4 border-violet-500/30 bg-violet-500/8 text-xs uppercase tracking-wide text-violet-400"
           >
-            <Sparkles className="mr-1 h-3 w-3" />
             Everything you need
           </Badge>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
@@ -911,7 +909,7 @@ const steps = [
     num: "02",
     title: "Build your workspace",
     description:
-      "Design characters, craft forms, set up your creator page. Everything has an interface that just makes sense.",
+      "Design characters, craft forms, set up your creator page. Everything is easy and intuitive.",
     icon: Palette,
     accent: "cyan",
   },
@@ -1030,7 +1028,6 @@ function Showcase() {
             variant="outline"
             className="mb-4 border-amber-500/30 bg-amber-500/8 text-xs uppercase tracking-wide text-amber-400"
           >
-            <Eye className="mr-1 h-3 w-3" />
             See it live
           </Badge>
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
@@ -1106,7 +1103,7 @@ function Showcase() {
                   <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]/60" />
                 </div>
                 <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                  janitorforge.vercel.app/luna-creates
+                  janitorforge.vercel.app/@luna-creates
                 </span>
               </div>
               <div className="p-6">
@@ -1245,7 +1242,7 @@ function CTA() {
           </Link>
         </div>
         <p className="mt-5 text-xs text-muted-foreground/40">
-          Free. No credit card. No catch. Start whenever you're ready.
+          Free. No catch. Start whenever you're ready.
         </p>
       </FadeIn>
     </section>

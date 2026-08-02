@@ -346,7 +346,7 @@ export default function LoginPage() {
                       <Input
                         id="reg-username"
                         type="text"
-                        placeholder="choose-a-username"
+                        placeholder="choose a username"
                         value={regUsername}
                         onChange={(e) =>
                           setRegUsername(e.target.value.toLowerCase().trim())

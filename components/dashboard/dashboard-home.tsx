@@ -659,7 +659,7 @@ export function DashboardHome() {
                   </div>
                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-linear-to-r from-primary via-chart-2 to-chart-4 transition-all duration-700"
+                      className="h-full rounded-full bg-gradient-to-r from-primary/70 via-chart-1 to-chart-4 transition-all duration-700"
                       style={{ width: `${checklistProgress}%` }}
                     />
                   </div>
