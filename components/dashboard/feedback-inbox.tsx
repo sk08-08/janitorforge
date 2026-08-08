@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Maximize2,
   Eye,
   EyeOff,
   Trash2,
@@ -35,7 +36,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   Card,
@@ -68,6 +68,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -342,6 +343,126 @@ function KpiCard({
 // Main Component
 // ---------------------------------------------------------------------------
 
+// Componente Lightbox Adaptado usando el Dialog de Shadcn para evitar conflictos de z-index
+function ImageLightbox({
+  images,
+  initialIndex,
+  onClose,
+}: {
+  images: { src: string; alt: string }[];
+  initialIndex: number;
+  onClose: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  const goNext = useCallback(
+    () => setCurrentIndex((prev) => (prev + 1) % images.length),
+    [images.length],
+  );
+  const goPrev = useCallback(
+    () => setCurrentIndex((prev) => (prev - 1 + images.length) % images.length),
+    [images.length],
+  );
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowLeft") goPrev();
+      // Ya no manejamos "Escape" aquí porque el Dialog de shadcn lo hace por nosotros
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [goNext, goPrev]);
+
+  return (
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      {/* 
+        Le quitamos el fondo oscuro por defecto al overlay del Dialog porque nosotros 
+        queremos nuestro propio fondo con backdrop-blur
+      */}
+      <DialogContent className="max-w-7xl border-none bg-transparent p-0 shadow-none [&>button]:hidden">
+        <DialogTitle className="sr-only">Image Preview</DialogTitle>
+
+        <div className="relative flex h-[90vh] w-full flex-col items-center justify-center outline-none">
+          {/* Botón Cerrar Superior */}
+          <button
+            onClick={onClose}
+            className="absolute top-0 right-4 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:right-10"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Contador */}
+          <div className="absolute left-4 top-0 z-10 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white sm:left-10">
+            {currentIndex + 1} / {images.length}
+          </div>
+
+          {/* Contenedor de la Imagen */}
+          <div
+            className="relative flex h-full w-full max-w-5xl items-center justify-center px-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={images[currentIndex].src}
+              alt={images[currentIndex].alt}
+              className="max-h-[80vh] max-w-full object-contain"
+            />
+          </div>
+
+          {/* Navegación y Miniaturas */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goPrev();
+                }}
+                className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:left-10 sm:h-12 sm:w-12"
+              >
+                <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goNext();
+                }}
+                className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:right-10 sm:h-12 sm:w-12"
+              >
+                <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+
+              <div className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full bg-black/50 p-2 backdrop-blur-md">
+                {images.map((img, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentIndex(i);
+                    }}
+                    className={cn(
+                      "relative h-10 w-10 cursor-pointer overflow-hidden rounded-lg transition-all sm:h-12 sm:w-12",
+                      i === currentIndex
+                        ? "scale-105 ring-2 ring-primary"
+                        : "opacity-50 hover:opacity-80",
+                    )}
+                  >
+                    <img
+                      src={img.src}
+                      alt={img.alt}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function FeedbackInbox() {
   const persistedState = getPersistedInboxState();
   const LIMIT = 25;
@@ -393,6 +514,7 @@ export function FeedbackInbox() {
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<FeedbackItem | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
@@ -1319,22 +1441,24 @@ export function FeedbackInbox() {
                             <CircleDot className="h-4 w-4 mr-2" />
                             Change status
                           </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent>
-                            {(
-                              Object.keys(statusConfig) as FeedbackStatus[]
-                            ).map((s) => (
-                              <DropdownMenuItem
-                                key={s}
-                                disabled={item.status === s}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStatusChange(item.id, s);
-                                }}
-                              >
-                                {statusConfig[s].label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuSubContent>
+                          <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                              {(
+                                Object.keys(statusConfig) as FeedbackStatus[]
+                              ).map((s) => (
+                                <DropdownMenuItem
+                                  key={s}
+                                  disabled={item.status === s}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStatusChange(item.id, s);
+                                  }}
+                                >
+                                  {statusConfig[s].label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuPortal>
                         </DropdownMenuSub>
 
                         {hasNewFields && (
@@ -1343,24 +1467,26 @@ export function FeedbackInbox() {
                               <ArrowUp className="h-4 w-4 mr-2" />
                               Change priority
                             </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent>
-                              {(
-                                Object.keys(
-                                  priorityConfig,
-                                ) as FeedbackPriority[]
-                              ).map((p) => (
-                                <DropdownMenuItem
-                                  key={p}
-                                  disabled={(item.priority || "medium") === p}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handlePriorityChange(item.id, p);
-                                  }}
-                                >
-                                  {priorityConfig[p].label}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuSubContent>
+                            <DropdownMenuPortal>
+                              <DropdownMenuSubContent>
+                                {(
+                                  Object.keys(
+                                    priorityConfig,
+                                  ) as FeedbackPriority[]
+                                ).map((p) => (
+                                  <DropdownMenuItem
+                                    key={p}
+                                    disabled={(item.priority || "medium") === p}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handlePriorityChange(item.id, p);
+                                    }}
+                                  >
+                                    {priorityConfig[p].label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
                           </DropdownMenuSub>
                         )}
 
@@ -1505,7 +1631,7 @@ export function FeedbackInbox() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 text-xs text-destructive hover:text-white cursor-pointer"
+                    className="h-7 mr-6 text-xs text-destructive hover:text-white cursor-pointer"
                     onClick={() => setDeleteTarget(selectedItem)}
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
@@ -1754,21 +1880,30 @@ export function FeedbackInbox() {
                               selectedItem.metadata.images as Array<{
                                 name?: string;
                                 size?: number;
-                                dataUrl?: string;
+                                url?: string;
                               }>
                             ).map((image, index) =>
-                              image.dataUrl ? (
+                              image.url ? (
                                 <div
                                   key={`${selectedItem.id}-img-${index}`}
                                   className="overflow-hidden rounded-lg border"
                                 >
-                                  <img
-                                    src={image.dataUrl}
-                                    alt={
-                                      image.name || `Attachment ${index + 1}`
-                                    }
-                                    className="h-44 w-full object-cover"
-                                  />
+                                  <div
+                                    className="group relative cursor-pointer overflow-hidden"
+                                    onClick={() => setLightboxIndex(index)}
+                                  >
+                                    <img
+                                      src={image.url}
+                                      alt={
+                                        image.name || `Attachment ${index + 1}`
+                                      }
+                                      className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-300 group-hover:bg-black/30">
+                                      <Maximize2 className="h-8 w-8 text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100 drop-shadow-md" />
+                                    </div>
+                                  </div>
+
                                   <div className="space-y-1 p-3 text-xs text-muted-foreground">
                                     <p className="truncate font-medium text-foreground">
                                       {image.name || `Attachment ${index + 1}`}
@@ -1784,7 +1919,6 @@ export function FeedbackInbox() {
                         </CardContent>
                       </Card>
                     )}
-
                   {/* Admin Notes */}
                   <Card className="border-border/70">
                     <CardHeader className="pb-3">
@@ -1887,6 +2021,20 @@ export function FeedbackInbox() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Lightbox */}
+      {lightboxIndex !== null &&
+        selectedItem &&
+        Array.isArray(selectedItem.metadata?.images) && (
+          <ImageLightbox
+            images={(selectedItem.metadata.images as any[]).map((img, i) => ({
+              src: img.url,
+              alt: img.name || `Attachment ${i + 1}`,
+            }))}
+            initialIndex={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+          />
+        )}
     </div>
   );
 }

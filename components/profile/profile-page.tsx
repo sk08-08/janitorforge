@@ -47,6 +47,7 @@ import {
   YoutubeIcon,
   TwitchIcon,
   WebsiteIcon,
+  JanitorAIIcon,
 } from "@/components/ui/social-icons";
 import { getOwnProfile, getFollowCounts } from "@/app/actions/profile";
 import { useStore } from "@/lib/store";
@@ -77,12 +78,13 @@ import {
   resolveProfileTheme,
 } from "@/lib/profile-theme";
 
-const PROFILE_BOTS_PAGE_SIZE = 12;
+const PROFILE_BOTS_PAGE_SIZE = 15;
 
 const socialIconMap: Record<
   string,
   React.FC<{ className?: string; size?: number }>
 > = {
+  janitorai: JanitorAIIcon,
   twitter: TwitterIcon,
   discord: DiscordIcon,
   github: GithubIcon,
@@ -687,7 +689,7 @@ export function ProfilePage() {
         {/* ===== Unified Content Sections ===== */}
         {/* Bots */}
         {showBots && (
-          <div className="space-y-4">
+          <div id="profile-bots-section" className="space-y-4">
             <div className="flex items-center gap-3">
               <Bot
                 className="h-5 w-5"
@@ -723,6 +725,9 @@ export function ProfilePage() {
                           e.preventDefault();
                           if (botsPage > 0) {
                             setBotsPage((prev) => prev - 1);
+                            document
+                              .getElementById("profile-bots-section")
+                              ?.scrollIntoView({ behavior: "smooth" });
                           }
                         }}
                         className={cn(
@@ -749,6 +754,9 @@ export function ProfilePage() {
                               onClick={(e) => {
                                 e.preventDefault();
                                 setBotsPage(page);
+                                document
+                                  .getElementById("profile-bots-section")
+                                  ?.scrollIntoView({ behavior: "smooth" });
                               }}
                               className="cursor-pointer"
                             >
@@ -765,6 +773,9 @@ export function ProfilePage() {
                           e.preventDefault();
                           if (botsPage < totalBotPages - 1) {
                             setBotsPage((prev) => prev + 1);
+                            document
+                              .getElementById("profile-bots-section")
+                              ?.scrollIntoView({ behavior: "smooth" });
                           }
                         }}
                         className={cn(
@@ -798,7 +809,14 @@ export function ProfilePage() {
               <Badge variant="outline">{creatorPages.length}</Badge>
             </div>
             {creatorPages.length > 0 ? (
-              <div className={collectionGridClass}>
+              <div
+                className={cn(
+                  "grid gap-3",
+                  creatorPages.length === 1
+                    ? "grid-cols-1"
+                    : collectionGridClass,
+                )}
+              >
                 {creatorPages.map((page) => (
                   <a
                     key={page.id}
@@ -859,7 +877,12 @@ export function ProfilePage() {
               <Badge variant="outline">{worlds.length}</Badge>
             </div>
             {worlds.length > 0 ? (
-              <div className={collectionGridClass}>
+              <div
+                className={cn(
+                  "grid gap-3",
+                  worlds.length === 1 ? "grid-cols-1" : collectionGridClass,
+                )}
+              >
                 {worlds.map((world) => (
                   <div
                     key={world.id}
@@ -904,7 +927,7 @@ export function ProfilePage() {
           </div>
         )}
 
-        {/* Forms — only user's own forms */}
+        {/* Forms */}
         {showForms && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
@@ -916,7 +939,12 @@ export function ProfilePage() {
               <Badge variant="outline">{ownForms.length}</Badge>
             </div>
             {ownForms.length > 0 ? (
-              <div className={collectionGridClass}>
+              <div
+                className={cn(
+                  "grid gap-3",
+                  ownForms.length === 1 ? "grid-cols-1" : collectionGridClass,
+                )}
+              >
                 {ownForms.map((form) => (
                   <Link
                     href={`/form/${form.shareableLink}`}
@@ -952,8 +980,7 @@ export function ProfilePage() {
                         }}
                       />
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        {requests.filter((r) => r.formId === form.id).length}{" "}
-                        responses · {form.sections.length} sections
+                        {form.sections.length} sections
                       </p>
                     </div>
                   </Link>

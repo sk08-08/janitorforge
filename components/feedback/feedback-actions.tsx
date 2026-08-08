@@ -1,5 +1,6 @@
 "use client";
 
+import { createClient } from "@/lib/supabase/client";
 import { useState, type FormEvent } from "react";
 import { Bug, Lightbulb, MessageSquarePlus, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -127,7 +128,7 @@ export function FeedbackActions({
   );
   const [otherLocation, setOtherLocation] = useState("");
   const [images, setImages] = useState<
-    { name: string; dataUrl: string; size: number }[]
+    { name: string; dataUrl: string; size: number; file: File }[]
   >([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -169,6 +170,37 @@ export function FeedbackActions({
 
     setIsSubmitting(true);
 
+    const supabase = createClient();
+    const uploadedImagesUrls: { name: string; size: number; url: string }[] =
+      [];
+
+    if (images.length > 0) {
+      for (const img of images) {
+        const fileExt = img.name.split(".").pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+        const filePath = `feedback/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("feedback_images")
+          .upload(filePath, img.file);
+
+        if (uploadError) {
+          toast.error(`Failed to upload image: ${img.name}`);
+          continue;
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("feedback_images").getPublicUrl(filePath);
+
+        uploadedImagesUrls.push({
+          name: img.name,
+          size: img.size,
+          url: publicUrl,
+        });
+      }
+    }
+
     const chosenSource =
       location === "other" ? otherLocation.trim() || "Other" : location;
 
@@ -183,11 +215,7 @@ export function FeedbackActions({
       relatedId: context.relatedId ?? "",
       metadata: {
         ...(context.metadata ?? {}),
-        images: images.map((i) => ({
-          name: i.name,
-          size: i.size,
-          dataUrl: i.dataUrl,
-        })),
+        images: uploadedImagesUrls,
       },
     });
 
@@ -237,9 +265,21 @@ export function FeedbackActions({
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="feedback-subject" className="text-foreground/90">
-            {copy.subjectLabel}
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="feedback-subject" className="text-foreground/90">
+              {copy.subjectLabel}
+            </Label>
+            <span
+              className={cn(
+                "text-[10px]",
+                subject.trim().length > 0 && subject.trim().length < 3
+                  ? "text-destructive font-medium"
+                  : "text-muted-foreground",
+              )}
+            >
+              {subject.length}/120
+            </span>
+          </div>
           <Input
             id="feedback-subject"
             value={subject}
@@ -247,14 +287,36 @@ export function FeedbackActions({
             placeholder={copy.subjectPlaceholder}
             maxLength={120}
             required
-            className="bg-muted/20"
+            className={cn(
+              "bg-muted/20 transition-colors",
+              subject.trim().length > 0 &&
+                subject.trim().length < 3 &&
+                "border-destructive focus-visible:ring-destructive",
+            )}
           />
+          {subject.trim().length > 0 && subject.trim().length < 3 && (
+            <p className="text-[11px] text-destructive">
+              Title must be at least 3 characters long.
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="feedback-message" className="text-foreground/90">
-            {copy.messageLabel}
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="feedback-message" className="text-foreground/90">
+              {copy.messageLabel}
+            </Label>
+            <span
+              className={cn(
+                "text-[10px]",
+                message.trim().length > 0 && message.trim().length < 10
+                  ? "text-destructive font-medium"
+                  : "text-muted-foreground",
+              )}
+            >
+              {message.length} chars
+            </span>
+          </div>
           <Textarea
             id="feedback-message"
             value={message}
@@ -262,8 +324,18 @@ export function FeedbackActions({
             placeholder={copy.messagePlaceholder}
             rows={feedbackType === "bug" ? 5 : 4}
             required
-            className="resize-none bg-muted/20"
+            className={cn(
+              "resize-none bg-muted/20 transition-colors",
+              message.trim().length > 0 &&
+                message.trim().length < 10 &&
+                "border-destructive focus-visible:ring-destructive",
+            )}
           />
+          {message.trim().length > 0 && message.trim().length < 10 && (
+            <p className="text-[11px] text-destructive">
+              Please provide a little more detail (min. 10 chars).
+            </p>
+          )}
         </div>
       </div>
 
@@ -286,9 +358,15 @@ export function FeedbackActions({
               <SelectItem value="Login / Register">Login / Register</SelectItem>
               <SelectItem value="Public form">Public form</SelectItem>
               <SelectItem value="Dashboard">Dashboard</SelectItem>
-              <SelectItem value="Submissions">Submissions / Kanban</SelectItem>
-              <SelectItem value="Forms">Forms</SelectItem>
               <SelectItem value="Bots">Bot Manager</SelectItem>
+              <SelectItem value="Forms">Forms</SelectItem>
+              <SelectItem value="Submissions">Submissions</SelectItem>
+              <SelectItem value="other">Moderation</SelectItem>
+              <SelectItem value="Atlas">Atlas</SelectItem>
+              <SelectItem value="other">Creator Pages</SelectItem>
+              <SelectItem value="other">Profile</SelectItem>
+              <SelectItem value="other">Notifications</SelectItem>
+              <SelectItem value="Settings">Settings</SelectItem>
               <SelectItem value="other">Other (specify)</SelectItem>
             </SelectContent>
           </Select>
@@ -347,8 +425,12 @@ export function FeedbackActions({
               const files = Array.from(e.target.files || []);
               const maxFiles = 3;
               const maxSize = 2 * 1024 * 1024; // 2MB each
-              const toAdd: { name: string; dataUrl: string; size: number }[] =
-                [];
+              const toAdd: {
+                name: string;
+                dataUrl: string;
+                size: number;
+                file: File;
+              }[] = [];
 
               for (const f of files.slice(0, maxFiles)) {
                 if (f.size > maxSize) {
@@ -361,8 +443,9 @@ export function FeedbackActions({
                   reader.onerror = () => res(null);
                   reader.readAsDataURL(f);
                 });
+
                 if (dataUrl)
-                  toAdd.push({ name: f.name, dataUrl, size: f.size });
+                  toAdd.push({ name: f.name, dataUrl, size: f.size, file: f });
               }
 
               setImages((prev) => [...prev, ...toAdd].slice(0, 3));

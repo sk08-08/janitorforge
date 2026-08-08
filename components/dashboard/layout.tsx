@@ -21,7 +21,6 @@ import {
   UserRound,
   Shield,
   Menu,
-  MessageSquareMore,
   AppWindow,
   ShieldAlert,
 } from "lucide-react";
@@ -75,18 +74,24 @@ const hubNavItems: NavItem[] = [
     id: "profiles",
     label: "People",
     icon: Users,
+    color: "text-purple-500",
+    activeBg: "bg-purple-500/10",
     description: "Browse creator profiles and discover new accounts",
   },
   {
     id: "resources",
     label: "Resources",
     icon: BookOpen,
+    color: "text-purple-500",
+    activeBg: "bg-purple-500/10",
     description: "Directory of Janitor resources and references",
   },
   {
     id: "logs",
     label: "Logs",
     icon: Logs,
+    color: "text-purple-500",
+    activeBg: "bg-purple-500/10",
     description:
       "Visit a list of records about the platform's errors, lack of communication, and other issues",
   },
@@ -382,17 +387,14 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
         variant={isActive ? "secondary" : "ghost"}
         className={cn(
           "w-full justify-start gap-3 transition-all cursor-pointer",
-          // ESTADO ACTIVO: Fondo tintado y texto del color asignado
           isActive &&
             cn(
               "cursor-default",
               item.activeBg || "bg-sidebar-accent/50",
               item.color || "text-sidebar-accent-foreground",
             ),
-          // ESTADO INACTIVO: Texto grisáceo. En hover, fondo sutil y texto blanco
           !isActive &&
-            "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-white",
-          // ESTADO COLAPSADO
+            "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
           collapsed && "justify-center px-2",
         )}
         onClick={() => handleNavClick(item.id)}
@@ -443,7 +445,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
       {!collapsed && (
         <button
           type="button"
-          className="flex w-full items-center cursor-pointer justify-between px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
+          className="flex w-full items-center cursor-pointer justify-between px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:bg-primary/15 rounded-lg hover:text-foreground"
           onClick={() => toggleSection(sectionId)}
           aria-expanded={!collapsedSections[sectionId]}
         >
@@ -459,7 +461,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
       {collapsed && (
         <button
           type="button"
-          className="flex w-full items-center justify-center px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
+          className="flex w-full items-center cursor-pointer justify-center px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:bg-primary/15 rounded-lg hover:text-foreground"
           onClick={() => toggleSection(sectionId)}
           aria-expanded={!collapsedSections[sectionId]}
         >
@@ -501,6 +503,11 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
             "hidden md:flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300",
             collapsed ? "w-16" : "w-64",
           )}
+          style={
+            {
+              "--accent": "oklch(0.15 0.22 295)",
+            } as React.CSSProperties
+          }
         >
           {/* Logo */}
           <div
@@ -542,12 +549,16 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                     id: "feedback",
                     label: "Feedback Inbox",
                     icon: Inbox,
+                    color: "text-purple-500",
+                    activeBg: "bg-purple-500/10",
                     description: "Review admin feedback and suggestions",
                   },
                   {
                     id: "admin",
                     label: "Admin Panel",
                     icon: ShieldAlert,
+                    color: "text-purple-500",
+                    activeBg: "bg-purple-500/10",
                     description: "Manage users, content, and platform settings",
                   },
                 ])}
@@ -662,7 +673,15 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
           {/* Mobile Sidebar Menu */}
           {isMobile && (
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetContent side="left" className="w-64 p-0">
+              <SheetContent
+                side="left"
+                className="w-64 p-0"
+                style={
+                  {
+                    "--accent": "oklch(0.15 0.22 295)",
+                  } as React.CSSProperties
+                }
+              >
                 <SheetHeader className="border-b border-sidebar-border p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/20 neon-glow-sm overflow-hidden">

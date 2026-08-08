@@ -34,6 +34,7 @@ import {
   getCustomBlocklist,
   removeFromCustomBlocklist,
 } from "@/app/actions/safety";
+import { stripMarkdownToText } from "@/lib/markdown";
 
 interface CustomBlocklistProps {
   formId: string;
@@ -136,7 +137,8 @@ export function CustomBlocklist({ formId, formTitle }: CustomBlocklistProps) {
           <div>
             <CardTitle className="text-base">Custom Blocklist</CardTitle>
             <CardDescription>
-              Add words or patterns to block for {formTitle || "this form"}
+              Add words or patterns to block for{" "}
+              {stripMarkdownToText(formTitle) || "this form"}
             </CardDescription>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

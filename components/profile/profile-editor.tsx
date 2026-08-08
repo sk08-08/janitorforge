@@ -85,6 +85,11 @@ interface ProfileEditorProps {
 }
 
 const socialPlatforms = [
+  {
+    key: "janitorai",
+    label: "Janitor AI",
+    placeholder: "https://janitorai.com/...",
+  },
   { key: "twitter", label: "Twitter / X", placeholder: "https://x.com/..." },
   { key: "discord", label: "Discord", placeholder: "username#0000" },
   { key: "github", label: "GitHub", placeholder: "https://github.com/..." },
@@ -575,7 +580,6 @@ export function ProfileEditor({
               value="general"
               className="space-y-4 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
             >
-              {/* Avatar & Banner Preview — stacked on mobile */}
               <div className="space-y-3">
                 {/* Banner */}
                 <div className="space-y-1.5">
@@ -597,12 +601,12 @@ export function ProfileEditor({
                       <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
                     }
                   />
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="cursor-pointer"
+                      className="cursor-pointer flex-1 w-full"
                       disabled={uploadingBanner}
                       onClick={() =>
                         document
@@ -620,9 +624,9 @@ export function ProfileEditor({
                     {bannerUrl && (
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="destructive"
                         size="sm"
-                        className="cursor-pointer text-destructive"
+                        className="cursor-pointer text-white hover:bg-destructive/20 flex-1 w-full"
                         onClick={() => handleProfileAssetRemove("banner")}
                       >
                         <X className="mr-2 h-3.5 w-3.5" /> Remove
@@ -979,20 +983,24 @@ export function ProfileEditor({
                     />
                   </div>
                   <div className={previewGrid}>
-                    {["Card A", "Card B", "Card C"].map((label) => (
-                      <div
-                        key={label}
-                        className={cn(previewCard, "min-h-16 text-xs")}
-                        style={
-                          cardStyle !== "minimal"
-                            ? { borderColor: `${accentColor}55` }
-                            : undefined
-                        }
-                      >
-                        <p className="font-medium">{label}</p>
-                        <p className="text-muted-foreground">Layout preview</p>
-                      </div>
-                    ))}
+                    {["Card A", "Card B", "Card C", "Card D", "Card E"].map(
+                      (label) => (
+                        <div
+                          key={label}
+                          className={cn(previewCard, "min-h-16 text-xs")}
+                          style={
+                            cardStyle !== "minimal"
+                              ? { borderColor: `${accentColor}55` }
+                              : undefined
+                          }
+                        >
+                          <p className="font-medium">{label}</p>
+                          <p className="text-muted-foreground">
+                            Layout preview
+                          </p>
+                        </div>
+                      ),
+                    )}
                   </div>
                 </div>
               </div>

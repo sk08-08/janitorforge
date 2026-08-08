@@ -70,7 +70,7 @@ import {
   resolveProfileTheme,
 } from "@/lib/profile-theme";
 
-const PROFILE_BOTS_PAGE_SIZE = 12;
+const PROFILE_BOTS_PAGE_SIZE = 15;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -368,7 +368,7 @@ export function PublicProfile({
   }, [botsPage, totalBotPages]);
 
   return (
-    <ScrollArea className="h-screen w-full overflow-hidden bg-background">
+    <ScrollArea className="h-screen w-full overflow-hidden">
       <div
         className={cn("min-h-screen", profileBackground.className)}
         style={{ ...profileBackground.style, ...profileFontStyle }}
@@ -665,7 +665,7 @@ export function PublicProfile({
 
           {/* Bots */}
           {showBots && (
-            <div className="space-y-6">
+            <div id="profile-bots-section" className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <Bot
@@ -704,6 +704,9 @@ export function PublicProfile({
                                   e.preventDefault();
                                   if (botsPage > 0) {
                                     setBotsPage((prev) => prev - 1);
+                                    document
+                                      .getElementById("profile-bots-section")
+                                      ?.scrollIntoView({ behavior: "smooth" });
                                   }
                                 }}
                                 className={cn(
@@ -734,6 +737,13 @@ export function PublicProfile({
                                       onClick={(e) => {
                                         e.preventDefault();
                                         setBotsPage(page);
+                                        document
+                                          .getElementById(
+                                            "profile-bots-section",
+                                          )
+                                          ?.scrollIntoView({
+                                            behavior: "smooth",
+                                          });
                                       }}
                                       className="cursor-pointer"
                                     >
@@ -750,6 +760,9 @@ export function PublicProfile({
                                   e.preventDefault();
                                   if (botsPage < totalBotPages - 1) {
                                     setBotsPage((prev) => prev + 1);
+                                    document
+                                      .getElementById("profile-bots-section")
+                                      ?.scrollIntoView({ behavior: "smooth" });
                                   }
                                 }}
                                 className={cn(
@@ -791,7 +804,14 @@ export function PublicProfile({
                 <Badge variant="outline">{creatorPages.length}</Badge>
               </div>
               {creatorPages.length > 0 ? (
-                <div className={collectionGridClass}>
+                <div
+                  className={cn(
+                    "grid gap-3",
+                    creatorPages.length === 1
+                      ? "grid-cols-1"
+                      : collectionGridClass,
+                  )}
+                >
                   {creatorPages.map((page) => (
                     <Link key={page.id} href={`/page/${page.slug}`}>
                       <div
@@ -844,7 +864,12 @@ export function PublicProfile({
                 <Badge variant="outline">{worlds.length}</Badge>
               </div>
               {worlds.length > 0 ? (
-                <div className={collectionGridClass}>
+                <div
+                  className={cn(
+                    "grid gap-3",
+                    worlds.length === 1 ? "grid-cols-1" : collectionGridClass,
+                  )}
+                >
                   {worlds.map((world) => (
                     <div
                       key={world.id}
@@ -910,7 +935,10 @@ export function PublicProfile({
               </div>
               {forms.length > 0 ? (
                 <div
-                  className={cn(collectionGridClass, "justify-items-stretch")}
+                  className={cn(
+                    "grid gap-3",
+                    forms.length === 1 ? "grid-cols-1" : collectionGridClass,
+                  )}
                 >
                   {forms.map((form) => (
                     <Link
@@ -918,10 +946,9 @@ export function PublicProfile({
                       target="_blank"
                       key={form.id}
                       rel="noopener noreferrer"
-                      className="block h-full w-full"
                     >
                       <div
-                        className={cn(cardClass, "h-full w-full")}
+                        className={cn(cardClass, "h-full")}
                         style={sectionCardStyle}
                       >
                         <div className="flex items-center gap-2 mb-1">
@@ -948,7 +975,6 @@ export function PublicProfile({
                           }}
                         />
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          {form.responses_count} responses ·{" "}
                           {form.sections.length} sections
                         </p>
                       </div>

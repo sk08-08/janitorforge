@@ -339,7 +339,11 @@ function OverviewTab({
             return (
               <Card
                 key={card.label}
-                className={card.highlight ? "border-destructive/50" : ""}
+                className={
+                  card.highlight
+                    ? "border-destructive/50"
+                    : "shadow-md dark:shadow-primary/15"
+                }
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
@@ -361,7 +365,7 @@ function OverviewTab({
       {!loading && activity && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Recent signups */}
-          <Card>
+          <Card className="shadow-md dark:shadow-primary/15">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-primary" />
@@ -405,7 +409,7 @@ function OverviewTab({
           </Card>
 
           {/* Recent submissions */}
-          <Card>
+          <Card className="shadow-md dark:shadow-primary/15">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Inbox className="h-4 w-4 text-blue-500" />
@@ -460,7 +464,7 @@ function OverviewTab({
           </Card>
 
           {/* Pending flags */}
-          <Card>
+          <Card className="shadow-md dark:shadow-primary/15">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />

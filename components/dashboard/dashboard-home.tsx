@@ -75,15 +75,15 @@ function getGreeting(): string {
   return "Good evening";
 }
 
-function getDailyFlavorText(hour: number): string {
-  if (hour < 10)
-    return "Good morning! Great time to bring a new character idea to life.";
-  if (hour < 14)
-    return "Keep the momentum going. Take a moment to review requests or polish your bots.";
-  if (hour < 19)
-    return "Good time to check the queue and knock out some pending submissions.";
-  return "It's getting late. Wrap things up and we'll keep building tomorrow.";
-}
+// function getDailyFlavorText(hour: number): string {
+//   if (hour < 10)
+//     return "Good morning! Great time to bring a new character idea to life.";
+//   if (hour < 14)
+//     return "Keep the momentum going. Take a moment to review requests or polish your bots.";
+//   if (hour < 19)
+//     return "Good time to check the queue and knock out some pending submissions.";
+//   return "It's getting late. Wrap things up and we'll keep building tomorrow.";
+// }
 
 // ----------------------------------------------------------------------------
 // UI Components
@@ -561,7 +561,7 @@ export function DashboardHome() {
       <div className="mx-auto max-w-7xl space-y-8">
         <Card className="dashboard-hero dark:shadow-primary/40 relative overflow-hidden border border-border/70 bg-linear-to-br from-background via-background/90 to-primary/6 shadow-[0_20px_70px_-30px_rgba(0,0,0,0.25)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(120,119,198,0.12),transparent_48%)]" />
-          <CardContent className="relative z-10 grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.1fr_1.3fr] lg:items-center min-h-[360px]">
+          <CardContent className="relative z-10 grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.1fr_1.3fr] lg:items-center min-h-90">
             <style
               dangerouslySetInnerHTML={{
                 __html: `
@@ -597,7 +597,7 @@ export function DashboardHome() {
               <div className="space-y-3">
                 <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl leading-[1.1]">
                   {getGreeting()}, <br />
-                  <span className="bg-gradient-to-r from-primary via-purple-400 to-primary bg-clip-text font-serif text-transparent italic">
+                  <span className="bg-linear-to-r from-primary via-purple-400 to-primary bg-clip-text font-serif text-transparent italic">
                     {userName ? userName : "Creator"}
                   </span>
                 </h1>
@@ -618,9 +618,9 @@ export function DashboardHome() {
               </div>
             </div>
 
-            <div className="relative hidden lg:block h-full w-full min-h-[300px]">
-              <div className="absolute top-1/2 left-1/2 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-[80px]" />
-              <div className="absolute bottom-0 right-0 h-[180px] w-[180px] rounded-full bg-purple-500/20 blur-[60px] animate-pulse" />
+            <div className="relative hidden lg:block h-full w-full min-h-75">
+              <div className="absolute top-1/2 left-1/2 h-70 w-70 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-[80px]" />
+              <div className="absolute bottom-0 right-0 h-45 w-45 rounded-full bg-purple-500/20 blur-[60px] animate-pulse" />
 
               <WandSparkles className="absolute top-[10%] left-[10%] h-7 w-7 text-primary/40 anim-float-2" />
               <Star className="absolute bottom-[20%] right-[10%] h-5 w-5 text-purple-400/50 anim-float-1" />
@@ -644,7 +644,7 @@ export function DashboardHome() {
                           setCurrentView("bots");
                         }}
                         className={cn(
-                          "absolute flex w-[150px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/10 bg-card/70 p-2 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:scale-125 hover:!rotate-0 hover:z-50 hover:bg-card hover:shadow-primary/50",
+                          "absolute flex w-37.5 cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/10 bg-card/70 p-2 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:scale-125 hover:rotate-0! hover:z-50 hover:bg-card hover:shadow-primary/50",
                           layoutStyles[index] || "top-1/2 left-1/2",
                         )}
                       >
@@ -660,9 +660,14 @@ export function DashboardHome() {
                               <BotIcon className="h-8 w-8 text-primary/50" />
                             </div>
                           )}
-                          <div className="absolute top-1.5 right-1.5 rounded-md bg-background/90 px-1.5 py-0.5 text-[9px] font-bold backdrop-blur-md">
+                          <Badge
+                            variant={
+                              bot.rating === "SFW" ? "secondary" : "destructive"
+                            }
+                            className="absolute top-1.5 right-1.5 px-1.5 py-0.5 text-[9px] backdrop-blur-md shadow-sm"
+                          >
                             {bot.rating}
-                          </div>
+                          </Badge>
                         </div>
                         <div className="mt-2 px-1 pb-1">
                           <p className="truncate text-xs font-bold text-foreground">
@@ -939,14 +944,14 @@ export function DashboardHome() {
                     </span>
                   </div>
 
-                  <div className="relative h-2.5 overflow-hidden rounded-full bg-muted/60 p-[2px] shadow-inner">
+                  <div className="relative h-2.5 overflow-hidden rounded-full bg-muted/60 p-0.5 shadow-inner">
                     <div
                       className="relative h-full rounded-full bg-linear-to-r from-primary via-purple-400 to-primary anim-bg-flow transition-all duration-1000 ease-out overflow-hidden"
                       style={{ width: `${checklistProgress}%` }}
                     >
                       <div className="absolute inset-0 anim-stripes w-full h-full mix-blend-overlay" />
 
-                      <div className="absolute top-0 -left-10 h-full w-[40%] bg-gradient-to-r from-transparent via-white/50 to-transparent anim-glass-shine" />
+                      <div className="absolute top-0 -left-10 h-full w-[40%] bg-linear-to-r from-transparent via-white/50 to-transparent anim-glass-shine" />
                     </div>
                   </div>
                 </div>

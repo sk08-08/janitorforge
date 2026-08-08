@@ -30,6 +30,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { getCurrentUserAccess } from "@/lib/access";
+import { stripMarkdownToText } from "@/lib/markdown";
 
 export type SensitivityLevel = "low" | "medium" | "high" | "strict";
 
@@ -214,7 +215,7 @@ export function SensitivityLevelSettings({
               <CardTitle className="text-base">Security Sensitivity</CardTitle>
               <CardDescription>
                 Adjust how strict content detection is for{" "}
-                {formTitle || "this form"}
+                {stripMarkdownToText(formTitle) || "this form"}
               </CardDescription>
             </div>
             <Tooltip>

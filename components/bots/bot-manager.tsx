@@ -296,19 +296,19 @@ function CollaborativeBotCard({
   // Grid view for collaborative bot
   return (
     <Card className="group transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/8 hover:-translate-y-1 border-l-2 border-l-primary/40">
-      <div className="relative aspect-16/10 w-full overflow-hidden bg-muted">
+      <div className="relative aspect-4/5 w-full overflow-hidden bg-muted">
         {bot.image_url ? (
           <img
             src={bot.image_url}
             alt={bot.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-primary/5 to-transparent">
             <BotIcon className="h-14 w-14 text-primary/30" />
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/50 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-background/90 via-background/40 to-transparent" />
         <Badge
           variant="outline"
           className={cn(
@@ -470,10 +470,7 @@ function BotCard({
                 Fork Bot
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="text-destructive hover:text-white"
-              >
+              <DropdownMenuItem onClick={onDelete} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                 Delete
               </DropdownMenuItem>
@@ -488,19 +485,19 @@ function BotCard({
   return (
     <Card className="group transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/8 hover:-translate-y-1">
       {/* Large cover image */}
-      <div className="relative aspect-16/10 w-full overflow-hidden bg-muted">
+      <div className="relative aspect-4/5 w-full overflow-hidden bg-muted">
         {bot.imageUrl ? (
           <img
             src={bot.imageUrl}
             alt={bot.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-linear-to-br from-primary/10 via-primary/5 to-transparent">
             <BotIcon className="h-14 w-14 text-primary/30" />
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-black/50 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-background/90 via-background/40 to-transparent" />
         <Badge
           variant={bot.rating === "SFW" ? "secondary" : "destructive"}
           className="absolute top-2.5 right-2.5 backdrop-blur-sm shadow-sm"
@@ -956,7 +953,7 @@ export function BotManager() {
   }
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 lg:p-10">
+    <div id="bot-manager-top" className="p-4 sm:p-6 md:p-8 lg:p-10">
       {/* Pending Collaboration Invites */}
       <PendingInvites />
 
@@ -1386,6 +1383,9 @@ export function BotManager() {
                     } else {
                       setManagerPage((prev) => Math.max(0, prev - 1));
                     }
+                    document
+                      .getElementById("bot-manager-top")
+                      ?.scrollIntoView({ behavior: "smooth" });
                   }}
                   className={cn(
                     "cursor-pointer",
@@ -1406,11 +1406,15 @@ export function BotManager() {
                       isActive={page === currentPage}
                       onClick={(e) => {
                         e.preventDefault();
+                        if (page === currentPage) return;
                         if (isSearchActive) {
                           handlePageChange(page);
                         } else {
                           setManagerPage(page);
                         }
+                        document
+                          .getElementById("bot-manager-top")
+                          ?.scrollIntoView({ behavior: "smooth" });
                       }}
                       className="cursor-pointer"
                     >
@@ -1432,6 +1436,9 @@ export function BotManager() {
                         Math.min(totalPages - 1, prev + 1),
                       );
                     }
+                    document
+                      .getElementById("bot-manager-top")
+                      ?.scrollIntoView({ behavior: "smooth" });
                   }}
                   className={cn(
                     "cursor-pointer",

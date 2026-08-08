@@ -202,10 +202,10 @@ export function getProfileGridClass(layout: ProfileLayout): string {
   }
 
   if (layout === "showcase") {
-    return "grid gap-4 grid-cols-1 md:grid-cols-2";
+    return "grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
   }
 
-  return "grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+  return "grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5";
 }
 
 export function getProfileCardClass(cardStyle: ProfileCardStyle): string {
@@ -221,5 +221,5 @@ export function getProfileCardClass(cardStyle: ProfileCardStyle): string {
     return "rounded-xl border border-white/20 bg-background/65 p-3 backdrop-blur-md transition-all hover:bg-background/80";
   }
 
-  return "rounded-lg border p-3 transition-all hover:border-primary/30 hover:shadow-md";
+  return "rounded-lg border p-3 transition-all hover:border-primary/30 shadow-md";
 }
