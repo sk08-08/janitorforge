@@ -182,7 +182,7 @@ export function GlobalBlocklist() {
                 <div>
                   <Label className="text-sm">Severity</Label>
                   <Select onValueChange={(v) => setSeverity(v as any)}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-45">
                       <SelectValue placeholder="warning" />
                     </SelectTrigger>
                     <SelectContent>
@@ -194,10 +194,18 @@ export function GlobalBlocklist() {
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                  className="cursor-pointer"
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleAdd} disabled={isAdding}>
+                <Button
+                  onClick={handleAdd}
+                  disabled={isAdding}
+                  className="cursor-pointer"
+                >
                   Add Pattern
                 </Button>
               </DialogFooter>

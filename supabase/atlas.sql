@@ -69,7 +69,7 @@ CREATE INDEX IF NOT EXISTS atlas_worlds_kind_idx
 CREATE TABLE IF NOT EXISTS public.atlas_lorebooks (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  world_id UUID REFERENCES public.atlas_worlds(id) ON DELETE CASCADE NOT NULL,
+  world_id UUID REFERENCES public.atlas_worlds(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   summary TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -108,7 +108,7 @@ EXECUTE FUNCTION public.set_atlas_lorebooks_updated_at();
 CREATE TABLE IF NOT EXISTS public.atlas_entries (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  world_id UUID REFERENCES public.atlas_worlds(id) ON DELETE CASCADE NOT NULL,
+  world_id UUID REFERENCES public.atlas_worlds(id) ON DELETE CASCADE,
   lorebook_id UUID REFERENCES public.atlas_lorebooks(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   kind TEXT NOT NULL DEFAULT 'note' CHECK (kind IN ('lore', 'character', 'location', 'timeline', 'note')),

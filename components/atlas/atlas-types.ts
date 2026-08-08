@@ -43,7 +43,7 @@ export interface AtlasWorldRow {
 
 export interface AtlasLorebook {
   id: string;
-  worldId: string;
+  worldId: string | null;
   title: string;
   summary: string;
   createdAt: string;
@@ -53,7 +53,7 @@ export interface AtlasLorebook {
 export interface AtlasLorebookRow {
   id: string;
   user_id: string;
-  world_id: string;
+  world_id: string | null;
   title: string;
   summary: string;
   created_at: string;
@@ -62,7 +62,7 @@ export interface AtlasLorebookRow {
 
 export interface AtlasEntry {
   id: string;
-  worldId: string;
+  worldId: string | null;
   lorebookId: string;
   title: string;
   kind: AtlasEntryKind;
@@ -74,7 +74,7 @@ export interface AtlasEntry {
 export interface AtlasEntryRow {
   id: string;
   user_id: string;
-  world_id: string;
+  world_id: string | null;
   lorebook_id: string;
   title: string;
   kind: AtlasEntryKind;

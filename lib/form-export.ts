@@ -11,6 +11,14 @@ interface ExportRow {
   [key: string]: string | number | boolean | string[];
 }
 
+const METADATA_COLUMN_ORDER = [
+  "Request ID",
+  "Form Title",
+  "Submission Date",
+  "Status",
+  "Submitter Name",
+] as const;
+
 function formatExportValue(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (Array.isArray(value))
@@ -45,10 +53,7 @@ export function serializeExportRowsToCsv(
 ): string {
   if (data.length === 0) return "";
 
-  // Collect all unique column names preserving order
-  const columns = new Set<string>();
-  data.forEach((row) => Object.keys(row).forEach((key) => columns.add(key)));
-  const columnNames = Array.from(columns);
+  const columnNames = getExportColumnOrder(data);
 
   // Build CSV content
   const header = columnNames.map((col) => escapeCsvValue(col)).join(",");
@@ -66,6 +71,23 @@ export function serializeExportRowsToCsv(
 
 export function serializeExportDataToJson(data: unknown): string {
   return JSON.stringify(data, null, 2);
+}
+
+export function getExportColumnOrder(data: ExportRow[]): string[] {
+  if (data.length === 0) return [];
+
+  const allColumns = new Set<string>();
+  data.forEach((row) => Object.keys(row).forEach((key) => allColumns.add(key)));
+
+  const orderedMetadata = METADATA_COLUMN_ORDER.filter((column) =>
+    allColumns.has(column),
+  );
+
+  const responseColumns = Array.from(allColumns)
+    .filter((column) => !METADATA_COLUMN_ORDER.includes(column as any))
+    .sort((a, b) => a.localeCompare(b));
+
+  return [...orderedMetadata, ...responseColumns];
 }
 
 export function exportToCsv(data: ExportRow[], filename: string): void {
@@ -136,6 +158,21 @@ export function transformSubmissionsForExport(
   >,
   options?: { includeMetadata?: boolean },
 ): ExportRow[] {
+  const buildResponseColumnName = (
+    fieldId: string,
+    labelMap: Record<string, string>,
+  ) => {
+    const baseLabel = String(labelMap[fieldId] || fieldId).trim();
+    const safeLabel = baseLabel || fieldId;
+    const conflictsMetadata = METADATA_COLUMN_ORDER.includes(safeLabel as any);
+
+    if (conflictsMetadata) {
+      return `${safeLabel} [${fieldId}]`;
+    }
+
+    return safeLabel;
+  };
+
   return submissions.map((sub) => {
     const responses = sub.responses || {};
     const labelMap = sub.response_labels || {};
@@ -151,18 +188,19 @@ export function transformSubmissionsForExport(
       flattened["Submitter Name"] = sub.submitter_name || "Anonymous";
     }
 
-    // Flatten responses into columns using field labels instead of IDs
-    Object.entries(responses).forEach(([fieldId, value]) => {
-      // Use label from response_labels, or sectionMap, or fall back to fieldId
-      const label = labelMap[fieldId] || fieldId;
+    // Use deterministic ordering and names so the same field maps to the same column across rows.
+    const orderedResponseEntries = Object.entries(responses).sort(
+      ([fieldA], [fieldB]) => {
+        const colA = buildResponseColumnName(fieldA, labelMap);
+        const colB = buildResponseColumnName(fieldB, labelMap);
+        const byLabel = colA.localeCompare(colB);
+        if (byLabel !== 0) return byLabel;
+        return fieldA.localeCompare(fieldB);
+      },
+    );
 
-      // Prevent duplicate column names
-      let colName = label;
-      let suffix = 2;
-      while (flattened[colName] !== undefined) {
-        colName = `${label} (${suffix++})`;
-      }
-
+    orderedResponseEntries.forEach(([fieldId, value]) => {
+      const colName = buildResponseColumnName(fieldId, labelMap);
       flattened[colName] = formatExportValue(value);
     });
 

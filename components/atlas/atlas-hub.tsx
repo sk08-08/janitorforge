@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { cachedBrowserRequest } from "@/lib/browser-request-cache";
 import { useStore } from "@/lib/store";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -118,6 +119,7 @@ export function AtlasHub() {
   const [selectedWorldId, setSelectedWorldId] = useState<string | null>(null);
   const [worldPage, setWorldPage] = useState(0);
   const [worldEditorOpen, setWorldEditorOpen] = useState(false);
+  const [lorebookEditorOpen, setLorebookEditorOpen] = useState(false);
   const [entryEditorOpen, setEntryEditorOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedWorldIds, setSelectedWorldIds] = useState<Set<string>>(
@@ -127,6 +129,12 @@ export function AtlasHub() {
   const [worldDetailsOpen, setWorldDetailsOpen] = useState(false);
   const [importName, setImportName] = useState("");
   const [importText, setImportText] = useState("");
+  const [importWorldId, setImportWorldId] = useState("");
+  const [lorebookEditorState, setLorebookEditorState] = useState({
+    title: "",
+    summary: "",
+    worldId: "",
+  });
   const [worldEditorState, setWorldEditorState] = useState<WorldEditorState>(
     createEmptyWorldEditorState(),
   );
@@ -521,12 +529,29 @@ export function AtlasHub() {
     return counts;
   }, [entries]);
 
+  const lorebookCountsByWorldId = useMemo(() => {
+    const counts = new Map<string, number>();
+    lorebooks.forEach((lorebook) => {
+      if (!lorebook.worldId) return;
+      counts.set(lorebook.worldId, (counts.get(lorebook.worldId) || 0) + 1);
+    });
+    return counts;
+  }, [lorebooks]);
+
   const selectedWorldLorebooks = useMemo(
     () =>
       lorebooks
         .filter((lorebook) => lorebook.worldId === selectedWorldId)
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [lorebooks, selectedWorldId],
+  );
+
+  const standaloneLorebooks = useMemo(
+    () =>
+      filteredLorebooks
+        .filter((lorebook) => !lorebook.worldId)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [filteredLorebooks],
   );
 
   const featuredLorebooks = useMemo(() => {
@@ -543,10 +568,9 @@ export function AtlasHub() {
     (total, world) => total + world.botIds.length,
     0,
   );
-  const featuredCount = worlds.reduce(
-    (total, world) => total + world.featuredLorebookIds.length,
-    0,
-  );
+  const standaloneLorebookCount = lorebooks.filter(
+    (lorebook) => !lorebook.worldId,
+  ).length;
   const totalEntries = entries.length;
   const selectedWorldLorebookCount = selectedWorldLorebooks.length;
   const selectedWorldBotCount = selectedWorld?.botIds.length || 0;
@@ -554,7 +578,10 @@ export function AtlasHub() {
   const entryEditorLorebooks = useMemo(
     () =>
       lorebooks
-        .filter((lorebook) => lorebook.worldId === entryEditorState.worldId)
+        .filter((lorebook) => {
+          if (!entryEditorState.worldId) return !lorebook.worldId;
+          return lorebook.worldId === entryEditorState.worldId;
+        })
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [lorebooks, entryEditorState.worldId],
   );
@@ -588,11 +615,20 @@ export function AtlasHub() {
     setWorldEditorOpen(true);
   };
 
+  const openLorebookEditor = (worldId?: string | null) => {
+    setLorebookEditorState({
+      title: "",
+      summary: "",
+      worldId: worldId ?? "",
+    });
+    setLorebookEditorOpen(true);
+  };
+
   const openEntryEditor = (entry?: AtlasEntry) => {
     if (entry) {
       setEntryEditorState({
         id: entry.id,
-        worldId: entry.worldId,
+        worldId: entry.worldId ?? "",
         lorebookId: entry.lorebookId,
         title: entry.title,
         kind: entry.kind,
@@ -601,8 +637,10 @@ export function AtlasHub() {
     } else {
       const defaultWorldId = selectedWorldId ?? sortedWorlds[0]?.id ?? "";
       const defaultLorebookId =
-        lorebooks.find((lorebook) => lorebook.worldId === defaultWorldId)?.id ??
-        "";
+        (defaultWorldId
+          ? lorebooks.find((lorebook) => lorebook.worldId === defaultWorldId)
+              ?.id
+          : lorebooks.find((lorebook) => !lorebook.worldId)?.id) ?? "";
       setEntryEditorState(
         createEmptyEntryEditorState(defaultWorldId, defaultLorebookId),
       );
@@ -610,7 +648,10 @@ export function AtlasHub() {
     setEntryEditorOpen(true);
   };
 
-  const exportLorebook = (world: AtlasWorld, lorebook: AtlasLorebook) => {
+  const exportLorebook = (
+    world: AtlasWorld | null,
+    lorebook: AtlasLorebook,
+  ) => {
     const lorebookEntries = entries.filter(
       (entry) => entry.lorebookId === lorebook.id,
     );
@@ -622,7 +663,7 @@ export function AtlasHub() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${lorebook.title || world.slug || slugify(world.title)}.lorebook.json`;
+    anchor.download = `${lorebook.title || world?.slug || slugify(world?.title || lorebook.title)}.lorebook.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -642,6 +683,7 @@ export function AtlasHub() {
   const openImportDialog = () => {
     setImportName("");
     setImportText("");
+    setImportWorldId("");
     setImportDialogOpen(true);
   };
 
@@ -785,6 +827,49 @@ export function AtlasHub() {
     }
   };
 
+  const saveLorebook = async () => {
+    if (!currentUserId) {
+      toast.error("Sign in to save lorebooks");
+      return;
+    }
+
+    const title = lorebookEditorState.title.trim();
+    if (!title) {
+      toast.error("Add a lorebook title first");
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("atlas_lorebooks")
+        .insert({
+          id: crypto.randomUUID(),
+          user_id: currentUserId,
+          world_id: lorebookEditorState.worldId || null,
+          title,
+          summary: lorebookEditorState.summary.trim(),
+        })
+        .select("*")
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error("Could not create lorebook");
+
+      const savedLorebook = mapLorebookRow(data as AtlasLorebookRow);
+      setLorebooks((prev) => [savedLorebook, ...prev]);
+      setLorebookEditorOpen(false);
+      toast.success(
+        savedLorebook.worldId
+          ? "Lorebook created and linked to world"
+          : "Standalone lorebook created",
+      );
+    } catch (error) {
+      console.error("Failed to save lorebook:", error);
+      toast.error("Could not save lorebook");
+    }
+  };
+
   const deleteWorld = async (worldId: string) => {
     if (!currentUserId) {
       toast.error("Sign in to delete Atlas worlds");
@@ -904,13 +989,20 @@ export function AtlasHub() {
       return;
     }
 
-    const worldId = entryEditorState.worldId || selectedWorldId;
     const lorebookId = entryEditorState.lorebookId;
+    const selectedLorebook = lorebooks.find(
+      (lorebook) => lorebook.id === lorebookId,
+    );
+    const worldId =
+      entryEditorState.worldId ||
+      selectedLorebook?.worldId ||
+      selectedWorldId ||
+      null;
     const title = entryEditorState.title.trim();
     const body = entryEditorState.body.trim();
 
-    if (!worldId || !lorebookId || !title || !body) {
-      toast.error("Add world, lorebook, title, and body first");
+    if (!lorebookId || !title || !body) {
+      toast.error("Add a lorebook, title, and body first");
       return;
     }
 
@@ -973,12 +1065,22 @@ export function AtlasHub() {
 
     try {
       const parsed = JSON.parse(importText) as unknown;
-      const worldId = selectedWorldId ?? sortedWorlds[0]?.id ?? null;
       const supabase = createClient();
+      const hasAtlasWorldMetadata =
+        isAtlasPackage(parsed) && Boolean(parsed.world);
+      const sourceEntries = Array.isArray(parsed)
+        ? parsed
+        : isAtlasPackage(parsed) && Array.isArray(parsed.entries)
+          ? parsed.entries
+          : [];
 
-      let targetWorldId = worldId;
+      if (sourceEntries.length === 0) {
+        throw new Error("No entries found in the import package");
+      }
 
-      if (isAtlasPackage(parsed) && parsed.world) {
+      let targetWorldId: string | null = importWorldId || null;
+
+      if (hasAtlasWorldMetadata && isAtlasPackage(parsed) && parsed.world) {
         const importedBotIds = Array.isArray(parsed.world.botIds)
           ? parsed.world.botIds
           : [];
@@ -1037,88 +1139,6 @@ export function AtlasHub() {
         }
       }
 
-      if (!targetWorldId) {
-        const sourceEntries = Array.isArray(parsed)
-          ? parsed
-          : isAtlasPackage(parsed) && Array.isArray(parsed.entries)
-            ? parsed.entries
-            : [];
-
-        const firstSourceName = sourceEntries.find((entry) => {
-          if (!entry || typeof entry !== "object") return false;
-          const candidate = entry as JanitorLorebookEntry;
-          return Boolean(candidate.name?.trim());
-        }) as JanitorLorebookEntry | undefined;
-
-        const worldPayload = {
-          id: crypto.randomUUID(),
-          user_id: currentUserId,
-          title: lorebookName,
-          slug:
-            slugify(
-              (isAtlasPackage(parsed) && parsed.world?.slug) ||
-                lorebookName ||
-                "imported-lorebook",
-            ) || `imported-lorebook-${Date.now()}`,
-          kind: (isAtlasPackage(parsed) && parsed.world?.kind) || "series",
-          status: (isAtlasPackage(parsed) && parsed.world?.status) || "draft",
-          description:
-            (isAtlasPackage(parsed) && parsed.world?.description) || "",
-          lore_summary:
-            (isAtlasPackage(parsed) && parsed.world?.loreSummary) || "",
-        };
-
-        const { data: worldData, error: worldError } = await supabase
-          .from("atlas_worlds")
-          .insert(worldPayload)
-          .select("id")
-          .single();
-
-        if (worldError) throw worldError;
-        if (worldData?.id) {
-          const importedBotIds =
-            isAtlasPackage(parsed) && Array.isArray(parsed.world?.botIds)
-              ? parsed.world.botIds
-              : [];
-
-          if (importedBotIds.length > 0) {
-            const { error: worldBotError } = await supabase
-              .from("atlas_world_bots")
-              .insert(
-                importedBotIds.map((botId, index) => ({
-                  world_id: worldData.id,
-                  bot_id: botId,
-                  sort_order: index,
-                })),
-              );
-            if (worldBotError) throw worldBotError;
-          }
-
-          const { data: refreshedWorld, error: refreshedWorldError } =
-            await supabase
-              .from("active_atlas_worlds")
-              .select(
-                "id,user_id,title,slug,kind,status,description,lore_summary,created_at,updated_at,active_atlas_world_bots(bot_id),active_atlas_world_featured_lorebooks(lorebook_id)",
-              )
-              .eq("id", worldData.id)
-              .maybeSingle();
-
-          if (refreshedWorldError) throw refreshedWorldError;
-
-          if (refreshedWorld) {
-            const importedWorld = mapWorldRow(refreshedWorld as AtlasWorldRow);
-            setWorlds((prev) => [importedWorld, ...prev]);
-            targetWorldId = importedWorld.id;
-          } else {
-            targetWorldId = worldData.id;
-          }
-        }
-      }
-
-      if (!targetWorldId) {
-        throw new Error("No world available for import");
-      }
-
       const lorebookSummary =
         (isAtlasPackage(parsed) && parsed.world?.loreSummary?.trim()) || "";
 
@@ -1140,14 +1160,18 @@ export function AtlasHub() {
       const importedLorebook = mapLorebookRow(lorebookData as AtlasLorebookRow);
       setLorebooks((prev) => [importedLorebook, ...prev]);
 
-      const sourceEntries = Array.isArray(parsed)
-        ? parsed
-        : isAtlasPackage(parsed) && Array.isArray(parsed.entries)
-          ? parsed.entries
-          : [];
+      type ImportedEntryInsert = {
+        id: string;
+        user_id: string;
+        world_id: string | null;
+        lorebook_id: string;
+        title: string;
+        kind: AtlasEntryKind;
+        body: string;
+      };
 
       const entriesPayload = sourceEntries
-        .map((entry) => {
+        .map<ImportedEntryInsert | null>((entry) => {
           if (!entry || typeof entry !== "object") return null;
 
           if (isAtlasPackage(parsed)) {
@@ -1163,6 +1187,7 @@ export function AtlasHub() {
             return {
               id: crypto.randomUUID(),
               user_id: currentUserId,
+              world_id: targetWorldId,
               lorebook_id: importedLorebook.id,
               title: title || "Imported entry",
               kind: atlasEntry.kind ?? "note",
@@ -1188,23 +1213,7 @@ export function AtlasHub() {
             body,
           };
         })
-        .filter(
-          (
-            entry,
-          ): entry is {
-            id: string;
-            user_id: string;
-            world_id: string;
-            lorebook_id: string;
-            title: string;
-            kind: AtlasEntryKind;
-            body: string;
-          } => Boolean(entry),
-        );
-
-      if (entriesPayload.length === 0) {
-        throw new Error("No entries found in the import package");
-      }
+        .filter((entry): entry is ImportedEntryInsert => entry !== null);
 
       const { data: importedEntries, error: entryError } = await supabase
         .from("atlas_entries")
@@ -1220,43 +1229,51 @@ export function AtlasHub() {
         const importedEntryIds = mappedImportedEntries.map((entry) => entry.id);
 
         setEntries((prev) => [...mappedImportedEntries, ...prev]);
-        const existingFeaturedLorebookIds =
-          worlds.find((world) => world.id === targetWorldId)
-            ?.featuredLorebookIds ?? [];
+        if (targetWorldId) {
+          const existingFeaturedLorebookIds =
+            worlds.find((world) => world.id === targetWorldId)
+              ?.featuredLorebookIds ?? [];
 
-        const nextFeaturedLorebookIds = Array.from(
-          new Set([...existingFeaturedLorebookIds, importedLorebook.id]),
-        );
-
-        const { error: worldUpdateError } = await supabase
-          .from("atlas_world_featured_lorebooks")
-          .upsert(
-            {
-              world_id: targetWorldId,
-              lorebook_id: importedLorebook.id,
-              sort_order: nextFeaturedLorebookIds.length - 1,
-            },
-            { onConflict: "world_id,lorebook_id" },
+          const nextFeaturedLorebookIds = Array.from(
+            new Set([...existingFeaturedLorebookIds, importedLorebook.id]),
           );
 
-        if (worldUpdateError) throw worldUpdateError;
+          const { error: worldUpdateError } = await supabase
+            .from("atlas_world_featured_lorebooks")
+            .upsert(
+              {
+                world_id: targetWorldId,
+                lorebook_id: importedLorebook.id,
+                sort_order: nextFeaturedLorebookIds.length - 1,
+              },
+              { onConflict: "world_id,lorebook_id" },
+            );
 
-        setWorlds((prev) =>
-          prev.map((world) =>
-            world.id === targetWorldId
-              ? { ...world, featuredLorebookIds: nextFeaturedLorebookIds }
-              : world,
-          ),
-        );
+          if (worldUpdateError) throw worldUpdateError;
+
+          setWorlds((prev) =>
+            prev.map((world) =>
+              world.id === targetWorldId
+                ? { ...world, featuredLorebookIds: nextFeaturedLorebookIds }
+                : world,
+            ),
+          );
+        }
       }
 
-      setSelectedWorldId(targetWorldId);
-      setWorldPage(0);
+      if (targetWorldId) {
+        setSelectedWorldId(targetWorldId);
+        setWorldPage(0);
+      }
       setImportDialogOpen(false);
       toast.success("Lorebook imported");
     } catch (error) {
       console.error("Failed to import lorebook:", error);
-      toast.error("Could not import lorebook JSON");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Could not import lorebook JSON";
+      toast.error(errorMessage);
     }
   };
 
@@ -1391,18 +1408,38 @@ export function AtlasHub() {
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
               <LibraryBig className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold">Start your first world</h2>
+            <h2 className="text-xl font-semibold">
+              Start your first Atlas set
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Create a world to organize your bots, attach lorebooks, and build
-              canon that stays consistent across your entire series.
+              Create a world or import a standalone lorebook to start building
+              canon for your bots and settings.
             </p>
-            <Button
-              onClick={() => openWorldEditor()}
-              className="cursor-pointer"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create a world
-            </Button>
+            <div className="flex flex-col justify-center gap-2 sm:flex-row">
+              <Button
+                onClick={() => openWorldEditor()}
+                className="cursor-pointer"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create a world
+              </Button>
+              <Button
+                onClick={() => openLorebookEditor(null)}
+                className="cursor-pointer"
+                variant="secondary"
+              >
+                <LibraryBig className="mr-2 h-4 w-4" />
+                New lorebook
+              </Button>
+              <Button
+                variant="outline"
+                onClick={openImportDialog}
+                className="cursor-pointer"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import lorebook
+              </Button>
+            </div>
           </div>
         </section>
       )}
@@ -1436,19 +1473,28 @@ export function AtlasHub() {
               variant="outline"
               size="sm"
               className="cursor-pointer"
-              onClick={openImportDialog}
+              onClick={handleExportClick}
             >
-              <Upload className="mr-2 h-4 w-4" />
-              Import
+              <Download className="mr-2 h-4 w-4" />
+              Export
             </Button>
             <Button
               variant="outline"
               size="sm"
               className="cursor-pointer"
-              onClick={handleExportClick}
+              onClick={() => openLorebookEditor(null)}
             >
-              <Download className="mr-2 h-4 w-4" />
-              Export
+              <LibraryBig className="mr-2 h-4 w-4" />
+              New lorebook
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={openImportDialog}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import lorebook
             </Button>
             <Button
               size="sm"
@@ -1554,7 +1600,7 @@ export function AtlasHub() {
               {paginatedWorlds.length > 0 ? (
                 paginatedWorlds.map((world) => {
                   const botCount = world.botIds.length;
-                  const loreCount = world.featuredLorebookIds.length;
+                  const loreCount = lorebookCountsByWorldId.get(world.id) || 0;
                   const isSelected = world.id === selectedWorldId;
 
                   return (
@@ -1726,7 +1772,9 @@ export function AtlasHub() {
             {filteredLorebooks.length > 0 ? (
               <div className="space-y-3">
                 {filteredLorebooks.map((lorebook) => {
-                  const world = worldById.get(lorebook.worldId);
+                  const world = lorebook.worldId
+                    ? worldById.get(lorebook.worldId)
+                    : null;
                   const entryCount = lorebookEntryCounts.get(lorebook.id) || 0;
 
                   return (
@@ -1740,7 +1788,7 @@ export function AtlasHub() {
                             {lorebook.title}
                           </h3>
                           <p className="text-xs text-muted-foreground">
-                            {world?.title || "Unknown world"}
+                            {world?.title || "Standalone lorebook"}
                           </p>
                         </div>
                         <Badge
@@ -1789,6 +1837,16 @@ export function AtlasHub() {
                           </Badge>
                         </div>
                       )}
+                      {!world && (
+                        <div className="mt-3 flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                          <span className="truncate">
+                            Not linked to any world
+                          </span>
+                          <Badge variant="outline" className="text-[10px]">
+                            standalone
+                          </Badge>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1797,7 +1855,7 @@ export function AtlasHub() {
               <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-8 text-center text-sm text-muted-foreground">
                 {debouncedSearch
                   ? "No lorebooks match your search."
-                  : "No lorebooks yet. Import one or create an entry."}
+                  : "No lorebooks yet. Create one or import one."}
               </div>
             )}
           </div>
@@ -1904,14 +1962,23 @@ export function AtlasHub() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <NotebookText className="h-4 w-4 text-primary" />
-                        Pinned lorebooks
+                        Linked lorebooks
                       </div>
                       <Badge variant="secondary">
-                        {featuredLorebooks.length}
+                        {selectedWorldLorebooks.length}
                       </Badge>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-auto cursor-pointer justify-start rounded-xl p-3"
+                        onClick={() => openLorebookEditor(selectedWorld.id)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        New lorebook
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -1941,12 +2008,16 @@ export function AtlasHub() {
                       </Button>
                     </div>
 
-                    {featuredLorebooks.length > 0 ? (
+                    {selectedWorldLorebooks.length > 0 ? (
                       <div className="space-y-2">
-                        {featuredLorebooks.map((lorebook) => {
+                        {selectedWorldLorebooks.map((lorebook) => {
                           const loreEntryCount = entries.filter(
                             (e) => e.lorebookId === lorebook.id,
                           ).length;
+                          const isPinned =
+                            selectedWorld.featuredLorebookIds.includes(
+                              lorebook.id,
+                            );
                           return (
                             <div
                               key={lorebook.id}
@@ -1985,24 +2056,30 @@ export function AtlasHub() {
                                   </div>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-1">
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[10px]"
-                                  >
-                                    pinned
-                                  </Badge>
-                                  <Button
-                                    type="button"
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    className="cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void removeFeaturedLorebook(lorebook.id);
-                                    }}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
+                                  {isPinned && (
+                                    <>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px]"
+                                      >
+                                        pinned
+                                      </Badge>
+                                      <Button
+                                        type="button"
+                                        size="icon-sm"
+                                        variant="ghost"
+                                        className="cursor-pointer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void removeFeaturedLorebook(
+                                            lorebook.id,
+                                          );
+                                        }}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                               <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
@@ -2041,7 +2118,7 @@ export function AtlasHub() {
                       </div>
                     ) : (
                       <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-                        No pinned lorebooks yet. Import one to see it here.
+                        No lorebooks linked to this world yet.
                       </div>
                     )}
                   </div>
@@ -2056,17 +2133,36 @@ export function AtlasHub() {
                       </Badge>
                     </div>
                     {selectedWorld.botIds.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="space-y-2">
                         {selectedWorld.botIds.map((botId) => {
                           const bot = botMap.get(botId);
                           return (
-                            <Badge
+                            <div
                               key={botId}
-                              variant="secondary"
-                              className={cn(!bot && "opacity-60 italic")}
+                              className={cn(
+                                "flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 px-3 py-3",
+                                !bot && "opacity-60 italic",
+                              )}
                             >
-                              {bot?.name || "Unknown bot"}
-                            </Badge>
+                              <Avatar className="h-10 w-10 border border-border/60">
+                                <AvatarImage
+                                  src={bot?.imageUrl}
+                                  alt={bot?.name || "Unknown bot"}
+                                />
+                                <AvatarFallback>
+                                  {(bot?.name || "?").charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium">
+                                  {bot?.name || "Unknown bot"}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {bot?.shortDescription ||
+                                    "No description available."}
+                                </p>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
@@ -2216,7 +2312,7 @@ export function AtlasHub() {
                   }
                   placeholder="One-line overview of the world or series."
                   rows={3}
-                  className="min-h-[8rem]"
+                  className="min-h-32"
                 />
               </div>
 
@@ -2233,7 +2329,7 @@ export function AtlasHub() {
                   }
                   placeholder="Canon notes, timeline, places, relationships, rules, etc."
                   rows={7}
-                  className="min-h-[12rem] md:min-h-[14rem]"
+                  className="min-h-48 md:min-h-56"
                 />
               </div>
             </div>
@@ -2257,7 +2353,13 @@ export function AtlasHub() {
                             toggleSelection("botIds", bot.id)
                           }
                         />
-                        <span className="min-w-0">
+                        <Avatar className="h-10 w-10 shrink-0 border border-border/60">
+                          <AvatarImage src={bot.imageUrl} alt={bot.name} />
+                          <AvatarFallback>
+                            {bot.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="min-w-0 flex-1">
                           <span className="block font-medium">{bot.name}</span>
                           <span className="block text-xs text-muted-foreground">
                             {bot.shortDescription || "No description"}
@@ -2280,36 +2382,44 @@ export function AtlasHub() {
                 </div>
                 <div className="mt-3 max-h-60 space-y-2 overflow-y-auto pr-1">
                   {worldEditorState.id ? (
-                    selectedWorldLorebooks.length > 0 ? (
-                      selectedWorldLorebooks.map((lorebook) => (
-                        <label
-                          key={lorebook.id}
-                          className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/60 p-3 text-sm transition-colors hover:border-primary/30"
-                        >
-                          <Checkbox
-                            checked={worldEditorState.featuredLorebookIds.includes(
-                              lorebook.id,
-                            )}
-                            onCheckedChange={() =>
-                              toggleSelection(
-                                "featuredLorebookIds",
+                    lorebooks.length > 0 ? (
+                      lorebooks
+                        .slice()
+                        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+                        .map((lorebook) => (
+                          <label
+                            key={lorebook.id}
+                            className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/60 p-3 text-sm transition-colors hover:border-primary/30"
+                          >
+                            <Checkbox
+                              checked={worldEditorState.featuredLorebookIds.includes(
                                 lorebook.id,
-                              )
-                            }
-                          />
-                          <span className="min-w-0">
-                            <span className="block font-medium">
-                              {lorebook.title}
+                              )}
+                              onCheckedChange={() =>
+                                toggleSelection(
+                                  "featuredLorebookIds",
+                                  lorebook.id,
+                                )
+                              }
+                            />
+                            <span className="min-w-0">
+                              <span className="block font-medium">
+                                {lorebook.title}
+                              </span>
+                              <span className="block text-xs text-muted-foreground">
+                                {lorebook.summary || "No summary"}
+                              </span>
+                              <span className="mt-1 block text-[11px] text-muted-foreground">
+                                {lorebook.worldId
+                                  ? `Home world: ${worldById.get(lorebook.worldId)?.title || "Unknown world"}`
+                                  : "Standalone lorebook"}
+                              </span>
                             </span>
-                            <span className="block text-xs text-muted-foreground">
-                              {lorebook.summary || "No summary"}
-                            </span>
-                          </span>
-                        </label>
-                      ))
+                          </label>
+                        ))
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        No lorebooks available yet for this world.
+                        No lorebooks available yet.
                       </p>
                     )
                   ) : (
@@ -2361,10 +2471,13 @@ export function AtlasHub() {
                   value={entryEditorState.worldId || selectedWorldId || ""}
                   onValueChange={(value) => {
                     const nextLorebookId =
-                      lorebooks.find((l) => l.worldId === value)?.id ?? "";
+                      value === "__none__"
+                        ? (lorebooks.find((l) => !l.worldId)?.id ?? "")
+                        : (lorebooks.find((l) => l.worldId === value)?.id ??
+                          "");
                     setEntryEditorState((prev) => ({
                       ...prev,
-                      worldId: value,
+                      worldId: value === "__none__" ? "" : value,
                       lorebookId: nextLorebookId,
                     }));
                   }}
@@ -2373,6 +2486,7 @@ export function AtlasHub() {
                     <SelectValue placeholder="Select a world" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="__none__">No world</SelectItem>
                     {sortedWorlds.length > 0 ? (
                       sortedWorlds.map((world) => (
                         <SelectItem key={world.id} value={world.id}>
@@ -2380,7 +2494,7 @@ export function AtlasHub() {
                         </SelectItem>
                       ))
                     ) : (
-                      <SelectItem value="__none__" disabled>
+                      <SelectItem value="__no-worlds" disabled>
                         No worlds available
                       </SelectItem>
                     )}
@@ -2471,7 +2585,7 @@ export function AtlasHub() {
                 }
                 placeholder="Write the lore, note, or canon block here."
                 rows={8}
-                className="min-h-[13rem] md:min-h-[15rem]"
+                className="min-h-52 md:min-h-60"
               />
             </div>
           </div>
@@ -2494,14 +2608,102 @@ export function AtlasHub() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={lorebookEditorOpen} onOpenChange={setLorebookEditorOpen}>
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>New lorebook</DialogTitle>
+            <DialogDescription>
+              Create a standalone lorebook or optionally link it to a world.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="atlas-lorebook-title">Title</Label>
+              <Input
+                id="atlas-lorebook-title"
+                value={lorebookEditorState.title}
+                onChange={(e) =>
+                  setLorebookEditorState((prev) => ({
+                    ...prev,
+                    title: e.target.value,
+                  }))
+                }
+                placeholder="Companion lorebook"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="atlas-lorebook-world">World link</Label>
+              <Select
+                value={lorebookEditorState.worldId || "__none__"}
+                onValueChange={(value) =>
+                  setLorebookEditorState((prev) => ({
+                    ...prev,
+                    worldId: value === "__none__" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger id="atlas-lorebook-world" className="w-full">
+                  <SelectValue placeholder="Standalone lorebook" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Standalone lorebook</SelectItem>
+                  {sortedWorlds.map((world) => (
+                    <SelectItem key={world.id} value={world.id}>
+                      {world.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="atlas-lorebook-summary">Summary</Label>
+              <MarkdownField
+                id="atlas-lorebook-summary"
+                value={lorebookEditorState.summary}
+                onChange={(e) =>
+                  setLorebookEditorState((prev) => ({
+                    ...prev,
+                    summary: e.target.value,
+                  }))
+                }
+                placeholder="Outline the canon, scope, and intended use for this lorebook."
+                rows={6}
+                className="min-h-40"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setLorebookEditorOpen(false)}
+              className="w-full cursor-pointer sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveLorebook}
+              className="w-full cursor-pointer sm:w-auto"
+              disabled={!lorebookEditorState.title.trim()}
+            >
+              Create lorebook
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Import dialog ── */}
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] overflow-hidden sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Import lorebook</DialogTitle>
             <DialogDescription>
-              Paste a Janitor AI JSON export or load a file. If the package
-              includes world metadata, Atlas creates that world automatically.
+              Paste a Janitor AI JSON export or load a file. Lorebooks can stay
+              standalone, and Atlas only creates a world when the package
+              explicitly includes one.
             </DialogDescription>
           </DialogHeader>
 
@@ -2514,6 +2716,33 @@ export function AtlasHub() {
                 onChange={(e) => setImportName(e.target.value)}
                 placeholder="Lorebook"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lorebook-world-link">World link</Label>
+              <Select
+                value={importWorldId || "__none__"}
+                onValueChange={(value) =>
+                  setImportWorldId(value === "__none__" ? "" : value)
+                }
+              >
+                <SelectTrigger id="lorebook-world-link" className="w-full">
+                  <SelectValue placeholder="Standalone lorebook" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Standalone lorebook</SelectItem>
+                  {sortedWorlds.map((world) => (
+                    <SelectItem key={world.id} value={world.id}>
+                      {world.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Raw Janitor AI arrays stay standalone by default. If the JSON
+                includes Atlas world metadata, a new world is created from that
+                package.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -2545,14 +2774,16 @@ export function AtlasHub() {
 
             <div className="space-y-2">
               <Label htmlFor="lorebook-json">Lorebook JSON</Label>
-              <Textarea
-                id="lorebook-json"
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder='{"version":1,"world":{"title":"..."},"entries":[...]}'
-                rows={12}
-                className="min-h-60"
-              />
+              <div className="overflow-hidden rounded-xl border border-border/60 bg-background">
+                <Textarea
+                  id="lorebook-json"
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder='{"version":1,"world":{"title":"..."},"entries":[...]}'
+                  rows={12}
+                  className="max-h-[42vh] min-h-60 resize-none overflow-y-auto border-0 font-mono text-xs leading-5 shadow-none focus-visible:ring-0"
+                />
+              </div>
             </div>
           </div>
 

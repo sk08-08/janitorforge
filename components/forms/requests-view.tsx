@@ -23,6 +23,7 @@ import type { RequestStatus } from "@/lib/types";
 import {
   exportToCsv,
   exportToJson,
+  getExportColumnOrder,
   serializeExportDataToJson,
   transformSubmissionsForExport,
 } from "@/lib/form-export";
@@ -92,10 +93,27 @@ export function RequestsView() {
     };
   }, []);
 
-  const formOwnerMap = useMemo(
-    () => new Map(forms.map((form) => [form.id, form.ownerId ?? null])),
-    [forms],
+  const ownForms = useMemo(
+    () =>
+      forms.filter((form) => !!currentUserId && form.ownerId === currentUserId),
+    [forms, currentUserId],
   );
+
+  const ownFormIds = useMemo(
+    () => new Set(ownForms.map((form) => form.id)),
+    [ownForms],
+  );
+
+  const formOwnerMap = useMemo(
+    () => new Map(ownForms.map((form) => [form.id, form.ownerId ?? null])),
+    [ownForms],
+  );
+
+  useEffect(() => {
+    if (filterFormId !== "all" && !ownFormIds.has(filterFormId)) {
+      setFilterFormId("all");
+    }
+  }, [filterFormId, ownFormIds]);
 
   const matchesFilter = (requestFormId: string) =>
     filterFormId === "all" || requestFormId === filterFormId;
@@ -106,7 +124,12 @@ export function RequestsView() {
     return ownerId === currentUserId;
   };
 
-  const filteredRequests = requests.filter((request) =>
+  const ownRequestsOnly = useMemo(
+    () => requests.filter((request) => ownFormIds.has(request.formId)),
+    [requests, ownFormIds],
+  );
+
+  const filteredRequests = ownRequestsOnly.filter((request) =>
     matchesFilter(request.formId),
   );
   const selectedFormOwnerId =
@@ -164,17 +187,6 @@ export function RequestsView() {
   >("all");
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [selectedExportFormId, setSelectedExportFormId] = useState<string>("");
-
-  // Only user's own forms for export
-  const ownForms = useMemo(
-    () => forms.filter((f) => !currentUserId || f.ownerId === currentUserId),
-    [forms, currentUserId],
-  );
-
-  const ownFormIds = useMemo(
-    () => new Set(ownForms.map((form) => form.id)),
-    [ownForms],
-  );
 
   const ownRequestsForExport = useMemo(
     () => requests.filter((request) => ownFormIds.has(request.formId)),
@@ -249,13 +261,10 @@ export function RequestsView() {
     includeMetadata,
   ]);
 
-  const csvPreviewColumns = useMemo(() => {
-    const columns = new Set<string>();
-    exportPreviewRows.forEach((row) => {
-      Object.keys(row).forEach((key) => columns.add(key));
-    });
-    return Array.from(columns);
-  }, [exportPreviewRows]);
+  const csvPreviewColumns = useMemo(
+    () => getExportColumnOrder(exportPreviewRows),
+    [exportPreviewRows],
+  );
 
   const jsonPreviewText = useMemo(() => {
     if (exportPreviewRows.length === 0) return "";
@@ -305,7 +314,7 @@ export function RequestsView() {
         </div>
 
         <div className="flex items-center gap-2">
-          {ownForms.length > 0 && (
+          {accessLoaded && ownForms.length > 0 && (
             <>
               <Button
                 variant="outline"
@@ -327,7 +336,7 @@ export function RequestsView() {
               </Button>
             </>
           )}
-          {forms.length > 0 && (
+          {accessLoaded && ownForms.length > 0 && (
             <Select value={filterFormId} onValueChange={setFilterFormId}>
               <SelectTrigger className="w-full sm:w-auto">
                 <Filter className="mr-2 h-4 w-4" />
@@ -335,7 +344,7 @@ export function RequestsView() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Forms</SelectItem>
-                {forms.map((form) => (
+                {ownForms.map((form) => (
                   <SelectItem key={form.id} value={form.id}>
                     {stripMarkdownToText(form.title) || "Untitled form"}
                   </SelectItem>
@@ -360,13 +369,17 @@ export function RequestsView() {
           onDelete={handleDelete}
           collapseStateKey="kanban-collapsed-requests"
         />
-      ) : requests.length > 0 ? (
+      ) : ownRequestsOnly.length > 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">
               No submissions match the selected filter
             </p>
-            <Button variant="link" onClick={() => setFilterFormId("all")}>
+            <Button
+              variant="link"
+              className="cursor-pointer"
+              onClick={() => setFilterFormId("all")}
+            >
               View all submissions
             </Button>
           </CardContent>

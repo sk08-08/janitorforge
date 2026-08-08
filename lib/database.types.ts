@@ -537,7 +537,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          world_id: string;
+          world_id: string | null;
           title: string;
           summary: string;
           created_at: string;
@@ -546,7 +546,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          world_id: string;
+          world_id?: string | null;
           title: string;
           summary?: string;
           created_at?: string;
@@ -555,7 +555,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          world_id?: string;
+          world_id?: string | null;
           title?: string;
           summary?: string;
           created_at?: string;
@@ -566,7 +566,7 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          world_id: string;
+          world_id: string | null;
           lorebook_id: string;
           title: string;
           kind: "lore" | "character" | "location" | "timeline" | "note";
@@ -577,7 +577,7 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          world_id: string;
+          world_id?: string | null;
           lorebook_id: string;
           title: string;
           kind?: "lore" | "character" | "location" | "timeline" | "note";
@@ -588,7 +588,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
-          world_id?: string;
+          world_id?: string | null;
           lorebook_id?: string;
           title?: string;
           kind?: "lore" | "character" | "location" | "timeline" | "note";

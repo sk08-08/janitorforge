@@ -53,7 +53,7 @@ type AtlasEntryKind = "lore" | "character" | "location" | "timeline" | "note";
 type LorebookRow = {
   id: string;
   user_id: string;
-  world_id: string;
+  world_id: string | null;
   title: string;
   summary: string;
   created_at: string;
@@ -69,7 +69,7 @@ type WorldRow = {
 type EntryRow = {
   id: string;
   user_id: string;
-  world_id: string;
+  world_id: string | null;
   lorebook_id: string;
   title: string;
   kind: AtlasEntryKind;
@@ -221,12 +221,14 @@ export default function LorebookPage() {
           { data: worldData, error: worldError },
           { data: entriesData, error: entriesError },
         ] = await Promise.all([
-          supabase
-            .from("active_atlas_worlds")
-            .select("id,title,slug")
-            .eq("id", nextLorebook.world_id)
-            .eq("user_id", userId)
-            .single(),
+          nextLorebook.world_id
+            ? supabase
+                .from("active_atlas_worlds")
+                .select("id,title,slug")
+                .eq("id", nextLorebook.world_id)
+                .eq("user_id", userId)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
           supabase
             .from("active_atlas_entries")
             .select("*")
@@ -390,7 +392,7 @@ export default function LorebookPage() {
   };
 
   const addEntry = async () => {
-    if (!currentUserId || !lorebook || !world) return;
+    if (!currentUserId || !lorebook) return;
 
     const title = newEntryTitle.trim();
     const body = newEntryBody.trim();
@@ -405,7 +407,7 @@ export default function LorebookPage() {
       const payload = {
         id: crypto.randomUUID(),
         user_id: currentUserId,
-        world_id: world.id,
+        world_id: lorebook.world_id,
         lorebook_id: lorebook.id,
         title,
         kind: newEntryKind,
@@ -502,7 +504,6 @@ export default function LorebookPage() {
       const { error: relationDeleteError } = await supabase
         .from("atlas_world_featured_lorebooks")
         .delete()
-        .eq("world_id", lorebook.world_id)
         .eq("lorebook_id", lorebook.id);
 
       if (relationDeleteError) {
@@ -682,7 +683,7 @@ export default function LorebookPage() {
                 rows={4}
                 value={summaryDraft}
                 onChange={(e) => setSummaryDraft(e.target.value)}
-                className="min-h-[9rem] md:min-h-[10rem]"
+                className="min-h-36 md:min-h-40"
               />
             </div>
             <div className="flex gap-2">
@@ -763,7 +764,7 @@ export default function LorebookPage() {
                 value={newEntryBody}
                 onChange={(e) => setNewEntryBody(e.target.value)}
                 placeholder="Write the lore, character info, location details…"
-                className="min-h-[11rem] md:min-h-[13rem]"
+                className="min-h-44 md:min-h-52"
               />
             </div>
             <Button
@@ -985,7 +986,7 @@ export default function LorebookPage() {
                             )
                           }
                           placeholder="Write the lore, character info, location details…"
-                          className="min-h-[13rem] md:min-h-[15rem]"
+                          className="min-h-52 md:min-h-60"
                         />
 
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

@@ -541,7 +541,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                   {
                     id: "feedback",
                     label: "Feedback Inbox",
-                    icon: MessageSquareMore,
+                    icon: Inbox,
                     description: "Review admin feedback and suggestions",
                   },
                   {
@@ -692,7 +692,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                         {
                           id: "feedback",
                           label: "Feedback Inbox",
-                          icon: MessageSquareMore,
+                          icon: Inbox,
                           description: "Review admin feedback and suggestions",
                         },
                         {

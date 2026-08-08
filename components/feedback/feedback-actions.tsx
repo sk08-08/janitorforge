@@ -1,17 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Bug, Lightbulb, MessageSquarePlus, Send } from "lucide-react";
+import { Bug, Lightbulb, MessageSquarePlus, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { submitFeedbackAction } from "@/app/actions/feedback";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -214,109 +207,136 @@ export function FeedbackActions({
   };
 
   const ActionSheet = (
-    <form onSubmit={submit} className="space-y-4">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Button
+    <form onSubmit={submit} className="space-y-6 pt-2">
+      <div className="flex w-full rounded-lg bg-muted/50 p-1">
+        <button
           type="button"
-          variant={feedbackType === "suggestion" ? "default" : "outline"}
-          className="justify-start cursor-pointer data-[state=active]:cursor-default"
           onClick={() => setFeedbackType("suggestion")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-md py-1.5 text-sm font-medium transition-all duration-200",
+            feedbackType === "suggestion"
+              ? "cursor-default bg-primary/10 text-primary shadow-sm"
+              : "cursor-pointer text-muted-foreground hover:text-foreground",
+          )}
         >
-          <Lightbulb className="mr-2 h-4 w-4" />
-          Suggestion
-        </Button>
-        <Button
+          <Lightbulb className="h-4 w-4" /> Suggestion
+        </button>
+        <button
           type="button"
-          variant={feedbackType === "bug" ? "destructive" : "outline"}
-          className="justify-start cursor-pointer data-[state=active]:cursor-default"
           onClick={() => setFeedbackType("bug")}
+          className={cn(
+            "flex flex-1 items-center justify-center gap-2 rounded-md py-1.5 text-sm font-medium transition-all duration-200",
+            feedbackType === "bug"
+              ? "cursor-default bg-red-500/10 text-destructive shadow-sm"
+              : "cursor-pointer text-muted-foreground hover:text-foreground",
+          )}
         >
-          <Bug className="mr-2 h-4 w-4" />
-          Bug report
-        </Button>
+          <Bug className="h-4 w-4" /> Bug Report
+        </button>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="feedback-subject">{copy.subjectLabel}</Label>
-        <Input
-          id="feedback-subject"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder={copy.subjectPlaceholder}
-          maxLength={120}
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="feedback-message">{copy.messageLabel}</Label>
-        <Textarea
-          id="feedback-message"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder={copy.messagePlaceholder}
-          rows={feedbackType === "bug" ? 7 : 6}
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="feedback-contact">Contact info</Label>
-        <Input
-          id="feedback-contact"
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-          placeholder="Email or username, optional"
-          maxLength={160}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="feedback-location">{selectLabelText}</Label>
-        <Select value={location} onValueChange={setLocation}>
-          <SelectTrigger id="feedback-location" className="w-full">
-            <SelectValue
-              placeholder={
-                feedbackType === "bug"
-                  ? "Select bug location"
-                  : "Select suggestion target"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Login / Register">Login / Register</SelectItem>
-            <SelectItem value="Public form">Public form</SelectItem>
-            <SelectItem value="Dashboard">Dashboard</SelectItem>
-            <SelectItem value="Submissions">Submissions / Kanban</SelectItem>
-            <SelectItem value="Forms">Forms</SelectItem>
-            <SelectItem value="Bots">Bot Manager</SelectItem>
-            <SelectItem value="other">Other (specify)</SelectItem>
-          </SelectContent>
-        </Select>
-        {location === "other" && (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="feedback-subject" className="text-foreground/90">
+            {copy.subjectLabel}
+          </Label>
           <Input
-            value={otherLocation}
-            onChange={(e) => setOtherLocation(e.target.value)}
-            placeholder="Describe where this happened"
-            maxLength={160}
+            id="feedback-subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder={copy.subjectPlaceholder}
+            maxLength={120}
+            required
+            className="bg-muted/20"
           />
-        )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="feedback-message" className="text-foreground/90">
+            {copy.messageLabel}
+          </Label>
+          <Textarea
+            id="feedback-message"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={copy.messagePlaceholder}
+            rows={feedbackType === "bug" ? 5 : 4}
+            required
+            className="resize-none bg-muted/20"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="feedback-location" className="text-foreground/90">
+            {selectLabelText}
+          </Label>
+          <Select value={location} onValueChange={setLocation}>
+            <SelectTrigger id="feedback-location" className="bg-muted/20">
+              <SelectValue
+                placeholder={
+                  feedbackType === "bug"
+                    ? "Select bug location"
+                    : "Select suggestion target"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Login / Register">Login / Register</SelectItem>
+              <SelectItem value="Public form">Public form</SelectItem>
+              <SelectItem value="Dashboard">Dashboard</SelectItem>
+              <SelectItem value="Submissions">Submissions / Kanban</SelectItem>
+              <SelectItem value="Forms">Forms</SelectItem>
+              <SelectItem value="Bots">Bot Manager</SelectItem>
+              <SelectItem value="other">Other (specify)</SelectItem>
+            </SelectContent>
+          </Select>
+          {location === "other" && (
+            <Input
+              value={otherLocation}
+              onChange={(e) => setOtherLocation(e.target.value)}
+              placeholder="Describe where this happened"
+              maxLength={160}
+              className="mt-2 bg-muted/20"
+            />
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="feedback-contact" className="text-foreground/90">
+            Contact info (Optional)
+          </Label>
+          <Input
+            id="feedback-contact"
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
+            placeholder="Email or username"
+            maxLength={160}
+            className="bg-muted/20"
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="feedback-images">Attach images (optional)</Label>
-        <div className="rounded-md border border-dashed p-3">
-          <p className="text-sm text-muted-foreground">{attachIntroText}</p>
-          <div className="mt-3 flex items-center gap-2">
-            <label
-              htmlFor="feedback-images"
-              className="inline-flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm hover:opacity-90 cursor-pointer"
-            >
-              {feedbackType === "bug" ? "Add screenshots" : "Add images"}
-            </label>
-            <p className="text-xs text-muted-foreground">or drag & drop</p>
-          </div>
+        <Label htmlFor="feedback-images" className="text-foreground/90">
+          Attachments
+        </Label>
 
+        <label
+          htmlFor="feedback-images"
+          className="group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/70 bg-muted/10 px-6 py-6 transition-colors hover:bg-muted/40 hover:border-primary/50"
+        >
+          <div className="rounded-full bg-muted p-2 text-muted-foreground group-hover:text-primary transition-colors">
+            <Upload className="h-4 w-4" />
+          </div>
+          <div className="text-center text-sm">
+            <span className="font-semibold text-primary">Click to upload</span>{" "}
+            or drag and drop
+            <p className="mt-1 text-xs text-muted-foreground">
+              {attachIntroText}
+            </p>
+          </div>
           <input
             id="feedback-images"
             type="file"
@@ -346,52 +366,58 @@ export function FeedbackActions({
               }
 
               setImages((prev) => [...prev, ...toAdd].slice(0, 3));
-              // reset input
               (e.target as HTMLInputElement).value = "";
             }}
           />
+        </label>
 
-          {images.length > 0 && (
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {images.map((img, idx) => (
-                <div key={idx} className="relative">
-                  <img
-                    src={img.dataUrl}
-                    alt={img.name}
-                    className="h-28 w-full object-cover rounded-md border"
-                  />
-                  <button
-                    type="button"
-                    className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white"
-                    onClick={() =>
-                      setImages((prev) => prev.filter((_, i) => i !== idx))
-                    }
-                  >
-                    <XIcon className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {images.length > 0 && (
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            {images.map((img, idx) => (
+              <div
+                key={idx}
+                className="group relative aspect-video overflow-hidden rounded-lg border bg-muted shadow-sm"
+              >
+                <img
+                  src={img.dataUrl}
+                  alt={img.name}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <button
+                  type="button"
+                  className="absolute right-1.5 top-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-destructive"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setImages((prev) => prev.filter((_, i) => i !== idx));
+                  }}
+                >
+                  <XIcon className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      <p className="text-xs text-muted-foreground">{copy.helper}</p>
-
-      <Button
-        type="submit"
-        className="w-full cursor-pointer"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? (
-          "Sending..."
-        ) : (
-          <>
-            <Send className="mr-2 h-4 w-4" />
-            Send {feedbackType === "bug" ? "bug report" : "suggestion"}
-          </>
-        )}
-      </Button>
+      <div className="mt-2 flex items-center justify-between border-t border-border/50 pt-4">
+        <p className="hidden max-w-[60%] text-xs text-muted-foreground sm:block">
+          {copy.helper}
+        </p>
+        <Button
+          type="submit"
+          className="w-full cursor-pointer sm:w-auto sm:px-8"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            "Sending..."
+          ) : (
+            <>
+              <Send className="mr-2 h-4 w-4" />
+              Send {feedbackType === "bug" ? "report" : "suggestion"}
+            </>
+          )}
+        </Button>
+      </div>
     </form>
   );
 

@@ -246,7 +246,11 @@ export async function listProfileBadgesForAdmin(profileId: string) {
   return { success: true, badges };
 }
 
-export async function searchProfilesForBadgeAdmin(query: string, limit = 10) {
+export async function searchProfilesForBadgeAdmin(
+  query: string,
+  limit = 12,
+  offset = 0,
+) {
   const { supabase, error } = await requireAdminBadgeAccess();
   if (error)
     return {
@@ -256,12 +260,13 @@ export async function searchProfilesForBadgeAdmin(query: string, limit = 10) {
     };
 
   const normalizedQuery = sanitizeText(query, 80);
-  const normalizedLimit = Math.max(1, Math.min(25, Math.trunc(limit || 10)));
+  const normalizedLimit = Math.max(1, Math.min(25, Math.trunc(limit || 12)));
+  const normalizedOffset = Math.max(0, Math.trunc(offset || 0));
 
   let builder = supabase
     .from("profiles")
     .select("id, username, display_name, avatar_url, slug")
-    .limit(normalizedLimit);
+    .range(normalizedOffset, normalizedOffset + normalizedLimit);
 
   if (normalizedQuery) {
     builder = builder.or(
@@ -278,12 +283,23 @@ export async function searchProfilesForBadgeAdmin(query: string, limit = 10) {
       success: false,
       error: queryError.message,
       profiles: [] as Array<Record<string, unknown>>,
+      hasMore: false,
+      nextOffset: normalizedOffset,
     };
   }
 
+  const profiles = (data || []) as Array<Record<string, unknown>>;
+  const hasMore = profiles.length > normalizedLimit;
+  const paginatedProfiles = hasMore
+    ? profiles.slice(0, normalizedLimit)
+    : profiles;
+  const nextOffset = normalizedOffset + paginatedProfiles.length;
+
   return {
     success: true,
-    profiles: (data || []) as Array<Record<string, unknown>>,
+    profiles: paginatedProfiles,
+    hasMore,
+    nextOffset,
   };
 }
 

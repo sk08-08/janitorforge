@@ -93,6 +93,9 @@ const EMPTY_FORM: EditableBadgeForm = {
   isActive: true,
 };
 
+const PROFILE_PAGE_SIZE = 12;
+const PROFILE_BADGES_REFRESH_INTERVAL_MS = 30_000;
+
 function slugify(value: string) {
   return String(value || "")
     .trim()
@@ -193,6 +196,9 @@ export function BadgeAdminTab() {
   const [searchingProfiles, setSearchingProfiles] = useState(false);
   const [profileQuery, setProfileQuery] = useState("");
   const [profiles, setProfiles] = useState<ProfileSearchResult[]>([]);
+  const [profileOffset, setProfileOffset] = useState(0);
+  const [hasMoreProfiles, setHasMoreProfiles] = useState(false);
+  const [loadingMoreProfiles, setLoadingMoreProfiles] = useState(false);
   const [selectedProfile, setSelectedProfile] =
     useState<ProfileSearchResult | null>(null);
   const [selectedProfileBadges, setSelectedProfileBadges] = useState<
@@ -203,6 +209,7 @@ export function BadgeAdminTab() {
   const [awardNote, setAwardNote] = useState("");
   const [submittingAward, setSubmittingAward] = useState(false);
   const [revokingSlug, setRevokingSlug] = useState<string | null>(null);
+  const [refreshingProfileBadges, setRefreshingProfileBadges] = useState(false);
   const profileSearchRequestRef = useRef(0);
 
   const loadBadges = useCallback(async () => {
@@ -226,34 +233,76 @@ export function BadgeAdminTab() {
     setSelectedProfileBadges(result.badges || []);
   }, []);
 
-  const loadInitialProfiles = useCallback(async () => {
-    const requestId = profileSearchRequestRef.current + 1;
-    profileSearchRequestRef.current = requestId;
+  const runProfileSearch = useCallback(
+    async ({
+      query,
+      offset,
+      append,
+      showError,
+    }: {
+      query: string;
+      offset: number;
+      append: boolean;
+      showError: boolean;
+    }) => {
+      const requestId = profileSearchRequestRef.current + 1;
+      profileSearchRequestRef.current = requestId;
 
-    setSearchingProfiles(true);
-    const result = await searchProfilesForBadgeAdmin("", 10);
+      if (offset > 0) {
+        setLoadingMoreProfiles(true);
+      } else {
+        setSearchingProfiles(true);
+      }
 
-    if (requestId !== profileSearchRequestRef.current) {
-      return;
-    }
+      const result = await searchProfilesForBadgeAdmin(
+        query,
+        PROFILE_PAGE_SIZE,
+        offset,
+      );
 
-    setSearchingProfiles(false);
+      if (requestId !== profileSearchRequestRef.current) {
+        return;
+      }
 
-    if (!result.success) {
-      setProfiles([]);
-      return;
-    }
+      setSearchingProfiles(false);
+      setLoadingMoreProfiles(false);
 
-    setProfiles((result.profiles || []) as ProfileSearchResult[]);
-  }, []);
+      if (!result.success) {
+        if (showError) {
+          toast.error(result.error || "Failed to search profiles");
+        }
+        if (!append) {
+          setProfiles([]);
+          setHasMoreProfiles(false);
+          setProfileOffset(0);
+        }
+        return;
+      }
+
+      const nextBatch = (result.profiles || []) as ProfileSearchResult[];
+      setHasMoreProfiles(Boolean(result.hasMore));
+      setProfileOffset(result.nextOffset || offset + nextBatch.length);
+
+      if (append) {
+        setProfiles((previous) => {
+          const byId = new Map(
+            previous.map((profile) => [profile.id, profile]),
+          );
+          for (const profile of nextBatch) {
+            byId.set(profile.id, profile);
+          }
+          return Array.from(byId.values());
+        });
+      } else {
+        setProfiles(nextBatch);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     loadBadges();
   }, [loadBadges]);
-
-  useEffect(() => {
-    void loadInitialProfiles();
-  }, [loadInitialProfiles]);
 
   useEffect(() => {
     if (!selectedBadgeSlug) {
@@ -337,13 +386,16 @@ export function BadgeAdminTab() {
     };
   }, [badges, categories.length]);
 
-  const handleCreateNew = () => {
-    setSelectedBadgeSlug(null);
-    setForm(EMPTY_FORM);
-  };
-
   const handleSubmitBadge = async () => {
     setSavingBadge(true);
+
+    const normalizedSortOrder = form.sortOrder.trim();
+    const sortOrderValue = Number(normalizedSortOrder);
+    if (!normalizedSortOrder || Number.isNaN(sortOrderValue)) {
+      toast.error("Sort order must be a valid number");
+      setSavingBadge(false);
+      return;
+    }
 
     const input = {
       slug: form.slug,
@@ -352,7 +404,7 @@ export function BadgeAdminTab() {
       icon: form.icon,
       color: form.color,
       category: form.category,
-      sortOrder: Number(form.sortOrder || 0),
+      sortOrder: Math.trunc(sortOrderValue),
       isActive: form.isActive,
     };
 
@@ -386,47 +438,39 @@ export function BadgeAdminTab() {
   const handleSearchProfiles = useCallback(
     async (queryOverride?: string) => {
       const queryValue = String(queryOverride ?? profileQuery).trim();
-      if (!queryValue) {
-        await loadInitialProfiles();
-        return;
-      }
-
-      const requestId = profileSearchRequestRef.current + 1;
-      profileSearchRequestRef.current = requestId;
-
-      setSearchingProfiles(true);
-      const result = await searchProfilesForBadgeAdmin(queryValue, 12);
-
-      if (requestId !== profileSearchRequestRef.current) {
-        return;
-      }
-
-      setSearchingProfiles(false);
-
-      if (!result.success) {
-        toast.error(result.error || "Failed to search profiles");
-        return;
-      }
-
-      setProfiles((result.profiles || []) as ProfileSearchResult[]);
+      await runProfileSearch({
+        query: queryValue,
+        offset: 0,
+        append: false,
+        showError: true,
+      });
     },
-    [profileQuery, loadInitialProfiles],
+    [profileQuery, runProfileSearch],
   );
 
   useEffect(() => {
-    const queryValue = profileQuery.trim();
-    if (!queryValue) {
-      profileSearchRequestRef.current += 1;
-      void loadInitialProfiles();
+    void handleSearchProfiles(profileQuery);
+  }, [profileQuery, handleSearchProfiles]);
+
+  const handleLoadMoreProfiles = useCallback(async () => {
+    if (loadingMoreProfiles || searchingProfiles || !hasMoreProfiles) {
       return;
     }
 
-    const timeout = setTimeout(() => {
-      void handleSearchProfiles(queryValue);
-    }, 220);
-
-    return () => clearTimeout(timeout);
-  }, [profileQuery, handleSearchProfiles, loadInitialProfiles]);
+    await runProfileSearch({
+      query: profileQuery.trim(),
+      offset: profileOffset,
+      append: true,
+      showError: true,
+    });
+  }, [
+    hasMoreProfiles,
+    loadingMoreProfiles,
+    profileOffset,
+    profileQuery,
+    runProfileSearch,
+    searchingProfiles,
+  ]);
 
   const shouldConstrainCatalogList = filteredBadges.length > 7;
   const shouldConstrainProfileResults =
@@ -438,10 +482,38 @@ export function BadgeAdminTab() {
     setForm(EMPTY_FORM);
   };
 
+  const refreshSelectedProfileBadges = useCallback(async () => {
+    if (!selectedProfile) return;
+    setRefreshingProfileBadges(true);
+    await loadProfileBadges(selectedProfile.id);
+    setRefreshingProfileBadges(false);
+  }, [loadProfileBadges, selectedProfile]);
+
   const handleSelectProfile = async (profile: ProfileSearchResult) => {
     setSelectedProfile(profile);
     await loadProfileBadges(profile.id);
   };
+
+  useEffect(() => {
+    if (!selectedProfile) return;
+
+    const interval = window.setInterval(() => {
+      void loadProfileBadges(selectedProfile.id);
+    }, PROFILE_BADGES_REFRESH_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void loadProfileBadges(selectedProfile.id);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadProfileBadges, selectedProfile]);
 
   const handleAwardBadge = async () => {
     if (!selectedProfile || !selectedAwardBadgeSlug) {
@@ -490,7 +562,7 @@ export function BadgeAdminTab() {
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden border-border/70 bg-gradient-to-br from-card via-card to-primary/5">
+      <Card className="overflow-hidden border-border/70 bg-linear-to-br from-card via-card to-primary/5">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Shield className="h-5 w-5 text-primary" /> Badge Operations Center
@@ -605,11 +677,11 @@ export function BadgeAdminTab() {
             </div>
 
             {categories.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
                 <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Quick categories
                 </span>
-                {categories.slice(0, 8).map((category) => (
+                {categories.slice(0, 6).map((category) => (
                   <Button
                     key={category}
                     type="button"
@@ -624,6 +696,14 @@ export function BadgeAdminTab() {
                     {category}
                   </Button>
                 ))}
+                {categories.length > 6 && (
+                  <Badge
+                    variant="secondary"
+                    className="h-7 rounded-full px-3 text-xs"
+                  >
+                    +{categories.length - 6} more
+                  </Badge>
+                )}
                 {catalogCategory !== "all" && (
                   <Button
                     type="button"
@@ -656,7 +736,7 @@ export function BadgeAdminTab() {
                 <div
                   className={cn(
                     "space-y-3",
-                    filteredBadges.length === 0 && "min-h-[14rem]",
+                    filteredBadges.length === 0 && "min-h-56",
                   )}
                 >
                   {filteredBadges.map((badge) => {
@@ -988,7 +1068,7 @@ export function BadgeAdminTab() {
                 <SearchInput
                   value={profileQuery}
                   onChange={setProfileQuery}
-                  placeholder="Search by username, display name or slug"
+                  placeholder="Search..."
                   className="flex-1"
                   debounce={120}
                 />
@@ -1002,9 +1082,8 @@ export function BadgeAdminTab() {
                   {searchingProfiles ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Search className="mr-2 h-4 w-4" />
+                    <RefreshCw className="h-4 w-4" />
                   )}
-                  Search
                 </Button>
               </div>
 
@@ -1036,7 +1115,7 @@ export function BadgeAdminTab() {
                         type="button"
                         onClick={() => void handleSelectProfile(profile)}
                         className={cn(
-                          "flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
+                          "flex w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
                           isSelected
                             ? "border-primary bg-primary/5"
                             : "border-border/70 hover:bg-muted/40",
@@ -1055,10 +1134,7 @@ export function BadgeAdminTab() {
                         <div className="min-w-0">
                           <p className="truncate font-medium">{displayName}</p>
                           <p className="truncate text-xs text-muted-foreground">
-                            @
-                            {profile.username ||
-                              profile.slug ||
-                              profile.id.slice(0, 8)}
+                            @{profile.username}
                           </p>
                         </div>
                       </button>
@@ -1066,7 +1142,7 @@ export function BadgeAdminTab() {
                   })}
 
                   {!searchingProfiles && profiles.length === 0 && (
-                    <Empty className="h-full min-h-[14rem] rounded-xl border border-dashed bg-card/30 px-4 py-7">
+                    <Empty className="h-full min-h-56 rounded-xl border border-dashed bg-card/30 px-4 py-7">
                       <EmptyContent>
                         <EmptyMedia variant="icon">
                           <UserRound className="h-5 w-5" />
@@ -1077,6 +1153,31 @@ export function BadgeAdminTab() {
                         </EmptyDescription>
                       </EmptyContent>
                     </Empty>
+                  )}
+
+                  {profiles.length > 0 && (
+                    <div className="pt-2">
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Showing {profiles.length} profile
+                        {profiles.length === 1 ? "" : "s"}
+                      </p>
+                      {hasMoreProfiles && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void handleLoadMoreProfiles()}
+                          disabled={loadingMoreProfiles}
+                          className="w-full cursor-pointer"
+                        >
+                          {loadingMoreProfiles ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Plus className="mr-2 h-4 w-4" />
+                          )}
+                          Load more profiles
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               </ScrollArea>
@@ -1166,23 +1267,40 @@ export function BadgeAdminTab() {
                     submittingAward ||
                     alreadyAwarded
                   }
-                  className="cursor-pointer"
+                  className="w-full cursor-pointer bg-primary/60 text-white hover:bg-primary/90"
                 >
                   {submittingAward ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
+                    "Award badge"
                   )}
-                  Award badge
                 </Button>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-medium">Current awards</h3>
-                  <Badge variant="outline">
-                    {selectedProfileBadges.length}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                      {selectedProfileBadges.length}
+                    </Badge>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void refreshSelectedProfileBadges()}
+                      disabled={!selectedProfile || refreshingProfileBadges}
+                      className="h-8 cursor-pointer"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "mr-1.5 h-3.5 w-3.5",
+                          refreshingProfileBadges && "animate-spin",
+                        )}
+                      />
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
 
                 {selectedProfile ? (

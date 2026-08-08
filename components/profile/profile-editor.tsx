@@ -52,6 +52,7 @@ import {
   UsersRound,
   UserRound,
   Upload,
+  BotIcon,
 } from "lucide-react";
 import {
   getOwnProfile,
@@ -1107,7 +1108,7 @@ export function ProfileEditor({
                             />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center">
-                              <Star className="h-4 w-4 text-muted-foreground" />
+                              <BotIcon className="h-4 w-4 text-muted-foreground" />
                             </div>
                           )}
                         </div>

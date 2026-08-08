@@ -278,22 +278,24 @@ export function createJanitorLorebookExport(lorebookEntries: AtlasEntry[]) {
 }
 
 export function createLorebookPackage(
-  world: AtlasWorld,
+  world: AtlasWorld | null,
   lorebook: AtlasLorebook,
   lorebookEntries: AtlasEntry[],
 ): LorebookPackage {
   return {
     version: 1,
-    world: {
-      title: world.title,
-      slug: world.slug,
-      kind: world.kind,
-      status: world.status,
-      description: world.description,
-      loreSummary: world.loreSummary,
-      botIds: world.botIds,
-      featuredLorebookIds: world.featuredLorebookIds,
-    },
+    world: world
+      ? {
+          title: world.title,
+          slug: world.slug,
+          kind: world.kind,
+          status: world.status,
+          description: world.description,
+          loreSummary: world.loreSummary,
+          botIds: world.botIds,
+          featuredLorebookIds: world.featuredLorebookIds,
+        }
+      : undefined,
     entries: lorebookEntries.map((entry) => ({
       title: entry.title,
       kind: entry.kind,
