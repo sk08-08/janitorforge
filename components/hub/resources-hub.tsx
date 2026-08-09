@@ -74,7 +74,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { MarkdownContent } from "./markdown-content";
+import { MarkdownRenderer } from "../forms/markdown-renderer";
 import {
   Select,
   SelectContent,
@@ -1192,7 +1192,7 @@ export function ResourcesHub() {
                               )}
                             </div>
                             <div className="max-h-24 overflow-hidden text-sm text-muted-foreground [&_p]:mb-0 [&_ul]:mb-0 [&_ol]:mb-0 [&_ol]:pl-5 [&_ul]:pl-5">
-                              <MarkdownContent
+                              <MarkdownRenderer
                                 content={entry.summary || "No summary yet."}
                                 className="prose-sm max-w-none"
                               />
@@ -1472,7 +1472,7 @@ export function ResourcesHub() {
                         Summary
                       </p>
                       <div className="prose prose-sm mt-2 max-w-none leading-6 dark:prose-invert">
-                        <MarkdownContent
+                        <MarkdownRenderer
                           content={selectedEntry.summary || "No summary yet."}
                         />
                       </div>
@@ -1884,15 +1884,15 @@ export function ResourcesHub() {
               </p>
               <MarkdownField
                 value={entryForm.summary}
-                onChange={(event) =>
+                onChange={(value) =>
                   setEntryForm((prev) => ({
                     ...prev,
-                    summary: event.target.value,
+                    summary: value,
                   }))
                 }
-                rows={3}
+                minEditorHeightRem={6}
                 className="min-h-[10rem] md:min-h-[12rem]"
-                previewMaxHeightRem={20}
+                maxEditorHeightRem={20}
               />
             </div>
             <div className="space-y-2">

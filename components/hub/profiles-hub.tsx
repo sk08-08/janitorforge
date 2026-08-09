@@ -21,6 +21,7 @@ import {
   Star,
   BadgeCheck,
 } from "lucide-react";
+import { stripMarkdownToText } from "@/lib/markdown";
 
 type ProfileCard = {
   id: string;
@@ -585,7 +586,7 @@ export function ProfilesHub() {
 
                             {profile.bio && (
                               <p className="line-clamp-3 text-sm text-muted-foreground">
-                                {profile.bio}
+                                {stripMarkdownToText(profile.bio)}
                               </p>
                             )}
 

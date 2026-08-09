@@ -936,7 +936,7 @@ export function CollaborationWorkspace({
                   </div>
                   <MarkdownField
                     value={editPersonality}
-                    onChange={(e) => setEditPersonality(e.target.value)}
+                    onChange={(value) => setEditPersonality(value)}
                     disabled={!canEdit}
                     className={cn(
                       "min-h-[100px] text-sm mt-1",
@@ -956,7 +956,7 @@ export function CollaborationWorkspace({
                   </div>
                   <MarkdownField
                     value={editFirstMessage}
-                    onChange={(e) => setEditFirstMessage(e.target.value)}
+                    onChange={(value) => setEditFirstMessage(value)}
                     disabled={!canEdit}
                     className={cn(
                       "min-h-[100px] text-sm mt-1",
@@ -976,7 +976,7 @@ export function CollaborationWorkspace({
                   </div>
                   <MarkdownField
                     value={editScenario}
-                    onChange={(e) => setEditScenario(e.target.value)}
+                    onChange={(value) => setEditScenario(value)}
                     disabled={!canEdit}
                     className={cn(
                       "min-h-[80px] text-sm mt-1",
@@ -996,7 +996,7 @@ export function CollaborationWorkspace({
                   </div>
                   <MarkdownField
                     value={editExampleDialogues}
-                    onChange={(e) => setEditExampleDialogues(e.target.value)}
+                    onChange={(value) => setEditExampleDialogues(value)}
                     disabled={!canEdit}
                     className={cn(
                       "min-h-[100px] text-sm mt-1",
@@ -1216,10 +1216,10 @@ export function CollaborationWorkspace({
                       {field.type === "textarea" ? (
                         <MarkdownField
                           value={crChanges[field.key] || ""}
-                          onChange={(e) =>
+                          onChange={(value) =>
                             setCrChanges((prev) => ({
                               ...prev,
-                              [field.key]: e.target.value,
+                              [field.key]: value,
                             }))
                           }
                           placeholder={`Proposed ${field.label.toLowerCase()}...`}

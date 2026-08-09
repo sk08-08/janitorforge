@@ -26,7 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { BotDetailModal } from "@/components/bots/bot-detail-modal";
-import { renderMarkdown } from "@/lib/markdown";
+import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
 import {
   Pencil,
   MapPin,
@@ -526,9 +526,9 @@ export function ProfilePage() {
 
             {/* Bio */}
             {typeof p.bio === "string" && p.bio && (
-              <div
-                className="mt-3 text-sm text-muted-foreground leading-relaxed rendered-markdown"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(p.bio) }}
+              <MarkdownRenderer
+                content={p.bio}
+                className="mt-3 text-sm text-muted-foreground leading-relaxed max-h-75 overflow-y-auto overflow-x-hidden wrap-break-word pr-2"
               />
             )}
 
@@ -957,12 +957,9 @@ export function ProfilePage() {
                       style={sectionCardStyle}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <p
-                          className="text-sm font-medium truncate rendered-markdown"
-                          style={{ color: readablePrimaryMutedColor }}
-                          dangerouslySetInnerHTML={{
-                            __html: renderMarkdown(form.title),
-                          }}
+                        <MarkdownRenderer
+                          content={form.title}
+                          className="text-sm font-medium truncate"
                         />
                         <Badge
                           variant={form.isActive ? "default" : "secondary"}
@@ -971,13 +968,9 @@ export function ProfilePage() {
                           {form.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </div>
-                      <p
-                        className="text-xs text-muted-foreground line-clamp-2 rendered-markdown"
-                        dangerouslySetInnerHTML={{
-                          __html: form.description
-                            ? renderMarkdown(form.description)
-                            : "No description",
-                        }}
+                      <MarkdownRenderer
+                        content={form.description || "No description"}
+                        className="text-xs text-muted-foreground line-clamp-2"
                       />
                       <p className="text-[10px] text-muted-foreground mt-1">
                         {form.sections.length} sections

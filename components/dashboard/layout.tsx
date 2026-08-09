@@ -712,12 +712,16 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
                           id: "feedback",
                           label: "Feedback Inbox",
                           icon: Inbox,
+                          color: "text-purple-500",
+                          activeBg: "bg-purple-500/10",
                           description: "Review admin feedback and suggestions",
                         },
                         {
                           id: "admin",
                           label: "Admin Panel",
                           icon: ShieldAlert,
+                          color: "text-purple-500",
+                          activeBg: "bg-purple-500/10",
                           description:
                             "Manage users, content, and platform settings",
                         },

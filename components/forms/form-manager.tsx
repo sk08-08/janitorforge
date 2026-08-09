@@ -65,7 +65,8 @@ import { toast } from "sonner";
 import type { RequestForm, FormTemplate, FormSection } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
-import { renderMarkdown } from "@/lib/markdown";
+import { MarkdownInlineRenderer, MarkdownRenderer } from "./markdown-renderer";
+import { stripMarkdownToText } from "@/lib/markdown";
 
 // ----------------------------------------------------------------------------
 
@@ -153,20 +154,15 @@ function FormCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <CardTitle
-          className="mt-3 text-lg rendered-markdown"
-          dangerouslySetInnerHTML={{
-            __html: form.title ? renderMarkdown(form.title) : "Untitled Form",
-          }}
-        />
-        <CardDescription
-          className="line-clamp-2 rendered-markdown"
-          dangerouslySetInnerHTML={{
-            __html: form.description
-              ? renderMarkdown(form.description)
-              : "No description",
-          }}
-        />
+        <CardTitle className="mt-3 text-lg">
+          <MarkdownInlineRenderer
+            content={form.title || "Untitled Form"}
+            className="text-lg font-semibold"
+          />
+        </CardTitle>
+        <CardDescription className="mt-1 min-h-18 line-clamp-4 text-sm leading-relaxed">
+          {stripMarkdownToText(form.description) || "No description"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {/* Stats */}
@@ -732,10 +728,10 @@ export function FormManager() {
               <Label className="text-sm">Custom Message (optional)</Label>
               <MarkdownField
                 value={deactivateMessage}
-                onChange={(e) => setDeactivateMessage(e.target.value)}
+                onChange={(value) => setDeactivateMessage(value)}
                 placeholder="e.g. Commissions are currently closed. Follow me on Twitter for updates!"
-                rows={4}
-                className="min-h-[9rem] md:min-h-[10rem]"
+                minEditorHeightRem={9}
+                className="min-h-36 md:min-h-40"
               />
             </div>
             <div className="space-y-2">

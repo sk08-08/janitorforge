@@ -26,7 +26,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { MarkdownField } from "@/components/ui/markdown-field";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -42,7 +41,6 @@ import {
   Plus,
   Search,
   Trash2,
-  User,
   UserRound,
   X,
 } from "lucide-react";
@@ -680,9 +678,9 @@ export default function LorebookPage() {
               <Label htmlFor="lorebook-summary">Summary</Label>
               <MarkdownField
                 id="lorebook-summary"
-                rows={4}
+                minEditorHeightRem={18}
                 value={summaryDraft}
-                onChange={(e) => setSummaryDraft(e.target.value)}
+                onChange={(value) => setSummaryDraft(value)}
                 className="min-h-36 md:min-h-40"
               />
             </div>
@@ -760,9 +758,9 @@ export default function LorebookPage() {
               <Label htmlFor="new-entry-body">Body</Label>
               <MarkdownField
                 id="new-entry-body"
-                rows={5}
+                minEditorHeightRem={18}
                 value={newEntryBody}
-                onChange={(e) => setNewEntryBody(e.target.value)}
+                onChange={(value) => setNewEntryBody(value)}
                 placeholder="Write the lore, character info, location details…"
                 className="min-h-44 md:min-h-52"
               />
@@ -974,13 +972,13 @@ export default function LorebookPage() {
                         </div>
 
                         <MarkdownField
-                          rows={8}
+                          minEditorHeightRem={18}
                           value={entry.body}
-                          onChange={(e) =>
+                          onChange={(value) =>
                             setEntries((prev) =>
                               prev.map((item) =>
                                 item.id === entry.id
-                                  ? { ...item, body: e.target.value }
+                                  ? { ...item, body: value }
                                   : item,
                               ),
                             )

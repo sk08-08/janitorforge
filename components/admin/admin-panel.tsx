@@ -16,7 +16,6 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
-  Search,
   Ban,
   CheckCircle,
   CrownIcon,
@@ -83,7 +82,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchInput } from "@/components/ui/search-input";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
-import { renderMarkdown, renderMarkdownInline } from "@/lib/markdown";
+import {
+  MarkdownRenderer,
+  MarkdownInlineRenderer,
+} from "../forms/markdown-renderer";
 import { formatDateTime } from "@/lib/utils";
 import { ModerationAdminTab } from "@/components/admin/moderation-admin-tab";
 import {
@@ -431,11 +433,9 @@ function OverviewTab({
                       className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-muted/50 transition-colors cursor-pointer"
                     >
                       <div className="min-w-0 flex-1">
-                        <p
+                        <MarkdownRenderer
                           className="truncate text-sm rendered-markdown"
-                          dangerouslySetInnerHTML={{
-                            __html: renderMarkdownInline(s.form_title) || "—",
-                          }}
+                          content={s.form_title || "—"}
                         />
                         <p className="text-xs text-muted-foreground">
                           @{s.owner?.username ?? "unknown"} ·{" "}
@@ -725,11 +725,9 @@ function SubmissionsTab({
                       </div>
                     </TableCell>
                     <TableCell className="max-w-40 text-sm">
-                      <span
+                      <MarkdownRenderer
                         className="rendered-markdown line-clamp-1"
-                        dangerouslySetInnerHTML={{
-                          __html: renderMarkdownInline(item.form_title) || "—",
-                        }}
+                        content={item.form_title || "—"}
                       />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -807,12 +805,9 @@ function SubmissionsTab({
                   {/* Form title */}
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Form</p>
-                    <p
+                    <MarkdownRenderer
                       className="text-sm font-medium rendered-markdown"
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          renderMarkdownInline(selectedItem.form_title) || "—",
-                      }}
+                      content={selectedItem.form_title || "—"}
                     />
                   </div>
 
@@ -1149,11 +1144,9 @@ function FormsTab() {
                       </div>
                     </TableCell>
                     <TableCell className="max-w-48 text-sm font-medium">
-                      <span
+                      <MarkdownRenderer
                         className="rendered-markdown line-clamp-1"
-                        dangerouslySetInnerHTML={{
-                          __html: renderMarkdownInline(item.title) || "—",
-                        }}
+                        content={item.title || "—"}
                       />
                     </TableCell>
                     <TableCell>
@@ -1234,11 +1227,9 @@ function FormsTab() {
                     <p className="text-xs text-muted-foreground mb-0.5">
                       Title
                     </p>
-                    <p
-                      className="text-base font-semibold rendered-markdown"
-                      dangerouslySetInnerHTML={{
-                        __html: renderMarkdownInline(selectedItem.title) || "—",
-                      }}
+                    <MarkdownRenderer
+                      className="text-sm font-medium rendered-markdown"
+                      content={selectedItem.title || "—"}
                     />
                   </div>
 
@@ -1247,12 +1238,11 @@ function FormsTab() {
                       <p className="text-xs text-muted-foreground mb-0.5">
                         Description
                       </p>
-                      <div
-                        className="text-sm rendered-markdown leading-relaxed"
-                        dangerouslySetInnerHTML={{
-                          __html: renderMarkdown(selectedItem.description),
-                        }}
-                      />
+                      <div className="text-sm rendered-markdown leading-relaxed">
+                        <MarkdownRenderer
+                          content={selectedItem.description || "—"}
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -1328,13 +1318,9 @@ function FormsTab() {
                                 key={sec.id ?? i}
                                 className="rounded-md border p-3"
                               >
-                                <p
+                                <MarkdownRenderer
                                   className="text-sm font-medium rendered-markdown"
-                                  dangerouslySetInnerHTML={{
-                                    __html:
-                                      renderMarkdownInline(sec.title) ||
-                                      `Section ${i + 1}`,
-                                  }}
+                                  content={sec.title || `Section ${i + 1}`}
                                 />
                                 <p className="text-xs text-muted-foreground mt-0.5">
                                   {(sec.fields ?? []).length} field

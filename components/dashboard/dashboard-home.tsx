@@ -558,10 +558,21 @@ export function DashboardHome() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 lg:p-10">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <Card className="dashboard-hero dark:shadow-primary/40 relative overflow-hidden border border-border/70 bg-linear-to-br from-background via-background/90 to-primary/6 shadow-[0_20px_70px_-30px_rgba(0,0,0,0.25)]">
+      <div className="mx-auto max-w-7xl space-y-8 w-full min-w-0">
+        <Card className="dashboard-hero dark:shadow-primary/40 relative overflow-hidden border border-border/70 bg-linear-to-br from-background via-background/90 to-primary/6 shadow-[0_20px_70px_-30px_rgba(0,0,0,0.25)] w-full min-w-0">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(120,119,198,0.12),transparent_48%)]" />
-          <CardContent className="relative z-10 grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.1fr_1.3fr] lg:items-center min-h-90">
+
+          <div className="pointer-events-none absolute inset-0 overflow-hidden z-0">
+            <div className="absolute top-[10%] right-[-10%] h-64 w-64 rounded-full bg-primary/10 blur-[60px] sm:top-[20%] sm:right-[10%] sm:bg-primary/20" />
+            <div className="absolute bottom-[-10%] left-[-10%] h-40 w-40 rounded-full bg-purple-500/10 blur-[50px] animate-pulse sm:bottom-0 sm:left-[10%] sm:bg-purple-500/20" />
+
+            <WandSparkles className="absolute top-[15%] right-[10%] h-6 w-6 text-primary/30 anim-float-2 sm:top-[10%] sm:left-[55%] sm:h-7 sm:w-7" />
+            <Star className="absolute bottom-[20%] right-[20%] h-4 w-4 text-purple-400/40 anim-float-1 sm:right-[10%] sm:h-5 sm:w-5" />
+            <div className="absolute top-[40%] left-[5%] h-2 w-2 rounded-full bg-emerald-500/30 anim-float-3 sm:h-2.5 sm:w-2.5" />
+            <div className="absolute bottom-[15%] left-[10%] h-3 w-3 rounded-full border-2 border-primary/30 anim-float-2 sm:bottom-[10%] sm:left-[25%] sm:h-3.5 sm:w-3.5" />
+          </div>
+
+          <CardContent className="relative z-10 grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.1fr_1.3fr] lg:items-center min-h-90 w-full min-w-0">
             <style
               dangerouslySetInnerHTML={{
                 __html: `
@@ -584,7 +595,7 @@ export function DashboardHome() {
               }}
             />
 
-            <div className="space-y-5 relative z-20">
+            <div className="space-y-5 relative z-20 flex flex-col items-center text-center lg:items-start lg:text-left w-full min-w-0">
               <div className="inline-flex items-center gap-2 rounded-full border-2 border-primary/20 bg-background/50 px-3 py-1 text-xs font-semibold shadow-sm backdrop-blur-md">
                 <CalendarDays className="h-3.5 w-3.5 text-primary" />
                 {new Date().toLocaleDateString("en-US", {
@@ -594,20 +605,20 @@ export function DashboardHome() {
                 })}
               </div>
 
-              <div className="space-y-3">
-                <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl leading-[1.1]">
+              <div className="space-y-3 w-full min-w-0">
+                <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl leading-[1.1] wrap-break-word">
                   {getGreeting()}, <br />
-                  <span className="bg-linear-to-r from-primary via-purple-400 to-primary bg-clip-text font-serif text-transparent italic">
+                  <span className="bg-linear-to-r from-primary via-purple-400 to-primary bg-clip-text font-serif text-transparent italic pr-2">
                     {userName ? userName : "Creator"}
                   </span>
                 </h1>
 
-                <p className="max-w-md text-base text-muted-foreground leading-relaxed">
+                <p className="max-w-md text-base text-muted-foreground leading-relaxed mx-auto lg:mx-0 wrap-break-word">
                   {heroMessage}
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-3 pt-2">
+              <div className="flex flex-wrap justify-center lg:justify-start gap-3 pt-2 w-full">
                 <Button
                   className="cursor-pointer rounded-full px-6 shadow-md shadow-primary/20 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px] hover:shadow-primary/40"
                   onClick={heroPrimaryAction.onClick}
@@ -619,14 +630,6 @@ export function DashboardHome() {
             </div>
 
             <div className="relative hidden lg:block h-full w-full min-h-75">
-              <div className="absolute top-1/2 left-1/2 h-70 w-70 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-[80px]" />
-              <div className="absolute bottom-0 right-0 h-45 w-45 rounded-full bg-purple-500/20 blur-[60px] animate-pulse" />
-
-              <WandSparkles className="absolute top-[10%] left-[10%] h-7 w-7 text-primary/40 anim-float-2" />
-              <Star className="absolute bottom-[20%] right-[10%] h-5 w-5 text-purple-400/50 anim-float-1" />
-              <div className="absolute top-[45%] left-[5%] h-2.5 w-2.5 rounded-full bg-emerald-500/40 anim-float-3" />
-              <div className="absolute bottom-[10%] left-[25%] h-3.5 w-3.5 rounded-full border-2 border-primary/40 anim-float-2" />
-
               <div className="relative h-full w-full">
                 {recentBots.length > 0 ? (
                   recentBots.slice(0, 3).map((bot, index) => {
@@ -669,7 +672,7 @@ export function DashboardHome() {
                             {bot.rating}
                           </Badge>
                         </div>
-                        <div className="mt-2 px-1 pb-1">
+                        <div className="mt-2 px-1 pb-1 w-full min-w-0">
                           <p className="truncate text-xs font-bold text-foreground">
                             {bot.name}
                           </p>
@@ -694,7 +697,7 @@ export function DashboardHome() {
           </CardContent>
         </Card>
 
-        <div className="dashboard-stagger-grid grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="dashboard-stagger-grid grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 w-full min-w-0">
           <StatTile
             title="Total Bots"
             value={stats.totalBots}
@@ -737,9 +740,9 @@ export function DashboardHome() {
           />
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-          <div className="space-y-6">
-            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] w-full min-w-0">
+          <div className="space-y-6 w-full min-w-0">
+            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70 w-full min-w-0">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <WandSparkles className="h-5 w-5 text-primary" />
@@ -759,7 +762,7 @@ export function DashboardHome() {
                         item.targetView && setCurrentView(item.targetView)
                       }
                       className={cn(
-                        "dashboard-rise-item flex w-full items-start gap-3 rounded-xl border border-border/60 bg-card/70 p-3 text-left transition-colors",
+                        "dashboard-rise-item flex w-full items-start gap-3 rounded-xl border border-border/60 bg-card/70 p-3 text-left transition-colors min-w-0",
                         item.targetView && "cursor-pointer hover:bg-primary/5",
                       )}
                       style={{ animationDelay: `${index * 70}ms` }}
@@ -798,9 +801,9 @@ export function DashboardHome() {
               </CardContent>
             </Card>
 
-            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70">
-              <CardHeader className="flex flex-row items-start justify-between gap-4">
-                <div>
+            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70 w-full min-w-0">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 items-start">
+                <div className="w-full sm:w-auto min-w-0 space-y-1.5">
                   <CardTitle className="text-lg">Recent submissions</CardTitle>
                   <CardDescription>
                     Latest requests across your forms.
@@ -808,7 +811,7 @@ export function DashboardHome() {
                 </div>
                 <Button
                   variant="outline"
-                  className="cursor-pointer"
+                  className="cursor-pointer w-full sm:w-auto shrink-0"
                   onClick={() => setCurrentView("requests")}
                 >
                   View all
@@ -816,7 +819,7 @@ export function DashboardHome() {
               </CardHeader>
               <CardContent>
                 {recentRequests.length > 0 ? (
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-2 w-full min-w-0">
                     {recentRequests.map((request) => {
                       const requestTone =
                         request.status === "completed"
@@ -832,20 +835,20 @@ export function DashboardHome() {
                           key={request.id}
                           type="button"
                           onClick={() => setCurrentView("requests")}
-                          className="dashboard-rise-item w-full group cursor-pointer rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5"
+                          className="dashboard-rise-item w-full group cursor-pointer rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5 min-w-0"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
+                          <div className="flex w-full items-start justify-between gap-2 min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-medium rendered-markdown [&>*:last-child]:mb-0">
                                 <MarkdownRenderer content={request.formTitle} />
                               </div>
-                              <p className="mt-1 text-xs text-muted-foreground">
+                              <p className="mt-1 text-xs text-muted-foreground truncate">
                                 {request.submitterName || "Anonymous submitter"}
                               </p>
                             </div>
                             <span
                               className={cn(
-                                "rounded-full px-2 py-1 text-[11px] font-medium",
+                                "shrink-0 rounded-full px-2 py-1 text-[11px] font-medium",
                                 requestTone,
                               )}
                             >
@@ -854,7 +857,7 @@ export function DashboardHome() {
                           </div>
 
                           {request.notes && (
-                            <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                            <p className="mt-2 line-clamp-2 text-xs text-muted-foreground wrap-break-word whitespace-normal min-w-0">
                               {request.notes}
                             </p>
                           )}
@@ -885,8 +888,8 @@ export function DashboardHome() {
             </Card>
           </div>
 
-          <div className="space-y-6">
-            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70">
+          <div className="space-y-6 w-full min-w-0">
+            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70 w-full min-w-0">
               <CardHeader>
                 <div className="flex items-center gap-2 text-lg">
                   <ListChecks className="h-5 w-5 text-primary" />
@@ -917,7 +920,6 @@ export function DashboardHome() {
       .anim-glass-shine {
         animation: glass-shine 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
-      /* NUEVO: Animación continua de las rayas */
       @keyframes stripes-move {
         0% { background-position: 28px 0; }
         100% { background-position: 0 0; }
@@ -944,7 +946,7 @@ export function DashboardHome() {
                     </span>
                   </div>
 
-                  <div className="relative h-2.5 overflow-hidden rounded-full bg-muted/60 p-0.5 shadow-inner">
+                  <div className="relative h-2.5 overflow-hidden rounded-full bg-muted/60 p-0.5 shadow-inner w-full min-w-0">
                     <div
                       className="relative h-full rounded-full bg-linear-to-r from-primary via-purple-400 to-primary anim-bg-flow transition-all duration-1000 ease-out overflow-hidden"
                       style={{ width: `${checklistProgress}%` }}
@@ -969,23 +971,23 @@ export function DashboardHome() {
               </CardContent>
             </Card>
 
-            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70">
+            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70 w-full min-w-0">
               <CardHeader>
                 <CardTitle className="text-lg">Quick actions</CardTitle>
                 <CardDescription>
                   Jump to the most frequent workflows.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-2 sm:grid-cols-2">
+              <CardContent className="grid gap-2 sm:grid-cols-2 w-full min-w-0">
                 {quickActions.map((action, index) => (
                   <button
                     key={action.id}
                     type="button"
                     onClick={action.onClick}
-                    className="dashboard-rise-item cursor-pointer group rounded-xl border border-border/70 bg-card/80 p-3 text-left transition-colors hover:bg-primary/5"
+                    className="dashboard-rise-item cursor-pointer group rounded-xl border border-border/70 bg-card/80 p-3 text-left transition-colors hover:bg-primary/5 w-full min-w-0"
                     style={{ animationDelay: `${index * 60}ms` }}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 w-full min-w-0">
                       <div
                         className={cn(
                           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
@@ -994,9 +996,11 @@ export function DashboardHome() {
                       >
                         <action.icon className="h-4 w-4" />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">{action.title}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">
+                          {action.title}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground truncate">
                           {action.description}
                         </p>
                       </div>
@@ -1008,57 +1012,13 @@ export function DashboardHome() {
                 ))}
               </CardContent>
             </Card>
-
-            <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70">
-              <CardHeader>
-                <CardTitle className="text-lg">Signals</CardTitle>
-                <CardDescription>
-                  Fast quality indicators for your current flow.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-card/70 px-3 py-2">
-                  <span className="text-sm text-muted-foreground">
-                    Completion rate
-                  </span>
-                  <span className="font-semibold">{completionRate}%</span>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-card/70 px-3 py-2">
-                  <span className="text-sm text-muted-foreground">
-                    Forms active
-                  </span>
-                  <span className="font-semibold">{activeFormRate}%</span>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-card/70 px-3 py-2">
-                  <span className="text-sm text-muted-foreground">
-                    Backlog level
-                  </span>
-                  <span
-                    className={cn(
-                      "font-semibold",
-                      stats.pendingRequests > 5
-                        ? "text-destructive"
-                        : stats.pendingRequests > 0
-                          ? "text-amber-600"
-                          : "text-emerald-600",
-                    )}
-                  >
-                    {stats.pendingRequests > 5
-                      ? "High"
-                      : stats.pendingRequests > 0
-                        ? "Moderate"
-                        : "Low"}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
 
         {collaborativeBots.length > 0 && (
-          <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70">
-            <CardHeader className="flex flex-row items-start justify-between gap-4">
-              <div>
+          <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70 w-full min-w-0">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 items-start">
+              <div className="w-full sm:w-auto min-w-0 space-y-1.5">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <UsersRound className="h-5 w-5 text-primary" />
                   Shared with you
@@ -1069,13 +1029,13 @@ export function DashboardHome() {
               </div>
               <Button
                 variant="outline"
-                className="cursor-pointer"
+                className="cursor-pointer w-full sm:w-auto shrink-0"
                 onClick={() => setCurrentView("bots")}
               >
                 Open Bot Manager
               </Button>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 w-full min-w-0">
               {collaborativeBots.slice(0, 4).map((bot) => (
                 <button
                   key={bot.id}
@@ -1084,18 +1044,18 @@ export function DashboardHome() {
                     setSelectedBotId(bot.id);
                     setCurrentView("bots");
                   }}
-                  className="dashboard-rise-item rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5"
+                  className="dashboard-rise-item rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5 w-full min-w-0"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex w-full items-start justify-between gap-2 min-w-0">
                     <p className="truncate text-sm font-semibold">{bot.name}</p>
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-[10px] shrink-0">
                       {bot.collaborator_role || "collaborator"}
                     </Badge>
                   </div>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  <p className="mt-2 line-clamp-2 text-xs text-muted-foreground wrap-break-word whitespace-normal min-w-0">
                     {bot.short_description}
                   </p>
-                  <p className="mt-3 text-xs text-muted-foreground">
+                  <p className="mt-3 text-xs text-muted-foreground truncate">
                     by{" "}
                     {bot.owner_display_name || bot.owner_username || "Unknown"}
                   </p>
@@ -1105,9 +1065,9 @@ export function DashboardHome() {
           </Card>
         )}
 
-        <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70">
-          <CardHeader className="flex flex-row items-start justify-between gap-4">
-            <div>
+        <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70 w-full min-w-0">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 items-start">
+            <div className="w-full sm:w-auto min-w-0 space-y-1.5">
               <CardTitle className="text-lg">Recent bots</CardTitle>
               <CardDescription>
                 Your latest character edits and creations.
@@ -1115,7 +1075,7 @@ export function DashboardHome() {
             </div>
             <Button
               variant="outline"
-              className="cursor-pointer"
+              className="cursor-pointer w-full sm:w-auto shrink-0"
               onClick={() => setCurrentView("bots")}
             >
               View all bots
@@ -1123,7 +1083,7 @@ export function DashboardHome() {
           </CardHeader>
           <CardContent>
             {recentBots.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 w-full min-w-0">
                 {recentBots.map((bot, index) => (
                   <button
                     key={bot.id}
@@ -1132,10 +1092,10 @@ export function DashboardHome() {
                       setSelectedBotId(bot.id);
                       setCurrentView("bots");
                     }}
-                    className="dashboard-rise-item cursor-pointer group rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5"
+                    className="dashboard-rise-item cursor-pointer group rounded-xl border border-border/70 bg-card/80 p-4 text-left transition-colors hover:bg-primary/5 w-full min-w-0"
                     style={{ animationDelay: `${index * 70}ms` }}
                   >
-                    <div className="flex w-full items-start justify-between gap-2">
+                    <div className="flex w-full items-start justify-between gap-2 min-w-0">
                       <div className="flex flex-1 min-w-0 items-center gap-2">
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 overflow-hidden">
                           {bot.imageUrl ? (
@@ -1161,12 +1121,14 @@ export function DashboardHome() {
                         {bot.rating}
                       </Badge>
                     </div>
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    <p className="mt-2 line-clamp-2 text-xs text-muted-foreground wrap-break-word whitespace-normal w-full min-w-0">
                       {bot.shortDescription}
                     </p>
                     <div className="mt-3 flex group-hover:bg-primary/10 rounded-lg p-1 items-center justify-between text-xs text-muted-foreground">
-                      <span>{formatRelativeTime(bot.updatedAt)}</span>
-                      <span className="group-hover:translate-x-0.5 transition-transform inline-flex items-center">
+                      <span className="truncate pr-2">
+                        {formatRelativeTime(bot.updatedAt)}
+                      </span>
+                      <span className="group-hover:translate-x-0.5 transition-transform inline-flex items-center shrink-0">
                         Edit <ChevronRight className="h-3.5 w-3.5" />
                       </span>
                     </div>
@@ -1185,8 +1147,8 @@ export function DashboardHome() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+        <div className="grid gap-4 md:grid-cols-2 w-full min-w-0">
+          <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75 w-full min-w-0">
             <CardHeader className="space-y-2 pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Lightbulb className="h-4 w-4 text-primary" />
@@ -1209,7 +1171,7 @@ export function DashboardHome() {
             </CardContent>
           </Card>
 
-          <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 overflow-hidden border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75">
+          <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-border/70 bg-card/90 backdrop-blur supports-backdrop-filter:bg-card/75 w-full min-w-0">
             <CardHeader className="space-y-2 pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -1234,26 +1196,26 @@ export function DashboardHome() {
         </div>
 
         {isNewUser && (
-          <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 overflow-hidden border-primary/20 bg-linear-to-br from-primary/5 via-card to-chart-2/5">
-            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
+          <Card className="dashboard-rise-item shadow-md dark:shadow-primary/15 border-primary/20 bg-linear-to-br from-primary/5 via-card to-chart-2/5 w-full min-w-0">
+            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between w-full min-w-0">
+              <div className="space-y-1 min-w-0 flex-1">
                 <p className="text-sm font-semibold">
                   First-time creator boost
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground wrap-break-word whitespace-normal min-w-0">
                   Start with one bot, one form, then test one submission flow.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto shrink-0">
                 <Button
-                  className="cursor-pointer"
+                  className="cursor-pointer w-full sm:w-auto"
                   onClick={() => setCurrentView("bots")}
                 >
                   Start with bot
                 </Button>
                 <Button
                   variant="outline"
-                  className="cursor-pointer"
+                  className="cursor-pointer w-full sm:w-auto"
                   onClick={() => setCurrentView("forms")}
                 >
                   Build first form

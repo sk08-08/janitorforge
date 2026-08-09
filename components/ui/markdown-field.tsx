@@ -1,744 +1,787 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { Markdown } from "@tiptap/markdown";
+import { Mark, mergeAttributes } from "@tiptap/core";
+import LinkExtension from "@tiptap/extension-link";
+import { HexColorPicker } from "react-colorful";
 import {
   Bold,
-  Code,
-  Eye,
   Italic,
-  Link,
+  Code,
+  Link as LinkIcon,
   List,
   ListOrdered,
   Palette,
-  Pencil,
+  Undo,
+  Redo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+// ---------------------------------------------------------------------------
+// Constants & Interceptors
+// ---------------------------------------------------------------------------
 
 const COLOR_PRESETS = [
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#22c55e",
-  "#06b6d4",
-  "#3b82f6",
-  "#a855f7",
-  "#f43f5e",
-] as const;
-
-// Ported from components/forms/form-builder.tsx (not exported from source)
-function applyToggleWrap(
-  value: string,
-  start: number,
-  end: number,
-  before: string,
-  after = "",
-) {
-  const val = value || "";
-  const sel = val.substring(start, end);
-  if (sel.startsWith(before) && sel.endsWith(after)) {
-    const inner = sel.substring(before.length, sel.length - after.length);
-    return {
-      newValue: val.substring(0, start) + inner + val.substring(end),
-      newStart: start,
-      newEnd: start + inner.length,
-    };
-  }
-  if (start === end) {
-    const openIndex = val.lastIndexOf(
-      before,
-      Math.max(0, start - before.length),
-    );
-    const closeIndex = val.indexOf(after || before, start);
-    if (
-      openIndex !== -1 &&
-      closeIndex !== -1 &&
-      openIndex < start &&
-      start <= closeIndex
-    ) {
-      const inner = val.substring(openIndex + before.length, closeIndex);
-      const newValue =
-        val.substring(0, openIndex) +
-        inner +
-        val.substring(closeIndex + after.length);
-      return {
-        newValue,
-        newStart: openIndex,
-        newEnd: openIndex + inner.length,
-      };
-    }
-    if (val.startsWith(before) && val.endsWith(after)) {
-      const inner = val.substring(before.length, val.length - after.length);
-      return { newValue: inner, newStart: 0, newEnd: inner.length };
-    }
-    const newValue = before + val + after;
-    return { newValue, newStart: before.length, newEnd: before.length };
-  }
-  const wrapped =
-    val.substring(0, start) + before + sel + after + val.substring(end);
-  return {
-    newValue: wrapped,
-    newStart: start + before.length,
-    newEnd: start + before.length + sel.length,
-  };
-}
-
-function toggleListMarkersForText(text: string, type: "ul" | "ol") {
-  const lines = String(text || "").split(/\r?\n/);
-  const nonEmpty = lines.filter((l) => l.trim() !== "");
-  if (nonEmpty.length === 0) return text;
-  const isAllMarked = nonEmpty.every((l) =>
-    type === "ul" ? /^\s*[-*]\s+/.test(l) : /^\s*\d+\.\s+/.test(l),
-  );
-  if (isAllMarked) {
-    return lines.map((l) => l.replace(/^\s*([-*]|\d+\.)\s+/, "")).join("\n");
-  }
-  if (type === "ul") {
-    return lines.map((l) => (l.trim() === "" ? l : `- ${l}`)).join("\n");
-  }
-  let counter = 1;
-  return lines
-    .map((l) => (l.trim() === "" ? l : `${counter++}. ${l}`))
-    .join("\n");
-}
-
-function isWrapActive(
-  value: string,
-  start: number,
-  end: number,
-  before: string,
-  after = "",
-) {
-  const val = value || "";
-  const safeStart = Math.max(0, Math.min(start, val.length));
-  const safeEnd = Math.max(safeStart, Math.min(end, val.length));
-  const sel = val.substring(safeStart, safeEnd);
-
-  if (safeStart !== safeEnd) {
-    return sel.startsWith(before) && sel.endsWith(after);
-  }
-
-  const openIndex = val.lastIndexOf(
-    before,
-    Math.max(0, safeStart - before.length),
-  );
-  const closeIndex = val.indexOf(after || before, safeStart);
-  return (
-    openIndex !== -1 &&
-    closeIndex !== -1 &&
-    openIndex < safeStart &&
-    safeStart <= closeIndex
-  );
-}
-
-function areSelectedLinesMarked(
-  value: string,
-  start: number,
-  end: number,
-  type: "ul" | "ol",
-) {
-  const val = String(value || "");
-  const safeStart = Math.max(0, Math.min(start, val.length));
-  const safeEnd = Math.max(safeStart, Math.min(end, val.length));
-  const lineStart = Math.max(
-    0,
-    val.lastIndexOf("\n", Math.max(0, safeStart - 1)) + 1,
-  );
-  let lineEnd = val.indexOf("\n", safeEnd);
-  if (lineEnd === -1) lineEnd = val.length;
-  const lines = val
-    .substring(lineStart, lineEnd)
-    .split(/\r?\n/)
-    .filter((l) => l.trim() !== "");
-  if (lines.length === 0) return false;
-  return lines.every((l) =>
-    type === "ul" ? /^\s*[-*]\s+/.test(l) : /^\s*\d+\.\s+/.test(l),
-  );
-}
-
-function findLinkRangeAtSelection(value: string, start: number, end: number) {
-  const val = String(value || "");
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-  const safeStart = Math.max(0, Math.min(start, val.length));
-  const safeEnd = Math.max(safeStart, Math.min(end, val.length));
-
-  let match: RegExpExecArray | null;
-  while ((match = linkRegex.exec(val)) !== null) {
-    const mStart = match.index;
-    const mEnd = mStart + match[0].length;
-    const intersects =
-      safeStart === safeEnd
-        ? safeStart >= mStart && safeStart <= mEnd
-        : safeStart < mEnd && safeEnd > mStart;
-    if (intersects) {
-      return {
-        start: mStart,
-        end: mEnd,
-        text: match[1],
-        url: match[2],
-      };
-    }
-  }
-
-  return null;
-}
+  { label: "Red", value: "#ef4444" },
+  { label: "Orange", value: "#f97316" },
+  { label: "Yellow", value: "#eab308" },
+  { label: "Green", value: "#22c55e" },
+  { label: "Cyan", value: "#06b6d4" },
+  { label: "Blue", value: "#3b82f6" },
+  { label: "Purple", value: "#a855f7" },
+  { label: "Rose", value: "#f43f5e" },
+];
 
 // ---------------------------------------------------------------------------
-// MarkdownField
-// Drop-in replacement for <Textarea> with a compact formatting toolbar and
-// an Edit/Preview toggle. Stores and emits raw Markdown — no schema changes.
+// Toolbar Components
 // ---------------------------------------------------------------------------
 
-interface MarkdownFieldProps extends Omit<
-  React.ComponentProps<"textarea">,
-  "onChange"
-> {
-  value?: string;
-  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  minEditorHeightRem?: number;
-  previewMaxHeightRem?: number;
-}
-
-export function MarkdownField({
-  value = "",
-  onChange,
-  className,
-  rows,
-  placeholder,
-  minEditorHeightRem,
-  previewMaxHeightRem = 34,
-  ...props
-}: MarkdownFieldProps) {
-  const [mode, setMode] = useState<"edit" | "preview">("edit");
-  const [selectionVersion, setSelectionVersion] = useState(0);
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  const selectionRef = useRef({ start: 0, end: 0 });
-  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(
-    null,
-  );
-  const colorInputRef = useRef<HTMLInputElement>(null);
-  const historyRef = useRef<
-    Array<{ value: string; start: number; end: number }>
-  >([]);
-  const redoRef = useRef<Array<{ value: string; start: number; end: number }>>(
-    [],
-  );
-  const [selectedColor, setSelectedColor] = useState("#ef4444");
-
-  const setSelectionFromTextArea = useCallback(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    const next = {
-      start: ta.selectionStart ?? 0,
-      end: ta.selectionEnd ?? 0,
-    };
-    const prev = selectionRef.current;
-    selectionRef.current = {
-      start: next.start,
-      end: next.end,
-    };
-    if (prev.start !== next.start || prev.end !== next.end) {
-      setSelectionVersion((v) => v + 1);
-    }
-  }, []);
-
-  const pushHistory = useCallback(
-    (snapshot: { value: string; start: number; end: number }) => {
-      const current = historyRef.current;
-      const last = current[current.length - 1];
-      if (
-        last &&
-        last.value === snapshot.value &&
-        last.start === snapshot.start &&
-        last.end === snapshot.end
-      ) {
-        return;
-      }
-      current.push(snapshot);
-      if (current.length > 100) {
-        current.shift();
-      }
-    },
-    [],
-  );
-
-  const applyValue = useCallback(
-    (
-      nextValue: string,
-      nextSelection?: { start: number; end: number },
-      options?: { recordHistory?: boolean; clearRedo?: boolean },
-    ) => {
-      const recordHistory = options?.recordHistory ?? true;
-      const clearRedo = options?.clearRedo ?? true;
-      if (recordHistory) {
-        pushHistory({
-          value: String(value || ""),
-          start: selectionRef.current.start,
-          end: selectionRef.current.end,
-        });
-      }
-      if (clearRedo) {
-        redoRef.current = [];
-      }
-      if (nextSelection) {
-        pendingSelectionRef.current = nextSelection;
-      }
-      onChange?.({
-        target: { value: nextValue },
-      } as React.ChangeEvent<HTMLTextAreaElement>);
-    },
-    [onChange, pushHistory, value],
-  );
-
-  useEffect(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    const pending = pendingSelectionRef.current;
-    if (!pending) return;
-    pendingSelectionRef.current = null;
-    requestAnimationFrame(() => {
-      try {
-        ta.focus();
-        ta.setSelectionRange(pending.start, pending.end);
-        selectionRef.current = { start: pending.start, end: pending.end };
-      } catch {}
-    });
-  }, [value]);
-
-  const applyFormat = useCallback(
-    (before: string, after = "") => {
-      const ta = taRef.current;
-      if (!ta) return;
-      setSelectionFromTextArea();
-      const result = applyToggleWrap(
-        String(value),
-        ta.selectionStart ?? 0,
-        ta.selectionEnd ?? ta.selectionStart ?? 0,
-        before,
-        after,
-      );
-      applyValue(result.newValue, {
-        start: result.newStart,
-        end: result.newEnd,
-      });
-    },
-    [value, applyValue, setSelectionFromTextArea],
-  );
-
-  const applyList = useCallback(
-    (type: "ul" | "ol") => {
-      const ta = taRef.current;
-      if (!ta) return;
-      setSelectionFromTextArea();
-      const v = String(value);
-      const start = ta.selectionStart ?? 0;
-      const end = ta.selectionEnd ?? start;
-      const lineStart = Math.max(
-        0,
-        v.lastIndexOf("\n", Math.max(0, start - 1)) + 1,
-      );
-      let lineEnd = v.indexOf("\n", end);
-      if (lineEnd === -1) lineEnd = v.length;
-      const toggled = toggleListMarkersForText(
-        v.substring(lineStart, lineEnd),
-        type,
-      );
-      applyValue(v.substring(0, lineStart) + toggled + v.substring(lineEnd), {
-        start: lineStart,
-        end: lineStart + toggled.length,
-      });
-    },
-    [value, applyValue, setSelectionFromTextArea],
-  );
-
-  const applyLink = useCallback(() => {
-    const ta = taRef.current;
-    if (!ta) return;
-    setSelectionFromTextArea();
-
-    const val = String(value || "");
-    const start = ta.selectionStart ?? 0;
-    const end = ta.selectionEnd ?? start;
-    const selected = val.substring(start, end);
-    const selectedTrimmed = selected.trim();
-
-    const linkRange = findLinkRangeAtSelection(val, start, end);
-    if (linkRange) {
-      const newUrl = window.prompt("Link URL", linkRange.url || "https://");
-      if (!newUrl) return;
-      const replacement = `[${linkRange.text}](${newUrl.trim()})`;
-      const newValue =
-        val.substring(0, linkRange.start) +
-        replacement +
-        val.substring(linkRange.end);
-      const newEnd = linkRange.start + replacement.length;
-      applyValue(newValue, { start: newEnd, end: newEnd });
-      return;
-    }
-
-    if (start !== end) {
-      const looksLikeUrl = /^https?:\/\//i.test(selectedTrimmed);
-      const url = looksLikeUrl ? selectedTrimmed : "https://";
-      const replacement = `[${selected}](${url})`;
-      const newValue =
-        val.substring(0, start) + replacement + val.substring(end);
-
-      if (looksLikeUrl) {
-        const newEnd = start + replacement.length;
-        applyValue(newValue, { start: newEnd, end: newEnd });
-      } else {
-        const urlStart = start + selected.length + 3;
-        const urlEnd = urlStart + url.length;
-        applyValue(newValue, { start: urlStart, end: urlEnd });
-      }
-      return;
-    }
-
-    const template = "[link text](https://)";
-    const newValue = val.substring(0, start) + template + val.substring(end);
-    applyValue(newValue, { start: start + 1, end: start + 10 });
-  }, [applyValue, setSelectionFromTextArea, value]);
-
-  const applyColor = useCallback(
-    (color: string) => {
-      const ta = taRef.current;
-      if (!ta) return;
-
-      const safeColor = /^#[0-9a-fA-F]{6}$/.test(color)
-        ? color.toLowerCase()
-        : selectedColor;
-      setSelectionFromTextArea();
-
-      const val = String(value || "");
-      const start = ta.selectionStart ?? 0;
-      const end = ta.selectionEnd ?? start;
-      const selectedText = val.substring(start, end);
-
-      if (start !== end) {
-        const coloredChunkMatch = selectedText.match(
-          /^\[([\s\S]+)\]\{#[0-9a-fA-F]{3,6}\}$/,
-        );
-        const content = coloredChunkMatch ? coloredChunkMatch[1] : selectedText;
-        const replacement = `[${content}]{${safeColor}}`;
-        const newValue =
-          val.substring(0, start) + replacement + val.substring(end);
-        const innerStart = start + 1;
-        const innerEnd = innerStart + content.length;
-        applyValue(newValue, { start: innerStart, end: innerEnd });
-        return;
-      }
-
-      const replacement = `[text]{${safeColor}}`;
-      const newValue =
-        val.substring(0, start) + replacement + val.substring(end);
-      applyValue(newValue, { start: start + 1, end: start + 5 });
-    },
-    [applyValue, selectedColor, setSelectionFromTextArea, value],
-  );
-
-  const undo = useCallback(() => {
-    if (historyRef.current.length === 0) return;
-    const previous = historyRef.current.pop();
-    if (!previous) return;
-    redoRef.current.push({
-      value: String(value || ""),
-      start: selectionRef.current.start,
-      end: selectionRef.current.end,
-    });
-    applyValue(
-      previous.value,
-      { start: previous.start, end: previous.end },
-      {
-        recordHistory: false,
-        clearRedo: false,
-      },
-    );
-  }, [applyValue, value]);
-
-  const redo = useCallback(() => {
-    if (redoRef.current.length === 0) return;
-    const next = redoRef.current.pop();
-    if (!next) return;
-    pushHistory({
-      value: String(value || ""),
-      start: selectionRef.current.start,
-      end: selectionRef.current.end,
-    });
-    applyValue(
-      next.value,
-      { start: next.start, end: next.end },
-      {
-        recordHistory: false,
-        clearRedo: false,
-      },
-    );
-  }, [applyValue, pushHistory, value]);
-
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      pushHistory({
-        value: String(value || ""),
-        start: selectionRef.current.start,
-        end: selectionRef.current.end,
-      });
-      redoRef.current = [];
-      onChange?.(e);
-      selectionRef.current = {
-        start: e.target.selectionStart ?? 0,
-        end: e.target.selectionEnd ?? 0,
-      };
-    },
-    [onChange, pushHistory, value],
-  );
-
-  const activeState = useMemo(() => {
-    const start = selectionRef.current.start;
-    const end = selectionRef.current.end;
-    const currentValue = String(value || "");
-    return {
-      bold: isWrapActive(currentValue, start, end, "**", "**"),
-      italic: isWrapActive(currentValue, start, end, "*", "*"),
-      code: isWrapActive(currentValue, start, end, "`", "`"),
-      ul: areSelectedLinesMarked(currentValue, start, end, "ul"),
-      ol: areSelectedLinesMarked(currentValue, start, end, "ol"),
-      link: !!findLinkRangeAtSelection(currentValue, start, end),
-    };
-  }, [value, selectionVersion]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      const key = e.key.toLowerCase();
-      if (key === "z" && e.shiftKey) {
-        e.preventDefault();
-        redo();
-      } else if (key === "z") {
-        e.preventDefault();
-        undo();
-      } else if (key === "y") {
-        e.preventDefault();
-        redo();
-      } else if (key === "b") {
-        e.preventDefault();
-        applyFormat("**", "**");
-      } else if (key === "i") {
-        e.preventDefault();
-        applyFormat("*", "*");
-      } else if (key === "`") {
-        e.preventDefault();
-        applyFormat("`", "`");
-      } else if (key === "k") {
-        e.preventDefault();
-        applyLink();
-      }
-    },
-    [applyFormat, applyLink, redo, undo],
-  );
-
-  const computedMinRem = rows ? Math.max(rows * 1.5, 7) : 7;
-  const minHeight = `${Math.max(minEditorHeightRem ?? 0, computedMinRem)}rem`;
-
-  return (
-    <div
-      className={cn(
-        "w-full overflow-hidden rounded-md border border-input bg-transparent shadow-xs",
-        "transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
-        "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
-      )}
-    >
-      {/* Formatting toolbar */}
-      <div className="flex flex-col gap-2 border-b border-border/50 bg-muted/30 px-2 py-1.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-0.5 min-w-0">
-          <MdButton
-            onClick={() => applyFormat("**", "**")}
-            title="Bold (Ctrl+B)"
-            active={activeState.bold}
-          >
-            <Bold className="h-3.5 w-3.5" />
-          </MdButton>
-          <MdButton
-            onClick={() => applyFormat("*", "*")}
-            title="Italic (Ctrl+I)"
-            active={activeState.italic}
-          >
-            <Italic className="h-3.5 w-3.5" />
-          </MdButton>
-          <MdButton
-            onClick={() => applyFormat("`", "`")}
-            title="Inline code (Ctrl+`)"
-            active={activeState.code}
-          >
-            <Code className="h-3.5 w-3.5" />
-          </MdButton>
-          <MdButton
-            onClick={applyLink}
-            title="Link (Ctrl+K)"
-            active={activeState.link}
-          >
-            <Link className="h-3.5 w-3.5" />
-          </MdButton>
-          <div className="mx-1 h-4 w-px bg-border/60" />
-          <MdButton
-            onClick={() => colorInputRef.current?.click()}
-            title="Text color"
-          >
-            <Palette className="h-3.5 w-3.5" style={{ color: selectedColor }} />
-          </MdButton>
-          <input
-            ref={colorInputRef}
-            type="color"
-            value={selectedColor}
-            onChange={(e) => {
-              const next = e.target.value;
-              setSelectedColor(next);
-              applyColor(next);
-            }}
-            className="sr-only"
-            aria-label="Pick markdown text color"
-          />
-          <div className="flex items-center gap-1 pr-1">
-            {COLOR_PRESETS.map((color) => (
-              <button
-                key={color}
-                type="button"
-                className={cn(
-                  "h-4 w-4 rounded-full border border-border/70 transition-transform hover:scale-110",
-                  selectedColor === color && "ring-2 ring-ring ring-offset-1",
-                )}
-                style={{ backgroundColor: color }}
-                onClick={() => {
-                  setSelectedColor(color);
-                  applyColor(color);
-                }}
-                title={`Apply ${color}`}
-                aria-label={`Apply ${color}`}
-              />
-            ))}
-          </div>
-          <div className="mx-1 h-4 w-px bg-border/60" />
-          <MdButton
-            onClick={() => applyList("ul")}
-            title="Bullet list"
-            active={activeState.ul}
-          >
-            <List className="h-3.5 w-3.5" />
-          </MdButton>
-          <MdButton
-            onClick={() => applyList("ol")}
-            title="Numbered list"
-            active={activeState.ol}
-          >
-            <ListOrdered className="h-3.5 w-3.5" />
-          </MdButton>
-        </div>
-
-        {/* Edit / Preview toggle */}
-        <div className="flex w-full shrink-0 overflow-hidden rounded border border-border/60 bg-background text-xs sm:ml-auto sm:w-auto">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("edit");
-              requestAnimationFrame(() => taRef.current?.focus());
-            }}
-            className={cn(
-              "flex flex-1 cursor-pointer items-center justify-center gap-1 px-2.5 py-1 transition-colors sm:flex-none",
-              mode === "edit"
-                ? "bg-secondary text-secondary-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Pencil className="h-3 w-3" />
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("preview")}
-            className={cn(
-              "flex flex-1 cursor-pointer items-center justify-center gap-1 border-l border-border/60 px-2.5 py-1 transition-colors sm:flex-none",
-              mode === "preview"
-                ? "bg-secondary text-secondary-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Eye className="h-3 w-3" />
-            Preview
-          </button>
-        </div>
-      </div>
-
-      {/* Edit mode */}
-      {mode === "edit" ? (
-        <textarea
-          ref={taRef}
-          data-slot="textarea"
-          value={value}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          onSelect={setSelectionFromTextArea}
-          onClick={setSelectionFromTextArea}
-          onKeyUp={setSelectionFromTextArea}
-          rows={rows}
-          placeholder={placeholder}
-          style={{ minHeight }}
-          className={cn(
-            "w-full resize-y bg-transparent px-4 py-2 text-base outline-none",
-            "placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-            className,
-          )}
-          {...props}
-        />
-      ) : (
-        /* Preview mode */
-        <div
-          className={cn("overflow-y-auto px-4 py-2", className)}
-          style={{
-            minHeight,
-            maxHeight: `min(72vh, ${previewMaxHeightRem}rem)`,
-          }}
-        >
-          {value?.trim() ? (
-            <MarkdownRenderer content={value} className="text-sm" />
-          ) : (
-            <p className="text-sm italic text-muted-foreground">
-              {placeholder ?? "Nothing to preview yet."}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MdButton({
+function ToolbarButton({
   onClick,
-  title,
   active,
+  disabled,
+  title,
   children,
 }: {
   onClick: () => void;
-  title: string;
   active?: boolean;
+  disabled?: boolean;
+  title: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       title={title}
       className={cn(
-        "flex h-7 w-7 cursor-pointer items-center justify-center rounded transition-colors",
+        "flex h-8 w-8 cursor-pointer items-center justify-center rounded-md transition-colors",
         active
-          ? "bg-secondary text-foreground"
+          ? "bg-primary/20 text-primary"
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        disabled &&
+          "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground",
       )}
     >
       {children}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MarkdownField
+// WYSIWYG Editor using Tiptap that seamlessly outputs Markdown
+// ---------------------------------------------------------------------------
+
+interface MarkdownFieldProps {
+  id?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+  minEditorHeightRem?: number;
+  maxEditorHeightRem?: number;
+  disabled?: boolean;
+}
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    markdownColor: {
+      setMarkdownColor: (color: string) => ReturnType;
+      unsetMarkdownColor: () => ReturnType;
+    };
+  }
+}
+
+const MarkdownColor = Mark.create({
+  name: "markdownColor",
+
+  addAttributes() {
+    return {
+      color: {
+        default: null,
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: "span[data-markdown-color]",
+        getAttrs: (element) => ({
+          color: (element as HTMLElement).getAttribute("data-markdown-color"),
+        }),
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    const color = HTMLAttributes.color;
+
+    return [
+      "span",
+      mergeAttributes(HTMLAttributes, {
+        "data-markdown-color": color,
+        style: color ? `color: ${color}` : undefined,
+      }),
+      0,
+    ];
+  },
+
+  markdownTokenizer: {
+    name: "markdownColor",
+    level: "inline",
+
+    start(src) {
+      return src.indexOf("[");
+    },
+
+    tokenize(src, _tokens, lexer) {
+      const match = /^\[([^\]]+)\]\{(#[0-9a-fA-F]{3,6})\}/.exec(src);
+
+      if (!match) return undefined;
+
+      return {
+        type: "markdownColor",
+        raw: match[0],
+        text: match[1],
+        color: match[2],
+        tokens: lexer.inlineTokens(match[1]),
+      };
+    },
+  },
+
+  parseMarkdown(token, helpers) {
+    const content = helpers.parseInline(token.tokens || []);
+
+    return helpers.applyMark("markdownColor", content, {
+      color: token.color,
+    });
+  },
+
+  renderMarkdown(node, helpers) {
+    const content = helpers.renderChildren(node.content || []);
+    const color = node.attrs?.color;
+
+    if (!color) {
+      return content;
+    }
+
+    return `[${content}]{${color}}`;
+  },
+
+  addCommands() {
+    return {
+      setMarkdownColor:
+        (color: string) =>
+        ({ commands }) => {
+          return commands.setMark(this.name, { color });
+        },
+
+      unsetMarkdownColor:
+        () =>
+        ({ commands }) => {
+          return commands.unsetMark(this.name);
+        },
+    };
+  },
+});
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeLinkUrl(input: string): string | null {
+  const value = input.trim();
+
+  if (!value) return null;
+
+  if (EMAIL_PATTERN.test(value)) {
+    return `mailto:${value}`;
+  }
+
+  if (/^mailto:/i.test(value)) {
+    try {
+      const url = new URL(value);
+      return url.protocol === "mailto:" ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(value)) {
+    try {
+      const url = new URL(value);
+
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        return null;
+      }
+
+      return url.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const url = new URL(`https://${value}`);
+
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function MarkdownField({
+  id,
+  value = "",
+  onChange,
+  className,
+  placeholder = "Write something amazing...",
+  minEditorHeightRem = 10,
+  maxEditorHeightRem = 32,
+  disabled = false,
+}: MarkdownFieldProps) {
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const [, setForceUpdate] = useState(0);
+  const [tempHexColor, setTempHexColor] = useState("");
+
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkInput, setLinkInput] = useState("");
+  const [linkError, setLinkError] = useState("");
+
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+  const lastEmittedValue = useRef(value);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        colorPickerRef.current &&
+        !colorPickerRef.current.contains(event.target as Node)
+      ) {
+        setIsColorPickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const editor = useEditor({
+    editable: !disabled,
+    extensions: [
+      StarterKit.configure({
+        heading: false,
+        paragraph: {
+          HTMLAttributes: {
+            class: "leading-relaxed",
+          },
+        },
+        bold: { HTMLAttributes: { class: "font-bold" } },
+        italic: { HTMLAttributes: { class: "italic" } },
+        strike: { HTMLAttributes: { class: "line-through" } },
+        bulletList: {
+          HTMLAttributes: {
+            class: "list-disc list-outside ml-4 pl-2 space-y-1 my-2",
+          },
+        },
+        orderedList: {
+          HTMLAttributes: {
+            class: "list-decimal list-outside ml-4 pl-2 space-y-1 my-2",
+          },
+        },
+        listItem: {
+          HTMLAttributes: {
+            class: "mt-1 leading-relaxed",
+          },
+        },
+        blockquote: {
+          HTMLAttributes: {
+            class:
+              "border-l-4 border-primary/40 pl-4 italic text-muted-foreground my-2",
+          },
+        },
+        codeBlock: {
+          HTMLAttributes: {
+            class:
+              "rounded-lg bg-muted p-4 font-mono text-sm my-2 overflow-x-auto",
+          },
+        },
+      }),
+      MarkdownColor,
+      LinkExtension.configure({
+        openOnClick: false,
+        protocols: ["http", "https", "mailto"],
+
+        isAllowedUri: (url, ctx) => {
+          if (!ctx.defaultValidate(url)) {
+            return false;
+          }
+
+          try {
+            const parsed = new URL(url);
+
+            return ["http:", "https:", "mailto:"].includes(parsed.protocol);
+          } catch {
+            return false;
+          }
+        },
+
+        HTMLAttributes: {
+          class: "text-primary underline underline-offset-2",
+          rel: "noopener noreferrer",
+        },
+      }),
+      Markdown,
+    ],
+    content: value,
+    contentType: "markdown",
+    editorProps: {
+      attributes: {
+        ...(id ? { id } : {}),
+        class: cn(
+          "prose prose-sm dark:prose-invert max-w-none",
+          "focus:outline-none p-4 w-full overflow-y-auto",
+          "[&_p]:my-0",
+          "[&_p+p]:mt-3",
+        ),
+        style: `min-height: ${minEditorHeightRem}rem; max-height: ${maxEditorHeightRem}rem;`,
+      },
+      handleKeyDown: (_view, event) => {
+        if (
+          (event.metaKey || event.ctrlKey) &&
+          event.key.toLowerCase() === "k"
+        ) {
+          event.preventDefault();
+
+          const previousUrl = editor?.getAttributes("link").href || "";
+
+          setLinkInput(previousUrl);
+          setLinkError("");
+          setLinkDialogOpen(true);
+
+          return true;
+        }
+
+        return false;
+      },
+    },
+    onTransaction: () => {
+      setForceUpdate((x) => x + 1);
+    },
+    onUpdate: ({ editor }) => {
+      const markdown = editor.getMarkdown();
+
+      lastEmittedValue.current = markdown;
+      onChange?.(markdown);
+    },
+  });
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!disabled);
+  }, [editor, disabled]);
+
+  useEffect(() => {
+    if (!editor || editor.isFocused) return;
+    if (value === lastEmittedValue.current) return;
+
+    const currentContent = editor.getMarkdown();
+
+    if (value !== currentContent) {
+      lastEmittedValue.current = value;
+
+      editor.commands.setContent(value, {
+        contentType: "markdown",
+        emitUpdate: false,
+      });
+    }
+  }, [value, editor]);
+
+  const openLinkDialog = useCallback(() => {
+    if (!editor) return;
+
+    const previousUrl = editor.getAttributes("link").href || "";
+
+    setLinkInput(previousUrl);
+    setLinkError("");
+    setLinkDialogOpen(true);
+  }, [editor]);
+
+  const submitLink = useCallback(() => {
+    if (!editor) return;
+
+    const normalizedUrl = normalizeLinkUrl(linkInput);
+
+    if (!normalizedUrl) {
+      setLinkError("Enter a valid HTTP, HTTPS, or email address.");
+      return;
+    }
+
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .unsetMarkdownColor()
+      .setLink({ href: normalizedUrl })
+      .run();
+
+    setLinkDialogOpen(false);
+    setLinkInput("");
+    setLinkError("");
+  }, [editor, linkInput]);
+
+  const removeLink = useCallback(() => {
+    if (!editor) return;
+
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+
+    setLinkDialogOpen(false);
+    setLinkInput("");
+    setLinkError("");
+  }, [editor]);
+
+  if (!editor) return null;
+
+  const isFocused = editor.isFocused;
+  const currentColor = editor.getAttributes("markdownColor").color || "";
+  const showColorActive = isFocused && editor.isActive("markdownColor");
+
+  const handleOpenChange = (open: boolean) => {
+    if (disabled) return;
+
+    if (open) {
+      setTempHexColor(currentColor || "#a855f7");
+    }
+
+    setIsColorPickerOpen(open);
+  };
+
+  const applyCustomColor = () => {
+    let finalColor = tempHexColor.trim();
+    if (!finalColor.startsWith("#")) finalColor = "#" + finalColor;
+    editor.chain().focus().unsetLink().setMarkdownColor(finalColor).run();
+    setIsColorPickerOpen(false);
+  };
+
+  const isCustomColor =
+    tempHexColor &&
+    !COLOR_PRESETS.some(
+      (p) => p.value.toLowerCase() === tempHexColor.toLowerCase(),
+    );
+
+  return (
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-xl border border-input bg-background shadow-sm transition-colors duration-300",
+        "focus-within:border-ring focus-within:ring-[2px] focus-within:ring-ring/50",
+        className,
+      )}
+    >
+      <Dialog
+        open={linkDialogOpen}
+        onOpenChange={(open) => {
+          setLinkDialogOpen(open);
+
+          if (!open) {
+            setLinkInput("");
+            setLinkError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Insert link</DialogTitle>
+            <DialogDescription>
+              Enter a website or email address. URLs without a protocol will use
+              HTTPS automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor={`${id || "markdown"}-link-url`}>URL</Label>
+
+            <Input
+              id={`${id || "markdown"}-link-url`}
+              value={linkInput}
+              onChange={(e) => {
+                setLinkInput(e.target.value);
+                setLinkError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  submitLink();
+                }
+              }}
+              placeholder="youtube.com"
+              autoFocus
+            />
+
+            {linkError && (
+              <p className="text-xs text-destructive">{linkError}</p>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Allowed: HTTP, HTTPS, and email links.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2">
+            {editor?.isActive("link") && (
+              <Button
+                type="button"
+                className="cursor-pointer"
+                variant="destructive"
+                onClick={removeLink}
+              >
+                Remove link
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              className="cursor-pointer"
+              variant="outline"
+              onClick={() => setLinkDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              className="cursor-pointer"
+              onClick={submitLink}
+            >
+              Apply link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Editor Toolbar */}
+      <div className="flex flex-wrap items-center gap-1 border-b border-border/50 bg-muted/20 p-1.5 relative">
+        <div className="flex items-center gap-0.5 pr-2 border-r border-border/50">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={disabled || !editor.can().undo()}
+            title="Undo (Ctrl/Cmd+Z)"
+          >
+            <Undo className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={disabled || !editor.can().redo()}
+            title="Redo (Ctrl/Cmd+Shift+Z)"
+          >
+            <Redo className="h-4 w-4" />
+          </ToolbarButton>
+        </div>
+
+        <div className="flex items-center gap-0.5 pl-1">
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBold().run()}
+            active={isFocused && editor.isActive("bold")}
+            disabled={disabled}
+            title="Bold (Ctrl/Cmd+B)"
+          >
+            <Bold className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleItalic().run()}
+            active={isFocused && editor.isActive("italic")}
+            disabled={disabled}
+            title="Italic (Ctrl/Cmd+I)"
+          >
+            <Italic className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleCode().run()}
+            active={isFocused && editor.isActive("code")}
+            disabled={disabled}
+            title="Inline Code"
+          >
+            <Code className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={openLinkDialog}
+            active={isFocused && editor.isActive("link")}
+            disabled={disabled}
+            title="Link (Ctrl/Cmd+K)"
+          >
+            <LinkIcon className="h-4 w-4" />
+          </ToolbarButton>
+
+          {/* Color Picker */}
+          <Popover open={isColorPickerOpen} onOpenChange={handleOpenChange}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                disabled={disabled}
+                className={cn(
+                  "flex h-8 w-8 cursor-pointer items-center justify-center rounded-md transition-all duration-200 active:scale-90",
+                  isColorPickerOpen || showColorActive
+                    ? "bg-primary/20 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+                title="Text Color"
+              >
+                <Palette
+                  className="h-4 w-4 transition-colors duration-200"
+                  style={{ color: showColorActive ? currentColor : "inherit" }}
+                />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-80 border-border/80 bg-popover p-4 shadow-xl"
+              align="start"
+              sideOffset={8}
+              avoidCollisions={false}
+            >
+              <div className="space-y-4">
+                <div className="w-full overflow-hidden rounded-lg border border-border/50 shadow-inner">
+                  <HexColorPicker
+                    color={
+                      tempHexColor.startsWith("#") ? tempHexColor : "#000000"
+                    }
+                    onChange={setTempHexColor}
+                    style={{ width: "100%", height: "140px" }}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium mb-2">Suggested colors</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {COLOR_PRESETS.map((preset) => {
+                      const isActive =
+                        tempHexColor.toLowerCase() ===
+                        preset.value.toLowerCase();
+                      return (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          data-state={isActive ? "on" : "off"}
+                          className={cn(
+                            "group flex flex-col items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-2 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-muted/40 cursor-pointer",
+                            isActive &&
+                              "border-primary/70 bg-primary/10 shadow-sm",
+                          )}
+                          onClick={() => {
+                            editor
+                              .chain()
+                              .focus()
+                              .unsetLink()
+                              .setMarkdownColor(preset.value)
+                              .run();
+                            setTempHexColor(preset.value);
+                            setIsColorPickerOpen(false);
+                          }}
+                        >
+                          <span
+                            className="h-7 w-7 rounded-full border shadow-sm transition-transform group-hover:scale-105"
+                            style={{ backgroundColor: preset.value }}
+                          />
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {preset.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 pt-1">
+                  <Label className="text-xs">Custom hex</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={tempHexColor}
+                      onChange={(e) => setTempHexColor(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && applyCustomColor()}
+                      className="h-9 font-mono text-xs uppercase"
+                      maxLength={7}
+                      spellCheck={false}
+                    />
+                    <button
+                      type="button"
+                      onClick={applyCustomColor}
+                      className="h-9 rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer active:scale-95 shadow-sm"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  {isCustomColor && (
+                    <div
+                      className="mt-2 h-1.5 w-full rounded-full shadow-inner transition-colors duration-300"
+                      style={{ backgroundColor: tempHexColor }}
+                    />
+                  )}
+                </div>
+
+                <div className="h-px w-full bg-border/50 my-1" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().unsetMarkdownColor().run();
+                    setTempHexColor("");
+                    setIsColorPickerOpen(false);
+                  }}
+                  className="w-full rounded-md py-1.5 text-xs font-medium bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90 active:scale-95 cursor-pointer shadow-sm"
+                >
+                  Remove Color
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <div className="mx-1 h-5 w-px bg-border/50" />
+
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            active={isFocused && editor.isActive("bulletList")}
+            disabled={disabled}
+            title="Bullet List"
+          >
+            <List className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            active={isFocused && editor.isActive("orderedList")}
+            disabled={disabled}
+            title="Numbered List"
+          >
+            <ListOrdered className="h-4 w-4" />
+          </ToolbarButton>
+        </div>
+      </div>
+
+      {/* Editor Content Area */}
+      <div className="relative w-full">
+        {editor.isEmpty && (
+          <div className="pointer-events-none absolute left-4 top-4 text-sm text-muted-foreground opacity-70 transition-opacity duration-300">
+            {placeholder}
+          </div>
+        )}
+        <EditorContent editor={editor} />
+      </div>
+    </div>
   );
 }

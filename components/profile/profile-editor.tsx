@@ -15,11 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +68,7 @@ import {
   type ProfileFontFamily,
   type ProfileLayout,
 } from "@/lib/profile-theme";
+import { CustomColorPicker } from "@/components/ui/custom-color-picker";
 
 // ----------------------------------------------------------------------------
 // Types & Constants
@@ -113,85 +109,6 @@ const accentPresets = [
 // ----------------------------------------------------------------------------
 // Sub-components
 // ----------------------------------------------------------------------------
-
-function ColorPickerField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 w-full justify-start gap-3 px-3 cursor-pointer"
-          >
-            <span
-              className="h-5 w-5 rounded-full border shadow-sm"
-              style={{ backgroundColor: value }}
-            />
-            <span className="flex flex-1 flex-col items-start text-left">
-              <span className="text-sm font-medium">{label}</span>
-              <span className="font-mono text-[11px] text-muted-foreground">
-                {value.toUpperCase()}
-              </span>
-            </span>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-4" align="start">
-          <div className="space-y-3">
-            <div>
-              <p className="text-sm font-medium">Suggested colors</p>
-              <p className="text-xs text-muted-foreground">
-                Pick a clean base, then fine-tune with a hex value.
-              </p>
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {accentPresets.map((preset) => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  data-state={value === preset.value ? "on" : "off"}
-                  className={cn(
-                    "group flex flex-col items-center gap-1 data-[state=off]:cursor-pointer data-[state=on]:cursor-default rounded-xl border p-2 transition-all hover:-translate-y-0.5 hover:border-primary/40",
-                    value.toLowerCase() === preset.value &&
-                      "border-primary bg-primary/5",
-                  )}
-                  onClick={() => onChange(preset.value)}
-                >
-                  <span
-                    className="h-7 w-7 rounded-full border shadow-sm transition-transform group-hover:scale-105"
-                    style={{ backgroundColor: preset.value }}
-                  />
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    {preset.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Custom hex</Label>
-              <Input
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="h-9 font-mono text-xs uppercase"
-                maxLength={7}
-                spellCheck={false}
-              />
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
-}
 
 function ImagePreview({
   url,
@@ -626,7 +543,7 @@ export function ProfileEditor({
                         type="button"
                         variant="destructive"
                         size="sm"
-                        className="cursor-pointer text-white hover:bg-destructive/20 flex-1 w-full"
+                        className="cursor-pointer text-white flex-1 w-full hover:text-white/90"
                         onClick={() => handleProfileAssetRemove("banner")}
                       >
                         <X className="mr-2 h-3.5 w-3.5" /> Remove
@@ -710,7 +627,7 @@ export function ProfileEditor({
                 <div className="space-y-1.5">
                   <Label className="text-xs">Pronouns</Label>
                   <Select value={pronouns} onValueChange={setPronouns}>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -769,10 +686,10 @@ export function ProfileEditor({
                 <Label className="text-xs">Bio</Label>
                 <MarkdownField
                   value={bio}
-                  onChange={(e) => setBio(e.target.value)}
+                  onChange={(value) => setBio(value)}
                   placeholder="Tell the community about yourself..."
-                  rows={4}
-                  maxLength={2000}
+                  minEditorHeightRem={8}
+                  maxEditorHeightRem={16}
                   className="min-h-[10rem] md:min-h-[11rem]"
                 />
                 <p className="text-[10px] text-muted-foreground text-right">
@@ -875,7 +792,7 @@ export function ProfileEditor({
               className="space-y-5 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
             >
               {/* Avatar Border */}
-              <ColorPickerField
+              <CustomColorPicker
                 label="Avatar Border Color"
                 value={avatarBorderColor}
                 onChange={setAvatarBorderColor}
@@ -883,12 +800,12 @@ export function ProfileEditor({
 
               {/* Primary & Accent */}
               <div className="grid gap-4 sm:grid-cols-2">
-                <ColorPickerField
+                <CustomColorPicker
                   label="Primary Color"
                   value={primaryColor}
                   onChange={setPrimaryColor}
                 />
-                <ColorPickerField
+                <CustomColorPicker
                   label="Accent Color"
                   value={accentColor}
                   onChange={setAccentColor}
@@ -900,7 +817,7 @@ export function ProfileEditor({
                 <div className="space-y-1.5">
                   <Label className="text-xs">Layout</Label>
                   <Select value={layout} onValueChange={setLayout}>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -913,7 +830,7 @@ export function ProfileEditor({
                 <div className="space-y-1.5">
                   <Label className="text-xs">Card Style</Label>
                   <Select value={cardStyle} onValueChange={setCardStyle}>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -931,7 +848,7 @@ export function ProfileEditor({
                 <div className="space-y-1.5">
                   <Label className="text-xs">Font Family</Label>
                   <Select value={fontFamily} onValueChange={setFontFamily}>
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -948,7 +865,7 @@ export function ProfileEditor({
                     value={profileBackground}
                     onValueChange={setProfileBackground}
                   >
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1153,7 +1070,7 @@ export function ProfileEditor({
               <div className="space-y-1.5">
                 <Label className="text-xs">Profile Visibility</Label>
                 <Select value={visibility} onValueChange={setVisibility}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-9 w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

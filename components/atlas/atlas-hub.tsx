@@ -2304,14 +2304,14 @@ export function AtlasHub() {
                 <MarkdownField
                   id="atlas-description"
                   value={worldEditorState.description}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setWorldEditorState((prev) => ({
                       ...prev,
-                      description: e.target.value,
+                      description: value,
                     }))
                   }
                   placeholder="One-line overview of the world or series."
-                  rows={3}
+                  minEditorHeightRem={12}
                   className="min-h-32"
                 />
               </div>
@@ -2321,14 +2321,14 @@ export function AtlasHub() {
                 <MarkdownField
                   id="atlas-lore"
                   value={worldEditorState.loreSummary}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setWorldEditorState((prev) => ({
                       ...prev,
-                      loreSummary: e.target.value,
+                      loreSummary: value,
                     }))
                   }
                   placeholder="Canon notes, timeline, places, relationships, rules, etc."
-                  rows={7}
+                  minEditorHeightRem={18}
                   className="min-h-48 md:min-h-56"
                 />
               </div>
@@ -2577,14 +2577,14 @@ export function AtlasHub() {
               <MarkdownField
                 id="entry-body"
                 value={entryEditorState.body}
-                onChange={(e) =>
+                onChange={(value) =>
                   setEntryEditorState((prev) => ({
                     ...prev,
-                    body: e.target.value,
+                    body: value,
                   }))
                 }
                 placeholder="Write the lore, note, or canon block here."
-                rows={8}
+                minEditorHeightRem={18}
                 className="min-h-52 md:min-h-60"
               />
             </div>
@@ -2663,14 +2663,14 @@ export function AtlasHub() {
               <MarkdownField
                 id="atlas-lorebook-summary"
                 value={lorebookEditorState.summary}
-                onChange={(e) =>
+                onChange={(value) =>
                   setLorebookEditorState((prev) => ({
                     ...prev,
-                    summary: e.target.value,
+                    summary: value,
                   }))
                 }
                 placeholder="Outline the canon, scope, and intended use for this lorebook."
-                rows={6}
+                minEditorHeightRem={18}
                 className="min-h-40"
               />
             </div>

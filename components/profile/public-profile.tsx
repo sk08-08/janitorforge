@@ -49,7 +49,7 @@ import {
 import { toast } from "sonner";
 import { FollowListModal } from "./follow-list-modal";
 import { BotDetailModal } from "@/components/bots/bot-detail-modal";
-import { renderMarkdown } from "@/lib/markdown";
+import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
 import { ProfileBadgesSection } from "./profile-badges";
 import { ProfileSectionEmpty } from "./profile-section-empty";
 import {
@@ -509,11 +509,9 @@ export function PublicProfile({
 
               {/* Bio */}
               {profile.bio && (
-                <div
-                  className="mt-3 text-sm text-muted-foreground leading-relaxed rendered-markdown"
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(profile.bio),
-                  }}
+                <MarkdownRenderer
+                  content={profile.bio}
+                  className="mt-3 text-sm text-muted-foreground leading-relaxed max-h-75 overflow-y-auto overflow-x-hidden wrap-break-word pr-2"
                 />
               )}
 
@@ -952,12 +950,9 @@ export function PublicProfile({
                         style={sectionCardStyle}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <p
-                            className="text-sm font-medium truncate rendered-markdown"
-                            style={{ color: readablePrimaryMutedColor }}
-                            dangerouslySetInnerHTML={{
-                              __html: renderMarkdown(form.title),
-                            }}
+                          <MarkdownRenderer
+                            content={form.title}
+                            className="text-sm font-medium truncate"
                           />
                           <Badge
                             variant={form.is_active ? "default" : "secondary"}
@@ -966,13 +961,9 @@ export function PublicProfile({
                             {form.is_active ? "Active" : "Inactive"}
                           </Badge>
                         </div>
-                        <p
-                          className="text-xs text-muted-foreground line-clamp-2 rendered-markdown"
-                          dangerouslySetInnerHTML={{
-                            __html: form.description
-                              ? renderMarkdown(form.description)
-                              : "No description",
-                          }}
+                        <MarkdownRenderer
+                          content={form.description || "No description"}
+                          className="text-xs text-muted-foreground line-clamp-2"
                         />
                         <p className="text-[10px] text-muted-foreground mt-1">
                           {form.sections.length} sections

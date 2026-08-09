@@ -2,157 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { submitPublicFormRequest } from "@/app/actions/safety";
-import { MarkdownRenderer } from "./markdown-renderer";
-
-// Lightweight inline markdown for labels (single-line, no block elements)
-function escapeHtml(str: string) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function renderMarkdown(md?: string | null) {
-  if (!md) return "";
-  const text = String(md);
-  // Escape HTML first
-  let out = escapeHtml(text);
-  // Helper: escape attribute values
-  const escapeAttr = (s: string) =>
-    String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/\"/g, "&quot;")
-      .replace(/'/g, "&#39;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-
-  // Helper: allow only safe URL schemes (http, https, mailto, relative)
-  const sanitizeUrl = (u: string) => {
-    try {
-      const url = String(u).trim();
-      if (/^\s*(javascript:|data:)/i.test(url)) return "";
-      if (
-        /^(https?:)?\/\//i.test(url) ||
-        /^mailto:/i.test(url) ||
-        /^\//.test(url)
-      )
-        return url;
-      return "";
-    } catch {
-      return "";
-    }
-  };
-
-  // Links [text](url) - sanitize URL and escape attributes/text
-  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, txt, href) => {
-    const safe = sanitizeUrl(href);
-    if (!safe) return escapeHtml(txt);
-    return `<a href="${escapeAttr(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
-      txt,
-    )}</a>`;
-  });
-  // Color fragments: [text]{#ff00aa}
-  out = out.replace(
-    /\[([^\]]+)\]\{(#[0-9a-fA-F]{3,6})\}/g,
-    (_m, txt, color) => `<span style="color:${color}">${txt}</span>`,
-  );
-  // Bold **text** or __text__
-  out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
-  // Italic *text* or _text_
-  out = out.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  out = out.replace(/_(.+?)_/g, "<em>$1</em>");
-  // Simple unordered lists: lines starting with - or *
-  const lines = out.split(/\r?\n/);
-  let result = "";
-  let inList = false;
-  let listType: "ul" | "ol" | null = null;
-  for (const line of lines) {
-    const mUn = line.match(/^\s*[-*]\s+(.+)/);
-    const mOl = line.match(/^\s*(\d+)\.\s+(.+)/);
-    if (mUn || mOl) {
-      const thisType = mUn ? "ul" : "ol";
-      const content = mUn ? mUn[1] : mOl![2];
-      if (!inList || listType !== thisType) {
-        if (inList) {
-          result += listType === "ul" ? "</ul>" : "</ol>";
-        }
-        inList = true;
-        listType = thisType;
-        result += thisType === "ul" ? "<ul>" : "<ol>";
-      }
-      result += `<li>${content}</li>`;
-    } else {
-      if (inList) {
-        result += listType === "ul" ? "</ul>" : "</ol>";
-        inList = false;
-        listType = null;
-      }
-      if (line.trim() === "") {
-        result += "<br/>";
-      } else {
-        result += `<p>${line}</p>`;
-      }
-    }
-  }
-  if (inList) result += listType === "ul" ? "</ul>" : "</ol>";
-  // Force inline styles on list containers to avoid global resets hiding markers
-  result = result.replace(
-    /<ul>/g,
-    '<ul style="list-style-type: disc; margin-left:1rem; padding-left:1.25rem">',
-  );
-  result = result.replace(
-    /<ol>/g,
-    '<ol style="list-style-type: decimal; margin-left:1rem; padding-left:1.25rem">',
-  );
-  return result;
-}
-
-function renderMarkdownInline(md?: string | null) {
-  if (!md) return "";
-  const text = String(md);
-  let out = escapeHtml(text);
-  const escapeAttr = (s: string) =>
-    String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/\"/g, "&quot;")
-      .replace(/'/g, "&#39;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  const sanitizeUrl = (u: string) => {
-    try {
-      const url = String(u).trim();
-      if (/^\s*(javascript:|data:)/i.test(url)) return "";
-      if (
-        /^(https?:)?\/\//i.test(url) ||
-        /^mailto:/i.test(url) ||
-        /^\//.test(url)
-      )
-        return url;
-      return "";
-    } catch {
-      return "";
-    }
-  };
-  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, txt, href) => {
-    const safe = sanitizeUrl(href);
-    if (!safe) return escapeHtml(txt);
-    return `<a href="${escapeAttr(safe)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
-      txt,
-    )}</a>`;
-  });
-  out = out.replace(
-    /\[([^\]]+)\]\{(#[0-9a-fA-F]{3,6})\}/g,
-    (_m, txt, color) => `<span style="color:${color}">${txt}</span>`,
-  );
-  out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
-  out = out.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  out = out.replace(/_(.+?)_/g, "<em>$1</em>");
-  return out;
-}
+import { MarkdownRenderer, MarkdownInlineRenderer } from "./markdown-renderer";
 
 import {
   Flame,
@@ -615,35 +465,29 @@ function SectionRenderer({
         ? "items-end"
         : "items-start";
   const fieldShellClass =
-    "rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4";
+    "min-w-0 max-w-full overflow-hidden rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4";
   const hasRequiredFields = section.fields.some((f: any) => f.required);
 
   if (section?.custom?.collapsible) {
     return (
       <Card
-        className={appearance.sectionCard}
+        className={cn("min-w-0 overflow-hidden", appearance.sectionCard)}
         style={appearance.sectionCardStyle}
       >
         <details className="group">
           <summary
             className={`cursor-pointer list-none p-4 sm:p-5 ${alignClass} [&::-webkit-details-marker]:hidden`}
           >
-            <span
-              className="rendered-markdown text-sm sm:text-base font-semibold"
-              dangerouslySetInnerHTML={{
-                __html:
-                  renderMarkdownInline(section.title) +
-                  (hasRequiredFields
-                    ? ' <span class="text-destructive">*</span>'
-                    : ""),
-              }}
-            />
+            <span className="text-sm sm:text-base font-semibold">
+              <MarkdownInlineRenderer content={section.title} />
+              {hasRequiredFields && (
+                <span className="text-destructive"> *</span>
+              )}
+            </span>
             {section.description && (
-              <div
-                className={`mt-2 text-xs text-muted-foreground rendered-markdown wrap-break-word ${alignClass}`}
-                dangerouslySetInnerHTML={{
-                  __html: renderMarkdown(section.description),
-                }}
+              <MarkdownRenderer
+                content={section.description}
+                className={`mt-2 text-xs text-muted-foreground wrap-break-word rendered-markdown ${alignClass}`}
               />
             )}
 
@@ -670,7 +514,7 @@ function SectionRenderer({
           </summary>
           <CardContent
             className={cn(
-              "space-y-3 sm:space-y-4",
+              "min-w-0 space-y-3 sm:space-y-4",
               appearance.density.sectionContent,
             )}
           >
@@ -696,19 +540,15 @@ function SectionRenderer({
                   <Label
                     className={`flex w-full items-center gap-1 flex-nowrap ${fieldLabelJustifyClass}`}
                   >
-                    <span
-                      className={`inline min-w-0 whitespace-normal wrap-break-word rendered-markdown ${fieldTextAlignClass}`}
-                      dangerouslySetInnerHTML={{
-                        __html: renderMarkdownInline(field.label),
-                      }}
+                    <MarkdownInlineRenderer
+                      content={field.label}
+                      className={`inline min-w-0 whitespace-normal wrap-break-word ${fieldTextAlignClass}`}
                     />
                   </Label>
                   {field.description && (
-                    <div
-                      className={`text-xs text-muted-foreground rendered-markdown wrap-break-word ${fieldTextAlignClass}`}
-                      dangerouslySetInnerHTML={{
-                        __html: renderMarkdown(field.description),
-                      }}
+                    <MarkdownRenderer
+                      content={field.description}
+                      className={`text-xs text-muted-foreground wrap-break-word ${fieldTextAlignClass} [&>*:last-child]:mb-0`}
                     />
                   )}
                   <FieldRenderer
@@ -742,28 +582,20 @@ function SectionRenderer({
 
   return (
     <Card
-      className={appearance.sectionCard}
+      className={cn("min-w-0 overflow-hidden", appearance.sectionCard)}
       style={appearance.sectionCardStyle}
     >
       <CardHeader className="space-y-3 pb-4 sm:pb-5">
         <CardTitle className={`${alignClass} wrap-break-word`}>
-          <span
-            className="block wrap-break-word rendered-markdown text-sm sm:text-base font-semibold"
-            dangerouslySetInnerHTML={{
-              __html:
-                renderMarkdownInline(section.title) +
-                (hasRequiredFields
-                  ? ' <span class="text-destructive">*</span>'
-                  : ""),
-            }}
-          />
+          <span className="text-sm sm:text-base font-semibold">
+            <MarkdownInlineRenderer content={section.title} />
+            {hasRequiredFields && <span className="text-destructive"> *</span>}
+          </span>
         </CardTitle>
         {section.description && (
-          <div
+          <MarkdownRenderer
+            content={section.description}
             className={`text-xs text-muted-foreground wrap-break-word rendered-markdown ${alignClass}`}
-            dangerouslySetInnerHTML={{
-              __html: renderMarkdown(section.description),
-            }}
           />
         )}
 
@@ -790,7 +622,7 @@ function SectionRenderer({
       </CardHeader>
       <CardContent
         className={cn(
-          "space-y-3 sm:space-y-4",
+          "min-w-0 space-y-3 sm:space-y-4",
           appearance.density.sectionContent,
         )}
       >
@@ -816,19 +648,15 @@ function SectionRenderer({
               <Label
                 className={`flex w-full items-center gap-1 flex-nowrap ${fieldLabelJustifyClass}`}
               >
-                <span
+                <MarkdownInlineRenderer
+                  content={field.label}
                   className={`inline min-w-0 whitespace-normal wrap-break-word ${fieldTextAlignClass}`}
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdownInline(field.label),
-                  }}
                 />
               </Label>
               {field.description && (
-                <div
-                  className={`text-xs text-muted-foreground wrap-break-word ${fieldTextAlignClass}`}
-                  dangerouslySetInnerHTML={{
-                    __html: renderMarkdown(field.description),
-                  }}
+                <MarkdownRenderer
+                  content={field.description}
+                  className={`text-xs text-muted-foreground wrap-break-word ${fieldTextAlignClass} [&>*:last-child]:mb-0`}
                 />
               )}
               <FieldRenderer
@@ -1094,7 +922,12 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
           />
         )}
 
-        <div className={cn("container px-4 sm:px-6", appearance.preset.layout)}>
+        <div
+          className={cn(
+            "container min-w-0 px-4 sm:px-6",
+            appearance.preset.layout,
+          )}
+        >
           {resolvedBannerUrl && (
             <div
               className={cn(
@@ -1135,37 +968,36 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                     </div>
                   )}
                 </div>
-                <h1
+                <div
                   className={cn(
-                    "font-bold rendered-markdown",
+                    "font-bold",
                     appearance.title,
                     !formTitleColor && appearance.accent.text,
                   )}
                   style={formTitleColor ? { color: formTitleColor } : undefined}
                 >
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdown(form.title),
-                    }}
+                  <MarkdownInlineRenderer
+                    content={form.title}
+                    className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                   />
-                </h1>
+                </div>
                 {form.description && (
-                  <div
-                    className="text-sm sm:text-base text-muted-foreground text-left leading-relaxed rendered-markdown"
+                  <MarkdownRenderer
+                    content={form.description}
+                    className="mt-2 text-sm sm:text-base text-muted-foreground text-left [&>*:last-child]:mb-0"
                     style={
                       formDescriptionColor
                         ? { color: formDescriptionColor }
                         : undefined
                     }
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdown(form.description),
-                    }}
                   />
                 )}
               </div>
             </aside>
           ) : (
-            <div className={cn("mx-auto w-full", appearance.preset.layout)}>
+            <div
+              className={cn("mx-auto w-full min-w-0", appearance.preset.layout)}
+            >
               <div
                 className={cn("text-center", appearance.density.headerSpacing)}
               >
@@ -1186,7 +1018,7 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                     </div>
                   )}
                 </div>
-                <h1
+                <div
                   className={cn(
                     "font-bold rendered-markdown",
                     appearance.title,
@@ -1194,23 +1026,20 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
                   )}
                   style={formTitleColor ? { color: formTitleColor } : undefined}
                 >
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdown(form.title),
-                    }}
+                  <MarkdownRenderer
+                    content={form.title}
+                    className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                   />
-                </h1>
+                </div>
                 {form.description && (
-                  <div
-                    className="mt-2 text-sm sm:text-base text-muted-foreground text-left rendered-markdown"
+                  <MarkdownRenderer
+                    content={form.description}
+                    className="mt-2 text-sm sm:text-base text-muted-foreground text-left [&>*:last-child]:mb-0"
                     style={
                       formDescriptionColor
                         ? { color: formDescriptionColor }
                         : undefined
                     }
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdown(form.description),
-                    }}
                   />
                 )}
               </div>
@@ -1260,17 +1089,18 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
 
           <div
             className={cn(
-              "mt-6 sm:mt-8 flex w-full",
-              isEditorial && "md:col-span-2 justify-center",
+              "mt-6 sm:mt-8 w-full",
+              isEditorial && "md:col-span-2",
             )}
           >
             <Card
               className={cn(
-                "w-full max-w-2xl border border-border/60 bg-card/90 shadow-sm",
-                isEditorial ? "md:max-w-3xl" : "",
+                "w-full border border-border/60 bg-card/90 shadow-sm",
+                appearance.surface,
               )}
+              style={appearance.surfaceStyle}
             >
-              <CardContent className="p-4 sm:p-5">
+              <CardContent className="p-4 sm:p-5 md:p-6">
                 <div className="mb-3 space-y-1">
                   <p className="text-sm font-medium">
                     Need to tell us something?
@@ -1302,7 +1132,13 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
           >
             <p>
               Powered by{" "}
-              <Link href="/" className="hover:underline text-primary">
+              <Link
+                href="/"
+                className={cn(
+                  "font-medium hover:underline underline-offset-2",
+                  appearance.accent.text,
+                )}
+              >
                 JanitorForge
               </Link>{" "}
               — Bot Creator Toolkit

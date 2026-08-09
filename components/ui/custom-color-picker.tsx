@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { HexColorPicker } from "react-colorful";
 
 const defaultPresets = [
   { label: "Violet", value: "#7c3aed" },
@@ -34,7 +35,15 @@ export function CustomColorPicker({
   onChange,
   presets = defaultPresets,
 }: CustomColorPickerProps) {
-  const normalized = String(value || "").trim() || "#7c3aed";
+  const normalized = String(value || "")
+    .trim()
+    .startsWith("#")
+    ? String(value || "").trim()
+    : "#7c3aed";
+
+  const isCustomColor =
+    normalized &&
+    !presets.some((p) => p.value.toLowerCase() === normalized.toLowerCase());
 
   return (
     <div className="space-y-1.5">
@@ -61,42 +70,50 @@ export function CustomColorPicker({
         <PopoverContent
           className="w-80 border-border/80 bg-popover p-4 shadow-xl"
           align="start"
+          sideOffset={8}
+          avoidCollisions={true}
         >
-          <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="w-full overflow-hidden rounded-lg border border-border/50 shadow-inner">
+              <HexColorPicker
+                color={normalized}
+                onChange={onChange}
+                style={{ width: "100%", height: "140px" }}
+              />
+            </div>
+
             <div>
-              <p className="text-sm font-medium">Suggested colors</p>
-              <p className="text-xs text-muted-foreground">
-                Pick a clean base, then fine-tune with a hex value.
-              </p>
+              <p className="text-sm font-medium mb-2">Suggested colors</p>
+              <div className="grid grid-cols-4 gap-2">
+                {presets.map((preset) => (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    data-state={
+                      normalized.toLowerCase() === preset.value.toLowerCase()
+                        ? "on"
+                        : "off"
+                    }
+                    className={cn(
+                      "group flex flex-col items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-2 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-muted/40 cursor-pointer",
+                      normalized.toLowerCase() === preset.value.toLowerCase() &&
+                        "border-primary/70 bg-primary/10 shadow-sm",
+                    )}
+                    onClick={() => onChange(preset.value)}
+                  >
+                    <span
+                      className="h-7 w-7 rounded-full border shadow-sm transition-transform group-hover:scale-105"
+                      style={{ backgroundColor: preset.value }}
+                    />
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      {preset.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {presets.map((preset) => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  data-state={
-                    normalized.toLowerCase() === preset.value.toLowerCase()
-                      ? "on"
-                      : "off"
-                  }
-                  className={cn(
-                    "group flex flex-col items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-2 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-muted/40",
-                    normalized.toLowerCase() === preset.value.toLowerCase() &&
-                      "border-primary/70 bg-primary/10 shadow-sm",
-                  )}
-                  onClick={() => onChange(preset.value)}
-                >
-                  <span
-                    className="h-7 w-7 rounded-full border shadow-sm transition-transform group-hover:scale-105"
-                    style={{ backgroundColor: preset.value }}
-                  />
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    {preset.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="space-y-1.5">
+
+            <div className="space-y-1.5 pt-1">
               <Label className="text-xs">Custom hex</Label>
               <Input
                 value={normalized}
@@ -105,6 +122,12 @@ export function CustomColorPicker({
                 maxLength={7}
                 spellCheck={false}
               />
+              {isCustomColor && (
+                <div
+                  className="mt-2 h-1.5 w-full rounded-full shadow-inner transition-colors duration-300"
+                  style={{ backgroundColor: normalized }}
+                />
+              )}
             </div>
           </div>
         </PopoverContent>

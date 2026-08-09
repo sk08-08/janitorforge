@@ -115,7 +115,7 @@ import {
   getFormBannerPublicUrl,
 } from "@/lib/form-assets";
 import { CustomColorPicker } from "@/components/ui/custom-color-picker";
-import { renderMarkdown } from "@/lib/markdown";
+import { stripMarkdownToText } from "@/lib/markdown";
 
 const headerIconMap = {
   sparkles: Sparkles,
@@ -141,232 +141,6 @@ function sanitizeUrl(input: string) {
 const giphyFetch = new GiphyFetch(
   process.env.NEXT_PUBLIC_GIPHY_API_KEY || "7o0fqYvUWtgy7wRLtEVpQOhsYsVX0J8y",
 );
-
-function toggleListMarkersForText(text: string, type: "ul" | "ol") {
-  const lines = String(text || "").split(/\r?\n/);
-  const nonEmpty = lines.filter((l) => l.trim() !== "");
-  if (nonEmpty.length === 0) {
-    return text;
-  }
-  const isAllMarked = nonEmpty.every((l, i) => {
-    if (type === "ul") return /^\s*[-*]\s+/.test(l);
-    return /^\s*\d+\.\s+/.test(l);
-  });
-  if (isAllMarked) {
-    // remove markers
-    return lines.map((l) => l.replace(/^\s*([-*]|\d+\.)\s+/, "")).join("\n");
-  }
-  // add markers
-  if (type === "ul") {
-    return lines.map((l) => (l.trim() === "" ? l : `- ${l}`)).join("\n");
-  }
-  // ol
-  let counter = 1;
-  return lines
-    .map((l) => (l.trim() === "" ? l : `${counter++}. ${l}`))
-    .join("\n");
-}
-
-function toggleListInElementById(
-  id: string,
-  type: "ul" | "ol",
-  currentValue: string,
-  applyUpdate: (newValue: string) => void,
-) {
-  const el = document.getElementById(id) as
-    | HTMLInputElement
-    | HTMLTextAreaElement
-    | null;
-  if (
-    el &&
-    (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
-  ) {
-    const value = el.value || "";
-    const start = (el as any).selectionStart ?? 0;
-    const end = (el as any).selectionEnd ?? start;
-    // expand selection to full lines
-    const lineStart = Math.max(
-      0,
-      value.lastIndexOf("\n", Math.max(0, start - 1)) + 1,
-    );
-    let lineEnd = value.indexOf("\n", end);
-    if (lineEnd === -1) lineEnd = value.length;
-    const segment = value.substring(lineStart, lineEnd);
-    const toggled = toggleListMarkersForText(segment, type);
-    const newValue =
-      value.substring(0, lineStart) + toggled + value.substring(lineEnd);
-    applyUpdate(newValue);
-    requestAnimationFrame(() => {
-      try {
-        el.focus();
-        (el as any).setSelectionRange(lineStart, lineStart + toggled.length);
-      } catch {}
-    });
-  } else {
-    applyUpdate(toggleListMarkersForText(currentValue || "", type));
-  }
-}
-
-function isWrappedInElementById(
-  id: string,
-  before: string,
-  after = "",
-  currentValue?: string,
-) {
-  const el = document.getElementById(id) as
-    | HTMLInputElement
-    | HTMLTextAreaElement
-    | HTMLElement
-    | null;
-  if (
-    el &&
-    (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
-  ) {
-    const value = el.value || "";
-    const start = (el as any).selectionStart ?? 0;
-    const end = (el as any).selectionEnd ?? start;
-    const sel = value.substring(start, end);
-    const target = sel || value;
-    return target.startsWith(before) && target.endsWith(after);
-  }
-  const val = currentValue || "";
-  return val.startsWith(before) && val.endsWith(after);
-}
-
-function applyToggleWrap(
-  value: string,
-  start: number,
-  end: number,
-  before: string,
-  after = "",
-) {
-  const val = value || "";
-  const sel = val.substring(start, end);
-  // If selection is wrapped, remove markers
-  if (sel.startsWith(before) && sel.endsWith(after)) {
-    const inner = sel.substring(before.length, sel.length - after.length);
-    const newValue = val.substring(0, start) + inner + val.substring(end);
-    return {
-      newValue,
-      newStart: start,
-      newEnd: start + inner.length,
-    };
-  }
-  if (start === end) {
-    const openIndex = val.lastIndexOf(
-      before,
-      Math.max(0, start - before.length),
-    );
-    const closeIndex = val.indexOf(after || before, start);
-    if (
-      openIndex !== -1 &&
-      closeIndex !== -1 &&
-      openIndex < start &&
-      start <= closeIndex
-    ) {
-      const inner = val.substring(openIndex + before.length, closeIndex);
-      const newValue =
-        val.substring(0, openIndex) +
-        inner +
-        val.substring(closeIndex + after.length);
-      return {
-        newValue,
-        newStart: openIndex,
-        newEnd: openIndex + inner.length,
-      };
-    }
-  }
-  // No selection: toggle entire value
-  if (start === end) {
-    if (val.startsWith(before) && val.endsWith(after)) {
-      const inner = val.substring(before.length, val.length - after.length);
-      return { newValue: inner, newStart: 0, newEnd: inner.length };
-    }
-    const newValue = before + val + after;
-    return { newValue, newStart: before.length, newEnd: before.length };
-  }
-  // Otherwise wrap selection
-  const wrapped =
-    val.substring(0, start) + before + sel + after + val.substring(end);
-  return {
-    newValue: wrapped,
-    newStart: start + before.length,
-    newEnd: start + before.length + sel.length,
-  };
-}
-
-// Inline editor that shows rendered markdown and allows in-place editing.
-const InlineMarkdownEditor = React.forwardRef(
-  (
-    {
-      id,
-      value,
-      onChange,
-      placeholder,
-      rows = 1,
-      className = "",
-    }: {
-      id: string;
-      value?: string | null;
-      onChange: (v: string) => void;
-      placeholder?: string;
-      rows?: number;
-      className?: string;
-    },
-    ref,
-  ) => {
-    const [editing, setEditing] = useState(false);
-    const taRef = useRef<HTMLTextAreaElement | null>(null);
-
-    useEffect(() => {
-      if (editing && taRef.current) {
-        taRef.current.focus();
-        const len = taRef.current.value.length;
-        taRef.current.setSelectionRange(len, len);
-      }
-    }, [editing]);
-
-    React.useImperativeHandle(ref, () => ({
-      enterEditing: () => setEditing(true),
-      isEditing: () => editing,
-    }));
-
-    return (
-      <div className={`inline-markdown-editor ${className}`}>
-        {!editing ? (
-          <div
-            id={id}
-            className="cursor-text rendered-markdown"
-            onClick={() => setEditing(true)}
-          >
-            {value ? (
-              <MarkdownRenderer
-                content={value}
-                className="[&>*:last-child]:mb-0"
-              />
-            ) : (
-              <span className="text-muted-foreground italic">
-                {placeholder}
-              </span>
-            )}
-          </div>
-        ) : (
-          <textarea
-            id={id}
-            ref={taRef}
-            rows={rows}
-            value={value || ""}
-            placeholder={placeholder}
-            onChange={(e) => onChange(e.target.value)}
-            onBlur={() => setEditing(false)}
-            className="w-full resize-y rounded border px-2 py-1 text-sm"
-          />
-        )}
-      </div>
-    );
-  },
-);
-InlineMarkdownEditor.displayName = "InlineMarkdownEditor";
 
 // ----------------------------------------------------------------------------
 // Field Type Configuration
@@ -416,8 +190,6 @@ function FieldEditor({
   allFields = [],
 }: FieldEditorProps) {
   const [optionInput, setOptionInput] = useState("");
-  const labelRef = useRef<any>(null);
-  const descRef = useRef<any>(null);
   const fieldConfig = fieldTypes.find((f) => f.type === field.type);
   const Icon = fieldConfig?.icon || Type;
 
@@ -502,12 +274,17 @@ function FieldEditor({
             {/* Label input */}
             <div className="space-y-1.5">
               <Label className="text-xs">Field Label</Label>
-              <InlineMarkdownEditor
-                ref={labelRef}
+              <MarkdownField
                 id={`field-label-${field.id}`}
                 value={field.label}
-                onChange={(v) => onUpdate({ ...field, label: v })}
+                onChange={(value) =>
+                  onUpdate({
+                    ...field,
+                    label: value,
+                  })
+                }
                 placeholder="Enter field label..."
+                minEditorHeightRem={4}
               />
             </div>
 
@@ -529,13 +306,17 @@ function FieldEditor({
             <div className="space-y-1.5">
               <Label className="text-xs">Description (optional)</Label>
 
-              <InlineMarkdownEditor
-                ref={descRef}
+              <MarkdownField
                 id={`field-desc-${field.id}`}
                 value={field.description}
-                onChange={(v) => onUpdate({ ...field, description: v })}
+                onChange={(value) =>
+                  onUpdate({
+                    ...field,
+                    description: value,
+                  })
+                }
                 placeholder="Help text for this field..."
-                rows={2}
+                minEditorHeightRem={18}
               />
             </div>
 
@@ -550,7 +331,7 @@ function FieldEditor({
                   })
                 }
               >
-                <SelectTrigger className="h-8 w-36 text-xs">
+                <SelectTrigger className="h-8 text-xs w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1177,15 +958,15 @@ function SectionEditor({
                 <MarkdownField
                   id={`section-title-${section.id}`}
                   value={section.title || ""}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     onUpdate({
                       ...section,
-                      title: e.target.value,
+                      title: value,
                     })
                   }
                   placeholder="Blah blah blah"
-                  rows={2}
-                  className="w-full min-w-0 text-base font-semibold"
+                  minEditorHeightRem={4}
+                  className="w-full overflow-auto min-w-0 text-base font-semibold"
                 />
               </div>
 
@@ -1199,14 +980,14 @@ function SectionEditor({
                 <MarkdownField
                   id={`section-desc-${section.id}`}
                   value={section.description || ""}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     onUpdate({
                       ...section,
-                      description: e.target.value,
+                      description: value,
                     })
                   }
                   placeholder="Blah blah blah (optional)"
-                  rows={2}
+                  minEditorHeightRem={5}
                   className="text-sm text-muted-foreground"
                 />
               </div>
@@ -1748,38 +1529,6 @@ export function FormBuilder({
     }
   };
 
-  // Selection-based editing for form title/description
-  const wrapSelectionInFormField = (
-    field: "title" | "description",
-    before: string,
-    after = "",
-  ) => {
-    const id = field === "title" ? "form-title" : "form-description";
-    const el = document.getElementById(id) as HTMLElement | null;
-    if (
-      el &&
-      (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
-    ) {
-      const start = (el as any).selectionStart ?? 0;
-      const end = (el as any).selectionEnd ?? start;
-      const value = el.value || "";
-      const result = applyToggleWrap(value, start, end, before, after);
-      if (field === "title") setTitle(result.newValue);
-      else setDescription(result.newValue);
-      requestAnimationFrame(() => {
-        try {
-          el.focus();
-          (el as any).setSelectionRange(result.newStart, result.newEnd);
-        } catch {}
-      });
-    } else {
-      const cur = field === "title" ? title || "" : description || "";
-      const res = applyToggleWrap(cur, 0, 0, before, after);
-      if (field === "title") setTitle(res.newValue);
-      else setDescription(res.newValue);
-    }
-  };
-
   const addSection = () => {
     setSections([
       ...sections,
@@ -2015,82 +1764,150 @@ export function FormBuilder({
           >
             <span className="flex items-center gap-2 font-medium">
               <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-              Markdown support in forms
+              Markdown editor help
             </span>
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="mt-2 space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4 text-sm">
-            <p className="text-muted-foreground">
-              Markdown is rendered in form title, form description, section
-              titles, section descriptions, field labels, and field
-              descriptions.
-            </p>
-            <p className="text-muted-foreground">
-              Use the toolbar or shortcuts to format quickly:{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                Ctrl/Cmd+B
-              </code>
-              ,{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                Ctrl/Cmd+I
-              </code>
-              ,{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                Ctrl/Cmd+K
-              </code>
-              , and{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                Ctrl/Cmd+Z
-              </code>
-              .
-            </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-md border bg-background/70 p-3">
-                <p className="mb-1 flex items-center gap-2 font-medium">
-                  <Bold className="h-4 w-4 text-muted-foreground" />
-                  Bold
-                </p>
-                <code className="block rounded bg-muted px-2 py-1 text-xs">
-                  **important**
-                </code>
-              </div>
-              <div className="rounded-md border bg-background/70 p-3">
-                <p className="mb-1 flex items-center gap-2 font-medium">
-                  <Italic className="h-4 w-4 text-muted-foreground" />
-                  Italic
-                </p>
-                <code className="block rounded bg-muted px-2 py-1 text-xs">
-                  *note*
-                </code>
-              </div>
-              <div className="rounded-md border bg-background/70 p-3">
-                <p className="mb-1 flex items-center gap-2 font-medium">
-                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
-                  Links
-                </p>
-                <code className="block rounded bg-muted px-2 py-1 text-xs">
-                  [text](https://example.com)
-                </code>
+          <div className="mt-2 space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4 text-sm">
+            {/* Where markdown works */}
+            <div className="space-y-2">
+              <p className="font-medium">Where Markdown is supported</p>
+
+              <p className="text-muted-foreground">
+                Rich text formatting is available in form titles and
+                descriptions, section titles and descriptions, and field labels
+                and descriptions. Formatting is rendered directly while you
+                edit.
+              </p>
+            </div>
+
+            {/* Shortcuts */}
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <p className="font-medium">Keyboard shortcuts</p>
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">Bold</p>
+                  <code className="mt-1 block text-xs">Ctrl/Cmd+B</code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">Italic</p>
+                  <code className="mt-1 block text-xs">Ctrl/Cmd+I</code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Insert / edit link
+                  </p>
+                  <code className="mt-1 block text-xs">Ctrl/Cmd+K</code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">Undo</p>
+                  <code className="mt-1 block text-xs">Ctrl/Cmd+Z</code>
+                </div>
               </div>
             </div>
-            <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-              <li>
-                Use plain text for anything that should stay compact inside
-                badges or button labels.
-              </li>
-              <li>
-                Switch between Edit and Preview to confirm final formatting.
-              </li>
-              <li>
-                Color only part of a text using <code>[text]{`{#ff4d4f}`}</code>
-                , for example <code>[A]{`{#ff0000}`}</code>.
-              </li>
-              <li>
-                Long titles and descriptions wrap to avoid layout overflow.
-              </li>
-            </ul>
+
+            {/* Paragraph behavior */}
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <p className="font-medium">Paragraphs and line breaks</p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border bg-background/70 p-3">
+                  <div className="mb-1 flex items-center gap-2">
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      Enter
+                    </code>
+                    <span className="font-medium">New paragraph</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Creates a separate paragraph with spacing. Best for
+                    descriptions and longer blocks of content.
+                  </p>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <div className="mb-1 flex items-center gap-2">
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      Shift+Enter
+                    </code>
+                    <span className="font-medium">Soft line break</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Starts a new line without creating a separate paragraph.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Formatting examples */}
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <p className="font-medium">Formatting examples</p>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="mb-1 flex items-center gap-2 font-medium">
+                    <Bold className="h-4 w-4 text-muted-foreground" />
+                    Bold
+                  </p>
+                  <code className="block rounded bg-muted px-2 py-1 text-xs">
+                    **important**
+                  </code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="mb-1 flex items-center gap-2 font-medium">
+                    <Italic className="h-4 w-4 text-muted-foreground" />
+                    Italic
+                  </p>
+                  <code className="block rounded bg-muted px-2 py-1 text-xs">
+                    *note*
+                  </code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="mb-1 flex items-center gap-2 font-medium">
+                    <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                    Link
+                  </p>
+                  <code className="block rounded bg-muted px-2 py-1 text-xs break-all">
+                    [text](https://example.com)
+                  </code>
+                </div>
+              </div>
+            </div>
+
+            {/* Editor notes */}
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <p className="font-medium">Editor notes</p>
+
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                <li>
+                  Use the toolbar for bulleted lists, numbered lists, inline
+                  code, links, and text colors.
+                </li>
+                <li>
+                  Select text before applying formatting when you only want to
+                  style part of a sentence.
+                </li>
+                <li>
+                  Custom text colors are stored using syntax such as{" "}
+                  <code>[text]{`{#ff4d4f}`}</code>.
+                </li>
+                <li>
+                  Titles are best kept short even though the editor supports
+                  rich formatting.
+                </li>
+                <li>
+                  Long descriptions automatically wrap in previews and public
+                  forms.
+                </li>
+              </ul>
+            </div>
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -2130,12 +1947,12 @@ export function FormBuilder({
               </div>
             )}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="cursor-pointer"
+                className="cursor-pointer flex-1 w-full"
                 disabled={isUploadingBanner}
                 onClick={() => formBannerInputRef.current?.click()}
               >
@@ -2150,9 +1967,9 @@ export function FormBuilder({
               {(bannerAssetPath || bannerUrl.trim()) && (
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="destructive"
                   size="sm"
-                  className="cursor-pointer text-destructive"
+                  className="cursor-pointer text-white flex-1 w-full hover:text-white/90"
                   onClick={handleRemoveFormBanner}
                 >
                   <Trash2 className="mr-2 h-3.5 w-3.5" /> Remove
@@ -2185,16 +2002,14 @@ export function FormBuilder({
             <MarkdownField
               id="form-title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(value) => setTitle(value)}
               placeholder="e.g., Contact Form, Commission Request"
-              rows={2}
               minEditorHeightRem={4}
-              previewMaxHeightRem={4}
               className="text-lg font-semibold"
             />
             <p className="text-[11px] text-muted-foreground">
-              Tip: use the toolbar to format your title with bold, italic,
-              links, and lists.
+              Keep titles concise. Use bold, italic, links, or color for
+              emphasis.
             </p>
           </div>
           <div className="space-y-2">
@@ -2202,12 +2017,10 @@ export function FormBuilder({
             <MarkdownField
               id="form-description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(value) => setDescription(value)}
               placeholder="Describe what this form is for…"
-              rows={3}
               minEditorHeightRem={18}
-              previewMaxHeightRem={18}
-              className="min-h-32 border-none px-3 bg-transparent w-full text-sm"
+              className="text-lg font-semibold overflow-auto"
             />
           </div>
 
@@ -2447,7 +2260,7 @@ export function FormBuilder({
                     <div className="min-w-0 flex-1 space-y-2">
                       <div
                         className={cn(
-                          "rendered-markdown text-base font-semibold leading-snug break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+                          "text-base font-semibold leading-snug wrap-break-word",
                           !appearance.titleColor &&
                             appearanceClasses.accent.text,
                         )}
@@ -2456,26 +2269,23 @@ export function FormBuilder({
                             ? { color: appearance.titleColor }
                             : undefined
                         }
-                        dangerouslySetInnerHTML={{
-                          __html: renderMarkdown(
-                            title.trim() || "**Form title preview**",
-                          ),
-                        }}
-                      ></div>
-                      <div
-                        className="rendered-markdown line-clamp-3 text-xs leading-relaxed text-muted-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                      >
+                        <MarkdownRenderer
+                          content={title.trim() || "**Form title preview**"}
+                          className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                        />
+                      </div>
+                      <p
+                        className="line-clamp-5 text-xs leading-relaxed text-muted-foreground"
                         style={
                           appearance.descriptionColor
                             ? { color: appearance.descriptionColor }
                             : undefined
                         }
-                        dangerouslySetInnerHTML={{
-                          __html: renderMarkdown(
-                            description.trim() ||
-                              "Description preview. Here you can quickly validate **readability** and style choices.",
-                          ),
-                        }}
-                      ></div>
+                      >
+                        {stripMarkdownToText(description) ||
+                          "Description preview. Here you can quickly validate readability and style choices."}
+                      </p>
                     </div>
                   </div>
 

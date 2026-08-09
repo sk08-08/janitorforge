@@ -1060,9 +1060,9 @@ export function CreatorPages() {
                 <Label>Description</Label>
                 <MarkdownField
                   value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
+                  onChange={(value) => setEditDescription(value)}
                   placeholder="Describe your creator page..."
-                  rows={3}
+                  minEditorHeightRem={8}
                   className="min-h-[8rem]"
                 />
               </div>
@@ -1610,14 +1610,14 @@ export function CreatorPages() {
                       <Label>Content</Label>
                       <MarkdownField
                         value={sectionConfigEdit.body || ""}
-                        onChange={(e) =>
+                        onChange={(value) =>
                           setSectionConfigEdit((prev) => ({
                             ...prev,
-                            body: e.target.value,
+                            body: value,
                           }))
                         }
                         placeholder="Write your content here. Supports markdown."
-                        rows={8}
+                        minEditorHeightRem={12}
                         className="min-h-[12rem] md:min-h-[14rem]"
                       />
                       <p className="text-[10px] text-muted-foreground">
@@ -2134,14 +2134,14 @@ export function CreatorPages() {
                       <Label>Description</Label>
                       <MarkdownField
                         value={sectionConfigEdit.description || ""}
-                        onChange={(e) =>
+                        onChange={(value) =>
                           setSectionConfigEdit((prev) => ({
                             ...prev,
-                            description: e.target.value,
+                            description: value,
                           }))
                         }
                         placeholder="Describe this collection of bots..."
-                        rows={3}
+                        minEditorHeightRem={8}
                         className="min-h-[8rem]"
                       />
                     </div>
@@ -2222,14 +2222,14 @@ export function CreatorPages() {
                       <Label>Description</Label>
                       <MarkdownField
                         value={sectionConfigEdit.description || ""}
-                        onChange={(e) =>
+                        onChange={(value) =>
                           setSectionConfigEdit((prev) => ({
                             ...prev,
-                            description: e.target.value,
+                            description: value,
                           }))
                         }
                         placeholder="Describe the worlds you want to showcase..."
-                        rows={3}
+                        minEditorHeightRem={8}
                         className="min-h-[8rem]"
                       />
                     </div>
@@ -2288,14 +2288,14 @@ export function CreatorPages() {
                     <Label>Description</Label>
                     <MarkdownField
                       value={sectionConfigEdit.description || ""}
-                      onChange={(e) =>
+                      onChange={(value) =>
                         setSectionConfigEdit((prev) => ({
                           ...prev,
-                          description: e.target.value,
+                          description: value,
                         }))
                       }
                       placeholder="Describe your lorebook collection..."
-                      rows={3}
+                      minEditorHeightRem={8}
                       className="min-h-[8rem]"
                     />
                   </div>
@@ -2307,14 +2307,14 @@ export function CreatorPages() {
                       <Label>Description</Label>
                       <MarkdownField
                         value={sectionConfigEdit.description || ""}
-                        onChange={(e) =>
+                        onChange={(value) =>
                           setSectionConfigEdit((prev) => ({
                             ...prev,
-                            description: e.target.value,
+                            description: value,
                           }))
                         }
                         placeholder="Describe what this form is for..."
-                        rows={2}
+                        minEditorHeightRem={6}
                         className="min-h-[7.5rem]"
                       />
                     </div>

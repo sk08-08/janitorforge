@@ -6,7 +6,10 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import PublicForm from "@/components/forms/public-form";
 import type { FormSection } from "@/lib/types";
-import { renderMarkdown } from "@/lib/markdown";
+import {
+  MarkdownRenderer,
+  MarkdownInlineRenderer,
+} from "../../../components/forms/markdown-renderer";
 
 export default async function PublicFormPage({
   params,
@@ -74,13 +77,12 @@ export default async function PublicFormPage({
 
             <div className="text-center space-y-6">
               {/* Title */}
-              <h1
+              <div
                 className="text-3xl sm:text-4xl font-extrabold tracking-tight rendered-markdown"
                 style={{ color: accentColor }}
-                dangerouslySetInnerHTML={{
-                  __html: renderMarkdown(row.title || "Form"),
-                }}
-              />
+              >
+                <MarkdownInlineRenderer content={row.title || "Form"} />
+              </div>
 
               {/* Status badge */}
               <div className="flex justify-center">
@@ -133,10 +135,9 @@ export default async function PublicFormPage({
                   <div
                     className="text-base leading-relaxed rendered-markdown"
                     style={{ color: "var(--muted-foreground)" }}
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdown(deactivatedMsg),
-                    }}
-                  />
+                  >
+                    <MarkdownRenderer content={deactivatedMsg} />
+                  </div>
                 ) : (
                   <p
                     className="text-base"

@@ -55,9 +55,16 @@ const feedbackLocationOptions = [
   "Login / Register",
   "Public form",
   "Dashboard",
-  "Submissions",
+  "Bot Manager",
   "Forms",
-  "Bots",
+  "Submissions",
+  "Moderation",
+  "Atlas",
+  "Creator Pages",
+  "Profile",
+  "Notifications",
+  "Settings",
+  "Other (specify)",
 ] as const;
 
 function resolveInitialLocation(context: FeedbackContext) {
@@ -70,6 +77,16 @@ function resolveInitialLocation(context: FeedbackContext) {
   if (sourcePath.startsWith("/login")) return "Login / Register";
   if (sourcePath.startsWith("/form")) return "Public form";
   if (sourcePath.startsWith("/dashboard")) return "Dashboard";
+  if (sourcePath.startsWith("/bot-manager")) return "Bot Manager";
+  if (sourcePath.startsWith("/forms")) return "Forms";
+  if (sourcePath.startsWith("/submissions")) return "Submissions";
+  if (sourcePath.startsWith("/moderation")) return "Moderation";
+  if (sourcePath.startsWith("/atlas")) return "Atlas";
+  if (sourcePath.startsWith("/creator-pages")) return "Creator Pages";
+  if (sourcePath.startsWith("/profile")) return "Profile";
+  if (sourcePath.startsWith("/notifications")) return "Notifications";
+  if (sourcePath.startsWith("/settings")) return "Settings";
+  if (sourcePath.startsWith("/other")) return "Other (specify)";
 
   return "Dashboard";
 }
@@ -358,16 +375,16 @@ export function FeedbackActions({
               <SelectItem value="Login / Register">Login / Register</SelectItem>
               <SelectItem value="Public form">Public form</SelectItem>
               <SelectItem value="Dashboard">Dashboard</SelectItem>
-              <SelectItem value="Bots">Bot Manager</SelectItem>
+              <SelectItem value="Bot Manager">Bot Manager</SelectItem>
               <SelectItem value="Forms">Forms</SelectItem>
               <SelectItem value="Submissions">Submissions</SelectItem>
-              <SelectItem value="other">Moderation</SelectItem>
+              <SelectItem value="Moderation">Moderation</SelectItem>
               <SelectItem value="Atlas">Atlas</SelectItem>
-              <SelectItem value="other">Creator Pages</SelectItem>
-              <SelectItem value="other">Profile</SelectItem>
-              <SelectItem value="other">Notifications</SelectItem>
+              <SelectItem value="Creator Pages">Creator Pages</SelectItem>
+              <SelectItem value="Profile">Profile</SelectItem>
+              <SelectItem value="Notifications">Notifications</SelectItem>
               <SelectItem value="Settings">Settings</SelectItem>
-              <SelectItem value="other">Other (specify)</SelectItem>
+              <SelectItem value="Other (specify)">Other (specify)</SelectItem>
             </SelectContent>
           </Select>
           {location === "other" && (
@@ -535,12 +552,14 @@ export function FeedbackActions({
 
       {isMobile ? (
         <Drawer open={open} onOpenChange={closeDialog}>
-          <DrawerContent className="max-h-[90vh] overflow-y-auto rounded-t-3xl p-6">
-            <DrawerHeader className="px-0 pt-2 text-left">
-              <DrawerTitle>{copy.title}</DrawerTitle>
-              <DrawerDescription>{copy.description}</DrawerDescription>
-            </DrawerHeader>
-            {ActionSheet}
+          <DrawerContent className="max-h-[96vh]">
+            <div className="overflow-y-auto px-4 pb-10 sm:px-6">
+              <DrawerHeader className="px-0 pt-4 text-left">
+                <DrawerTitle>{copy.title}</DrawerTitle>
+                <DrawerDescription>{copy.description}</DrawerDescription>
+              </DrawerHeader>
+              {ActionSheet}
+            </div>
           </DrawerContent>
         </Drawer>
       ) : (

@@ -53,7 +53,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { MarkdownContent } from "./markdown-content";
+import { MarkdownRenderer } from "../forms/markdown-renderer";
 
 type HubLogPostRow = {
   id: string;
@@ -663,7 +663,7 @@ export function LogsHub() {
                             </p>
                             {post.body && (
                               <div className="mt-3 max-h-40 overflow-hidden rounded-xl border border-border/70 bg-muted/20 p-3 text-sm text-foreground/90">
-                                <MarkdownContent
+                                <MarkdownRenderer
                                   content={post.body}
                                   className="prose-sm max-w-none"
                                 />
@@ -844,13 +844,12 @@ export function LogsHub() {
               </p>
               <MarkdownField
                 value={postForm.body}
-                onChange={(event) =>
-                  setPostForm((prev) => ({ ...prev, body: event.target.value }))
+                onChange={(value) =>
+                  setPostForm((prev) => ({ ...prev, body: value }))
                 }
-                rows={6}
                 placeholder="Use markdown, lists, links, and image syntax like ![alt](https://...)"
                 className="min-h-[12rem] md:min-h-[14rem]"
-                previewMaxHeightRem={24}
+                maxEditorHeightRem={24}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1006,7 +1005,7 @@ export function LogsHub() {
                       </p>
                       <div className="prose prose-sm mt-3 max-w-none dark:prose-invert">
                         {selectedPost.body ? (
-                          <MarkdownContent content={selectedPost.body} />
+                          <MarkdownRenderer content={selectedPost.body} />
                         ) : (
                           <p className="text-sm text-muted-foreground">
                             No body yet.

@@ -7,7 +7,6 @@
 
 import { useState, useCallback, useEffect } from "react";
 import {
-  X,
   Plus,
   Upload,
   Download,
@@ -18,8 +17,6 @@ import {
   Bold,
   Italic,
   Link as LinkIcon,
-  Pencil,
-  Eye,
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,14 +35,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { MarkdownRenderer } from "@/components/forms/markdown-renderer";
-import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { BotTagSelector } from "./bot-tag-selector";
 import { TokenCounter, TokenSummary } from "./token-counter";
-import { cn } from "@/lib/utils";
 import type { BotFormData } from "@/lib/types";
 import type { JanitorForgeCharacterCardExtension } from "@/lib/types";
 import {
@@ -200,9 +194,6 @@ export function BotForm({
   });
   const [selectedInitialMessageIndex, setSelectedInitialMessageIndex] =
     useState(0);
-  const [initialMessageMode, setInitialMessageMode] = useState<
-    "edit" | "preview"
-  >("edit");
   const [scenario, setScenario] = useState(initialData?.scenario || "");
   const [exampleDialogues, setExampleDialogues] = useState(
     initialData?.exampleDialogues || "",
@@ -254,10 +245,6 @@ export function BotForm({
       Math.min(current, Math.max(initialMessages.length - 1, 0)),
     );
   }, [initialMessages.length]);
-
-  useEffect(() => {
-    setInitialMessageMode("edit");
-  }, [selectedInitialMessageIndex]);
 
   const normalizeInitialMessages = useCallback(
     () => initialMessages.map((message) => message.trim()).filter(Boolean),
@@ -541,66 +528,154 @@ export function BotForm({
           >
             <span className="flex items-center gap-2 font-medium">
               <Info className="h-4 w-4 shrink-0 text-muted-foreground" />
-              Markdown editor tips
+              Markdown editor help
             </span>
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
           </button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="mt-2 rounded-lg border border-border/60 bg-muted/20 p-4 space-y-3 text-sm">
-            <div>
-              <p className="font-medium mb-1">What you can use:</p>
-              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+          <div className="mt-2 space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4 text-sm">
+            {/* Editor basics */}
+            <div className="space-y-2">
+              <p className="font-medium">Editor basics</p>
+
+              <p className="text-muted-foreground">
+                Markdown formatting is rendered directly while you edit. Use the
+                toolbar or keyboard shortcuts for common formatting.
+              </p>
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">Bold</p>
+                  <code className="mt-1 block text-xs">Ctrl/Cmd+B</code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">Italic</p>
+                  <code className="mt-1 block text-xs">Ctrl/Cmd+I</code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Insert / edit link
+                  </p>
+                  <code className="mt-1 block text-xs">Ctrl/Cmd+K</code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="text-xs text-muted-foreground">Undo</p>
+                  <code className="mt-1 block text-xs">Ctrl/Cmd+Z</code>
+                </div>
+              </div>
+            </div>
+
+            {/* Line breaks */}
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <p className="font-medium">Paragraphs and line breaks</p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border bg-background/70 p-3">
+                  <div className="mb-1 flex items-center gap-2">
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      Enter
+                    </code>
+                    <span className="font-medium">New paragraph</span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Starts a separate paragraph with visible spacing from the
+                    previous one. Use this for dialogue, actions, or distinct
+                    blocks of text.
+                  </p>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <div className="mb-1 flex items-center gap-2">
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      Shift+Enter
+                    </code>
+                    <span className="font-medium">Soft line break</span>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Moves to the next line without starting a new paragraph. Use
+                    this when lines should stay visually grouped together.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Formatting */}
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <p className="font-medium">Formatting</p>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="mb-1 flex items-center gap-2 font-medium">
+                    <Bold className="h-4 w-4 text-muted-foreground" />
+                    Bold
+                  </p>
+                  <code className="block rounded bg-muted px-2 py-1 text-xs">
+                    **important**
+                  </code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="mb-1 flex items-center gap-2 font-medium">
+                    <Italic className="h-4 w-4 text-muted-foreground" />
+                    Italic
+                  </p>
+                  <code className="block rounded bg-muted px-2 py-1 text-xs">
+                    *action or emphasis*
+                  </code>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                  <p className="mb-1 flex items-center gap-2 font-medium">
+                    <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                    Link
+                  </p>
+                  <code className="block rounded bg-muted px-2 py-1 text-xs break-all">
+                    [text](https://example.com)
+                  </code>
+                </div>
+              </div>
+
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
                 <li>
-                  Use the toolbar or shortcuts:{" "}
-                  <code className="bg-muted px-1 rounded">Ctrl/Cmd+B</code>,{" "}
-                  <code className="bg-muted px-1 rounded">Ctrl/Cmd+I</code>,{" "}
-                  <code className="bg-muted px-1 rounded">Ctrl/Cmd+K</code>,{" "}
-                  <code className="bg-muted px-1 rounded">Ctrl/Cmd+Z</code>.
-                </li>
-                <li className="flex items-start gap-2">
-                  <Bold className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span>
-                    <code className="bg-muted px-1 rounded">**bold**</code> →{" "}
-                    <strong>bold</strong>
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Italic className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span>
-                    <code className="bg-muted px-1 rounded">*italic*</code> →{" "}
-                    <em>italic</em>
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <LinkIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span>
-                    <code className="bg-muted px-1 rounded">
-                      [link text](https://url.com)
-                    </code>{" "}
-                    → clickable links
-                  </span>
+                  Use the list buttons in the toolbar for bulleted or numbered
+                  lists.
                 </li>
                 <li>
-                  <code className="bg-muted px-1 rounded">- item</code> or{" "}
-                  <code className="bg-muted px-1 rounded">1. item</code> → lists
+                  Use the palette button to apply a color to selected text.
                 </li>
                 <li>
-                  Switch between Edit and Preview to verify formatting quickly.
+                  Inline code, bold, italic, links, lists, and colors are stored
+                  as Markdown.
                 </li>
               </ul>
             </div>
-            <div>
-              <p className="font-medium mb-1">Notes:</p>
-              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
+
+            {/* Bot-specific notes */}
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <p className="font-medium">Bot fields</p>
+
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
                 <li>
-                  Name and short description are simple text fields; markdown
-                  applies to personality, scenario, initial messages, and
-                  example dialogues.
+                  Markdown is available in Personality, Scenario, Initial
+                  Messages, and Example Dialogues.
                 </li>
                 <li>
-                  JanitorForge preview may not match 1:1 with how other
-                  platforms render markdown.
+                  Name, Character Chat Name, and Short Description remain plain
+                  text.
+                </li>
+                <li>
+                  You can use <code>{"{{char}}"}</code> and{" "}
+                  <code>{"{{user}}"}</code> variables in character content.
+                </li>
+                <li>
+                  Rendering may differ slightly when a character card is used on
+                  another platform.
                 </li>
               </ul>
             </div>
@@ -778,10 +853,10 @@ export function BotForm({
             <MarkdownField
               id="personality"
               value={personality}
-              onChange={(e) => setPersonality(e.target.value)}
+              onChange={setPersonality}
               placeholder="Describe {{char}}'s personality, traits, background..."
-              rows={6}
-              className="min-h-[12rem] md:min-h-[14rem] font-mono text-sm"
+              minEditorHeightRem={18}
+              className="overflow-auto"
             />
           </div>
 
@@ -796,10 +871,9 @@ export function BotForm({
             <MarkdownField
               id="scenario"
               value={scenario}
-              onChange={(e) => setScenario(e.target.value)}
+              onChange={setScenario}
               placeholder="The setting and circumstances of the roleplay..."
-              rows={4}
-              className="min-h-[10rem] md:min-h-[12rem] font-mono text-sm"
+              minEditorHeightRem={14}
             />
           </div>
 
@@ -863,44 +937,19 @@ export function BotForm({
                       {initialMessages.length}
                     </Label>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Markdown is rendered in this message.
+                      Use Enter for a new paragraph and Shift+Enter for a soft
+                      line break.
                     </p>
                   </div>
+
+                  {/* Botón de Remover simplificado */}
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="inline-flex w-full rounded-md border bg-background p-1 sm:w-auto">
-                      <Button
-                        type="button"
-                        variant={
-                          initialMessageMode === "edit" ? "secondary" : "ghost"
-                        }
-                        size="sm"
-                        className="h-8 flex-1 gap-2 px-3 cursor-pointer sm:flex-none"
-                        onClick={() => setInitialMessageMode("edit")}
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={
-                          initialMessageMode === "preview"
-                            ? "secondary"
-                            : "ghost"
-                        }
-                        size="sm"
-                        className="h-8 flex-1 gap-2 px-3 cursor-pointer sm:flex-none"
-                        onClick={() => setInitialMessageMode("preview")}
-                      >
-                        <Eye className="h-4 w-4" />
-                        Preview
-                      </Button>
-                    </div>
                     {initialMessages.length > 1 && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-full px-2 text-destructive cursor-pointer sm:w-auto"
+                        className="h-8 w-full px-2 text-destructive cursor-pointer sm:w-auto hover:bg-destructive/10"
                         onClick={() =>
                           removeInitialMessage(selectedInitialMessageIndex)
                         }
@@ -913,37 +962,15 @@ export function BotForm({
                 </div>
 
                 <div className="pt-3">
-                  {initialMessageMode === "edit" ? (
-                    <MarkdownField
-                      id={`initial-message-${selectedInitialMessageIndex}`}
-                      value={initialMessages[selectedInitialMessageIndex] || ""}
-                      onChange={(e) =>
-                        updateInitialMessage(
-                          selectedInitialMessageIndex,
-                          e.target.value,
-                        )
-                      }
-                      placeholder="The opening message {{char}} sends to {{user}}..."
-                      rows={7}
-                      className="min-h-[12rem] md:min-h-[14rem] font-mono text-sm"
-                    />
-                  ) : (
-                    <div className="min-h-36 max-h-60 overflow-auto rounded-md border border-border/60 bg-background p-3">
-                      {initialMessages[selectedInitialMessageIndex]?.trim() ? (
-                        <MarkdownRenderer
-                          content={
-                            initialMessages[selectedInitialMessageIndex] || ""
-                          }
-                          className="text-sm"
-                        />
-                      ) : (
-                        <p className="text-sm italic text-muted-foreground">
-                          No message content yet. Switch to Edit to add
-                          markdown.
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  <MarkdownField
+                    id={`initial-message-${selectedInitialMessageIndex}`}
+                    value={initialMessages[selectedInitialMessageIndex] || ""}
+                    onChange={(value) =>
+                      updateInitialMessage(selectedInitialMessageIndex, value)
+                    }
+                    placeholder="The opening message {{char}} sends to {{user}}..."
+                    minEditorHeightRem={20}
+                  />
                 </div>
               </div>
             </div>
@@ -963,10 +990,10 @@ export function BotForm({
             <MarkdownField
               id="example-dialogues"
               value={exampleDialogues}
-              onChange={(e) => setExampleDialogues(e.target.value)}
+              onChange={setExampleDialogues}
               placeholder="{{user}}: Hello!\n{{char}}: *smiles* Hello there, {{user}}!"
-              rows={8}
-              className="min-h-[13rem] md:min-h-[15rem] font-mono text-sm"
+              minEditorHeightRem={12}
+              maxEditorHeightRem={20}
             />
           </div>
         </CardContent>
