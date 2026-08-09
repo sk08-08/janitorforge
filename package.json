@@ -48,6 +48,7 @@
     "@supabase/supabase-js": "^2.106.0",
     "@tailwindcss/typography": "^0.5.20",
     "@tanstack/react-virtual": "^3.13.26",
+    "@tiptap/core": "^3.29.2",
     "@tiptap/extension-link": "^3.29.2",
     "@tiptap/markdown": "^3.29.2",
     "@tiptap/react": "^3.29.2",
