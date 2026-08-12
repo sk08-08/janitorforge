@@ -77,8 +77,10 @@ import { CustomColorPicker } from "@/components/ui/custom-color-picker";
 interface ProfileEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSaved?: () => void;
+  onSaved?: () => void | Promise<void>;
 }
+
+const MAX_FEATURED_BOTS = 5;
 
 const socialPlatforms = [
   {
@@ -294,7 +296,8 @@ export function ProfileEditor({
         setFeaturedBotIds(
           (p.active_profile_featured_bots || [])
             .map((relation: any) => relation?.bot?.id)
-            .filter(Boolean),
+            .filter(Boolean)
+            .slice(0, MAX_FEATURED_BOTS),
         );
 
         const theme = (p.theme as Record<string, unknown>) || {};
@@ -355,7 +358,7 @@ export function ProfileEditor({
         specialties,
         social_links: socialLinks,
         visibility,
-        featuredBotIds: validFeaturedBotIds,
+        featuredBotIds: validFeaturedBotIds.slice(0, MAX_FEATURED_BOTS),
         theme: {
           primaryColor,
           accentColor,
@@ -377,7 +380,9 @@ export function ProfileEditor({
 
       if (result.success) {
         toast.success("Profile saved!");
-        onSaved?.();
+
+        await onSaved?.();
+
         onOpenChange(false);
       } else {
         toast.error(result.error || "Failed to save profile");
@@ -408,12 +413,9 @@ export function ProfileEditor({
     bots.some((bot) => bot.id === id),
   );
   const featuredCount = validFeaturedBotIds.length;
-  const featuredBotsSorted = [...bots].sort((a, b) => {
-    const aSelected = validFeaturedBotIds.includes(a.id);
-    const bSelected = validFeaturedBotIds.includes(b.id);
-    if (aSelected !== bSelected) return aSelected ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+  const featuredBotsSorted = [...bots].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
   const previewBackground = getProfileBackgroundStyles(
     profileBackground as ProfileBackground,
     primaryColor,
@@ -927,7 +929,7 @@ export function ProfileEditor({
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Profile Sections
                 </Label>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
                   {[
                     {
                       label: "Show Statistics",
@@ -990,13 +992,14 @@ export function ProfileEditor({
             {/* ===== FEATURED TAB ===== */}
             <TabsContent
               value="featured"
-              className="space-y-3 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
+              className="min-w-0 space-y-3 mt-4 overflow-y-auto overflow-x-hidden pr-1 flex-1 min-h-0"
             >
               <p className="text-xs text-muted-foreground">
-                Select bots to feature on your profile.
+                Select up to {MAX_FEATURED_BOTS} bots to feature on your
+                profile.
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Selected: {featuredCount} / {bots.length}
+                Selected: {featuredCount} / {MAX_FEATURED_BOTS}
               </p>
               {bots.length > 0 ? (
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -1006,19 +1009,33 @@ export function ProfileEditor({
                       <label
                         key={bot.id}
                         className={cn(
-                          "flex items-center gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-all",
+                          "flex w-full min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-lg border p-2.5 cursor-pointer transition-all",
                           isSelected
                             ? "border-primary bg-primary/5 shadow-sm"
                             : "hover:border-primary/30",
+                          !isSelected &&
+                            featuredCount >= MAX_FEATURED_BOTS &&
+                            "opacity-50",
                         )}
                       >
                         <Checkbox
                           checked={isSelected}
+                          disabled={
+                            !isSelected && featuredCount >= MAX_FEATURED_BOTS
+                          }
                           onCheckedChange={(checked) => {
                             setFeaturedBotIds((prev) => {
                               if (checked) {
+                                if (prev.length >= MAX_FEATURED_BOTS) {
+                                  toast.error(
+                                    `You can feature up to ${MAX_FEATURED_BOTS} bots.`,
+                                  );
+                                  return prev;
+                                }
+
                                 return Array.from(new Set([...prev, bot.id]));
                               }
+
                               return prev.filter((id) => id !== bot.id);
                             });
                           }}
@@ -1047,7 +1064,7 @@ export function ProfileEditor({
                         </div>
                         <Badge
                           variant="outline"
-                          className="text-[9px] shrink-0"
+                          className="max-w-[4.5rem] shrink-0 truncate text-[9px]"
                         >
                           {bot.rating}
                         </Badge>
@@ -1148,19 +1165,19 @@ export function ProfileEditor({
           </Tabs>
         )}
 
-        {/* Save button — fixed at bottom */}
-        <div className="shrink-0 flex justify-end gap-2 pt-4 border-t">
+        {/* Save button */}
+        <div className="shrink-0 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-end">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="cursor-pointer"
+            className="w-full cursor-pointer sm:w-auto"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSave}
             disabled={saving || loading}
-            className="cursor-pointer"
+            className="w-full cursor-pointer sm:w-auto"
           >
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />

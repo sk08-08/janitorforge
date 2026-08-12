@@ -12,11 +12,8 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Flame,
@@ -126,18 +123,6 @@ const headerIconMap = {
   gem: Gem,
 } as const;
 
-function sanitizeUrl(input: string) {
-  const url = String(input || "").trim();
-  try {
-    const parsed = new URL(url, "http://example.com");
-    // Allow http/https and mailto
-    if (/^https?:$/i.test(parsed.protocol) || /^mailto:$/i.test(url)) {
-      return url;
-    }
-  } catch {}
-  return "";
-}
-
 const giphyFetch = new GiphyFetch(
   process.env.NEXT_PUBLIC_GIPHY_API_KEY || "7o0fqYvUWtgy7wRLtEVpQOhsYsVX0J8y",
 );
@@ -169,7 +154,6 @@ interface FieldEditorProps {
   onDragEnd?: () => void;
   isDragging?: boolean;
   allFields?: FormField[];
-  openLinkModal?: (cb: (url: string) => void) => void;
 }
 
 const conditionOperators: { value: ConditionOperator; label: string }[] = [
@@ -457,9 +441,7 @@ function FieldEditor({
             {allFields.length > 1 && (
               <div className="space-y-2 rounded-lg border border-dashed p-3 overflow-hidden">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <Label className="text-xs font-medium">
-                    Conditional Display
-                  </Label>
+                  <Label className="text-xs font-medium">Logic</Label>
                   <Button
                     type="button"
                     variant="ghost"
@@ -603,7 +585,6 @@ interface SectionEditorProps {
   isDragging?: boolean;
   disableMoveUp?: boolean;
   disableMoveDown?: boolean;
-  openLinkModal?: (cb: (url: string) => void) => void;
 }
 
 function SectionEditor({
@@ -617,7 +598,6 @@ function SectionEditor({
   isDragging = false,
   disableMoveUp = false,
   disableMoveDown = false,
-  openLinkModal,
 }: SectionEditorProps) {
   const sectionImageInputRef = useRef<HTMLInputElement | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -750,6 +730,8 @@ function SectionEditor({
 
       toast.success("Section image uploaded");
     } finally {
+      setIsUploadingImage(false);
+
       if (sectionImageInputRef.current) {
         sectionImageInputRef.current.value = "";
       }
@@ -1041,6 +1023,37 @@ function SectionEditor({
                   }
                 />
               </div>
+              {section.custom?.collapsible && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2">
+                  <div>
+                    <Label
+                      htmlFor={`default-expanded-${section.id}`}
+                      className="cursor-pointer text-xs text-muted-foreground"
+                    >
+                      Open by default
+                    </Label>
+
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      Visitors will see this section expanded when the form
+                      loads.
+                    </p>
+                  </div>
+
+                  <Switch
+                    id={`default-expanded-${section.id}`}
+                    checked={!!section.custom?.defaultExpanded}
+                    onCheckedChange={(checked) =>
+                      onUpdate({
+                        ...section,
+                        custom: {
+                          ...(section.custom || {}),
+                          defaultExpanded: checked,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1379,7 +1392,6 @@ function SectionEditor({
               onDragEnd={handleFieldDragEnd}
               isDragging={draggingFieldId === field.id}
               allFields={section.fields}
-              openLinkModal={openLinkModal}
             />
           </React.Fragment>
         ))}
@@ -1476,9 +1488,6 @@ export function FormBuilder({
     ],
   );
   const [isActive, setIsActive] = useState(initialForm?.isActive ?? true);
-  const [linkModalOpen, setLinkModalOpen] = useState(false);
-  const linkCallbackRef = useRef<((url: string) => void) | null>(null);
-  const [linkInput, setLinkInput] = useState("");
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
     null,
   );
@@ -1503,31 +1512,6 @@ export function FormBuilder({
     );
     setIsActive(initialForm?.isActive ?? true);
   }, [initialForm]);
-
-  const openLinkModal = (cb: (url: string) => void) => {
-    linkCallbackRef.current = cb;
-    setLinkInput("");
-    setLinkModalOpen(true);
-  };
-
-  const closeLinkModal = () => {
-    setLinkModalOpen(false);
-    linkCallbackRef.current = null;
-    setLinkInput("");
-  };
-
-  const submitLinkModal = () => {
-    const safe = sanitizeUrl(linkInput);
-    if (!safe) {
-      toast.error("Invalid or unsafe URL");
-      return;
-    }
-    try {
-      linkCallbackRef.current?.(safe);
-    } finally {
-      closeLinkModal();
-    }
-  };
 
   const addSection = () => {
     setSections([
@@ -1630,6 +1614,15 @@ export function FormBuilder({
       return;
     }
 
+    const unlabeledField = sections
+      .flatMap((section) => section.fields)
+      .find((field) => !stripMarkdownToText(field.label || "").trim());
+
+    if (unlabeledField) {
+      toast.error("All fields must have a label.");
+      return;
+    }
+
     const totalFields = sections.reduce((sum, s) => sum + s.fields.length, 0);
     if (totalFields === 0) {
       toast.error("Add at least one field to your form");
@@ -1724,38 +1717,6 @@ export function FormBuilder({
 
   return (
     <div className="space-y-6 overflow-x-hidden p-4 lg:p-6">
-      <Dialog
-        open={linkModalOpen}
-        onOpenChange={(open) => setLinkModalOpen(open)}
-      >
-        <DialogContent className="w-[calc(100%-1rem)] max-w-lg sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Insert link</DialogTitle>
-            <DialogDescription>
-              Enter a safe URL (http(s) or mailto)
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-2">
-            <Input
-              value={linkInput}
-              onChange={(e) => setLinkInput(e.target.value)}
-              placeholder="https://example.com"
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="cursor-pointer"
-              onClick={closeLinkModal}
-            >
-              Cancel
-            </Button>
-            <Button className="cursor-pointer" onClick={submitLinkModal}>
-              Insert
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <Collapsible>
         <CollapsibleTrigger asChild>
           <button
@@ -2408,7 +2369,6 @@ export function FormBuilder({
               isDragging={draggingSectionId === section.id}
               disableMoveUp={index === 0}
               disableMoveDown={index === sections.length - 1}
-              openLinkModal={openLinkModal}
             />
           </React.Fragment>
         ))}
@@ -2424,11 +2384,26 @@ export function FormBuilder({
         />
       </div>
 
-      <div className="flex items-center justify-end gap-2 pt-4 border-t">
-        <Button variant="outline" onClick={onCancel} className="cursor-pointer">
+      <div
+        className={cn(
+          "sticky bottom-0 z-20",
+          "-mx-4 flex flex-col gap-2",
+          "border-t bg-background/95 px-4 py-3 backdrop-blur",
+          "sm:flex-row sm:justify-end",
+          "lg:-mx-6 lg:px-6",
+        )}
+      >
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          className="w-full cursor-pointer sm:w-auto"
+        >
           Cancel
         </Button>
-        <Button onClick={handleSave} className="cursor-pointer">
+        <Button
+          onClick={handleSave}
+          className="w-full cursor-pointer sm:w-auto"
+        >
           <Save className="mr-2 h-4 w-4" />
           {isEditing ? "Save Changes" : "Create Form"}
         </Button>

@@ -65,6 +65,11 @@ export interface FormField {
   allowOther?: boolean;
   description?: string;
   conditions?: FieldCondition[];
+  minLength?: number;
+  maxLength?: number;
+  minSelections?: number;
+  maxSelections?: number;
+  pattern?: string;
 }
 
 export type FormPreset = "clean" | "bold" | "editorial" | "minimal";
@@ -102,10 +107,13 @@ export interface FormSection {
   title: string;
   description?: string;
   fields: FormField[];
-  // optional customization stored in the sections JSONB
+
   custom?: {
     headerAlignment?: "left" | "center" | "right";
+
     collapsible?: boolean;
+    defaultExpanded?: boolean;
+
     imageAssetPath?: string;
     imageUrl?: string;
     gifUrl?: string;

@@ -39,7 +39,7 @@ export function ProfileBotGridCard({
   return (
     <div
       className={cn(
-        "group overflow-hidden cursor-pointer transition-all h-full flex flex-col",
+        "group min-w-0 max-w-full overflow-hidden cursor-pointer transition-all h-full flex flex-col",
         cardClass,
         layout === "list" && "sm:flex-row sm:items-start sm:gap-4",
       )}
@@ -83,7 +83,14 @@ export function ProfileBotGridCard({
         )}
       >
         <div className="flex items-center gap-2 mb-1">
-          <p className="text-sm font-semibold truncate group-hover:text-primary transition-colors">
+          <p
+            className="text-sm font-semibold truncate text-foreground transition-colors duration-200 group-hover:text-[var(--bot-accent)]"
+            style={
+              {
+                "--bot-accent": accentColor || "#7c3aed",
+              } as React.CSSProperties
+            }
+          >
             {bot.name}
           </p>
           {layout === "list" && bot.rating && (
@@ -122,7 +129,10 @@ export function ProfileFeaturedBotListCard({
 
   return (
     <div
-      className={cn("flex items-center gap-3 cursor-pointer", cardClass)}
+      className={cn(
+        "group flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden cursor-pointer",
+        cardClass,
+      )}
       style={cardStyleOverrides}
       onClick={onClick}
     >
@@ -140,10 +150,19 @@ export function ProfileFeaturedBotListCard({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium truncate">{bot.name}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <p
+            className="min-w-0 flex-1 truncate text-sm font-medium text-foreground transition-colors duration-200 group-hover:text-[var(--bot-accent)]"
+            style={
+              {
+                "--bot-accent": accentColor || "#7c3aed",
+              } as React.CSSProperties
+            }
+          >
+            {bot.name}
+          </p>
           {bot.rating && (
-            <Badge variant="outline" className="text-[10px] shrink-0">
+            <Badge variant="outline" className="shrink-0 text-[10px]">
               {bot.rating}
             </Badge>
           )}

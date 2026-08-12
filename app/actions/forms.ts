@@ -6,6 +6,7 @@ import type { RequestForm } from "@/lib/types";
 import { friendlySupabaseError, ensureShareableLink } from "@/lib/error-utils";
 import { v4 as uuidv4 } from "uuid";
 import { resolveFormAppearance } from "@/lib/form-appearance";
+import { z } from "zod";
 import {
   FORM_ASSETS_BUCKET,
   FORM_BANNERS_BUCKET,
@@ -13,6 +14,7 @@ import {
   getFormBannerPublicUrl,
   getFormAssetPublicUrl,
 } from "@/lib/form-assets";
+import { normalizeHttpUrl } from "@/lib/safe-url";
 
 const ALLOWED_FORM_IMAGE_TYPES = [
   "image/jpeg",
@@ -22,6 +24,145 @@ const ALLOWED_FORM_IMAGE_TYPES = [
   "image/avif",
 ];
 const MAX_FORM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+const MAX_FORM_SECTIONS = 20;
+const MAX_FORM_FIELDS = 50;
+const MAX_FIELD_OPTIONS = 30;
+
+const conditionSchema = z.object({
+  fieldId: z.string().min(1).max(100),
+  operator: z.enum([
+    "equals",
+    "not_equals",
+    "contains",
+    "is_not_empty",
+    "is_empty",
+  ]),
+  value: z.string().max(500).optional(),
+});
+
+const formFieldSchema = z.object({
+  id: z.string().min(1).max(100),
+
+  minLength: z.number().int().min(0).max(100000).optional(),
+
+  maxLength: z.number().int().min(1).max(100000).optional(),
+
+  minSelections: z.number().int().min(0).max(MAX_FIELD_OPTIONS).optional(),
+
+  maxSelections: z.number().int().min(1).max(MAX_FIELD_OPTIONS).optional(),
+
+  pattern: z.string().max(500).optional(),
+
+  type: z.enum([
+    "text",
+    "textarea",
+    "select",
+    "radio",
+    "checkbox",
+    "rating-type",
+    "tags",
+  ]),
+
+  label: z.string().max(2000),
+  description: z.string().max(10000).optional().default(""),
+  placeholder: z.string().max(500).optional(),
+
+  required: z.boolean(),
+
+  options: z
+    .array(z.string().min(1).max(200))
+    .max(MAX_FIELD_OPTIONS)
+    .optional(),
+
+  allowOther: z.boolean().optional(),
+
+  textAlignment: z.enum(["left", "center", "right"]).optional(),
+
+  conditions: z.array(conditionSchema).max(20).optional(),
+});
+
+const formSectionSchema = z.object({
+  id: z.string().min(1).max(100),
+  title: z.string().max(3000),
+  description: z.string().max(15000).optional(),
+
+  fields: z.array(formFieldSchema),
+
+  custom: z
+    .object({
+      headerAlignment: z.enum(["left", "center", "right"]).optional(),
+
+      collapsible: z.boolean().optional(),
+      defaultExpanded: z.boolean().optional(),
+
+      imageAssetPath: z.string().max(1000).optional(),
+      imageUrl: z.string().max(2000).optional(),
+      gifUrl: z.string().max(2000).optional(),
+    })
+    .optional(),
+});
+
+const formPayloadSchema = z.object({
+  title: z.string().trim().min(1).max(3000),
+  description: z.string().max(20000).default(""),
+
+  bannerAssetPath: z.string().max(1000).optional(),
+  bannerUrl: z.string().max(2000).optional(),
+
+  sections: z.array(formSectionSchema).min(1).max(MAX_FORM_SECTIONS),
+
+  isActive: z.boolean(),
+
+  shareableLink: z.string().max(100).optional(),
+
+  appearance: z.any().optional(),
+});
+
+function validateFormStructure(sections: z.infer<typeof formSectionSchema>[]) {
+  const sectionIds = new Set<string>();
+  const fieldIds = new Set<string>();
+
+  let totalFields = 0;
+
+  for (const section of sections) {
+    if (sectionIds.has(section.id)) {
+      return `Duplicate section id: ${section.id}`;
+    }
+
+    sectionIds.add(section.id);
+
+    for (const field of section.fields) {
+      totalFields += 1;
+
+      if (totalFields > MAX_FORM_FIELDS) {
+        return `Forms can contain up to ${MAX_FORM_FIELDS} fields`;
+      }
+
+      if (fieldIds.has(field.id)) {
+        return `Duplicate field id: ${field.id}`;
+      }
+
+      fieldIds.add(field.id);
+    }
+  }
+
+  for (const section of sections) {
+    for (const field of section.fields) {
+      for (const condition of field.conditions || []) {
+        if (!fieldIds.has(condition.fieldId)) {
+          return `Condition references a field that does not exist`;
+        }
+
+        if (condition.fieldId === field.id) {
+          return `A field cannot depend on itself`;
+        }
+      }
+    }
+  }
+
+  return null;
+}
 
 async function resolveUserIdForActions() {
   const supabase = await createClient();
@@ -237,16 +378,36 @@ export async function createFormAction(
 
   if (!userId) return { success: false, error: "Unauthenticated" };
 
+  const parsed = formPayloadSchema.safeParse(form);
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Invalid form data",
+    };
+  }
+
+  const structureError = validateFormStructure(parsed.data.sections);
+
+  if (structureError) {
+    return {
+      success: false,
+      error: structureError,
+    };
+  }
+
+  const safeForm = parsed.data;
+
   const payload = {
     user_id: userId,
-    title: form.title,
-    description: form.description ?? "",
-    banner_asset_path: form.bannerAssetPath ?? null,
-    banner_url: form.bannerUrl ?? null,
-    sections: form.sections || [],
-    appearance: resolveFormAppearance(form.appearance ?? null),
-    shareable_link: ensureShareableLink(form.shareableLink),
-    is_active: !!form.isActive,
+    title: safeForm.title,
+    description: safeForm.description ?? "",
+    banner_asset_path: safeForm.bannerAssetPath ?? null,
+    banner_url: safeForm.bannerUrl ?? null,
+    sections: safeForm.sections || [],
+    appearance: resolveFormAppearance(safeForm.appearance ?? null),
+    shareable_link: ensureShareableLink(safeForm.shareableLink),
+    is_active: !!safeForm.isActive,
   };
 
   const { data: inserted, error } = await supabase
@@ -291,8 +452,48 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
     payload.description = data.description ?? "";
   if (data.bannerAssetPath !== undefined)
     payload.banner_asset_path = data.bannerAssetPath ?? null;
-  if (data.bannerUrl !== undefined) payload.banner_url = data.bannerUrl ?? null;
-  if (data.sections !== undefined) payload.sections = data.sections;
+  if (data.bannerUrl !== undefined) {
+    const normalizedBannerUrl = data.bannerUrl
+      ? normalizeHttpUrl(data.bannerUrl)
+      : null;
+
+    if (data.bannerUrl && !normalizedBannerUrl) {
+      return {
+        success: false,
+        error: "Invalid banner URL",
+      };
+    }
+
+    payload.banner_url = normalizedBannerUrl;
+  }
+  let validatedSections: z.infer<typeof formSectionSchema>[] | undefined;
+
+  if (data.sections !== undefined) {
+    const parsedSections = z
+      .array(formSectionSchema)
+      .min(1)
+      .max(MAX_FORM_SECTIONS)
+      .safeParse(data.sections);
+
+    if (!parsedSections.success) {
+      return {
+        success: false,
+        error: "Invalid form structure",
+      };
+    }
+
+    const structureError = validateFormStructure(parsedSections.data);
+
+    if (structureError) {
+      return {
+        success: false,
+        error: structureError,
+      };
+    }
+
+    validatedSections = parsedSections.data;
+    payload.sections = validatedSections;
+  }
   if (data.appearance !== undefined)
     payload.appearance = resolveFormAppearance(data.appearance ?? null);
   if (data.shareableLink !== undefined)
@@ -300,8 +501,20 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
   if (data.isActive !== undefined) payload.is_active = data.isActive;
   if (data.deactivatedMessage !== undefined)
     payload.deactivated_message = data.deactivatedMessage ?? "";
-  if (data.deactivatedRedirectUrl !== undefined)
-    payload.deactivated_redirect_url = data.deactivatedRedirectUrl ?? "";
+  if (data.deactivatedRedirectUrl !== undefined) {
+    const normalizedRedirect = data.deactivatedRedirectUrl
+      ? normalizeHttpUrl(data.deactivatedRedirectUrl)
+      : "";
+
+    if (data.deactivatedRedirectUrl && !normalizedRedirect) {
+      return {
+        success: false,
+        error: "Invalid redirect URL",
+      };
+    }
+
+    payload.deactivated_redirect_url = normalizedRedirect || "";
+  }
   if (data.deactivatedRedirectLabel !== undefined)
     payload.deactivated_redirect_label = data.deactivatedRedirectLabel ?? "";
   if (data.deactivatedAccentColor !== undefined)
@@ -325,7 +538,9 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
     const beforePaths = extractFormAssetPathsFromSections(
       existingForm.sections,
     );
-    const afterPaths = extractFormAssetPathsFromSections(data.sections);
+    const afterPaths = extractFormAssetPathsFromSections(
+      validatedSections ?? data.sections,
+    );
     const removedPaths = beforePaths.filter((p) => !afterPaths.includes(p));
     await removeFormAssetsByPath(supabase, removedPaths);
   }

@@ -65,8 +65,9 @@ import { toast } from "sonner";
 import type { RequestForm, FormTemplate, FormSection } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
-import { MarkdownInlineRenderer, MarkdownRenderer } from "./markdown-renderer";
+import { MarkdownInlineRenderer } from "./markdown-renderer";
 import { stripMarkdownToText } from "@/lib/markdown";
+import { normalizeHttpUrl } from "@/lib/safe-url";
 
 // ----------------------------------------------------------------------------
 
@@ -231,15 +232,33 @@ function EmptyState({ onCreateNew }: { onCreateNew: () => void }) {
 // Form Manager Component
 // ----------------------------------------------------------------------------
 
+function mapDbFormToRequestForm(r: any): RequestForm {
+  return {
+    id: r.id,
+    ownerId: r.user_id || undefined,
+    title: r.title || "",
+    description: r.description || "",
+    bannerAssetPath: r.banner_asset_path || "",
+    bannerUrl: r.banner_url || "",
+    sections: r.sections || [],
+    shareableLink: r.shareable_link || "",
+    isActive: !!r.is_active,
+
+    deactivatedMessage: r.deactivated_message || "",
+    deactivatedRedirectUrl: r.deactivated_redirect_url || "",
+    deactivatedRedirectLabel: r.deactivated_redirect_label || "",
+    deactivatedAccentColor: r.deactivated_accent_color || "#7c3aed",
+
+    appearance: r.appearance || undefined,
+
+    createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+
+    updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+  };
+}
+
 export function FormManager() {
-  const {
-    forms,
-    addForm,
-    updateForm,
-    deleteForm,
-    getRequestsByFormId,
-    upsertForm,
-  } = useAppStore();
+  const { forms, deleteForm, getRequestsByFormId, upsertForm } = useAppStore();
 
   // UI State
   const [isCreating, setIsCreating] = useState(false);
@@ -328,21 +347,7 @@ export function FormManager() {
         toast.error(res.error || "Failed to create form");
         return;
       }
-      const r = res.form;
-      upsertForm({
-        id: r.id,
-        ownerId: r.user_id || undefined,
-        title: r.title,
-        description: r.description || "",
-        bannerAssetPath: r.banner_asset_path || "",
-        bannerUrl: r.banner_url || "",
-        sections: r.sections || [],
-        shareableLink: r.shareable_link || "",
-        isActive: !!r.is_active,
-        createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-        updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-        appearance: r.appearance || undefined,
-      });
+      upsertForm(mapDbFormToRequestForm(res.form));
       setIsCreating(false);
       toast.success("Form created successfully!");
     })();
@@ -362,21 +367,7 @@ export function FormManager() {
           toast.error(res.error || "Failed to update form");
           return;
         }
-        const r = res.form;
-        upsertForm({
-          id: r.id,
-          ownerId: r.user_id || undefined,
-          title: r.title,
-          description: r.description || "",
-          bannerAssetPath: r.banner_asset_path || "",
-          bannerUrl: r.banner_url || "",
-          sections: r.sections || [],
-          shareableLink: r.shareable_link || "",
-          isActive: !!r.is_active,
-          createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-          updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-          appearance: r.appearance || undefined,
-        });
+        upsertForm(mapDbFormToRequestForm(res.form));
         setEditingForm(null);
         toast.success("Form updated successfully!");
       })();
@@ -418,10 +409,18 @@ export function FormManager() {
     isActive: boolean,
     deactivatedMessage: string,
   ) => {
+    const normalizedRedirect = deactivateRedirectUrl.trim()
+      ? normalizeHttpUrl(deactivateRedirectUrl)
+      : "";
+
+    if (deactivateRedirectUrl.trim() && !normalizedRedirect) {
+      toast.error("Enter a valid HTTP or HTTPS URL.");
+      return;
+    }
     const res = await updateFormAction(form.id, {
       isActive,
       deactivatedMessage: deactivatedMessage || "",
-      deactivatedRedirectUrl: deactivateRedirectUrl || "",
+      deactivatedRedirectUrl: normalizedRedirect || "",
       deactivatedRedirectLabel: deactivateRedirectLabel || "",
       deactivatedAccentColor: deactivateAccentColor || "#7c3aed",
     } as Partial<RequestForm>);
@@ -433,22 +432,7 @@ export function FormManager() {
       toast.error(res.error || "Failed to update form");
       return;
     }
-    const r = res.form;
-    upsertForm({
-      id: r.id,
-      ownerId: r.user_id || undefined,
-      title: r.title,
-      description: r.description || "",
-      bannerAssetPath: r.banner_asset_path || "",
-      bannerUrl: r.banner_url || "",
-      sections: r.sections || [],
-      shareableLink: r.shareable_link || "",
-      isActive: !!r.is_active,
-      deactivatedMessage: r.deactivated_message || "",
-      createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-      updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-      appearance: r.appearance || undefined,
-    });
+    upsertForm(mapDbFormToRequestForm(res.form));
     toast.success(isActive ? "Form activated" : "Form deactivated");
   };
 
@@ -472,9 +456,17 @@ export function FormManager() {
 
   const handleSaveDeactivation = async () => {
     if (!deactivateForm) return;
+    const normalizedRedirect = deactivateRedirectUrl.trim()
+      ? normalizeHttpUrl(deactivateRedirectUrl)
+      : "";
+
+    if (deactivateRedirectUrl.trim() && !normalizedRedirect) {
+      toast.error("Enter a valid HTTP or HTTPS URL.");
+      return;
+    }
     const res = await updateFormAction(deactivateForm.id, {
       deactivatedMessage: deactivateMessage || "",
-      deactivatedRedirectUrl: deactivateRedirectUrl || "",
+      deactivatedRedirectUrl: normalizedRedirect || "",
       deactivatedRedirectLabel: deactivateRedirectLabel || "",
       deactivatedAccentColor: deactivateAccentColor || "#7c3aed",
     } as Partial<RequestForm>);
@@ -482,20 +474,7 @@ export function FormManager() {
       toast.error(res.error || "Failed to update deactivation settings");
       return;
     }
-    const r = res.form;
-    upsertForm({
-      id: r.id,
-      ownerId: r.user_id || undefined,
-      title: r.title,
-      description: r.description || "",
-      sections: r.sections || [],
-      shareableLink: r.shareable_link || "",
-      isActive: !!r.is_active,
-      deactivatedMessage: r.deactivated_message || "",
-      createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-      updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-      appearance: r.appearance || undefined,
-    });
+    upsertForm(mapDbFormToRequestForm(res.form));
     setDeactivateForm(null);
     setDeactivateMessage("");
     toast.success("Deactivation page updated");
@@ -776,14 +755,14 @@ export function FormManager() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => {
                 setDeactivateForm(null);
                 setDeactivateMessage("");
               }}
-              className="cursor-pointer"
+              className="w-full sm:w-auto cursor-pointer"
             >
               Cancel
             </Button>
@@ -800,7 +779,7 @@ export function FormManager() {
                   }
                 }
               }}
-              className="cursor-pointer"
+              className="w-full sm:w-auto cursor-pointer"
             >
               {deactivateForm?.isActive ? "Deactivate Form" : "Save Changes"}
             </Button>
@@ -847,18 +826,18 @@ export function FormManager() {
               </li>
             </ul>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setDeleteConfirmForm(null)}
-              className="cursor-pointer"
+              className="w-full sm:w-auto cursor-pointer"
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteForm}
-              className="cursor-pointer"
+              className="w-full sm:w-auto cursor-pointer"
             >
               Delete Form
             </Button>

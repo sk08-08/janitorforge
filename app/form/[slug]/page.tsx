@@ -63,6 +63,9 @@ export default async function PublicFormPage({
       const redirectUrl = row.deactivated_redirect_url || "";
       const redirectLabel = row.deactivated_redirect_label || "";
       const accentColor = row.deactivated_accent_color || "#7c3aed";
+      const safeRedirectUrl = /^https?:\/\//i.test(redirectUrl)
+        ? redirectUrl
+        : "";
 
       return (
         <div className="min-h-screen bg-background flex items-start justify-center pt-8 sm:pt-16">
@@ -150,9 +153,9 @@ export default async function PublicFormPage({
               </div>
 
               {/* Redirect button */}
-              {redirectUrl && (
+              {safeRedirectUrl && (
                 <a
-                  href={redirectUrl}
+                  href={safeRedirectUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 no-underline"

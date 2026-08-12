@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownInlineRenderer } from "./markdown-renderer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -274,11 +275,16 @@ function RequestCard({
           {/* Preview Fields */}
           <div className="mt-2 space-y-1">
             {previewFields.map(([label, value]) => (
-              <div key={label} className="text-sm">
-                <span className="text-muted-foreground">
-                  {resolveLabel(label)}:{" "}
+              <div key={label} className="min-w-0 text-sm">
+                <span className="min-w-0 text-muted-foreground">
+                  <MarkdownInlineRenderer
+                    content={resolveLabel(label)}
+                    className="inline"
+                  />
+                  :{" "}
                 </span>
-                <span className="line-clamp-1">
+
+                <span className="line-clamp-1 wrap-anywhere">
                   {Array.isArray(value) ? value.join(", ") : value}
                 </span>
               </div>
@@ -303,11 +309,16 @@ function RequestCard({
             <>
               <div className="mt-2 max-h-42 space-y-1 overflow-y-auto pr-1 sm:max-h-44">
                 {expandedFields.map(([label, value]) => (
-                  <div key={label} className="text-sm">
-                    <span className="text-muted-foreground">
-                      {resolveLabel(label)}:{" "}
+                  <div key={label} className="min-w-0 text-sm">
+                    <span className="min-w-0 text-muted-foreground">
+                      <MarkdownInlineRenderer
+                        content={resolveLabel(label)}
+                        className="inline"
+                      />
+                      :{" "}
                     </span>
-                    <span className="break-words">
+
+                    <span className="wrap-anywhere">
                       {Array.isArray(value) ? value.join(", ") : value}
                     </span>
                   </div>
@@ -598,9 +609,12 @@ function RequestDetailsDialog({
               <div className="space-y-3">
                 {getOrderedResponseEntries(request).map(([label, value]) => (
                   <div key={label} className="min-w-0 rounded-lg border p-3">
-                    <p className="text-sm font-medium text-muted-foreground">
-                      {resolveLabel(label)}
-                    </p>
+                    <div className="min-w-0 text-sm font-medium text-muted-foreground">
+                      <MarkdownInlineRenderer
+                        content={resolveLabel(label)}
+                        className="inline"
+                      />
+                    </div>
                     <p className="mt-1 break-words whitespace-pre-wrap">
                       {Array.isArray(value) ? value.join(", ") : value || "-"}
                     </p>

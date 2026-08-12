@@ -12,6 +12,7 @@ import {
   Sparkles,
   Star,
   Wand2,
+  ChevronDown,
   CheckCircle,
   AlertCircle,
   ArrowLeft,
@@ -37,6 +38,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -51,6 +57,7 @@ import {
   getFormAssetPublicUrl,
   getFormBannerPublicUrl,
 } from "@/lib/form-assets";
+import { stripMarkdownToText } from "@/lib/markdown";
 
 function parseHexColor(hex: string) {
   const raw = String(hex || "")
@@ -154,16 +161,24 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
   const [otherValue, setOtherValue] = useState("");
 
   useEffect(() => {
-    const current = typeof value === "string" ? (value as string) : "";
+    const current = typeof value === "string" ? value : "";
+
     const isOther = !!(
-      (field as any).allowOther &&
+      field.allowOther &&
       current &&
-      (field as any).options &&
-      !((field as any).options as string[]).includes(current)
+      Array.isArray(field.options) &&
+      !field.options.includes(current)
     );
+
     if (isOther) {
       setOtherActive(true);
       setOtherValue(current);
+      return;
+    }
+
+    if (current && Array.isArray(field.options)) {
+      setOtherActive(false);
+      setOtherValue("");
     }
   }, [value, field]);
 
@@ -201,19 +216,6 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
         />
       );
     case "select": {
-      // determine if current value is a freeform 'other' value
-      const current = typeof value === "string" ? (value as string) : "";
-      const isOther = !!(
-        field.allowOther &&
-        current &&
-        field.options &&
-        !field.options.includes(current)
-      );
-      if (isOther && !otherActive) {
-        setOtherActive(true);
-        setOtherValue(current);
-      }
-
       return (
         <>
           <Select
@@ -224,6 +226,8 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
                 setOtherValue("");
                 onChange("");
               } else {
+                setOtherActive(false);
+                setOtherValue("");
                 onChange(v);
               }
             }}
@@ -262,17 +266,6 @@ function FieldRenderer({ field, value, onChange, error, appearance }: any) {
       );
     }
     case "radio": {
-      const current = typeof value === "string" ? (value as string) : "";
-      const isOther = !!(
-        field.allowOther &&
-        current &&
-        field.options &&
-        !field.options.includes(current)
-      );
-      if (isOther && !otherActive) {
-        setOtherActive(true);
-        setOtherValue(current);
-      }
       return (
         <div className="min-w-0">
           <RadioGroup
@@ -436,6 +429,26 @@ function SectionRenderer({
   onChange,
   appearance,
 }: any) {
+  const [isOpen, setIsOpen] = useState(
+    section?.custom?.defaultExpanded === true,
+  );
+  const requiredCount = section.fields.filter(
+    (field: FormField) => field.required,
+  ).length;
+  const completedCount = section.fields.filter((field: FormField) => {
+    const value = values[field.id];
+
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+
+    return String(value || "").trim().length > 0;
+  }).length;
+
+  const progress =
+    section.fields.length > 0
+      ? Math.round((completedCount / section.fields.length) * 100)
+      : 0;
   const sectionImageUrl = getFormAssetPublicUrl(
     section?.custom?.imageAssetPath,
   );
@@ -470,113 +483,233 @@ function SectionRenderer({
 
   if (section?.custom?.collapsible) {
     return (
-      <Card
-        className={cn("min-w-0 overflow-hidden", appearance.sectionCard)}
-        style={appearance.sectionCardStyle}
-      >
-        <details className="group">
-          <summary
-            className={`cursor-pointer list-none p-4 sm:p-5 ${alignClass} [&::-webkit-details-marker]:hidden`}
-          >
-            <span className="text-sm sm:text-base font-semibold">
-              <MarkdownInlineRenderer content={section.title} />
-              {hasRequiredFields && (
-                <span className="text-destructive"> *</span>
-              )}
-            </span>
-            {section.description && (
-              <MarkdownRenderer
-                content={section.description}
-                className={`mt-2 text-xs text-muted-foreground wrap-break-word rendered-markdown ${alignClass}`}
-              />
-            )}
-
-            {(resolvedSectionImageUrl || safeGifUrl) && (
-              <div className={`mt-3 flex flex-col gap-3 ${flexAlignClass}`}>
-                {resolvedSectionImageUrl && (
-                  <img
-                    src={resolvedSectionImageUrl}
-                    alt="Section visual"
-                    className="max-h-72 max-w-full w-auto rounded-md border object-contain"
-                    loading="lazy"
-                  />
-                )}
-                {safeGifUrl && (
-                  <img
-                    src={safeGifUrl}
-                    alt="Section gif"
-                    className="max-h-72 max-w-full w-auto rounded-md border object-contain"
-                    loading="lazy"
-                  />
-                )}
-              </div>
-            )}
-          </summary>
-          <CardContent
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <Card
+          className={cn(
+            "relative min-w-0 overflow-hidden",
+            "transition-[box-shadow,border-color] duration-300",
+            isOpen && "shadow-md",
+            appearance.sectionCard,
+          )}
+          style={appearance.sectionCardStyle}
+        >
+          {/* Accent rail */}
+          <div
             className={cn(
-              "min-w-0 space-y-3 sm:space-y-4",
-              appearance.density.sectionContent,
+              "absolute inset-y-0 left-0 w-1 transition-opacity duration-300",
+              isOpen ? "opacity-100" : "opacity-40",
             )}
-          >
-            {section.fields.map((field: any) => {
-              const fieldTextAlignClass =
-                field.textAlignment === "center"
-                  ? "text-center"
-                  : field.textAlignment === "right"
-                    ? "text-right"
-                    : "text-left";
-              const fieldLabelJustifyClass =
-                field.textAlignment === "center"
-                  ? "justify-center"
-                  : field.textAlignment === "right"
-                    ? "justify-end"
-                    : "justify-start";
+            style={{
+              backgroundColor: appearance.accent.hex,
+            }}
+          />
 
-              return (
-                <div
-                  key={field.id}
-                  className={cn(fieldShellClass, appearance.density.fieldGroup)}
-                >
-                  <Label
-                    className={`flex w-full items-center gap-1 flex-nowrap ${fieldLabelJustifyClass}`}
-                  >
-                    <MarkdownInlineRenderer
-                      content={field.label}
-                      className={`inline min-w-0 whitespace-normal wrap-break-word ${fieldTextAlignClass}`}
-                    />
-                  </Label>
-                  {field.description && (
-                    <MarkdownRenderer
-                      content={field.description}
-                      className={`text-xs text-muted-foreground wrap-break-word ${fieldTextAlignClass} [&>*:last-child]:mb-0`}
-                    />
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className={cn(
+                "flex w-full items-center gap-3 p-4 pl-5 text-left sm:p-5 sm:pl-6",
+                "transition-colors duration-200 hover:bg-muted/30",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              )}
+            >
+              {/* Chevron container */}
+              <div
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                  appearance.accent.softBg,
+                  "transition-transform duration-300",
+                  isOpen && "scale-105",
+                )}
+              >
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-300",
+                    "motion-reduce:transition-none",
+                    appearance.accent.text,
+                    isOpen && "rotate-180",
                   )}
-                  <FieldRenderer
-                    field={field}
-                    value={
-                      values[field.id] ||
-                      (field.type === "tags" || field.type === "checkbox"
-                        ? []
-                        : "")
-                    }
-                    onChange={(value: any) =>
-                      onChange(field.id, field.label, value)
-                    }
-                    error={errors[field.id]}
-                    appearance={appearance}
-                  />
-                  {errors[field.id] && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {errors[field.id]}
-                    </p>
+                />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className={cn("min-w-0 font-semibold", alignClass)}>
+                  <MarkdownInlineRenderer content={section.title} />
+
+                  {hasRequiredFields && (
+                    <span className="text-destructive"> *</span>
                   )}
                 </div>
-              );
-            })}
-          </CardContent>
-        </details>
-      </Card>
+
+                <div
+                  className={cn(
+                    "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground",
+                    section?.custom?.headerAlignment === "center" &&
+                      "justify-center",
+                    section?.custom?.headerAlignment === "right" &&
+                      "justify-end",
+                  )}
+                >
+                  <span>
+                    {section.fields.length}{" "}
+                    {section.fields.length === 1 ? "field" : "fields"}
+                  </span>
+
+                  {requiredCount > 0 && (
+                    <>
+                      <span>·</span>
+                      <span>{requiredCount} required</span>
+                    </>
+                  )}
+
+                  {completedCount > 0 && (
+                    <>
+                      <span>·</span>
+                      <span>
+                        {completedCount}/{section.fields.length} completed
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {section.fields.length > 0 && (
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full transition-[width] duration-300"
+                      style={{
+                        width: `${progress}%`,
+                        backgroundColor: appearance.accent.hex,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">
+                {isOpen ? "Hide" : "Open"}
+              </span>
+            </button>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent
+            className={cn(
+              "overflow-hidden",
+              "data-[state=open]:animate-collapsible-down",
+              "data-[state=closed]:animate-collapsible-up",
+            )}
+          >
+            <div className="border-t border-border/60">
+              {/* Description */}
+              {section.description && (
+                <div className={cn("px-4 pt-4 sm:px-5 sm:pt-5", alignClass)}>
+                  <MarkdownRenderer
+                    content={section.description}
+                    className={cn(
+                      "text-xs text-muted-foreground wrap-break-word",
+                      "[&>*:last-child]:mb-0",
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Media */}
+              {(resolvedSectionImageUrl || safeGifUrl) && (
+                <div
+                  className={cn(
+                    "flex flex-col gap-3 px-4 pt-4 sm:px-5",
+                    flexAlignClass,
+                  )}
+                >
+                  {resolvedSectionImageUrl && (
+                    <img
+                      src={resolvedSectionImageUrl}
+                      alt="Section visual"
+                      className="max-h-72 max-w-full w-auto rounded-lg border object-contain"
+                      loading="lazy"
+                    />
+                  )}
+
+                  {safeGifUrl && (
+                    <img
+                      src={safeGifUrl}
+                      alt="Section gif"
+                      className="max-h-72 max-w-full w-auto rounded-lg border object-contain"
+                      loading="lazy"
+                    />
+                  )}
+                </div>
+              )}
+
+              <CardContent
+                className={cn(
+                  "min-w-0 space-y-3 p-4 sm:space-y-4 sm:p-5",
+                  appearance.density.sectionContent,
+                )}
+              >
+                {section.fields.map((field: any) => {
+                  const fieldTextAlignClass =
+                    field.textAlignment === "center"
+                      ? "text-center"
+                      : field.textAlignment === "right"
+                        ? "text-right"
+                        : "text-left";
+                  const fieldLabelJustifyClass =
+                    field.textAlignment === "center"
+                      ? "justify-center"
+                      : field.textAlignment === "right"
+                        ? "justify-end"
+                        : "justify-start";
+
+                  return (
+                    <div
+                      key={field.id}
+                      className={cn(
+                        fieldShellClass,
+                        appearance.density.fieldGroup,
+                      )}
+                    >
+                      <Label
+                        className={`flex w-full items-center gap-1 flex-nowrap ${fieldLabelJustifyClass}`}
+                      >
+                        <MarkdownInlineRenderer
+                          content={field.label}
+                          className={`inline min-w-0 whitespace-normal wrap-break-word ${fieldTextAlignClass}`}
+                        />
+                      </Label>
+                      {field.description && (
+                        <MarkdownRenderer
+                          content={field.description}
+                          className={`text-xs text-muted-foreground wrap-break-word ${fieldTextAlignClass} [&>*:last-child]:mb-0`}
+                        />
+                      )}
+                      <FieldRenderer
+                        field={field}
+                        value={
+                          values[field.id] ||
+                          (field.type === "tags" || field.type === "checkbox"
+                            ? []
+                            : "")
+                        }
+                        onChange={(value: any) =>
+                          onChange(field.id, field.label, value)
+                        }
+                        error={errors[field.id]}
+                        appearance={appearance}
+                      />
+                      {errors[field.id] && (
+                        <p className="text-xs text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {errors[field.id]}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </div>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     );
   }
 
@@ -765,7 +898,11 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
       section.fields.forEach((field) => {
         if (field.required) {
           const value = values[field.id];
-          if (!value || (Array.isArray(value) && value.length === 0)) {
+          const isEmpty = Array.isArray(value)
+            ? value.length === 0
+            : String(value || "").trim().length === 0;
+
+          if (isEmpty) {
             newErrors[field.id] = "This field is required";
           }
         }
@@ -800,7 +937,9 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
           if (Array.isArray(section.fields)) {
             section.fields.forEach((field: any) => {
               // Use field label if available, otherwise use section title, otherwise use field ID
-              const label = field.label || section.title || field.id;
+              const label = stripMarkdownToText(field.label || "").trim()
+                ? field.label
+                : field.id;
               labelMap[field.id] = label;
             });
           }

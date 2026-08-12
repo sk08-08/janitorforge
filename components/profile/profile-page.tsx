@@ -159,89 +159,86 @@ export function ProfilePage() {
     }>
   >([]);
 
-  const loadProfile = useCallback(async () => {
+  const loadProfile = useCallback(async (force = false) => {
     setLoading(true);
+
     try {
-      const result = await cachedBrowserRequest(
-        "profile:own",
-        15_000,
-        async () => {
-          const ownProfileResult = await getOwnProfile();
-          if (!ownProfileResult.success || !ownProfileResult.profile) {
-            return null;
-          }
+      const fetchProfileData = async () => {
+        const ownProfileResult = await getOwnProfile();
 
-          const counts = await getFollowCounts(ownProfileResult.profile.id);
+        if (!ownProfileResult.success || !ownProfileResult.profile) {
+          return null;
+        }
 
-          const supabase = createClient();
-          const [
-            { data: pages, error: pagesError },
-            { data: worldRows, error: worldsError },
-          ] = await Promise.all([
-            // Query the secure view directly without manual filters
-            supabase
-              .from("active_creator_pages")
-              .select("id, title, slug, description, is_published")
-              .eq("user_id", ownProfileResult.profile.id)
-              .order("updated_at", { ascending: false }),
+        const counts = await getFollowCounts(ownProfileResult.profile.id);
 
-            // Query worlds first; bot links are fetched separately for reliability.
-            supabase
-              .from("active_atlas_worlds")
-              .select("id, title, slug, kind, description")
-              .eq("user_id", ownProfileResult.profile.id)
-              .order("updated_at", { ascending: false }),
-          ]);
+        const supabase = createClient();
 
-          if (pagesError) {
-            throw pagesError;
-          }
-          if (worldsError) {
-            throw worldsError;
-          }
+        const [
+          { data: pages, error: pagesError },
+          { data: worldRows, error: worldsError },
+        ] = await Promise.all([
+          supabase
+            .from("active_creator_pages")
+            .select("id, title, slug, description, is_published")
+            .eq("user_id", ownProfileResult.profile.id)
+            .order("updated_at", { ascending: false }),
 
-          const worldIds = (worldRows || []).map((world: any) => world.id);
-          let worldBotRows: Array<{ world_id: string; bot_id: string }> = [];
+          supabase
+            .from("active_atlas_worlds")
+            .select("id, title, slug, kind, description")
+            .eq("user_id", ownProfileResult.profile.id)
+            .order("updated_at", { ascending: false }),
+        ]);
 
-          if (worldIds.length > 0) {
-            const { data, error } = await supabase
-              .from("active_atlas_world_bots")
-              .select("world_id, bot_id")
-              .in("world_id", worldIds);
+        if (pagesError) throw pagesError;
+        if (worldsError) throw worldsError;
 
-            if (error) {
-              throw error;
-            }
+        const worldIds = (worldRows || []).map((world: any) => world.id);
 
-            worldBotRows = (data || []) as Array<{
-              world_id: string;
-              bot_id: string;
-            }>;
-          }
+        let worldBotRows: Array<{
+          world_id: string;
+          bot_id: string;
+        }> = [];
 
-          const worldBotsByWorldId = new Map<
-            string,
-            Array<{ bot_id: string }>
-          >();
-          for (const row of worldBotRows) {
-            const existing = worldBotsByWorldId.get(row.world_id) || [];
-            existing.push({ bot_id: row.bot_id });
-            worldBotsByWorldId.set(row.world_id, existing);
-          }
+        if (worldIds.length > 0) {
+          const { data, error } = await supabase
+            .from("active_atlas_world_bots")
+            .select("world_id, bot_id")
+            .in("world_id", worldIds);
 
-          const normalizedWorlds = (worldRows || []).map((world: any) => ({
-            ...world,
-            active_atlas_world_bots: worldBotsByWorldId.get(world.id) || [],
-          }));
+          if (error) throw error;
 
-          return {
-            profile: ownProfileResult.profile,
-            counts,
-            pages: (pages || []) as typeof creatorPages,
-            worlds: normalizedWorlds as typeof worlds,
-          };
-        },
-      );
+          worldBotRows = (data || []) as Array<{
+            world_id: string;
+            bot_id: string;
+          }>;
+        }
+
+        const worldBotsByWorldId = new Map<string, Array<{ bot_id: string }>>();
+
+        for (const row of worldBotRows) {
+          const existing = worldBotsByWorldId.get(row.world_id) || [];
+          existing.push({ bot_id: row.bot_id });
+          worldBotsByWorldId.set(row.world_id, existing);
+        }
+
+        const normalizedWorlds = (worldRows || []).map((world: any) => ({
+          ...world,
+          active_atlas_world_bots: worldBotsByWorldId.get(world.id) || [],
+        }));
+
+        return {
+          profile: ownProfileResult.profile,
+          counts,
+          pages: (pages || []) as typeof creatorPages,
+          worlds: normalizedWorlds as typeof worlds,
+        };
+      };
+
+      const result = force
+        ? await fetchProfileData()
+        : await cachedBrowserRequest("profile:own", 15_000, fetchProfileData);
 
       if (result) {
         setProfile(result.profile);
@@ -628,12 +625,12 @@ export function ProfilePage() {
 
             {/* Featured Bots */}
             {showFeatured && (
-              <div className="mt-4">
+              <div className="mt-4 min-w-0 max-w-full overflow-hidden">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
                   Featured Bots
                 </p>
                 {featuredBots.length > 0 ? (
-                  <div className="space-y-2.5">
+                  <div className="min-w-0 max-w-full space-y-2.5">
                     {featuredBots.map((bot) => (
                       <ProfileFeaturedBotListCard
                         key={bot!.id}
@@ -1044,7 +1041,7 @@ export function ProfilePage() {
         <ProfileEditor
           open={editorOpen}
           onOpenChange={setEditorOpen}
-          onSaved={loadProfile}
+          onSaved={() => loadProfile(true)}
         />
       </div>
     </ScrollArea>

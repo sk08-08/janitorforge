@@ -65,6 +65,17 @@ function EmptyState() {
   );
 }
 
+const cleanResponseLabels = (
+  labels?: Record<string, string>,
+): Record<string, string> => {
+  return Object.fromEntries(
+    Object.entries(labels || {}).map(([fieldId, label]) => [
+      fieldId,
+      stripMarkdownToText(label) || fieldId,
+    ]),
+  );
+};
+
 export function RequestsView() {
   const { requests, forms, updateRequestStatus, deleteRequest } = useStore();
   const [filterFormId, setFilterFormId] = useState<string>("all");
@@ -247,7 +258,7 @@ export function RequestsView() {
         status: r.status,
         submitter_name: r.submitterName,
         responses: r.responses as Record<string, unknown>,
-        response_labels: r.responseLabels as Record<string, string>,
+        response_labels: cleanResponseLabels(r.responseLabels),
       })),
       undefined,
       { includeMetadata },
