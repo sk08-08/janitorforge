@@ -1716,7 +1716,7 @@ export function FormBuilder({
   const appearanceClasses = getFormAppearanceClasses(appearance);
 
   return (
-    <div className="space-y-6 overflow-x-hidden p-4 lg:p-6">
+    <div className="min-w-0 space-y-6 p-4 lg:p-6">
       <Collapsible>
         <CollapsibleTrigger asChild>
           <button
@@ -2386,9 +2386,11 @@ export function FormBuilder({
 
       <div
         className={cn(
-          "sticky bottom-0 z-20",
+          "sticky bottom-0 z-30",
           "-mx-4 flex flex-col gap-2",
-          "border-t bg-background/95 px-4 py-3 backdrop-blur",
+          "border-t border-border/80",
+          "bg-background/95 px-4 py-3",
+          "shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur",
           "sm:flex-row sm:justify-end",
           "lg:-mx-6 lg:px-6",
         )}

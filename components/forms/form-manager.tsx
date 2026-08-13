@@ -801,7 +801,7 @@ export function FormManager() {
             <DialogDescription>
               You are about to delete{" "}
               <span className="font-semibold text-foreground">
-                "{deleteConfirmForm?.title}"
+                "{stripMarkdownToText(deleteConfirmForm?.title)}"
               </span>
               . This is a soft delete — the form and its submissions will be
               hidden but preserved in the database.

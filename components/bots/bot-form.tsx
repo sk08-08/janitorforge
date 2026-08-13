@@ -42,6 +42,7 @@ import { BotTagSelector } from "./bot-tag-selector";
 import { TokenCounter, TokenSummary } from "./token-counter";
 import type { BotFormData } from "@/lib/types";
 import type { JanitorForgeCharacterCardExtension } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import {
   applyRatingTagToBotTags,
   canonicalizeBotTag,
@@ -485,7 +486,7 @@ export function BotForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6 overflow-hidden p-4 lg:p-6"
+      className="min-w-0 space-y-6 p-4 pb-24 lg:p-6 lg:pb-6"
     >
       {/* Header Actions */}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -1039,7 +1040,17 @@ export function BotForm({
       />
 
       {/* Actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        className={cn(
+          "sticky bottom-0 z-30",
+          "-mx-4 flex flex-col gap-3",
+          "border-t border-border/80",
+          "bg-background/95 px-4 py-3",
+          "shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur",
+          "sm:flex-row sm:items-center sm:justify-between",
+          "lg:-mx-6 lg:px-6",
+        )}
+      >
         <div className="flex w-full gap-2 sm:w-auto">
           {isEditing && onDelete && (
             <Button
@@ -1053,6 +1064,7 @@ export function BotForm({
             </Button>
           )}
         </div>
+
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Button
             type="button"
@@ -1062,6 +1074,7 @@ export function BotForm({
           >
             Cancel
           </Button>
+
           <Button type="submit" className="w-full cursor-pointer sm:w-auto">
             <Save className="mr-2 h-4 w-4" />
             {isEditing ? "Save Changes" : "Create Bot"}

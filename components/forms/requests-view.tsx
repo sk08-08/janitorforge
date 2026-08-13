@@ -26,6 +26,8 @@ import {
   getExportColumnOrder,
   serializeExportDataToJson,
   transformSubmissionsForExport,
+  transformSubmissionsForJson,
+  type ExportFormSchemaMap,
 } from "@/lib/form-export";
 import { stripMarkdownToText } from "@/lib/markdown";
 import {
@@ -69,12 +71,16 @@ const cleanResponseLabels = (
   labels?: Record<string, string>,
 ): Record<string, string> => {
   return Object.fromEntries(
-    Object.entries(labels || {}).map(([fieldId, label]) => [
-      fieldId,
-      stripMarkdownToText(label) || fieldId,
-    ]),
+    Object.entries(labels || {}).flatMap(([fieldId, label]) => {
+      const cleaned = stripMarkdownToText(label).trim();
+
+      return cleaned ? [[fieldId, cleaned]] : [];
+    }),
   );
 };
+
+const EXPORT_PREVIEW_LIMIT = 50;
+const JSON_PREVIEW_LIMIT = 20;
 
 export function RequestsView() {
   const { requests, forms, updateRequestStatus, deleteRequest } = useStore();
@@ -151,8 +157,6 @@ export function RequestsView() {
     !selectedFormOwnerId ||
     selectedFormOwnerId === currentUserId;
 
-  const showOwnRequestsSection = filterFormId === "all" || isSelectedFormOwn;
-
   const ownRequests =
     filterFormId === "all"
       ? currentUserId
@@ -215,6 +219,24 @@ export function RequestsView() {
     [ownForms],
   );
 
+  const exportFormSchemas = useMemo<ExportFormSchemaMap>(() => {
+    return Object.fromEntries(
+      ownForms.map((form) => [
+        form.id,
+        {
+          formId: form.id,
+
+          fields: form.sections.flatMap((section) =>
+            section.fields.map((field) => ({
+              id: field.id,
+              label: stripMarkdownToText(field.label || ""),
+            })),
+          ),
+        },
+      ]),
+    );
+  }, [ownForms]);
+
   const openExportDialog = (format: "csv" | "json") => {
     setExportFormat(format);
     if (ownForms.length === 0) {
@@ -236,54 +258,99 @@ export function RequestsView() {
     setExportDialogOpen(true);
   };
 
-  const exportPreviewRows = useMemo(() => {
+  const exportFilteredRequests = useMemo(() => {
     const scopedRequests =
       exportScope === "all"
         ? ownRequestsForExport
-        : ownRequestsForExport.filter((r) => r.formId === selectedExportFormId);
+        : ownRequestsForExport.filter(
+            (request) => request.formId === selectedExportFormId,
+          );
 
-    const statusFilteredRequests =
-      exportStatusFilter === "all"
-        ? scopedRequests
-        : scopedRequests.filter((r) => r.status === exportStatusFilter);
-
-    return transformSubmissionsForExport(
-      statusFilteredRequests.map((r) => ({
-        id: r.id,
-        form_title:
-          cleanedFormTitlesById.get(r.formId) ||
-          stripMarkdownToText(r.formTitle) ||
-          "Untitled form",
-        created_at: r.createdAt ? new Date(r.createdAt).toISOString() : "",
-        status: r.status,
-        submitter_name: r.submitterName,
-        responses: r.responses as Record<string, unknown>,
-        response_labels: cleanResponseLabels(r.responseLabels),
-      })),
-      undefined,
-      { includeMetadata },
-    );
+    return exportStatusFilter === "all"
+      ? scopedRequests
+      : scopedRequests.filter(
+          (request) => request.status === exportStatusFilter,
+        );
   }, [
     exportScope,
     ownRequestsForExport,
     selectedExportFormId,
     exportStatusFilter,
-    cleanedFormTitlesById,
-    includeMetadata,
   ]);
 
+  const exportSourceData = useMemo(
+    () =>
+      exportFilteredRequests.map((request) => ({
+        id: request.id,
+        form_id: request.formId,
+
+        form_title:
+          cleanedFormTitlesById.get(request.formId) ||
+          stripMarkdownToText(request.formTitle) ||
+          "Untitled form",
+
+        created_at: request.createdAt
+          ? new Date(request.createdAt).toISOString()
+          : "",
+
+        status: request.status,
+        submitter_name: request.submitterName,
+
+        responses: request.responses as Record<string, unknown>,
+
+        response_labels: cleanResponseLabels(request.responseLabels),
+      })),
+    [exportFilteredRequests, cleanedFormTitlesById],
+  );
+
+  const csvExportRows = useMemo(
+    () =>
+      transformSubmissionsForExport(exportSourceData, {
+        includeMetadata,
+        formSchemas: exportFormSchemas,
+      }),
+    [exportSourceData, includeMetadata, exportFormSchemas],
+  );
+
+  const jsonExportData = useMemo(
+    () =>
+      transformSubmissionsForJson(exportSourceData, {
+        includeMetadata,
+        formSchemas: exportFormSchemas,
+      }),
+    [exportSourceData, includeMetadata, exportFormSchemas],
+  );
+
   const csvPreviewColumns = useMemo(
-    () => getExportColumnOrder(exportPreviewRows),
-    [exportPreviewRows],
+    () => getExportColumnOrder(csvExportRows),
+    [csvExportRows],
+  );
+
+  const previewRows = useMemo(
+    () => csvExportRows.slice(0, EXPORT_PREVIEW_LIMIT),
+    [csvExportRows],
+  );
+
+  const jsonPreviewData = useMemo(
+    () => jsonExportData.slice(0, JSON_PREVIEW_LIMIT),
+    [jsonExportData],
   );
 
   const jsonPreviewText = useMemo(() => {
-    if (exportPreviewRows.length === 0) return "";
-    return serializeExportDataToJson(exportPreviewRows);
-  }, [exportPreviewRows]);
+    if (jsonPreviewData.length === 0) {
+      return "";
+    }
+
+    return serializeExportDataToJson(jsonPreviewData);
+  }, [jsonPreviewData]);
+
+  const currentPreviewCount =
+    exportFormat === "csv" ? previewRows.length : jsonPreviewData.length;
+
+  const hasMorePreviewItems = exportSourceData.length > currentPreviewCount;
 
   const doExport = () => {
-    if (exportPreviewRows.length === 0) {
+    if (exportSourceData.length === 0) {
       toast.error("No submissions match the current export filters");
       return;
     }
@@ -293,22 +360,29 @@ export function RequestsView() {
         ? cleanedFormTitlesById.get(selectedExportFormId) || "form"
         : "all-forms";
 
-    const safeName = targetFormTitle
-      .replace(/[^a-zA-Z0-9\s-]/g, "")
+    const normalizedName = targetFormTitle
+      .normalize("NFKC")
+      .replace(/[^\p{L}\p{N}\s-]/gu, "")
+      .trim()
       .replace(/\s+/g, "-")
       .toLowerCase();
+
+    const safeName = normalizedName || "form";
+
     const timestamp = new Date().toISOString().slice(0, 10);
+
     const filename = `requests-${safeName}-${timestamp}`;
 
     if (exportFormat === "csv") {
-      exportToCsv(exportPreviewRows, `${filename}.csv`);
+      exportToCsv(csvExportRows, `${filename}.csv`);
     } else {
-      exportToJson(exportPreviewRows, `${filename}.json`);
+      exportToJson(jsonExportData, `${filename}.json`);
     }
 
     setExportDialogOpen(false);
+
     toast.success(
-      `Exported ${exportPreviewRows.length} submissions as ${exportFormat.toUpperCase()}`,
+      `Exported ${exportSourceData.length} submissions as ${exportFormat.toUpperCase()}`,
     );
   };
 
@@ -326,26 +400,15 @@ export function RequestsView() {
 
         <div className="flex items-center gap-2">
           {accessLoaded && ownForms.length > 0 && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="cursor-pointer"
-                onClick={() => openExportDialog("csv")}
-              >
-                <FileDown className="mr-1 h-3.5 w-3.5" />
-                CSV
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="cursor-pointer"
-                onClick={() => openExportDialog("json")}
-              >
-                <FileDown className="mr-1 h-3.5 w-3.5" />
-                JSON
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              className="cursor-pointer"
+              onClick={() => openExportDialog("csv")}
+            >
+              <FileDown className="mr-1 h-3.5 w-3.5" />
+              Export
+            </Button>
           )}
           {accessLoaded && ownForms.length > 0 && (
             <Select value={filterFormId} onValueChange={setFilterFormId}>
@@ -414,7 +477,7 @@ export function RequestsView() {
             <div className="space-y-4 border-b px-4 py-4 sm:px-6 lg:border-b-0 lg:border-r overflow-y-auto">
               <div className="rounded-md border bg-muted/20 p-3 space-y-3">
                 <div className="space-y-2">
-                  <Label>Format</Label>
+                  <Label>Export format</Label>
                   <Select
                     value={exportFormat}
                     onValueChange={(value) =>
@@ -425,10 +488,18 @@ export function RequestsView() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="csv">CSV (Spreadsheet)</SelectItem>
-                      <SelectItem value="json">JSON (Code)</SelectItem>
+                      <SelectItem value="csv">CSV — Spreadsheet</SelectItem>
+
+                      <SelectItem value="json">
+                        JSON — Structured data
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    {exportFormat === "csv"
+                      ? "Best for Excel, Google Sheets, and spreadsheet analysis."
+                      : "Preserves field IDs, arrays, labels, and structured response data."}
+                  </p>
                 </div>
 
                 {ownForms.length > 1 && (
@@ -503,23 +574,37 @@ export function RequestsView() {
               </div>
 
               <div className="rounded-md border p-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-start gap-3">
                   <Checkbox
                     id="include-metadata"
                     checked={includeMetadata}
                     onCheckedChange={(checked) =>
                       setIncludeMetadata(checked === true)
                     }
+                    className="mt-0.5 shrink-0"
                   />
-                  <Label
-                    htmlFor="include-metadata"
-                    className="cursor-pointer text-sm"
-                  >
-                    Include metadata columns
-                  </Label>
+
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Label
+                      htmlFor="include-metadata"
+                      className="cursor-pointer text-sm font-medium"
+                    >
+                      Include submission metadata
+                    </Label>
+
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Includes request ID, form, submission date, status, and
+                      submitter name.
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Rows in preview: {exportPreviewRows.length}
+
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {hasMorePreviewItems
+                    ? `Showing ${currentPreviewCount} of ${exportSourceData.length} submissions`
+                    : `${exportSourceData.length} submission${
+                        exportSourceData.length === 1 ? "" : "s"
+                      }`}
                 </p>
               </div>
             </div>
@@ -534,7 +619,7 @@ export function RequestsView() {
                 </p>
               </div>
 
-              {exportPreviewRows.length === 0 ? (
+              {exportSourceData.length === 0 ? (
                 <div className="rounded-md border bg-muted/20 p-6 text-sm text-muted-foreground">
                   No submissions match the current filters.
                 </div>
@@ -558,7 +643,7 @@ export function RequestsView() {
                         </tr>
                       </thead>
                       <tbody>
-                        {exportPreviewRows.map((row, rowIndex) => (
+                        {previewRows.map((row, rowIndex) => (
                           <tr
                             key={`preview-row-${rowIndex}`}
                             className="odd:bg-muted/20"
@@ -569,9 +654,13 @@ export function RequestsView() {
                             {csvPreviewColumns.map((column) => (
                               <td
                                 key={`${rowIndex}-${column}`}
-                                className="border-b border-r px-2 py-1.5 align-top whitespace-nowrap"
+                                className="max-w-72 border-b border-r px-2 py-1.5 align-top whitespace-normal wrap-anywhere"
                               >
-                                {String(row[column as keyof typeof row] ?? "")}
+                                <div className="line-clamp-3">
+                                  {String(
+                                    row[column as keyof typeof row] ?? "",
+                                  )}
+                                </div>
                               </td>
                             ))}
                           </tr>
@@ -589,17 +678,17 @@ export function RequestsView() {
               )}
             </div>
           </div>
-          <DialogFooter className="px-4 py-4 sm:px-6 border-t">
+          <DialogFooter className="flex-col gap-2 border-t px-4 py-4 sm:flex-row sm:px-6">
             <Button
               variant="outline"
-              className="cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
               onClick={() => setExportDialogOpen(false)}
             >
               Cancel
             </Button>
             <Button
-              className="cursor-pointer"
-              disabled={exportPreviewRows.length === 0}
+              className="w-full cursor-pointer sm:w-auto"
+              disabled={exportSourceData.length === 0}
               onClick={doExport}
             >
               <FileDown className="mr-2 h-4 w-4" />
