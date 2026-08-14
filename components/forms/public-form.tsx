@@ -936,10 +936,18 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
         sections.forEach((section: any) => {
           if (Array.isArray(section.fields)) {
             section.fields.forEach((field: any) => {
-              // Use field label if available, otherwise use section title, otherwise use field ID
-              const label = stripMarkdownToText(field.label || "").trim()
+              const hasFieldLabel =
+                stripMarkdownToText(field.label || "").trim().length > 0;
+
+              const hasSectionTitle =
+                stripMarkdownToText(section.title || "").trim().length > 0;
+
+              const label = hasFieldLabel
                 ? field.label
-                : field.id;
+                : section.fields.length === 1 && hasSectionTitle
+                  ? section.title
+                  : field.id;
+
               labelMap[field.id] = label;
             });
           }
@@ -952,11 +960,31 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
         responsesByFieldId[fieldId] = value;
       });
 
-      const submitterNameFieldId = Object.keys(labelMap).find(
-        (fieldId) =>
-          String(labelMap[fieldId]).toLowerCase().trim() === "name" ||
-          String(labelMap[fieldId]).toLowerCase().trim() === "submitter name",
-      );
+      const submitterNameFieldId = Object.keys(labelMap).find((fieldId) => {
+        const humanLabel = stripMarkdownToText(labelMap[fieldId] || "")
+          .toLowerCase()
+          .trim();
+
+        return humanLabel === "name" || humanLabel === "submitter name";
+      });
+
+      console.log("=== PUBLIC FORM SUBMISSION DEBUG ===", {
+        formId: form.id,
+
+        values,
+
+        labelMap,
+
+        sections: form.sections.map((section) => ({
+          id: section.id,
+          title: section.title,
+          fields: section.fields.map((field) => ({
+            id: field.id,
+            label: field.label,
+            plainLabel: stripMarkdownToText(field.label || "").trim(),
+          })),
+        })),
+      });
 
       const result = await submitPublicFormRequest(
         form.id,

@@ -129,7 +129,17 @@ function RequestCard({
 }: RequestCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const resolveLabel = (key: string) => request.responseLabels?.[key] || key;
+  const resolveLabel = (key: string) => {
+    const label = stripMarkdownToText(
+      request.responseLabels?.[key] || "",
+    ).trim();
+
+    if (!label || label === key || looksLikeFieldId(label)) {
+      return "Untitled field";
+    }
+
+    return label;
+  };
 
   // Get primary response fields for preview
   const orderedResponseEntries = useMemo(
@@ -545,6 +555,16 @@ function KanbanColumn({
   );
 }
 
+function looksLikeFieldId(value: string) {
+  const text = String(value || "").trim();
+
+  return (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      text,
+    ) || /^[0-9a-f-]{30,}$/i.test(text)
+  );
+}
+
 // ----------------------------------------------------------------------------
 // Request Details Dialog
 // ----------------------------------------------------------------------------
@@ -580,7 +600,17 @@ function RequestDetailsDialog({
 
   if (!request) return null;
 
-  const resolveLabel = (key: string) => request.responseLabels?.[key] || key;
+  const resolveLabel = (key: string) => {
+    const label = stripMarkdownToText(
+      request.responseLabels?.[key] || "",
+    ).trim();
+
+    if (!label || label === key || looksLikeFieldId(label)) {
+      return "Untitled field";
+    }
+
+    return label;
+  };
   const currentColumn = columns.find((c) => c.id === request.status);
 
   return (
@@ -814,8 +844,97 @@ export function KanbanBoard({
     }
   }, [collapseStateKey, collapsedColumns]);
 
+  const responseLabelsByFormId = useMemo(() => {
+    const map = new Map<string, Record<string, string>>();
+
+    forms.forEach((form) => {
+      const labels: Record<string, string> = {};
+
+      form.sections.forEach((section) => {
+        const humanSectionTitle = stripMarkdownToText(
+          section.title || "",
+        ).trim();
+
+        section.fields.forEach((field) => {
+          const humanFieldLabel = stripMarkdownToText(field.label || "").trim();
+
+          const resolvedLabel =
+            humanFieldLabel ||
+            (section.fields.length === 1 ? humanSectionTitle : "");
+
+          if (resolvedLabel) {
+            labels[field.id] = resolvedLabel;
+          }
+        });
+      });
+
+      map.set(form.id, labels);
+    });
+
+    return map;
+  }, [forms]);
+
+  const requestsWithResolvedLabels = useMemo(() => {
+    return requests.map((request) => {
+      const currentLabels = responseLabelsByFormId.get(request.formId) || {};
+      console.log("=== KANBAN LABEL DEBUG ===", {
+        requestId: request.id,
+        requestFormId: request.formId,
+
+        responseKeys: Object.keys(request.responses || {}),
+
+        requestResponseLabels: request.responseLabels,
+
+        currentFormLabels: currentLabels,
+
+        availableForms: forms.map((form) => ({
+          id: form.id,
+          title: form.title,
+          fields: form.sections.flatMap((section) =>
+            section.fields.map((field) => ({
+              id: field.id,
+              label: field.label,
+            })),
+          ),
+        })),
+      });
+
+      const historicalLabels = Object.fromEntries(
+        Object.entries(request.responseLabels || {}).flatMap(
+          ([fieldId, label]) => {
+            const cleaned = stripMarkdownToText(String(label || "")).trim();
+
+            if (!cleaned || cleaned === fieldId || looksLikeFieldId(cleaned)) {
+              return [];
+            }
+
+            return [[fieldId, cleaned]];
+          },
+        ),
+      );
+
+      const mergedLabels: Record<string, string> = {
+        ...historicalLabels,
+        ...currentLabels,
+      };
+
+      Object.keys(request.responses).forEach((fieldId) => {
+        if (!mergedLabels[fieldId]) {
+          mergedLabels[fieldId] = "Untitled field";
+        }
+      });
+
+      return {
+        ...request,
+        responseLabels: mergedLabels,
+      };
+    });
+  }, [requests, responseLabelsByFormId]);
+
   useEffect(() => {
-    const validRequestIds = new Set(requests.map((request) => request.id));
+    const validRequestIds = new Set(
+      requestsWithResolvedLabels.map((request) => request.id),
+    );
     setSelectedRequestIds((prev) => {
       const next = new Set<string>();
       prev.forEach((id) => {
@@ -825,7 +944,7 @@ export function KanbanBoard({
       });
       return next.size === prev.size ? prev : next;
     });
-  }, [requests]);
+  }, [requestsWithResolvedLabels]);
 
   const responseOrderByFormId = useMemo(() => {
     const map = new Map<string, string[]>();
@@ -873,7 +992,7 @@ export function KanbanBoard({
       rejected: [],
     };
 
-    requests.forEach((request) => {
+    requestsWithResolvedLabels.forEach((request) => {
       grouped[request.status].push(request);
     });
 
@@ -885,11 +1004,14 @@ export function KanbanBoard({
     });
 
     return grouped;
-  }, [requests]);
+  }, [requestsWithResolvedLabels]);
 
   const selectedRequests = useMemo(
-    () => requests.filter((request) => selectedRequestIds.has(request.id)),
-    [requests, selectedRequestIds],
+    () =>
+      requestsWithResolvedLabels.filter((request) =>
+        selectedRequestIds.has(request.id),
+      ),
+    [requestsWithResolvedLabels, selectedRequestIds],
   );
 
   const handleToggleRequestSelection = (

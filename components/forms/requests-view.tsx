@@ -226,12 +226,22 @@ export function RequestsView() {
         {
           formId: form.id,
 
-          fields: form.sections.flatMap((section) =>
-            section.fields.map((field) => ({
-              id: field.id,
-              label: stripMarkdownToText(field.label || ""),
-            })),
-          ),
+          fields: form.sections.flatMap((section) => {
+            const sectionTitle = stripMarkdownToText(
+              section.title || "",
+            ).trim();
+
+            return section.fields.map((field) => {
+              const fieldLabel = stripMarkdownToText(field.label || "").trim();
+
+              return {
+                id: field.id,
+                label:
+                  fieldLabel ||
+                  (section.fields.length === 1 ? sectionTitle : ""),
+              };
+            });
+          }),
         },
       ]),
     );
