@@ -404,7 +404,7 @@ export function ProfilePage() {
         >
           {/* Banner */}
           <div
-            className="h-32 sm:h-58 w-full relative"
+            className="relative aspect-[4/1] w-full"
             style={{
               background: p.banner_url
                 ? `url(${p.banner_url}) center/cover no-repeat`

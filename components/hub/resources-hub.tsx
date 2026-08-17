@@ -900,12 +900,12 @@ export function ResourcesHub() {
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-8 w-8 text-primary" />
                   <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                    Janitor AI Resources
+                    Resources
                   </h1>
                 </div>
                 <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                  A browsable directory of useful articles, references, and
-                  guides.
+                  A directory for Janitor-related references, guides, articles,
+                  and useful information organized by category.
                 </p>
               </div>
             </div>

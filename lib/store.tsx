@@ -30,7 +30,7 @@ import { createClient } from "@/lib/supabase/client";
 const validNavigationViews: NavigationView[] = [
   "profiles",
   "resources",
-  "logs",
+  "community",
   "dashboard",
   "bots",
   "forms",
@@ -271,11 +271,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         // Fetch only data belonging to the authenticated user
         const formsQuery = isAdmin
-          ? supabase.from("active_request_forms").select("*")
+          ? supabase.from("request_forms").select("*").is("deleted_at", null)
           : supabase
-              .from("active_request_forms")
+              .from("request_forms")
               .select("*")
-              .eq("user_id", user.id);
+              .eq("user_id", user.id)
+              .is("deleted_at", null);
         const requestsQuery = isAdmin
           ? supabase.from("active_requests").select("*")
           : supabase.from("active_requests").select("*").eq("user_id", user.id);
@@ -300,67 +301,71 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (!mounted || currentLoad !== loadVersion) return;
 
         // Map rows to app types
-        if (Array.isArray(botsData) && botsData.length > 0) {
-          setBots(
-            botsData.map((r: any) => ({
-              id: r.id,
-              ownerId: r.user_id || undefined,
-              name: r.name,
-              chatName: r.chat_name || undefined,
-              shortDescription: r.short_description || "",
-              personality: r.personality || "",
-              firstMessage: r.first_message || "",
-              alternateGreetings: Array.isArray(r.alternate_greetings)
-                ? r.alternate_greetings
-                : [],
-              scenario: r.scenario || "",
-              exampleDialogues: r.example_dialogues || "",
-              tags: Array.isArray(r.tags) ? r.tags : [],
-              rating: r.rating === "NSFW" ? "NSFW" : "SFW",
-              imageUrl: r.image_url || undefined,
-              hideSensitiveFields: r.hide_sensitive_fields === true,
-              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-            })),
-          );
-        }
+        setBots(
+          Array.isArray(botsData)
+            ? botsData.map((r: any) => ({
+                id: r.id,
+                ownerId: r.user_id || undefined,
+                name: r.name,
+                chatName: r.chat_name || undefined,
+                shortDescription: r.short_description || "",
+                personality: r.personality || "",
+                firstMessage: r.first_message || "",
+                alternateGreetings: Array.isArray(r.alternate_greetings)
+                  ? r.alternate_greetings
+                  : [],
+                scenario: r.scenario || "",
+                exampleDialogues: r.example_dialogues || "",
+                tags: Array.isArray(r.tags) ? r.tags : [],
+                rating: r.rating === "NSFW" ? "NSFW" : "SFW",
+                imageUrl: r.image_url || undefined,
+                hideSensitiveFields: r.hide_sensitive_fields === true,
+                createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+                updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+              }))
+            : [],
+        );
 
-        if (Array.isArray(formsData) && formsData.length > 0) {
-          setForms(
-            formsData.map((r: any) => ({
-              id: r.id,
-              ownerId: r.user_id || undefined,
-              title: r.title,
-              description: r.description || "",
-              bannerAssetPath: r.banner_asset_path || "",
-              bannerUrl: r.banner_url || "",
-              sections: r.sections || [],
-              appearance: r.appearance || undefined,
-              shareableLink: r.shareable_link || "",
-              isActive: !!r.is_active,
-              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-            })),
-          );
-        }
+        setForms(
+          Array.isArray(formsData)
+            ? formsData.map((r: any) => ({
+                id: r.id,
+                ownerId: r.user_id || undefined,
+                title: r.title,
+                description: r.description || "",
+                bannerAssetPath: r.banner_asset_path || "",
+                bannerUrl: r.banner_url || "",
+                sections: r.sections || [],
+                appearance: r.appearance || undefined,
+                shareableLink: r.shareable_link || "",
+                isActive: !!r.is_active,
+                deactivatedMessage: r.deactivated_message || "",
+                deactivatedRedirectUrl: r.deactivated_redirect_url || "",
+                deactivatedRedirectLabel: r.deactivated_redirect_label || "",
+                deactivatedAccentColor: r.deactivated_accent_color || "#7c3aed",
+                createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+                updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+              }))
+            : [],
+        );
 
-        if (Array.isArray(requestsData) && requestsData.length > 0) {
-          setRequests(
-            requestsData.map((r: any) => ({
-              id: r.id,
-              formId: r.form_id,
-              ownerId: r.user_id || undefined,
-              formTitle: r.form_title,
-              status: r.status,
-              submitterName: r.submitter_name,
-              responses: r.responses || {},
-              responseLabels: r.response_labels || {},
-              notes: r.notes,
-              createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-              updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
-            })),
-          );
-        }
+        setRequests(
+          Array.isArray(requestsData)
+            ? requestsData.map((r: any) => ({
+                id: r.id,
+                formId: r.form_id,
+                ownerId: r.user_id || undefined,
+                formTitle: r.form_title,
+                status: r.status,
+                submitterName: r.submitter_name,
+                responses: r.responses || {},
+                responseLabels: r.response_labels || {},
+                notes: r.notes,
+                createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+                updatedAt: r.updated_at ? new Date(r.updated_at) : new Date(),
+              }))
+            : [],
+        );
 
         await setUpRequestsChannel(user.id);
       } catch (err: unknown) {

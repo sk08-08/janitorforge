@@ -877,27 +877,6 @@ export function KanbanBoard({
   const requestsWithResolvedLabels = useMemo(() => {
     return requests.map((request) => {
       const currentLabels = responseLabelsByFormId.get(request.formId) || {};
-      console.log("=== KANBAN LABEL DEBUG ===", {
-        requestId: request.id,
-        requestFormId: request.formId,
-
-        responseKeys: Object.keys(request.responses || {}),
-
-        requestResponseLabels: request.responseLabels,
-
-        currentFormLabels: currentLabels,
-
-        availableForms: forms.map((form) => ({
-          id: form.id,
-          title: form.title,
-          fields: form.sections.flatMap((section) =>
-            section.fields.map((field) => ({
-              id: field.id,
-              label: field.label,
-            })),
-          ),
-        })),
-      });
 
       const historicalLabels = Object.fromEntries(
         Object.entries(request.responseLabels || {}).flatMap(

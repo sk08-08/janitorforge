@@ -27,12 +27,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { getCurrentUserAccess } from "@/lib/access";
+import {
+  getFormSecuritySensitivity,
+  updateFormSecuritySensitivity,
+} from "@/app/actions/safety";
 import { stripMarkdownToText } from "@/lib/markdown";
-
-export type SensitivityLevel = "low" | "medium" | "high" | "strict";
+import type { SensitivityLevel } from "@/lib/content-filter";
 
 interface SensitivitySettings {
   formId: string;
@@ -51,59 +52,68 @@ const SENSITIVITY_CONFIGS: Record<
   }
 > = {
   low: {
-    label: "Low - Minimal Detection",
-    description: "Only flags the most critical issues",
+    label: "Low - Critical Only",
+    description: "Only reacts to the highest-risk automatic safety signals.",
     what_detects: [
-      "Direct suicide/self-harm language",
-      "Severe threats (kill, rape, etc.)",
-      "Obvious spam & malicious URLs",
+      "Direct self-harm or suicide-related danger",
+      "Severe threats",
+      "Severe hate-speech matches",
+      "Known malicious URL signals",
     ],
     what_ignores: [
-      "All caps text",
+      "Harassment heuristics",
+      "Spam keywords",
+      "Repeated characters",
+      "Suspicious domain extensions",
+      "All-caps aggression",
       "Excessive punctuation",
-      "Repetitive patterns",
-      "Suspicious domains",
     ],
   },
+
   medium: {
     label: "Medium - Balanced (Default)",
-    description: "Standard detection with reasonable false positive rate",
+    description:
+      "Adds harassment and stronger spam detection while avoiding noisier heuristics.",
     what_detects: [
-      "Suicide/self-harm language",
-      "Serious threats & harassment",
-      "Obvious spam & malicious URLs",
-      "Excessive capitals (70%+)",
-      "Malicious domains",
+      "All critical detections",
+      "Direct harassment",
+      "Spam keyword patterns",
     ],
     what_ignores: [
-      "Minor profanity",
-      "Mild slang",
-      "Single excessive punctuation",
+      "Repeated-character heuristics",
+      "Suspicious domain extensions",
+      "All-caps aggression",
+      "Excessive punctuation",
     ],
   },
+
   high: {
-    label: "High - Strict Detection",
-    description: "Detects more suspicious patterns",
+    label: "High - Enhanced Detection",
+    description: "Uses all currently available automatic content heuristics.",
     what_detects: [
       "All medium detections",
-      "Multiple exclamation/question marks",
-      "Suspicious domain extensions",
-      "Repetitive characters",
-      "Mixed aggression indicators",
+      "Repeated-character spam",
+      "Suspicious URL domain signals",
+      "All-caps aggression",
+      "Excessive punctuation",
     ],
-    what_ignores: ["Internet slang", "Casual language"],
+    what_ignores: [
+      "Whitelisted common internet slang when only minor heuristics match",
+    ],
   },
+
   strict: {
-    label: "Strict - Maximum Protection",
-    description: "Flags anything remotely suspicious (highest false positives)",
+    label: "Strict - Maximum Current Detection",
+    description:
+      "Uses all currently available automatic content heuristics with the same core detector set as High.",
     what_detects: [
       "All high detections",
-      "New/unusual word patterns",
-      "Submissions from new IPs",
-      "Any flagged custom blocklist match",
-      "Rapid repeated submissions",
+      "Custom blocklist rules remain fully enforced",
+      "Global blocklist rules remain fully enforced",
     ],
-    what_ignores: [],
+    what_ignores: [
+      "Only explicitly whitelisted harmless slang in minor-flag cases",
+    ],
   },
 };
 
@@ -117,38 +127,17 @@ export function SensitivityLevelSettings({
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load from Supabase on mount (source of truth)
   useEffect(() => {
     const loadLevel = async () => {
+      setLoading(true);
+
       try {
-        const supabase = await createClient();
-        const { user, isAdmin } = await getCurrentUserAccess(supabase);
+        const result = await getFormSecuritySensitivity(formId);
 
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-
-        const query = supabase
-          .from("active_request_forms")
-          .select("security_sensitivity")
-          .eq("id", formId);
-
-        const { data, error } = isAdmin
-          ? await query.single()
-          : await query.eq("user_id", user.id).single();
-
-        if (error) {
-          console.warn("Failed to load sensitivity level:", error);
-        } else if (data?.security_sensitivity) {
-          setLevel(data.security_sensitivity as SensitivityLevel);
-          // Also sync to localStorage
-          if (typeof window !== "undefined") {
-            localStorage.setItem(
-              `sensitivity_${formId}`,
-              data.security_sensitivity,
-            );
-          }
+        if (result.success && result.level) {
+          setLevel(result.level);
+        } else if (!result.success) {
+          console.warn("Failed to load sensitivity:", result.error);
         }
       } catch (error) {
         console.error("Error loading sensitivity:", error);
@@ -163,44 +152,31 @@ export function SensitivityLevelSettings({
   const config = SENSITIVITY_CONFIGS[level];
 
   const handleLevelChange = async (newLevel: SensitivityLevel) => {
+    const previousLevel = level;
+
     setLevel(newLevel);
-
-    // Save to localStorage immediately
-    if (typeof window !== "undefined") {
-      localStorage.setItem(`sensitivity_${formId}`, newLevel);
-    }
-
     setSaving(true);
-    try {
-      const supabase = await createClient();
-      const { user, isAdmin } = await getCurrentUserAccess(supabase);
 
-      if (!user) {
-        toast.error("You must be signed in to update this form");
+    try {
+      const result = await updateFormSecuritySensitivity(formId, newLevel);
+
+      if (!result.success) {
+        setLevel(previousLevel);
+
+        toast.error(result.error || "Failed to update sensitivity level");
+
         return;
       }
 
-      const query = supabase
-        .from("request_forms")
-        .update({ security_sensitivity: newLevel })
-        .eq("id", formId);
+      toast.success("Sensitivity level updated");
 
-      const { error } = isAdmin
-        ? await query
-        : await query.eq("user_id", user.id);
-
-      if (error) {
-        console.warn("Failed to update DB but saved locally:", error);
-        toast.success("Sensitivity level updated");
-        onLevelChange?.(newLevel);
-      } else {
-        toast.success("Sensitivity level updated");
-        onLevelChange?.(newLevel);
-      }
+      onLevelChange?.(newLevel);
     } catch (error) {
       console.error("Error updating sensitivity:", error);
-      toast.success("Sensitivity level updated");
-      onLevelChange?.(newLevel);
+
+      setLevel(previousLevel);
+
+      toast.error("Failed to update sensitivity level");
     } finally {
       setSaving(false);
     }

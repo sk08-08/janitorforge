@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
 import {
   filterFormResponses,
-  checkDangerousPatterns,
+  type SensitivityLevel,
 } from "@/lib/content-filter";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ContentFilterResult } from "@/lib/content-filter";
@@ -30,6 +30,41 @@ async function getAuthenticatedUserId(supabase: SupabaseClientType) {
   return user?.id ?? null;
 }
 
+function normalizeSensitivity(value: unknown): SensitivityLevel {
+  switch (value) {
+    case "low":
+    case "medium":
+    case "high":
+    case "strict":
+      return value;
+
+    default:
+      return "medium";
+  }
+}
+
+async function assertAdmin(
+  supabase: SupabaseClientType,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const access = await getCurrentUserAccess(supabase);
+
+  if (!access.user) {
+    return {
+      success: false,
+      error: "Unauthenticated",
+    };
+  }
+
+  if (!access.isAdmin) {
+    return {
+      success: false,
+      error: "Forbidden",
+    };
+  }
+
+  return { success: true };
+}
+
 async function assertOwnedForm(
   formId: string,
 ): Promise<
@@ -45,9 +80,10 @@ async function assertOwnedForm(
   }
 
   const query = supabase
-    .from("active_request_forms")
+    .from("request_forms")
     .select("id")
-    .eq("id", formId);
+    .eq("id", formId)
+    .is("deleted_at", null);
   const { data, error } = access.isAdmin
     ? await query.maybeSingle()
     : await query.eq("user_id", userId).maybeSingle();
@@ -63,10 +99,108 @@ async function assertOwnedForm(
   return { success: true, supabase, userId };
 }
 
+export async function getFormSecuritySensitivity(formId: string): Promise<{
+  success: boolean;
+  level?: SensitivityLevel;
+  error?: string;
+}> {
+  const ownedForm = await assertOwnedForm(formId);
+
+  if (!ownedForm.success) {
+    return {
+      success: false,
+      error: ownedForm.error,
+    };
+  }
+
+  const { supabase } = ownedForm;
+
+  const { data, error } = await supabase
+    .from("request_forms")
+    .select("security_sensitivity")
+    .eq("id", formId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+
+  return {
+    success: true,
+    level: normalizeSensitivity(data?.security_sensitivity),
+  };
+}
+
+export async function updateFormSecuritySensitivity(
+  formId: string,
+  level: SensitivityLevel,
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const ownedForm = await assertOwnedForm(formId);
+
+  if (!ownedForm.success) {
+    return {
+      success: false,
+      error: ownedForm.error,
+    };
+  }
+
+  const normalizedLevel = normalizeSensitivity(level);
+
+  const { error } = await ownedForm.supabase
+    .from("request_forms")
+    .update({
+      security_sensitivity: normalizedLevel,
+    })
+    .eq("id", formId);
+
+  if (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+
+  return { success: true };
+}
+
 /**
  * Validate form submission for security issues
  * Returns: { isValid, isFlagged, reason, details }
  */
+
+const MAX_BLOCKLIST_PATTERN_LENGTH = 300;
+
+function validateBlocklistPattern(
+  pattern: string,
+  isRegex: boolean,
+): string | null {
+  const value = pattern.trim();
+
+  if (!value) {
+    return "Pattern cannot be empty";
+  }
+
+  if (value.length > MAX_BLOCKLIST_PATTERN_LENGTH) {
+    return `Pattern must be ${MAX_BLOCKLIST_PATTERN_LENGTH} characters or fewer`;
+  }
+
+  if (isRegex) {
+    try {
+      new RegExp(value, "i");
+    } catch {
+      return "Invalid regular expression";
+    }
+  }
+
+  return null;
+}
+
 export async function validateFormSubmission(
   formId: string,
   responses: Record<string, any>,
@@ -90,6 +224,29 @@ export async function validateFormSubmission(
       reason:
         "Rate limit exceeded. Please wait a moment before submitting again.",
     };
+  }
+
+  let sensitivity: SensitivityLevel = "medium";
+
+  try {
+    const supabaseClient = await createClient();
+
+    const { data, error } = await supabaseClient.rpc(
+      "get_submission_security_settings",
+      {
+        p_form_id: formId,
+      },
+    );
+
+    const row = Array.isArray(data) ? data[0] : data;
+
+    if (error) {
+      console.warn("Failed to load form sensitivity, using medium:", error);
+    } else {
+      sensitivity = normalizeSensitivity(row?.security_sensitivity);
+    }
+  } catch (error) {
+    console.warn("Failed to load form sensitivity, using medium:", error);
   }
 
   // Load global and custom blocklists through a SECURITY DEFINER RPC so
@@ -198,7 +355,7 @@ export async function validateFormSubmission(
   }
 
   // Filter form responses
-  const filterResult = filterFormResponses(responses);
+  const filterResult = filterFormResponses(responses, sensitivity);
 
   if (filterResult.overallRisk === "dangerous") {
     return {
@@ -277,15 +434,13 @@ export async function submitPublicFormRequest(
     clientIp,
   );
 
-  if (!securityCheck.isValid && securityCheck.riskLevel === "dangerous") {
+  if (!securityCheck.isValid) {
     return {
       success: false,
-      isFlagged: true,
+      isFlagged: securityCheck.isFlagged,
       riskLevel: securityCheck.riskLevel,
       reason: securityCheck.reason,
-      error:
-        securityCheck.reason ||
-        "Your submission was rejected due to safety concerns.",
+      error: securityCheck.reason || "Your submission could not be accepted.",
     };
   }
 
@@ -353,21 +508,21 @@ export async function recordFlaggedRequest(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
-  const payload = {
-    form_id: formId,
-    request_id: requestId,
-    risk_level: riskLevel,
-    flagged_fields: flaggedFields,
-    reason,
-    reviewed: false,
-    created_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabase.from("flagged_requests").insert(payload);
+  const { error } = await supabase.rpc("record_flagged_submission", {
+    p_form_id: formId,
+    p_request_id: requestId,
+    p_risk_level: riskLevel,
+    p_flagged_fields: flaggedFields,
+    p_reason: reason || null,
+  });
 
   if (error) {
     console.error("Failed to record flagged request:", error);
-    return { success: false, error: error.message };
+
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 
   return { success: true };
@@ -531,18 +686,29 @@ export async function addToCustomBlocklist(
     return { success: false, error: ownedForm.error };
   }
 
+  const normalizedPattern = pattern.trim();
+
+  const validationError = validateBlocklistPattern(normalizedPattern, isRegex);
+
+  if (validationError) {
+    return {
+      success: false,
+      error: validationError,
+    };
+  }
+
   const { supabase: supabaseClient } = ownedForm as any;
 
   const payload = {
     form_id: formId,
-    pattern,
+    pattern: normalizedPattern,
     is_regex: isRegex,
     created_at: new Date().toISOString(),
   };
 
   const { error } = await supabaseClient.rpc("add_custom_blocklist", {
     p_form_id: payload.form_id,
-    p_pattern: payload.pattern,
+    p_pattern: normalizedPattern,
     p_is_regex: payload.is_regex,
   });
 
@@ -619,12 +785,29 @@ export async function addToGlobalBlocklist(
   severity: "warning" | "dangerous" = "warning",
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
-  const userId = await getAuthenticatedUserId(supabase);
 
-  if (!userId) return { success: false, error: "Unauthenticated" };
+  const adminCheck = await assertAdmin(supabase);
+
+  if (!adminCheck.success) {
+    return {
+      success: false,
+      error: adminCheck.error,
+    };
+  }
+
+  const normalizedPattern = pattern.trim();
+
+  const validationError = validateBlocklistPattern(normalizedPattern, isRegex);
+
+  if (validationError) {
+    return {
+      success: false,
+      error: validationError,
+    };
+  }
 
   const payload = {
-    pattern,
+    pattern: normalizedPattern,
     is_regex: isRegex,
     severity,
     created_at: new Date().toISOString(),
@@ -645,8 +828,14 @@ export async function getGlobalBlocklist(): Promise<{
   error?: string;
 }> {
   const supabase = await createClient();
-  const userId = await getAuthenticatedUserId(supabase);
-  if (!userId) return { success: false, error: "Unauthenticated" };
+  const adminCheck = await assertAdmin(supabase);
+
+  if (!adminCheck.success) {
+    return {
+      success: false,
+      error: adminCheck.error,
+    };
+  }
 
   const { data, error } = await supabase
     .from("global_blocklists")
@@ -664,8 +853,14 @@ export async function removeFromGlobalBlocklist(
   pattern: string,
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
-  const userId = await getAuthenticatedUserId(supabase);
-  if (!userId) return { success: false, error: "Unauthenticated" };
+  const adminCheck = await assertAdmin(supabase);
+
+  if (!adminCheck.success) {
+    return {
+      success: false,
+      error: adminCheck.error,
+    };
+  }
 
   const { error } = await supabase
     .from("global_blocklists")

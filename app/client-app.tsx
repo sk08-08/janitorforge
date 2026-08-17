@@ -20,14 +20,14 @@ import { AdminPanel } from "@/components/admin/admin-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProfilesHub } from "@/components/hub/profiles-hub";
 import { ResourcesHub } from "@/components/hub/resources-hub";
-import { LogsHub } from "@/components/hub/logs-hub";
+import { CommunityHub } from "@/components/hub/community-hub";
 
 function ResourcesHubView() {
   return <ResourcesHub />;
 }
 
-function LogsHubView() {
-  return <LogsHub />;
+function CommunityHubView() {
+  return <CommunityHub />;
 }
 
 // ----------------------------------------------------------------------------
@@ -59,8 +59,8 @@ function ViewRouter() {
       return <ProfilesHub />;
     case "resources":
       return <ResourcesHubView />;
-    case "logs":
-      return <LogsHubView />;
+    case "community":
+      return <CommunityHubView />;
     case "profile":
       return <ProfilePage />;
     case "admin":

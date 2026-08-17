@@ -14,6 +14,8 @@ export interface ContentFilterResult {
   matchedPattern?: string;
 }
 
+export type SensitivityLevel = "low" | "medium" | "high" | "strict";
+
 // ============================================================================
 // DANGEROUS CONTENT — Targets real people
 // ============================================================================
@@ -180,6 +182,44 @@ const SLANG_WHITELIST = [
   "btw",
 ];
 
+const CRITICAL_FLAGS = new Set([
+  "dangerous_content_detected",
+  "threat_detected",
+  "hate_speech_detected",
+  "malicious_url",
+]);
+
+const MODERATE_FLAGS = new Set(["harassment_detected", "spam_keywords"]);
+
+const SUSPICIOUS_FLAGS = new Set([
+  "spam_repetition",
+  "suspicious_url_domain",
+  "all_caps_aggression",
+  "excessive_punctuation",
+]);
+
+function applySensitivityToFlags(
+  flags: string[],
+  sensitivity: SensitivityLevel,
+): string[] {
+  switch (sensitivity) {
+    case "low":
+      return flags.filter((flag) => CRITICAL_FLAGS.has(flag));
+
+    case "medium":
+      return flags.filter(
+        (flag) => CRITICAL_FLAGS.has(flag) || MODERATE_FLAGS.has(flag),
+      );
+
+    case "high":
+    case "strict":
+      return flags;
+
+    default:
+      return flags;
+  }
+}
+
 // ============================================================================
 // CORE FUNCTIONS
 // ============================================================================
@@ -210,9 +250,20 @@ export function normalizeText(text: string): string {
  * Check if the text contains any whitelisted slang expression
  * If so, it's likely safe internet talk, not actual danger
  */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function containsWhitelistedSlang(text: string): boolean {
   const lower = text.toLowerCase();
-  return SLANG_WHITELIST.some((term) => lower.includes(term));
+
+  return SLANG_WHITELIST.some((term) => {
+    const escapedTerm = escapeRegExp(term.toLowerCase());
+
+    const pattern = new RegExp(`(^|[^a-z0-9])${escapedTerm}($|[^a-z0-9])`, "i");
+
+    return pattern.test(lower);
+  });
 }
 
 /**
@@ -343,7 +394,10 @@ export function checkAggression(text: string): string[] {
  * Main content filter — analyzes text for safety
  * Returns a safety assessment with flags and risk level
  */
-export function filterContent(text: string): ContentFilterResult {
+export function filterContent(
+  text: string,
+  sensitivity: SensitivityLevel = "medium",
+): ContentFilterResult {
   if (!text || typeof text !== "string") {
     return { isSafe: true, riskLevel: "safe", flags: [] };
   }
@@ -367,39 +421,60 @@ export function filterContent(text: string): ContentFilterResult {
   const aggressionFlags = checkAggression(text);
   allFlags.push(...aggressionFlags);
 
+  const activeFlags = applySensitivityToFlags(allFlags, sensitivity);
+
   // If only aggression/spam flags AND text contains common slang, downgrade to safe
   const hasOnlyMinorFlags =
-    allFlags.length > 0 &&
-    allFlags.every(
-      (f) => f === "all_caps_aggression" || f === "excessive_punctuation",
+    activeFlags.length > 0 &&
+    activeFlags.every(
+      (flag) =>
+        flag === "all_caps_aggression" || flag === "excessive_punctuation",
     );
 
-  if (hasOnlyMinorFlags && containsWhitelistedSlang(text)) {
-    return { isSafe: true, riskLevel: "safe", flags: [] };
+  const canUseSlangException = text.length <= 180;
+
+  if (
+    hasOnlyMinorFlags &&
+    canUseSlangException &&
+    containsWhitelistedSlang(text)
+  ) {
+    return {
+      isSafe: true,
+      riskLevel: "safe",
+      flags: [],
+    };
   }
 
   // Dangerous: suicidal content, threats, hate speech, malicious URLs
   if (
-    allFlags.includes("dangerous_content_detected") ||
-    allFlags.includes("threat_detected") ||
-    allFlags.includes("hate_speech_detected") ||
-    allFlags.includes("malicious_url")
+    activeFlags.includes("dangerous_content_detected") ||
+    activeFlags.includes("threat_detected") ||
+    activeFlags.includes("hate_speech_detected") ||
+    activeFlags.includes("malicious_url")
   ) {
     return {
       isSafe: false,
       riskLevel: "dangerous",
-      flags: allFlags,
+      flags: activeFlags,
       reason: "Dangerous content detected",
     };
   }
 
   // Warning: harassment, spam, aggression
-  if (allFlags.length > 0) {
+  if (activeFlags.length > 0) {
     return {
       isSafe: false,
       riskLevel: "warning",
-      flags: allFlags,
+      flags: activeFlags,
       reason: "Suspicious content detected",
+    };
+  }
+
+  if (activeFlags.length === 0) {
+    return {
+      isSafe: true,
+      riskLevel: "safe",
+      flags: [],
     };
   }
 
@@ -410,7 +485,10 @@ export function filterContent(text: string): ContentFilterResult {
  * Filter all text responses in a form submission
  * Returns per-field results and overall risk assessment
  */
-export function filterFormResponses(responses: Record<string, any>): {
+export function filterFormResponses(
+  responses: Record<string, any>,
+  sensitivity: SensitivityLevel = "medium",
+): {
   isClean: boolean;
   flaggedFields: Record<string, ContentFilterResult>;
   overallRisk: "safe" | "warning" | "dangerous";
@@ -428,7 +506,7 @@ export function filterFormResponses(responses: Record<string, any>): {
     }
 
     for (const strValue of valuesToCheck) {
-      const result = filterContent(strValue);
+      const result = filterContent(strValue, sensitivity);
 
       if (!result.isSafe) {
         flaggedFields[fieldName] = result;

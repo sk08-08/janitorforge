@@ -82,6 +82,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { v4 as uuidv4 } from "uuid";
+import { ImageCropDialog } from "@/components/ui/image-crop-dialog";
+import { IMAGE_PRESETS } from "@/lib/image-presets";
 import type {
   FormField,
   FormSection,
@@ -1472,6 +1474,8 @@ export function FormBuilder({
   const [bannerUrl, setBannerUrl] = useState(initialForm?.bannerUrl || "");
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const formBannerInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingBannerFile, setPendingBannerFile] = useState<File | null>(null);
+  const [bannerCropOpen, setBannerCropOpen] = useState(false);
   const [appearance, setAppearance] = useState(
     resolveFormAppearance(initialForm?.appearance || defaultFormAppearance),
   );
@@ -1614,14 +1618,14 @@ export function FormBuilder({
       return;
     }
 
-    const unlabeledField = sections
-      .flatMap((section) => section.fields)
-      .find((field) => !stripMarkdownToText(field.label || "").trim());
+    // const unlabeledField = sections
+    //   .flatMap((section) => section.fields)
+    //   .find((field) => !stripMarkdownToText(field.label || "").trim());
 
-    if (unlabeledField) {
-      toast.error("All fields must have a label.");
-      return;
-    }
+    // if (unlabeledField) {
+    //   toast.error("All fields must have a label.");
+    //   return;
+    // }
 
     const totalFields = sections.reduce((sum, s) => sum + s.fields.length, 0);
     if (totalFields === 0) {
@@ -1640,48 +1644,70 @@ export function FormBuilder({
     });
   };
 
-  const handleFormBannerUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleCroppedFormBannerUpload = async (file: File) => {
     setIsUploadingBanner(true);
+
+    const previousBannerPath = bannerAssetPath;
+
     try {
       const formData = new FormData();
+
       formData.append("file", file);
-      if (bannerAssetPath) {
-        formData.append("existingPath", bannerAssetPath);
-      }
 
       const result = await uploadFormBannerAction(formData);
+
       if (!result.success || !result.path) {
         toast.error(result.error || "Failed to upload banner");
+
         return;
       }
 
-      setBannerAssetPath(result.path);
-      if (result.publicUrl) {
-        setBannerUrl(result.publicUrl);
-      }
-
+      // Existing form:
+      // Persist the new path first.
+      // updateFormAction removes the old
+      // banner after the DB update succeeds.
       if (isEditing && initialForm?.id) {
         const persist = await updateFormAction(initialForm.id, {
           bannerAssetPath: result.path,
-          bannerUrl: result.publicUrl || bannerUrl,
         });
+
         if (!persist.success) {
+          // New upload is not referenced
+          // by the DB, so clean it up.
+          await removeFormBannerAction(result.path);
+
           toast.error(persist.error || "Failed to persist banner");
+
           return;
         }
+      } else if (previousBannerPath && previousBannerPath !== result.path) {
+        // New/unsaved form:
+        // there is no DB update to clean
+        // the previous temporary banner.
+        await removeFormBannerAction(previousBannerPath);
       }
+
+      setBannerAssetPath(result.path);
 
       toast.success("Form banner uploaded");
     } finally {
       setIsUploadingBanner(false);
-      if (formBannerInputRef.current) {
-        formBannerInputRef.current.value = "";
-      }
+
+      setPendingBannerFile(null);
+    }
+  };
+
+  const handleFormBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setPendingBannerFile(file);
+
+    setBannerCropOpen(true);
+
+    if (formBannerInputRef.current) {
+      formBannerInputRef.current.value = "";
     }
   };
 
@@ -1886,12 +1912,16 @@ export function FormBuilder({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Form Banner</Label>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Recommended: 1600 × 400 px · 4:1 ratio. Larger images can be
+              repositioned before upload.
+            </p>
             <input
               ref={formBannerInputRef}
               type="file"
               accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
               className="hidden"
-              onChange={handleFormBannerUpload}
+              onChange={handleFormBannerSelect}
             />
 
             {(bannerAssetPath || bannerUrl.trim()) && (
@@ -1903,7 +1933,7 @@ export function FormBuilder({
                       : bannerUrl.trim()
                   }
                   alt="Form banner preview"
-                  className="h-36 w-full object-cover sm:h-44"
+                  className="aspect-[4/1] w-full object-cover"
                 />
               </div>
             )}
@@ -2383,6 +2413,27 @@ export function FormBuilder({
           onDrop={(event) => handleSectionDrop(event, sections.length)}
         />
       </div>
+
+      <ImageCropDialog
+        open={bannerCropOpen}
+        onOpenChange={(open) => {
+          setBannerCropOpen(open);
+
+          if (!open) {
+            setPendingBannerFile(null);
+          }
+        }}
+        file={pendingBannerFile}
+        aspect={IMAGE_PRESETS.formBanner.aspect}
+        cropShape={IMAGE_PRESETS.formBanner.cropShape}
+        title="Adjust form banner"
+        description="Drag and zoom the image to choose what visitors will see. Recommended size: 1600 × 400 px."
+        recommendedWidth={IMAGE_PRESETS.formBanner.recommendedWidth}
+        recommendedHeight={IMAGE_PRESETS.formBanner.recommendedHeight}
+        outputWidth={IMAGE_PRESETS.formBanner.recommendedWidth}
+        outputHeight={IMAGE_PRESETS.formBanner.recommendedHeight}
+        onConfirm={handleCroppedFormBannerUpload}
+      />
 
       <div
         className={cn(

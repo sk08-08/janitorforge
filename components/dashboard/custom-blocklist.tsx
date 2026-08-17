@@ -66,11 +66,11 @@ export function CustomBlocklist({ formId, formTitle }: CustomBlocklistProps) {
       const result = await getCustomBlocklist(formId);
       if (result.success && result.patterns) {
         setPatterns(
-          result.patterns.map((p: any, i: number) => ({
-            id: `${i}-${p.pattern}`,
+          result.patterns.map((p: any) => ({
+            id: p.id,
             pattern: p.pattern,
-            isRegex: p.isRegex || false,
-            createdAt: new Date().toISOString(),
+            isRegex: p.is_regex === true,
+            createdAt: p.created_at || new Date().toISOString(),
           })),
         );
       }
@@ -167,6 +167,7 @@ export function CustomBlocklist({ formId, formTitle }: CustomBlocklistProps) {
                     value={newPattern}
                     onChange={(e) => setNewPattern(e.target.value)}
                     className="mt-1"
+                    maxLength={300}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     {isRegex

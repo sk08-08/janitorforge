@@ -508,7 +508,7 @@ function SectionRenderer({
             <button
               type="button"
               className={cn(
-                "flex w-full items-center gap-3 p-4 pl-5 text-left sm:p-5 sm:pl-6",
+                "flex w-full cursor-pointer items-center gap-3 p-4 pl-5 text-left sm:p-5 sm:pl-6",
                 "transition-colors duration-200 hover:bg-muted/30",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               )}
@@ -968,24 +968,6 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
         return humanLabel === "name" || humanLabel === "submitter name";
       });
 
-      console.log("=== PUBLIC FORM SUBMISSION DEBUG ===", {
-        formId: form.id,
-
-        values,
-
-        labelMap,
-
-        sections: form.sections.map((section) => ({
-          id: section.id,
-          title: section.title,
-          fields: section.fields.map((field) => ({
-            id: field.id,
-            label: field.label,
-            plainLabel: stripMarkdownToText(field.label || "").trim(),
-          })),
-        })),
-      });
-
       const result = await submitPublicFormRequest(
         form.id,
         form.title,
@@ -1019,8 +1001,6 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
           "Your submission has been received and will be reviewed before being processed.",
         );
       }
-
-      console.log("Submission saved:", result.requestId);
       setIsSubmitting(false);
       setIsSubmitted(true);
     } catch (err) {
@@ -1105,7 +1085,7 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
               <img
                 src={resolvedBannerUrl}
                 alt="Form banner"
-                className="h-40 w-full object-cover sm:h-52 md:h-64"
+                className="aspect-[4/1] w-full object-cover"
                 loading="lazy"
               />
             </div>

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { MarkdownInlineRenderer } from "./markdown-renderer";
 import { Input } from "@/components/ui/input";
 import { MarkdownField } from "@/components/ui/markdown-field";
 import {
@@ -30,6 +31,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FormDeactivationPage } from "./form-deactivation-page";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -60,12 +62,12 @@ import {
   updateFormAction,
   deleteFormAction,
 } from "@/app/actions/forms";
+import { CustomColorPicker } from "@/components/ui/custom-color-picker";
 import { cn, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import type { RequestForm, FormTemplate, FormSection } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
-import { MarkdownInlineRenderer } from "./markdown-renderer";
 import { stripMarkdownToText } from "@/lib/markdown";
 import { normalizeHttpUrl } from "@/lib/safe-url";
 
@@ -98,7 +100,7 @@ function FormCard({
     <Card
       className={cn(
         "transition-all hover:border-primary/30",
-        !form.isActive && "opacity-60",
+        !form.isActive && "border-dashed bg-muted/15",
       )}
     >
       <CardHeader className="pb-3">
@@ -168,7 +170,7 @@ function FormCard({
       <CardContent>
         {/* Stats */}
         <div className="flex flex-wrap gap-2">
-          <Badge variant={form.isActive ? "default" : "secondary"}>
+          <Badge variant={form.isActive ? "default" : "outline"}>
             {form.isActive ? "Active" : "Inactive"}
           </Badge>
           {ownerLabel && <Badge variant="outline">{ownerLabel}</Badge>}
@@ -190,15 +192,43 @@ function FormCard({
             <Clock className="h-3 w-3" />
             Updated {formatDateTime(form.updatedAt)}
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs cursor-pointer"
-            onClick={() => window.open(`/form/${form.shareableLink}`, "_blank")}
-          >
-            <ExternalLink className="mr-1 h-3 w-3" />
-            Preview
-          </Button>
+          {form.isActive ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 cursor-pointer text-xs"
+              onClick={() =>
+                window.open(`/form/${form.shareableLink}`, "_blank")
+              }
+            >
+              <ExternalLink className="mr-1 h-3 w-3" />
+              Preview
+            </Button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 cursor-pointer text-xs"
+                onClick={onEditDeactivation}
+              >
+                <Pencil className="mr-1 h-3 w-3" />
+                Closed Page
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 cursor-pointer"
+                title="Open public page"
+                onClick={() =>
+                  window.open(`/form/${form.shareableLink}`, "_blank")
+                }
+              >
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -281,6 +311,23 @@ export function FormManager() {
   const [deactivateRedirectUrl, setDeactivateRedirectUrl] = useState("");
   const [deactivateRedirectLabel, setDeactivateRedirectLabel] = useState("");
   const [deactivateAccentColor, setDeactivateAccentColor] = useState("#7c3aed");
+  const [savingDeactivation, setSavingDeactivation] = useState(false);
+
+  const resetDeactivationState = () => {
+    setDeactivateForm(null);
+    setDeactivateMessage("");
+    setDeactivateRedirectUrl("");
+    setDeactivateRedirectLabel("");
+    setDeactivateAccentColor("#7c3aed");
+  };
+
+  const isValidDeactivationAccent = /^#[0-9a-fA-F]{6}$/.test(
+    deactivateAccentColor.trim(),
+  );
+
+  const normalizedDeactivationRedirect = deactivateRedirectUrl.trim()
+    ? (normalizeHttpUrl(deactivateRedirectUrl) ?? "")
+    : "";
 
   // Fetch templates when template picker opens
   useEffect(() => {
@@ -343,7 +390,7 @@ export function FormManager() {
       // Try to persist on server first
       const res = await createFormAction(formData as any);
       if (!res.success) {
-        console.error("createFormAction error:", (res as any).raw ?? res);
+        console.error("createFormAction error:", res.error);
         toast.error(res.error || "Failed to create form");
         return;
       }
@@ -363,7 +410,7 @@ export function FormManager() {
       (async () => {
         const res = await updateFormAction(editingForm.id, formData as any);
         if (!res.success) {
-          console.error("updateFormAction error:", (res as any).raw ?? res);
+          console.error("updateFormAction error:", res.error);
           toast.error(res.error || "Failed to update form");
           return;
         }
@@ -379,7 +426,7 @@ export function FormManager() {
       (async () => {
         const res = await deleteFormAction(deleteConfirmForm.id);
         if (!res.success) {
-          console.error("deleteFormAction error:", (res as any).raw ?? res);
+          console.error("deleteFormAction error:", res.error);
           toast.error(res.error || "Failed to delete form");
           return;
         }
@@ -407,33 +454,63 @@ export function FormManager() {
   const doToggleActive = async (
     form: RequestForm,
     isActive: boolean,
-    deactivatedMessage: string,
+    deactivatedMessage?: string,
   ) => {
-    const normalizedRedirect = deactivateRedirectUrl.trim()
-      ? normalizeHttpUrl(deactivateRedirectUrl)
-      : "";
+    if (savingDeactivation) {
+      return;
+    }
 
-    if (deactivateRedirectUrl.trim() && !normalizedRedirect) {
-      toast.error("Enter a valid HTTP or HTTPS URL.");
-      return;
-    }
-    const res = await updateFormAction(form.id, {
+    let payload: Partial<RequestForm> = {
       isActive,
-      deactivatedMessage: deactivatedMessage || "",
-      deactivatedRedirectUrl: normalizedRedirect || "",
-      deactivatedRedirectLabel: deactivateRedirectLabel || "",
-      deactivatedAccentColor: deactivateAccentColor || "#7c3aed",
-    } as Partial<RequestForm>);
-    if (!res.success) {
-      console.error(
-        "updateFormAction (toggle) error:",
-        (res as any).raw ?? res,
-      );
-      toast.error(res.error || "Failed to update form");
-      return;
+    };
+
+    if (!isActive) {
+      if (!isValidDeactivationAccent) {
+        toast.error("Enter a valid 6-digit hex color.");
+        return;
+      }
+
+      if (deactivateRedirectUrl.trim() && !normalizedDeactivationRedirect) {
+        toast.error("Enter a valid HTTP or HTTPS URL.");
+        return;
+      }
+
+      payload = {
+        ...payload,
+
+        deactivatedMessage: deactivatedMessage || "",
+
+        deactivatedRedirectUrl: normalizedDeactivationRedirect || "",
+
+        deactivatedRedirectLabel: deactivateRedirectLabel.trim(),
+
+        deactivatedAccentColor: deactivateAccentColor,
+      };
     }
-    upsertForm(mapDbFormToRequestForm(res.form));
-    toast.success(isActive ? "Form activated" : "Form deactivated");
+
+    setSavingDeactivation(true);
+
+    try {
+      const res = await updateFormAction(form.id, payload);
+
+      if (!res.success) {
+        console.error("updateFormAction (toggle) error:", res.error);
+
+        toast.error(res.error || "Failed to update form");
+
+        return;
+      }
+
+      upsertForm(mapDbFormToRequestForm(res.form));
+
+      if (!isActive) {
+        resetDeactivationState();
+      }
+
+      toast.success(isActive ? "Form activated" : "Form deactivated");
+    } finally {
+      setSavingDeactivation(false);
+    }
   };
 
   const handleCopyLink = async (form: RequestForm) => {
@@ -455,29 +532,46 @@ export function FormManager() {
   };
 
   const handleSaveDeactivation = async () => {
-    if (!deactivateForm) return;
-    const normalizedRedirect = deactivateRedirectUrl.trim()
-      ? normalizeHttpUrl(deactivateRedirectUrl)
-      : "";
+    if (!deactivateForm || savingDeactivation) {
+      return;
+    }
 
-    if (deactivateRedirectUrl.trim() && !normalizedRedirect) {
+    if (!isValidDeactivationAccent) {
+      toast.error("Enter a valid 6-digit hex color.");
+      return;
+    }
+
+    if (deactivateRedirectUrl.trim() && !normalizedDeactivationRedirect) {
       toast.error("Enter a valid HTTP or HTTPS URL.");
       return;
     }
-    const res = await updateFormAction(deactivateForm.id, {
-      deactivatedMessage: deactivateMessage || "",
-      deactivatedRedirectUrl: normalizedRedirect || "",
-      deactivatedRedirectLabel: deactivateRedirectLabel || "",
-      deactivatedAccentColor: deactivateAccentColor || "#7c3aed",
-    } as Partial<RequestForm>);
-    if (!res.success) {
-      toast.error(res.error || "Failed to update deactivation settings");
-      return;
+
+    setSavingDeactivation(true);
+
+    try {
+      const res = await updateFormAction(deactivateForm.id, {
+        deactivatedMessage: deactivateMessage || "",
+
+        deactivatedRedirectUrl: normalizedDeactivationRedirect || "",
+
+        deactivatedRedirectLabel: deactivateRedirectLabel.trim(),
+
+        deactivatedAccentColor: deactivateAccentColor,
+      } as Partial<RequestForm>);
+
+      if (!res.success) {
+        toast.error(res.error || "Failed to update deactivation settings");
+        return;
+      }
+
+      upsertForm(mapDbFormToRequestForm(res.form));
+
+      resetDeactivationState();
+
+      toast.success("Deactivation page updated");
+    } finally {
+      setSavingDeactivation(false);
     }
-    upsertForm(mapDbFormToRequestForm(res.form));
-    setDeactivateForm(null);
-    setDeactivateMessage("");
-    toast.success("Deactivation page updated");
   };
 
   return (
@@ -684,104 +778,206 @@ export function FormManager() {
         open={!!deactivateForm}
         onOpenChange={(open) => {
           if (!open) {
-            setDeactivateForm(null);
-            setDeactivateMessage("");
+            resetDeactivationState();
           }
         }}
       >
-        <DialogContent className="w-[calc(100%-1rem)] max-w-md sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent
+          className="
+    flex
+    max-h-[90vh]
+    w-[calc(100vw-2rem)]
+    max-w-5xl
+    flex-col
+    overflow-hidden
+    p-0
+    sm:max-w-5xl
+  "
+        >
+          {/* Header */}
+          <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12 sm:px-6">
             <DialogTitle>
               {deactivateForm?.isActive
                 ? "Deactivate Form"
                 : "Edit Deactivation Page"}
             </DialogTitle>
+
             <DialogDescription>
-              {deactivateForm?.isActive
-                ? "Users who visit this form will see a custom message. Leave blank to show the default message."
-                : "Customize what visitors see when they access this deactivated form."}
+              Customize what visitors see while this form is unavailable.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
-            <div className="space-y-2">
-              <Label className="text-sm">Custom Message (optional)</Label>
-              <MarkdownField
-                value={deactivateMessage}
-                onChange={(value) => setDeactivateMessage(value)}
-                placeholder="e.g. Commissions are currently closed. Follow me on Twitter for updates!"
-                minEditorHeightRem={9}
-                className="min-h-36 md:min-h-40"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Redirect Link (optional)</Label>
-              <Input
-                value={deactivateRedirectUrl}
-                onChange={(e) => setDeactivateRedirectUrl(e.target.value)}
-                placeholder="https://twitter.com/yourhandle"
-                className="h-9"
-              />
-              <p className="text-xs text-muted-foreground">
-                Add a link for visitors to follow (e.g. your social media,
-                profile, etc.)
-              </p>
-            </div>
-            {deactivateRedirectUrl && (
-              <div className="space-y-2">
-                <Label className="text-sm">Button Label</Label>
-                <Input
-                  value={deactivateRedirectLabel}
-                  onChange={(e) => setDeactivateRedirectLabel(e.target.value)}
-                  placeholder="Follow me on Twitter"
-                  className="h-9"
-                />
+
+          {/* Scrollable content */}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.9fr)]">
+              {/* LEFT: Settings */}
+              <div className="min-w-0 space-y-5">
+                {/* Message */}
+                <section className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold">Message</p>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Tell visitors why the form is unavailable or when it may
+                      return.
+                    </p>
+                  </div>
+
+                  <MarkdownField
+                    value={deactivateMessage}
+                    onChange={setDeactivateMessage}
+                    placeholder="e.g. Commissions are currently closed. Check back soon!"
+                    minEditorHeightRem={9}
+                  />
+                </section>
+
+                {/* Redirect */}
+                <section className="space-y-4 rounded-xl border bg-muted/20 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">Redirect</p>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Optionally send visitors somewhere useful while the form
+                      is closed.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="deactivation-url" className="text-sm">
+                      Redirect Link
+                    </Label>
+
+                    <Input
+                      id="deactivation-url"
+                      value={deactivateRedirectUrl}
+                      onChange={(e) => setDeactivateRedirectUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      className={cn(
+                        "h-9",
+                        deactivateRedirectUrl.trim() &&
+                          !normalizedDeactivationRedirect &&
+                          "border-destructive focus-visible:ring-destructive",
+                      )}
+                    />
+
+                    {deactivateRedirectUrl.trim() &&
+                      !normalizedDeactivationRedirect && (
+                        <p className="text-xs text-destructive">
+                          Enter a valid HTTP or HTTPS URL.
+                        </p>
+                      )}
+                  </div>
+
+                  {normalizedDeactivationRedirect && (
+                    <div className="space-y-2">
+                      <Label htmlFor="deactivation-label" className="text-sm">
+                        Button Label
+                      </Label>
+
+                      <Input
+                        id="deactivation-label"
+                        value={deactivateRedirectLabel}
+                        onChange={(e) =>
+                          setDeactivateRedirectLabel(e.target.value)
+                        }
+                        placeholder="Visit Link"
+                        maxLength={100}
+                        className="h-9"
+                      />
+                    </div>
+                  )}
+                </section>
+
+                {/* Appearance */}
+                <section className="space-y-4 rounded-xl border bg-muted/20 p-4">
+                  <div>
+                    <p className="text-sm font-semibold">Appearance</p>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Choose the accent color used on the closed-form page.
+                    </p>
+                  </div>
+
+                  <CustomColorPicker
+                    label="Accent Color"
+                    value={deactivateAccentColor}
+                    onChange={setDeactivateAccentColor}
+                  />
+
+                  {!isValidDeactivationAccent && (
+                    <p className="text-xs text-destructive">
+                      Enter a valid 6-digit hex color.
+                    </p>
+                  )}
+                </section>
               </div>
-            )}
-            <div className="space-y-2">
-              <Label className="text-sm">Accent Color</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={deactivateAccentColor}
-                  onChange={(e) => setDeactivateAccentColor(e.target.value)}
-                  className="h-9 w-9 rounded cursor-pointer border"
-                />
-                <Input
-                  value={deactivateAccentColor}
-                  onChange={(e) => setDeactivateAccentColor(e.target.value)}
-                  placeholder="#7c3aed"
-                  className="flex-1 h-9"
-                />
+
+              {/* RIGHT: Preview */}
+              <div className="min-w-0 lg:border-l lg:pl-6">
+                <div className="lg:sticky lg:top-0">
+                  <div>
+                    <p className="text-sm font-semibold">Live Preview</p>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      This uses the same layout visitors will see on the public
+                      page.
+                    </p>
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-2xl border bg-background shadow-sm">
+                    <FormDeactivationPage
+                      preview
+                      title={deactivateForm?.title || "Form"}
+                      message={deactivateMessage}
+                      redirectUrl={normalizedDeactivationRedirect}
+                      redirectLabel={deactivateRedirectLabel}
+                      accentColor={
+                        isValidDeactivationAccent
+                          ? deactivateAccentColor
+                          : "#7c3aed"
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
+
+          {/* Footer */}
+          <DialogFooter className="shrink-0 border-t bg-background/95 px-5 py-4 backdrop-blur sm:px-6">
             <Button
               variant="outline"
-              onClick={() => {
-                setDeactivateForm(null);
-                setDeactivateMessage("");
-              }}
-              className="w-full sm:w-auto cursor-pointer"
+              onClick={resetDeactivationState}
+              disabled={savingDeactivation}
+              className="w-full cursor-pointer sm:w-auto"
             >
               Cancel
             </Button>
+
             <Button
               variant={deactivateForm?.isActive ? "destructive" : "default"}
+              disabled={
+                savingDeactivation ||
+                !isValidDeactivationAccent ||
+                (!!deactivateRedirectUrl.trim() &&
+                  !normalizedDeactivationRedirect)
+              }
               onClick={() => {
-                if (deactivateForm) {
-                  if (deactivateForm.isActive) {
-                    doToggleActive(deactivateForm, false, deactivateMessage);
-                    setDeactivateForm(null);
-                    setDeactivateMessage("");
-                  } else {
-                    handleSaveDeactivation();
-                  }
+                if (!deactivateForm) return;
+
+                if (deactivateForm.isActive) {
+                  void doToggleActive(deactivateForm, false, deactivateMessage);
+                } else {
+                  void handleSaveDeactivation();
                 }
               }}
-              className="w-full sm:w-auto cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
             >
-              {deactivateForm?.isActive ? "Deactivate Form" : "Save Changes"}
+              {savingDeactivation
+                ? "Saving..."
+                : deactivateForm?.isActive
+                  ? "Deactivate Form"
+                  : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -826,7 +1022,7 @@ export function FormManager() {
               </li>
             </ul>
           </div>
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <DialogFooter className="shrink-0 border-t bg-background/95 px-5 py-4 backdrop-blur sm:px-6">
             <Button
               variant="outline"
               onClick={() => setDeleteConfirmForm(null)}

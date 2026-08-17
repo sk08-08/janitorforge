@@ -16,20 +16,8 @@ const ALLOWED_PROFILE_IMAGE_TYPES = [
   "image/png",
   "image/webp",
   "image/avif",
-  "image/gif",
-  "image/heic",
-  "image/heif",
 ];
-const ALLOWED_PROFILE_IMAGE_EXTENSIONS = [
-  "jpg",
-  "jpeg",
-  "png",
-  "webp",
-  "avif",
-  "gif",
-  "heic",
-  "heif",
-];
+const ALLOWED_PROFILE_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "avif"];
 const MAX_PROFILE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 function getSafeImageExtension(file: File) {
@@ -239,17 +227,6 @@ export async function updateProfile(input: UpdateProfileInput) {
     existingAssets = data ?? null;
   }
 
-  if (Object.keys(payload).length > 0) {
-    const { error } = await supabase
-      .from("profiles")
-      .update(payload)
-      .eq("id", userId);
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-  }
-
   if (requestedFeaturedBotIds !== undefined) {
     const normalizedFeaturedBotIds = Array.from(
       new Set((requestedFeaturedBotIds || []).filter(Boolean)),
@@ -278,6 +255,17 @@ export async function updateProfile(input: UpdateProfileInput) {
       if (insertError) {
         return { success: false, error: insertError.message };
       }
+    }
+  }
+
+  if (Object.keys(payload).length > 0) {
+    const { error } = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", userId);
+
+    if (error) {
+      return { success: false, error: error.message };
     }
   }
 
@@ -321,103 +309,164 @@ export async function updateProfile(input: UpdateProfileInput) {
 export async function uploadProfileAssetAction(formData: FormData) {
   try {
     const kind = String(formData.get("kind") || "").trim();
+
     if (kind !== "avatar" && kind !== "banner") {
-      return { success: false, error: "Invalid asset kind" };
+      return {
+        success: false,
+        error: "Invalid asset kind",
+      };
     }
 
     const file = formData.get("file");
+
     if (!(file instanceof File)) {
-      return { success: false, error: "No image file provided" };
+      return {
+        success: false,
+        error: "No image file provided",
+      };
     }
 
     const fileType = String(file.type || "").toLowerCase();
+
     const fileExt = getSafeImageExtension(file);
+
     if (
-      fileType &&
-      !ALLOWED_PROFILE_IMAGE_TYPES.includes(fileType) &&
+      !fileType ||
+      !ALLOWED_PROFILE_IMAGE_TYPES.includes(fileType) ||
       !ALLOWED_PROFILE_IMAGE_EXTENSIONS.includes(fileExt)
     ) {
       return {
         success: false,
-        error:
-          "Unsupported image type. Use PNG, JPG, WEBP, AVIF, GIF, HEIC or HEIF",
+        error: "Unsupported image type. Use PNG, JPG, WEBP or AVIF",
       };
     }
 
     if (file.size > MAX_PROFILE_IMAGE_SIZE_BYTES) {
-      return { success: false, error: "Image is too large (max 5MB)" };
-    }
-
-    const supabase = await createClient();
-    const access = await getCurrentUserAccess(supabase);
-    if (!access.user) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    const column = kind === "avatar" ? "avatar_url" : "banner_url";
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("avatar_url, banner_url")
-      .eq("id", access.user.id)
-      .maybeSingle();
-
-    if (profileError) {
       return {
         success: false,
-        error: withRawErrorDetails(profileError, "Failed to load profile"),
-        raw: profileError,
+        error: "Image is too large (max 5MB)",
       };
     }
 
-    const existingUrl = String((profile as any)?.[column] || "").trim();
-    const existingPath = extractStorageObjectPathFromPublicUrl(
-      existingUrl,
-      PROFILE_ASSETS_BUCKET,
-    );
-    const targetPath = `${access.user.id}/${kind}.${fileExt}`;
+    const supabase = await createClient();
+
+    const access = await getCurrentUserAccess(supabase);
+
+    if (!access.user) {
+      return {
+        success: false,
+        error: "Not authenticated",
+      };
+    }
+
+    const targetPath = `${access.user.id}/${kind}-${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from(PROFILE_ASSETS_BUCKET)
       .upload(targetPath, file, {
-        upsert: true,
+        upsert: false,
         contentType: fileType || undefined,
         cacheControl: "3600",
       });
 
     if (uploadError) {
+      console.error("Failed to upload profile image:", uploadError);
+
       return {
         success: false,
         error: withRawErrorDetails(uploadError, "Failed to upload image"),
-        raw: uploadError,
       };
-    }
-
-    if (existingPath && existingPath !== targetPath) {
-      await supabase.storage.from(PROFILE_ASSETS_BUCKET).remove([existingPath]);
     }
 
     const publicUrl = getStoragePublicUrl(PROFILE_ASSETS_BUCKET, targetPath);
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ [column]: publicUrl })
-      .eq("id", access.user.id);
 
-    if (updateError) {
-      return {
-        success: false,
-        error: withRawErrorDetails(updateError, "Failed to save image"),
-        raw: updateError,
-      };
-    }
-
-    return { success: true, url: publicUrl, path: targetPath, kind };
+    return {
+      success: true,
+      url: publicUrl,
+      path: targetPath,
+      kind,
+    };
   } catch (error) {
+    console.error("Unexpected profile asset upload error:", error);
+
     const message =
       error instanceof Error
         ? error.message
         : "Unexpected error while uploading image";
-    return { success: false, error: message };
+
+    return {
+      success: false,
+      error: message,
+    };
   }
+}
+
+export async function removeTemporaryProfileAssetAction(path: string) {
+  const supabase = await createClient();
+
+  const access = await getCurrentUserAccess(supabase);
+
+  if (!access.user) {
+    return {
+      success: false,
+      error: "Not authenticated",
+    };
+  }
+
+  const target = String(path || "").trim();
+
+  if (!target) {
+    return {
+      success: true,
+    };
+  }
+
+  if (!target.startsWith(`${access.user.id}/`)) {
+    return {
+      success: false,
+      error: "Forbidden",
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("avatar_url, banner_url")
+    .eq("id", access.user.id)
+    .maybeSingle();
+
+  const currentAvatarPath = extractStorageObjectPathFromPublicUrl(
+    currentProfile?.avatar_url,
+    PROFILE_ASSETS_BUCKET,
+  );
+
+  const currentBannerPath = extractStorageObjectPathFromPublicUrl(
+    currentProfile?.banner_url,
+    PROFILE_ASSETS_BUCKET,
+  );
+
+  if (target === currentAvatarPath || target === currentBannerPath) {
+    return {
+      success: false,
+      error: "Cannot remove an asset currently used by the profile",
+    };
+  }
+
+  const { error } = await supabase.storage
+    .from(PROFILE_ASSETS_BUCKET)
+    .remove([target]);
+
+  if (error) {
+    console.error("Failed to remove temporary profile asset:", error);
+
+    return {
+      success: false,
+      error: friendlySupabaseError(error, "Failed to remove image"),
+    };
+  }
+
+  return {
+    success: true,
+  };
 }
 
 export async function removeProfileAssetAction(kind: "avatar" | "banner") {
@@ -453,7 +502,6 @@ export async function removeProfileAssetAction(kind: "avatar" | "banner") {
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to remove image"),
-      raw: error,
     };
   }
 

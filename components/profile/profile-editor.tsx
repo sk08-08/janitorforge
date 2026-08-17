@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ImageCropDialog } from "@/components/ui/image-crop-dialog";
+import { IMAGE_PRESETS } from "@/lib/image-presets";
 import {
   Share2,
   Palette,
@@ -40,6 +42,14 @@ import {
   Plus,
   MapPin,
   Globe,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  LayoutGrid,
+  Rows3,
+  PanelTop,
+  RotateCcw,
   MessageCircle,
   Eye,
   EyeOff,
@@ -50,8 +60,18 @@ import {
   BotIcon,
 } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   getOwnProfile,
-  removeProfileAssetAction,
+  removeTemporaryProfileAssetAction,
   updateProfile,
   uploadProfileAssetAction,
 } from "@/app/actions/profile";
@@ -94,7 +114,6 @@ const socialPlatforms = [
   { key: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/..." },
   { key: "youtube", label: "YouTube", placeholder: "https://youtube.com/..." },
   { key: "twitch", label: "Twitch", placeholder: "https://twitch.tv/..." },
-  { key: "website", label: "Website", placeholder: "https://..." },
 ];
 
 const accentPresets = [
@@ -134,7 +153,7 @@ function ImagePreview({
           "flex items-center justify-center bg-muted border-2 border-dashed border-border",
           aspectRatio === "square"
             ? "h-20 w-20 rounded-full"
-            : "h-24 w-full rounded-lg",
+            : "aspect-[4/1] w-full rounded-lg",
           className,
         )}
       >
@@ -149,7 +168,7 @@ function ImagePreview({
         "overflow-hidden border bg-muted relative",
         aspectRatio === "square"
           ? "h-20 w-20 rounded-full"
-          : "h-24 w-full rounded-lg",
+          : "aspect-[4/1] w-full rounded-lg",
         className,
       )}
     >
@@ -173,6 +192,88 @@ function ImagePreview({
 // Main Component
 // ----------------------------------------------------------------------------
 
+function EditorSection({
+  title,
+  description,
+  children,
+  className,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("space-y-4", className)}>
+      <div>
+        <h3 className="text-sm font-semibold">{title}</h3>
+
+        {description && (
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+
+      {children}
+    </section>
+  );
+}
+
+function VisualChoice({
+  selected,
+  title,
+  description,
+  icon,
+  onClick,
+}: {
+  selected: boolean;
+  title: string;
+  description?: string;
+  icon?: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-state={selected ? "selected" : "unselected"}
+      className={cn(
+        "relative flex min-w-0 flex-col data-[state=selected]:cursor-default data-[state=unselected]:cursor-pointer items-start gap-2 rounded-xl border p-3 text-left transition-all",
+        "hover:border-primary/40 hover:bg-muted/30",
+        selected && "border-primary bg-primary/5 ring-1 ring-primary/20",
+      )}
+    >
+      {selected && (
+        <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Check className="h-3 w-3" />
+        </div>
+      )}
+
+      {icon && (
+        <div
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-lg border bg-background",
+            selected && "border-primary/30 bg-primary/10 text-primary",
+          )}
+        >
+          {icon}
+        </div>
+      )}
+
+      <div className="min-w-0 pr-5">
+        <p className="text-sm font-medium">{title}</p>
+
+        {description && (
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        )}
+      </div>
+    </button>
+  );
+}
+
 export function ProfileEditor({
   open,
   onOpenChange,
@@ -180,6 +281,9 @@ export function ProfileEditor({
 }: ProfileEditorProps) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const initialSnapshotRef = useRef("");
+
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
 
   // General
   const [displayName, setDisplayName] = useState("");
@@ -193,6 +297,16 @@ export function ProfileEditor({
   const [statusMessage, setStatusMessage] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [pendingProfileAsset, setPendingProfileAsset] = useState<{
+    kind: "avatar" | "banner";
+    file: File;
+  } | null>(null);
+  const [temporaryAvatarPath, setTemporaryAvatarPath] = useState<string | null>(
+    null,
+  );
+  const [temporaryBannerPath, setTemporaryBannerPath] = useState<string | null>(
+    null,
+  );
 
   // Specialties
   const [specialties, setSpecialties] = useState<string[]>([]);
@@ -223,64 +337,251 @@ export function ProfileEditor({
 
   // Featured bots
   const [featuredBotIds, setFeaturedBotIds] = useState<string[]>([]);
+  const [featuredSearch, setFeaturedSearch] = useState("");
   const { bots } = useStore();
 
-  const handleProfileAssetUpload = async (
+  const buildProfileSnapshot = useCallback(
+    (
+      overrides?: Partial<{
+        displayName: string;
+        pronouns: string;
+        tagline: string;
+        bio: string;
+        avatarUrl: string;
+        bannerUrl: string;
+        location: string;
+        websiteUrl: string;
+        statusMessage: string;
+        specialties: string[];
+        socialLinks: Record<string, string>;
+        visibility: string;
+        featuredBotIds: string[];
+        primaryColor: string;
+        accentColor: string;
+        avatarBorderColor: string;
+        layout: string;
+        cardStyle: string;
+        fontFamily: string;
+        profileBackground: string;
+        showStats: boolean;
+        showBadges: boolean;
+        showFeatured: boolean;
+        showBots: boolean;
+        showCreatorPages: boolean;
+        showWorlds: boolean;
+        showForms: boolean;
+        hideCompletenessNudge: boolean;
+      }>,
+    ) => {
+      return JSON.stringify({
+        displayName: overrides?.displayName ?? displayName,
+        pronouns: overrides?.pronouns ?? pronouns,
+        tagline: overrides?.tagline ?? tagline,
+        bio: overrides?.bio ?? bio,
+        avatarUrl: overrides?.avatarUrl ?? avatarUrl,
+        bannerUrl: overrides?.bannerUrl ?? bannerUrl,
+        location: overrides?.location ?? location,
+        websiteUrl: overrides?.websiteUrl ?? websiteUrl,
+        statusMessage: overrides?.statusMessage ?? statusMessage,
+        specialties: overrides?.specialties ?? specialties,
+        socialLinks: overrides?.socialLinks ?? socialLinks,
+        visibility: overrides?.visibility ?? visibility,
+        featuredBotIds: overrides?.featuredBotIds ?? featuredBotIds,
+        primaryColor: overrides?.primaryColor ?? primaryColor,
+        accentColor: overrides?.accentColor ?? accentColor,
+        avatarBorderColor: overrides?.avatarBorderColor ?? avatarBorderColor,
+        layout: overrides?.layout ?? layout,
+        cardStyle: overrides?.cardStyle ?? cardStyle,
+        fontFamily: overrides?.fontFamily ?? fontFamily,
+        profileBackground: overrides?.profileBackground ?? profileBackground,
+        showStats: overrides?.showStats ?? showStats,
+        showBadges: overrides?.showBadges ?? showBadges,
+        showFeatured: overrides?.showFeatured ?? showFeatured,
+        showBots: overrides?.showBots ?? showBots,
+        showCreatorPages: overrides?.showCreatorPages ?? showCreatorPages,
+        showWorlds: overrides?.showWorlds ?? showWorlds,
+        showForms: overrides?.showForms ?? showForms,
+        hideCompletenessNudge:
+          overrides?.hideCompletenessNudge ?? hideCompletenessNudge,
+      });
+    },
+    [
+      displayName,
+      pronouns,
+      tagline,
+      bio,
+      avatarUrl,
+      bannerUrl,
+      location,
+      websiteUrl,
+      statusMessage,
+      specialties,
+      socialLinks,
+      visibility,
+      featuredBotIds,
+      primaryColor,
+      accentColor,
+      avatarBorderColor,
+      layout,
+      cardStyle,
+      fontFamily,
+      profileBackground,
+      showStats,
+      showBadges,
+      showFeatured,
+      showBots,
+      showCreatorPages,
+      showWorlds,
+      showForms,
+      hideCompletenessNudge,
+    ],
+  );
+
+  const handleProfileAssetSelect = (
     kind: "avatar" | "banner",
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = e.target.files?.[0];
+
     if (!file) return;
 
-    if (kind === "avatar") setUploadingAvatar(true);
-    else setUploadingBanner(true);
+    setPendingProfileAsset({
+      kind,
+      file,
+    });
+
+    // Allows selecting the same file again later.
+    e.target.value = "";
+  };
+
+  const handleCroppedProfileAssetUpload = async (croppedFile: File) => {
+    if (!pendingProfileAsset) {
+      return;
+    }
+
+    const kind = pendingProfileAsset.kind;
+
+    if (kind === "avatar") {
+      setUploadingAvatar(true);
+    } else {
+      setUploadingBanner(true);
+    }
 
     try {
       const formData = new FormData();
+
       formData.append("kind", kind);
-      formData.append("file", file);
+
+      formData.append("file", croppedFile);
 
       const result = await uploadProfileAssetAction(formData);
-      if (!result.success || !result.url) {
+
+      if (!result.success || !result.url || !result.path) {
         toast.error(result.error || "Failed to upload image");
+
         return;
       }
 
-      if (kind === "avatar") setAvatarUrl(result.url);
-      else setBannerUrl(result.url);
+      if (kind === "avatar") {
+        if (temporaryAvatarPath && temporaryAvatarPath !== result.path) {
+          await removeTemporaryProfileAssetAction(temporaryAvatarPath);
+        }
 
-      toast.success(kind === "avatar" ? "Avatar uploaded" : "Banner uploaded");
+        setTemporaryAvatarPath(result.path);
+
+        setAvatarUrl(result.url);
+      } else {
+        if (temporaryBannerPath && temporaryBannerPath !== result.path) {
+          await removeTemporaryProfileAssetAction(temporaryBannerPath);
+        }
+
+        setTemporaryBannerPath(result.path);
+
+        setBannerUrl(result.url);
+      }
+
+      toast.success(
+        kind === "avatar" ? "Avatar ready to save" : "Banner ready to save",
+      );
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "Unexpected error while uploading image";
+
       toast.error(message);
     } finally {
-      if (kind === "avatar") setUploadingAvatar(false);
-      else setUploadingBanner(false);
-      e.target.value = "";
+      if (kind === "avatar") {
+        setUploadingAvatar(false);
+      } else {
+        setUploadingBanner(false);
+      }
+
+      setPendingProfileAsset(null);
     }
   };
 
-  const handleProfileAssetRemove = async (kind: "avatar" | "banner") => {
-    const result = await removeProfileAssetAction(kind);
-    if (!result.success) {
-      toast.error(result.error || "Failed to remove image");
-      return;
+  const handleCancelProfileEdit = async () => {
+    const cleanupTasks: Promise<unknown>[] = [];
+
+    if (temporaryAvatarPath) {
+      cleanupTasks.push(removeTemporaryProfileAssetAction(temporaryAvatarPath));
     }
 
-    if (kind === "avatar") setAvatarUrl("");
-    else setBannerUrl("");
-    toast.success(kind === "avatar" ? "Avatar removed" : "Banner removed");
+    if (temporaryBannerPath) {
+      cleanupTasks.push(removeTemporaryProfileAssetAction(temporaryBannerPath));
+    }
+
+    if (cleanupTasks.length > 0) {
+      await Promise.allSettled(cleanupTasks);
+    }
+
+    setTemporaryAvatarPath(null);
+
+    setTemporaryBannerPath(null);
+
+    setPendingProfileAsset(null);
+
+    onOpenChange(false);
+  };
+
+  const handleProfileAssetRemove = async (kind: "avatar" | "banner") => {
+    if (kind === "avatar") {
+      if (temporaryAvatarPath) {
+        await removeTemporaryProfileAssetAction(temporaryAvatarPath);
+
+        setTemporaryAvatarPath(null);
+      }
+
+      setAvatarUrl("");
+    } else {
+      if (temporaryBannerPath) {
+        await removeTemporaryProfileAssetAction(temporaryBannerPath);
+
+        setTemporaryBannerPath(null);
+      }
+
+      setBannerUrl("");
+    }
   };
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
+
+    setTemporaryAvatarPath(null);
+    setTemporaryBannerPath(null);
+    setPendingProfileAsset(null);
+
     try {
       const result = await getOwnProfile();
+
       if (result.success && result.profile) {
         const p = result.profile;
+        const loadedFeaturedBotIds = (p.active_profile_featured_bots || [])
+          .map((relation: any) => relation?.bot?.id)
+          .filter(Boolean)
+          .slice(0, MAX_FEATURED_BOTS);
+
         setDisplayName(p.display_name || "");
         setPronouns(p.pronouns || "");
         setTagline(p.tagline || "");
@@ -293,43 +594,109 @@ export function ProfileEditor({
         setSpecialties(p.specialties || []);
         setSocialLinks(p.social_links || {});
         setVisibility(p.visibility || "public");
-        setFeaturedBotIds(
-          (p.active_profile_featured_bots || [])
-            .map((relation: any) => relation?.bot?.id)
-            .filter(Boolean)
-            .slice(0, MAX_FEATURED_BOTS),
-        );
+
+        setFeaturedBotIds(loadedFeaturedBotIds);
 
         const theme = (p.theme as Record<string, unknown>) || {};
+
         setPrimaryColor((theme.primaryColor as string) || "#7c3aed");
+
         setAccentColor((theme.accentColor as string) || "#a78bfa");
+
         setAvatarBorderColor(
           (theme.avatarBorderColor as string) ||
             (theme.primaryColor as string) ||
             "#7c3aed",
         );
+
         setLayout((theme.layout as string) || "grid");
+
         setCardStyle((theme.cardStyle as string) || "default");
+
         setFontFamily((theme.fontFamily as string) || "default");
+
         setProfileBackground((theme.profileBackground as string) || "default");
+
         setShowStats(theme.showStats === true || theme.showStats === "true");
+
         setShowBadges(theme.showBadges === true || theme.showBadges === "true");
+
         setShowFeatured(
           theme.showFeatured === true || theme.showFeatured === "true",
         );
+
         setShowBots(theme.showBots !== false && theme.showBots !== "false");
+
         setShowCreatorPages(
           theme.showCreatorPages !== false &&
             theme.showCreatorPages !== "false",
         );
+
         setShowWorlds(
           theme.showWorlds !== false && theme.showWorlds !== "false",
         );
+
         setShowForms(theme.showForms !== false && theme.showForms !== "false");
+
         setHideCompletenessNudge(
           theme.hideCompletenessNudge === true ||
             theme.hideCompletenessNudge === "true",
         );
+
+        initialSnapshotRef.current = JSON.stringify({
+          displayName: p.display_name || "",
+          pronouns: p.pronouns || "",
+          tagline: p.tagline || "",
+          bio: p.bio || "",
+          avatarUrl: p.avatar_url || "",
+          bannerUrl: p.banner_url || "",
+          location: p.location || "",
+          websiteUrl: p.website_url || "",
+          statusMessage: p.status_message || "",
+          specialties: p.specialties || [],
+          socialLinks: p.social_links || {},
+          visibility: p.visibility || "public",
+          featuredBotIds: loadedFeaturedBotIds,
+
+          primaryColor: (theme.primaryColor as string) || "#7c3aed",
+
+          accentColor: (theme.accentColor as string) || "#a78bfa",
+
+          avatarBorderColor:
+            (theme.avatarBorderColor as string) ||
+            (theme.primaryColor as string) ||
+            "#7c3aed",
+
+          layout: (theme.layout as string) || "grid",
+
+          cardStyle: (theme.cardStyle as string) || "default",
+
+          fontFamily: (theme.fontFamily as string) || "default",
+
+          profileBackground: (theme.profileBackground as string) || "default",
+
+          showStats: theme.showStats === true || theme.showStats === "true",
+
+          showBadges: theme.showBadges === true || theme.showBadges === "true",
+
+          showFeatured:
+            theme.showFeatured === true || theme.showFeatured === "true",
+
+          showBots: theme.showBots !== false && theme.showBots !== "false",
+
+          showCreatorPages:
+            theme.showCreatorPages !== false &&
+            theme.showCreatorPages !== "false",
+
+          showWorlds:
+            theme.showWorlds !== false && theme.showWorlds !== "false",
+
+          showForms: theme.showForms !== false && theme.showForms !== "false",
+
+          hideCompletenessNudge:
+            theme.hideCompletenessNudge === true ||
+            theme.hideCompletenessNudge === "true",
+        });
       }
     } catch (err) {
       console.error("Failed to load profile:", err);
@@ -379,6 +746,14 @@ export function ProfileEditor({
       });
 
       if (result.success) {
+        setTemporaryAvatarPath(null);
+        setTemporaryBannerPath(null);
+        setPendingProfileAsset(null);
+
+        initialSnapshotRef.current = buildProfileSnapshot({
+          featuredBotIds: validFeaturedBotIds,
+        });
+
         toast.success("Profile saved!");
 
         await onSaved?.();
@@ -409,24 +784,85 @@ export function ProfileEditor({
   const filledSocialCount = Object.values(socialLinks).filter(
     (v) => v && v.trim(),
   ).length;
-  const validFeaturedBotIds = featuredBotIds.filter((id) =>
-    bots.some((bot) => bot.id === id),
-  );
+  const validFeaturedBotIds =
+    bots.length > 0
+      ? featuredBotIds.filter((id) => bots.some((bot) => bot.id === id))
+      : featuredBotIds.slice(0, MAX_FEATURED_BOTS);
   const featuredCount = validFeaturedBotIds.length;
   const featuredBotsSorted = [...bots].sort((a, b) =>
     a.name.localeCompare(b.name),
   );
+  const filteredFeaturedBots = featuredBotsSorted.filter((bot) => {
+    const query = featuredSearch.trim().toLowerCase();
+
+    if (!query) return true;
+
+    return (
+      bot.name.toLowerCase().includes(query) ||
+      String(bot.shortDescription || "")
+        .toLowerCase()
+        .includes(query)
+    );
+  });
+  const selectedFeaturedBots = validFeaturedBotIds
+    .map((id) => bots.find((bot) => bot.id === id))
+    .filter(Boolean);
+  const moveFeaturedBot = (index: number, direction: -1 | 1) => {
+    setFeaturedBotIds((prev) => {
+      const next = [...prev];
+      const target = index + direction;
+
+      if (target < 0 || target >= next.length) {
+        return prev;
+      }
+
+      [next[index], next[target]] = [next[target], next[index]];
+
+      return next;
+    });
+  };
   const previewBackground = getProfileBackgroundStyles(
     profileBackground as ProfileBackground,
     primaryColor,
     accentColor,
   );
+  const pendingProfilePreset =
+    pendingProfileAsset?.kind === "avatar"
+      ? IMAGE_PRESETS.profileAvatar
+      : IMAGE_PRESETS.profileBanner;
   const previewFont = getProfileFontStyle(fontFamily as ProfileFontFamily);
   const previewGrid = getProfileGridClass(layout as ProfileLayout);
   const previewCard = getProfileCardClass(cardStyle as ProfileCardStyle);
 
+  const currentSnapshot = buildProfileSnapshot({
+    featuredBotIds: validFeaturedBotIds,
+  });
+
+  const hasUnsavedChanges =
+    !!initialSnapshotRef.current &&
+    currentSnapshot !== initialSnapshotRef.current;
+
+  const requestCloseProfileEditor = () => {
+    if (hasUnsavedChanges || temporaryAvatarPath || temporaryBannerPath) {
+      setDiscardDialogOpen(true);
+      return;
+    }
+
+    void handleCancelProfileEdit();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          requestCloseProfileEditor();
+          return;
+        }
+
+        onOpenChange(true);
+      }}
+    >
       <DialogContent className="w-[calc(100%-1rem)] sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle>Edit Profile</DialogTitle>
@@ -471,7 +907,7 @@ export function ProfileEditor({
                 className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
               >
                 <Palette className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
-                Theme
+                Customize
               </TabsTrigger>
               <TabsTrigger
                 value="featured"
@@ -499,266 +935,330 @@ export function ProfileEditor({
               value="general"
               className="space-y-4 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
             >
-              <div className="space-y-3">
-                {/* Banner */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs flex items-center gap-1">
-                    <ImageIcon className="h-3 w-3" /> Banner
-                  </Label>
-                  <input
-                    type="file"
-                    id="profile-banner-upload"
-                    className="hidden"
-                    accept="image/png,image/jpeg,image/jpg,image/webp,image/avif,image/gif,image/heic,image/heif"
-                    onChange={(e) => handleProfileAssetUpload("banner", e)}
-                  />
-                  <ImagePreview
-                    url={bannerUrl}
-                    alt="Banner preview"
-                    aspectRatio="banner"
-                    fallback={
-                      <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
-                    }
-                  />
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="cursor-pointer flex-1 w-full"
-                      disabled={uploadingBanner}
-                      onClick={() =>
-                        document
-                          .getElementById("profile-banner-upload")
-                          ?.click()
-                      }
-                    >
-                      {uploadingBanner ? (
-                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Upload className="mr-2 h-3.5 w-3.5" />
-                      )}
-                      {bannerUrl ? "Replace banner" : "Upload banner"}
-                    </Button>
-                    {bannerUrl && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="cursor-pointer text-white flex-1 w-full hover:text-white/90"
-                        onClick={() => handleProfileAssetRemove("banner")}
-                      >
-                        <X className="mr-2 h-3.5 w-3.5" /> Remove
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Avatar */}
-                <div className="flex items-end gap-3">
-                  <input
-                    type="file"
-                    id="profile-avatar-upload"
-                    className="hidden"
-                    accept="image/png,image/jpeg,image/jpg,image/webp,image/avif,image/gif,image/heic,image/heif"
-                    onChange={(e) => handleProfileAssetUpload("avatar", e)}
-                  />
-                  <ImagePreview
-                    url={avatarUrl}
-                    alt="Avatar preview"
-                    aspectRatio="square"
-                    fallback={
-                      <UserRound className="h-8 w-8 text-muted-foreground/40" />
-                    }
-                  />
-                  <div className="flex-1 space-y-1.5 min-w-0">
-                    <Label className="text-xs flex items-center gap-1">
-                      <UserRound className="h-3 w-3" /> Avatar
+              <EditorSection
+                title="Profile Media"
+                description="Customize the main images shown at the top of your profile."
+              >
+                <div className="space-y-5">
+                  {/* Banner */}
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1 text-xs">
+                      <ImageIcon className="h-3 w-3" />
+                      Banner
                     </Label>
-                    <div className="flex flex-wrap gap-2">
+
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      4:1 ratio recommended. You can crop and reposition the
+                      image after selecting it.
+                    </p>
+
+                    <input
+                      type="file"
+                      id="profile-banner-upload"
+                      className="hidden"
+                      accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+                      onChange={(e) => handleProfileAssetSelect("banner", e)}
+                    />
+
+                    <ImagePreview
+                      url={bannerUrl}
+                      alt="Banner preview"
+                      aspectRatio="banner"
+                      fallback={
+                        <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                      }
+                    />
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="cursor-pointer"
-                        disabled={uploadingAvatar}
+                        className="w-full flex-1 cursor-pointer"
+                        disabled={uploadingBanner}
                         onClick={() =>
                           document
-                            .getElementById("profile-avatar-upload")
+                            .getElementById("profile-banner-upload")
                             ?.click()
                         }
                       >
-                        {uploadingAvatar ? (
+                        {uploadingBanner ? (
                           <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <Upload className="mr-2 h-3.5 w-3.5" />
                         )}
-                        {avatarUrl ? "Replace avatar" : "Upload avatar"}
+
+                        {bannerUrl ? "Replace banner" : "Upload banner"}
                       </Button>
-                      {avatarUrl && (
+
+                      {bannerUrl && (
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="destructive"
                           size="sm"
-                          className="cursor-pointer text-destructive"
-                          onClick={() => handleProfileAssetRemove("avatar")}
+                          className="w-full flex-1 cursor-pointer text-white hover:text-white/90"
+                          onClick={() =>
+                            void handleProfileAssetRemove("banner")
+                          }
                         >
-                          <X className="mr-2 h-3.5 w-3.5" /> Remove
+                          <X className="mr-2 h-3.5 w-3.5" />
+                          Remove
                         </Button>
                       )}
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Name & Slug */}
-              <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="border-t" />
+
+                  {/* Avatar */}
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="file"
+                      id="profile-avatar-upload"
+                      className="hidden"
+                      accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+                      onChange={(e) => handleProfileAssetSelect("avatar", e)}
+                    />
+
+                    <ImagePreview
+                      url={avatarUrl}
+                      alt="Avatar preview"
+                      aspectRatio="square"
+                      fallback={
+                        <UserRound className="h-8 w-8 text-muted-foreground/40" />
+                      }
+                    />
+
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <Label className="flex items-center gap-1 text-xs">
+                        <UserRound className="h-3 w-3" />
+                        Avatar
+                      </Label>
+
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        Square image recommended. It will appear circular on
+                        your profile.
+                      </p>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="cursor-pointer"
+                          disabled={uploadingAvatar}
+                          onClick={() =>
+                            document
+                              .getElementById("profile-avatar-upload")
+                              ?.click()
+                          }
+                        >
+                          {uploadingAvatar ? (
+                            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Upload className="mr-2 h-3.5 w-3.5" />
+                          )}
+
+                          {avatarUrl ? "Replace avatar" : "Upload avatar"}
+                        </Button>
+
+                        {avatarUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="cursor-pointer text-destructive hover:text-destructive"
+                            onClick={() =>
+                              void handleProfileAssetRemove("avatar")
+                            }
+                          >
+                            <X className="mr-2 h-3.5 w-3.5" />
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </EditorSection>
+
+              <div className="border-t" />
+
+              <EditorSection
+                title="Identity"
+                description="Basic information shown near the top of your profile."
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {/* Display Name */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Display Name</Label>
+
+                    <Input
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Your display name"
+                      maxLength={64}
+                    />
+                  </div>
+
+                  {/* Pronouns */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Pronouns</Label>
+
+                    <Select value={pronouns} onValueChange={setPronouns}>
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value="none">Not specified</SelectItem>
+                        <SelectItem value="he/him">he/him</SelectItem>
+                        <SelectItem value="she/her">she/her</SelectItem>
+                        <SelectItem value="they/them">they/them</SelectItem>
+                        <SelectItem value="he/they">he/they</SelectItem>
+                        <SelectItem value="she/they">she/they</SelectItem>
+                        <SelectItem value="any">any pronouns</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Location */}
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1 text-xs">
+                      <MapPin className="h-3 w-3" />
+                      Location
+                    </Label>
+
+                    <Input
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="City, Country"
+                      maxLength={100}
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1 text-xs">
+                      <MessageCircle className="h-3 w-3" />
+                      Status
+                    </Label>
+
+                    <Input
+                      value={statusMessage}
+                      onChange={(e) => setStatusMessage(e.target.value)}
+                      placeholder="Working on new horror bots..."
+                      maxLength={128}
+                    />
+
+                    <p className="text-[10px] text-muted-foreground">
+                      A temporary message about what you're doing or working on.
+                    </p>
+                  </div>
+                </div>
+              </EditorSection>
+
+              <div className="border-t" />
+
+              <EditorSection
+                title="About"
+                description="Tell visitors more about you and the content you create."
+              >
+                {/* Tagline */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Display Name</Label>
+                  <Label className="text-xs">Tagline</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    A short description that stays on your profile.
+                  </p>
                   <Input
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Your display name"
-                    maxLength={64}
+                    value={tagline}
+                    onChange={(e) => setTagline(e.target.value)}
+                    placeholder="A short tagline about yourself"
+                    maxLength={120}
                   />
+                  <p className="text-[10px] text-muted-foreground text-right">
+                    {tagline.length}/120
+                  </p>
                 </div>
-              </div>
 
-              {/* Pronouns & Location */}
-              <div className="grid gap-3 sm:grid-cols-2">
+                {/* Bio */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Pronouns</Label>
-                  <Select value={pronouns} onValueChange={setPronouns}>
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Not specified</SelectItem>
-                      <SelectItem value="he/him">he/him</SelectItem>
-                      <SelectItem value="she/her">she/her</SelectItem>
-                      <SelectItem value="they/them">they/them</SelectItem>
-                      <SelectItem value="he/they">he/they</SelectItem>
-                      <SelectItem value="she/they">she/they</SelectItem>
-                      <SelectItem value="any">any pronouns</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs">Bio</Label>
+                  <MarkdownField
+                    value={bio}
+                    onChange={(value) => setBio(value)}
+                    placeholder="Tell the community about yourself..."
+                    minEditorHeightRem={8}
+                    maxEditorHeightRem={16}
+                    className="min-h-[10rem] md:min-h-[11rem]"
+                  />
+                  <p className="text-[10px] text-muted-foreground text-right">
+                    {bio.length}/2000
+                  </p>
                 </div>
+
+                {/* Website */}
                 <div className="space-y-1.5">
                   <Label className="text-xs flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> Location
+                    <Globe className="h-3 w-3" /> Website
                   </Label>
                   <Input
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="City, Country"
-                    maxLength={100}
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="https://yourwebsite.com"
                   />
                 </div>
-              </div>
 
-              {/* Tagline */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Tagline</Label>
-                <Input
-                  value={tagline}
-                  onChange={(e) => setTagline(e.target.value)}
-                  placeholder="A short tagline about yourself"
-                  maxLength={120}
-                />
-                <p className="text-[10px] text-muted-foreground text-right">
-                  {tagline.length}/120
-                </p>
-              </div>
-
-              {/* Status */}
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1">
-                  <MessageCircle className="h-3 w-3" /> Status Message
-                </Label>
-                <Input
-                  value={statusMessage}
-                  onChange={(e) => setStatusMessage(e.target.value)}
-                  placeholder="What are you working on?"
-                  maxLength={128}
-                />
-              </div>
-
-              {/* Bio */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Bio</Label>
-                <MarkdownField
-                  value={bio}
-                  onChange={(value) => setBio(value)}
-                  placeholder="Tell the community about yourself..."
-                  minEditorHeightRem={8}
-                  maxEditorHeightRem={16}
-                  className="min-h-[10rem] md:min-h-[11rem]"
-                />
-                <p className="text-[10px] text-muted-foreground text-right">
-                  {bio.length}/2000
-                </p>
-              </div>
-
-              {/* Website */}
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1">
-                  <Globe className="h-3 w-3" /> Website
-                </Label>
-                <Input
-                  value={websiteUrl}
-                  onChange={(e) => setWebsiteUrl(e.target.value)}
-                  placeholder="https://yourwebsite.com"
-                />
-              </div>
-
-              {/* Specialties */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Specialties</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={specialtyInput}
-                    onChange={(e) => setSpecialtyInput(e.target.value)}
-                    placeholder="e.g., horror bots, romance..."
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && (e.preventDefault(), addSpecialty())
-                    }
-                    maxLength={30}
-                    disabled={specialties.length >= 10}
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={addSpecialty}
-                    className="cursor-pointer shrink-0 h-9 w-9 p-0"
-                    disabled={
-                      !specialtyInput.trim() ||
-                      specialties.includes(specialtyInput.trim()) ||
-                      specialties.length >= 10
-                    }
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                {specialties.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {specialties.map((s) => (
-                      <Badge
-                        key={s}
-                        variant="secondary"
-                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground transition-colors gap-1"
-                        onClick={() => removeSpecialty(s)}
-                      >
-                        {s}
-                        <X className="h-3 w-3" />
-                      </Badge>
-                    ))}
+                {/* Specialties */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Specialties</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={specialtyInput}
+                      onChange={(e) => setSpecialtyInput(e.target.value)}
+                      placeholder="e.g., horror bots, romance..."
+                      onKeyDown={(e) =>
+                        e.key === "Enter" &&
+                        (e.preventDefault(), addSpecialty())
+                      }
+                      maxLength={30}
+                      disabled={specialties.length >= 10}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={addSpecialty}
+                      className="cursor-pointer shrink-0 h-9 w-9 p-0"
+                      disabled={
+                        !specialtyInput.trim() ||
+                        specialties.includes(specialtyInput.trim()) ||
+                        specialties.length >= 10
+                      }
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
-                )}
-                <p className="text-[10px] text-muted-foreground">
-                  {specialties.length}/10 specialties
-                </p>
-              </div>
+                  {specialties.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {specialties.map((s) => (
+                        <Badge
+                          key={s}
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground transition-colors gap-1"
+                          onClick={() => removeSpecialty(s)}
+                        >
+                          {s}
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    {specialties.length}/10 specialties
+                  </p>
+                </div>
+              </EditorSection>
             </TabsContent>
 
             {/* ===== SOCIAL TAB ===== */}
@@ -766,26 +1266,44 @@ export function ProfileEditor({
               value="social"
               className="space-y-3 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
             >
-              <p className="text-xs text-muted-foreground">
-                Add your social media links. They will appear as icons on your
-                public profile.
-              </p>
-              {socialPlatforms.map((platform) => (
-                <div key={platform.key} className="space-y-1">
-                  <Label className="text-xs">{platform.label}</Label>
-                  <Input
-                    value={socialLinks[platform.key] || ""}
-                    onChange={(e) =>
-                      setSocialLinks({
-                        ...socialLinks,
-                        [platform.key]: e.target.value,
-                      })
-                    }
-                    placeholder={platform.placeholder}
-                    className="text-xs"
-                  />
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <div className="flex gap-3">
+                  <Share2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+
+                  <div>
+                    <p className="text-sm font-medium">Social Links</p>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Leave platforms empty if you don't want them displayed on
+                      your profile.
+                    </p>
+                  </div>
                 </div>
-              ))}
+              </div>
+              <div className="space-y-2">
+                {socialPlatforms.map((platform) => (
+                  <div
+                    key={platform.key}
+                    className="grid gap-2 rounded-xl border bg-muted/10 p-3 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center"
+                  >
+                    <Label className="text-xs font-medium">
+                      {platform.label}
+                    </Label>
+
+                    <Input
+                      value={socialLinks[platform.key] || ""}
+                      onChange={(e) =>
+                        setSocialLinks((prev) => ({
+                          ...prev,
+                          [platform.key]: e.target.value,
+                        }))
+                      }
+                      placeholder={platform.placeholder}
+                      className="min-w-0 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
             </TabsContent>
 
             {/* ===== APPEARANCE TAB ===== */}
@@ -793,142 +1311,298 @@ export function ProfileEditor({
               value="appearance"
               className="space-y-5 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
             >
-              {/* Avatar Border */}
-              <CustomColorPicker
-                label="Avatar Border Color"
-                value={avatarBorderColor}
-                onChange={setAvatarBorderColor}
-              />
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Profile Style</h3>
 
-              {/* Primary & Accent */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <CustomColorPicker
-                  label="Primary Color"
-                  value={primaryColor}
-                  onChange={setPrimaryColor}
-                />
-                <CustomColorPicker
-                  label="Accent Color"
-                  value={accentColor}
-                  onChange={setAccentColor}
-                />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Customize colors, layout and visual appearance.
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="shrink-0 cursor-pointer"
+                  onClick={() => {
+                    setPrimaryColor("#7c3aed");
+                    setAccentColor("#a78bfa");
+                    setAvatarBorderColor("#7c3aed");
+                    setLayout("grid");
+                    setCardStyle("default");
+                    setFontFamily("default");
+                    setProfileBackground("default");
+
+                    toast.success("Profile style reset to defaults");
+                  }}
+                >
+                  <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                  Reset
+                </Button>
               </div>
+
+              <EditorSection
+                title="Colors"
+                description="Control the main colors used throughout your profile."
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <CustomColorPicker
+                    label="Primary Color"
+                    value={primaryColor}
+                    onChange={setPrimaryColor}
+                    presets={accentPresets}
+                  />
+
+                  <CustomColorPicker
+                    label="Accent Color"
+                    value={accentColor}
+                    onChange={setAccentColor}
+                    presets={accentPresets}
+                  />
+                </div>
+
+                <CustomColorPicker
+                  label="Avatar Border Color"
+                  value={avatarBorderColor}
+                  onChange={setAvatarBorderColor}
+                  presets={accentPresets}
+                />
+              </EditorSection>
+
+              <div className="border-t" />
 
               {/* Layout & Card Style */}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Layout</Label>
-                  <Select value={layout} onValueChange={setLayout}>
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="grid">Grid</SelectItem>
-                      <SelectItem value="showcase">Showcase</SelectItem>
-                      <SelectItem value="list">List</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Card Style</Label>
-                  <Select value={cardStyle} onValueChange={setCardStyle}>
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="bordered">Bordered</SelectItem>
-                      <SelectItem value="minimal">Minimal</SelectItem>
-                      <SelectItem value="glass">Glass</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <EditorSection
+                title="Layout"
+                description="Choose how your collections are arranged on the profile."
+              >
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <VisualChoice
+                    selected={layout === "grid"}
+                    title="Grid"
+                    description="Balanced cards in multiple columns."
+                    icon={<LayoutGrid className="h-4 w-4" />}
+                    onClick={() => setLayout("grid")}
+                  />
 
-              {/* Font & Background */}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Font Family</Label>
-                  <Select value={fontFamily} onValueChange={setFontFamily}>
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">Default (Inter)</SelectItem>
-                      <SelectItem value="serif">Serif</SelectItem>
-                      <SelectItem value="mono">Monospace</SelectItem>
-                      <SelectItem value="display">Display</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <VisualChoice
+                    selected={layout === "showcase"}
+                    title="Showcase"
+                    description="Larger content with more visual emphasis."
+                    icon={<PanelTop className="h-4 w-4" />}
+                    onClick={() => setLayout("showcase")}
+                  />
+
+                  <VisualChoice
+                    selected={layout === "list"}
+                    title="List"
+                    description="Compact rows for easier scanning."
+                    icon={<Rows3 className="h-4 w-4" />}
+                    onClick={() => setLayout("list")}
+                  />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Background Style</Label>
-                  <Select
-                    value={profileBackground}
-                    onValueChange={setProfileBackground}
-                  >
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="dark">Dark</SelectItem>
-                      <SelectItem value="ambient">Ambient</SelectItem>
-                      <SelectItem value="minimal">Minimal</SelectItem>
-                    </SelectContent>
-                  </Select>
+              </EditorSection>
+
+              <div className="border-t" />
+
+              <EditorSection
+                title="Card Style"
+                description="Choose how profile content cards are visually presented."
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    {
+                      value: "default",
+                      label: "Default",
+                      description: "Balanced background and border.",
+                    },
+                    {
+                      value: "bordered",
+                      label: "Bordered",
+                      description: "More defined card outlines.",
+                    },
+                    {
+                      value: "minimal",
+                      label: "Minimal",
+                      description: "Reduced visual decoration.",
+                    },
+                    {
+                      value: "glass",
+                      label: "Glass",
+                      description: "Transparent layered appearance.",
+                    },
+                  ].map((option) => (
+                    <VisualChoice
+                      key={option.value}
+                      selected={cardStyle === option.value}
+                      title={option.label}
+                      description={option.description}
+                      onClick={() => setCardStyle(option.value)}
+                    />
+                  ))}
                 </div>
-              </div>
+              </EditorSection>
+
+              <div className="border-t" />
+
+              <EditorSection
+                title="Typography & Background"
+                description="Fine-tune the overall visual personality of your profile."
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Font Family</Label>
+
+                    <Select value={fontFamily} onValueChange={setFontFamily}>
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value="default">Default (Inter)</SelectItem>
+                        <SelectItem value="serif">Serif</SelectItem>
+                        <SelectItem value="mono">Monospace</SelectItem>
+                        <SelectItem value="display">Display</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Background Style</Label>
+
+                    <Select
+                      value={profileBackground}
+                      onValueChange={setProfileBackground}
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        <SelectItem value="dark">Dark</SelectItem>
+                        <SelectItem value="ambient">Ambient</SelectItem>
+                        <SelectItem value="minimal">Minimal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </EditorSection>
+
+              <div className="border-t" />
 
               {/* Live preview */}
-              <div className="space-y-2 rounded-lg border p-3">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Live Theme Preview
-                </p>
+              <EditorSection
+                title="Live Preview"
+                description="A simplified preview of how your profile theme will look."
+              >
                 <div
                   className={cn(
-                    "rounded-lg border p-3 space-y-2",
+                    "overflow-hidden rounded-xl border",
                     previewBackground.className,
                   )}
-                  style={{ ...previewBackground.style, ...previewFont }}
+                  style={{
+                    ...previewBackground.style,
+                    ...previewFont,
+                  }}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold">
-                      Profile style sample
-                    </p>
-                    <span
-                      className="h-2.5 w-14 rounded-full"
-                      style={{ backgroundColor: accentColor }}
-                    />
-                  </div>
-                  <div className={previewGrid}>
-                    {["Card A", "Card B", "Card C", "Card D", "Card E"].map(
-                      (label) => (
+                  {/* Fake banner */}
+                  <div
+                    className="aspect-[4/1] w-full bg-cover bg-center"
+                    style={{
+                      background: bannerUrl
+                        ? `url(${bannerUrl}) center/cover no-repeat`
+                        : `linear-gradient(135deg, ${primaryColor}88, ${accentColor}33)`,
+                    }}
+                  />
+
+                  <div className="space-y-4 p-4">
+                    <div className="-mt-10 flex items-end gap-3">
+                      <div
+                        className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-4 bg-muted"
+                        style={{
+                          borderColor: avatarBorderColor,
+                        }}
+                      >
+                        {avatarUrl ? (
+                          <img
+                            src={avatarUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <UserRound className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 pb-1">
+                        <p className="truncate text-sm font-semibold">
+                          {displayName || "Your display name"}
+                        </p>
+
+                        <p className="truncate text-xs text-muted-foreground">
+                          {tagline || "Your tagline appears here"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {specialties.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {specialties.slice(0, 3).map((specialty) => (
+                          <Badge
+                            key={specialty}
+                            variant="secondary"
+                            className="text-[10px]"
+                            style={{
+                              backgroundColor: `${accentColor}18`,
+                            }}
+                          >
+                            {specialty}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className={previewGrid}>
+                      {["Featured Bot", "Bot Collection"].map((label) => (
                         <div
                           key={label}
-                          className={cn(previewCard, "min-h-16 text-xs")}
+                          className={cn(previewCard, "min-h-20 text-xs")}
                           style={
                             cardStyle !== "minimal"
-                              ? { borderColor: `${accentColor}55` }
+                              ? {
+                                  borderColor: `${accentColor}55`,
+                                }
                               : undefined
                           }
                         >
+                          <div className="mb-2 h-6 w-6 rounded bg-muted" />
+
                           <p className="font-medium">{label}</p>
-                          <p className="text-muted-foreground">
-                            Layout preview
+
+                          <p className="mt-1 text-muted-foreground">
+                            Profile content preview
                           </p>
                         </div>
-                      ),
-                    )}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </EditorSection>
+
+              <div className="border-t" />
 
               {/* Section Toggles */}
               <div className="space-y-3">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Profile Sections
+                  Content Visibility
                 </Label>
+                <p className="text-xs text-muted-foreground">
+                  Choose which sections visitors can see on your profile.
+                </p>
                 <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
                   {[
                     {
@@ -967,9 +1641,10 @@ export function ProfileEditor({
                       onChange: setShowForms,
                     },
                     {
-                      label: "Hide Completeness Nudge",
-                      value: hideCompletenessNudge,
-                      onChange: setHideCompletenessNudge,
+                      label: "Show Profile Completion",
+                      value: !hideCompletenessNudge,
+                      onChange: (checked: boolean) =>
+                        setHideCompletenessNudge(!checked),
                     },
                   ].map((toggle) => (
                     <div
@@ -992,91 +1667,198 @@ export function ProfileEditor({
             {/* ===== FEATURED TAB ===== */}
             <TabsContent
               value="featured"
-              className="min-w-0 space-y-3 mt-4 overflow-y-auto overflow-x-hidden pr-1 flex-1 min-h-0"
+              className="min-w-0 space-y-4 mt-4 overflow-y-auto overflow-x-hidden pr-1 flex-1 min-h-0"
             >
-              <p className="text-xs text-muted-foreground">
-                Select up to {MAX_FEATURED_BOTS} bots to feature on your
-                profile.
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Selected: {featuredCount} / {MAX_FEATURED_BOTS}
-              </p>
-              {bots.length > 0 ? (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {featuredBotsSorted.map((bot) => {
-                    const isSelected = validFeaturedBotIds.includes(bot.id);
-                    return (
-                      <label
-                        key={bot.id}
-                        className={cn(
-                          "flex w-full min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-lg border p-2.5 cursor-pointer transition-all",
-                          isSelected
-                            ? "border-primary bg-primary/5 shadow-sm"
-                            : "hover:border-primary/30",
-                          !isSelected &&
-                            featuredCount >= MAX_FEATURED_BOTS &&
-                            "opacity-50",
-                        )}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          disabled={
-                            !isSelected && featuredCount >= MAX_FEATURED_BOTS
-                          }
-                          onCheckedChange={(checked) => {
-                            setFeaturedBotIds((prev) => {
-                              if (checked) {
-                                if (prev.length >= MAX_FEATURED_BOTS) {
-                                  toast.error(
-                                    `You can feature up to ${MAX_FEATURED_BOTS} bots.`,
-                                  );
-                                  return prev;
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold">Featured Bots</h3>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Choose and order up to {MAX_FEATURED_BOTS} bots to
+                      highlight on your profile.
+                    </p>
+                  </div>
+
+                  <Badge variant="outline" className="shrink-0">
+                    {featuredCount} / {MAX_FEATURED_BOTS}
+                  </Badge>
+                </div>
+              </div>
+
+              {selectedFeaturedBots.length > 0 && (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Selected
+                    </p>
+
+                    <div className="space-y-2">
+                      {selectedFeaturedBots.map((bot, index) =>
+                        bot ? (
+                          <div
+                            key={bot.id}
+                            className="flex min-w-0 items-center gap-2 rounded-xl border bg-primary/5 p-2.5"
+                          >
+                            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-muted">
+                              {bot.imageUrl ? (
+                                <img
+                                  src={bot.imageUrl}
+                                  alt={bot.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <BotIcon className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium">
+                                {bot.name}
+                              </p>
+
+                              <p className="truncate text-[10px] text-muted-foreground">
+                                Position {index + 1}
+                              </p>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={index === 0}
+                              onClick={() => moveFeaturedBot(index, -1)}
+                              className="h-7 w-7 shrink-0 cursor-pointer"
+                              title="Move up"
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={
+                                index === selectedFeaturedBots.length - 1
+                              }
+                              onClick={() => moveFeaturedBot(index, 1)}
+                              className="h-7 w-7 shrink-0 cursor-pointer"
+                              title="Move down"
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                setFeaturedBotIds((prev) =>
+                                  prev.filter((id) => id !== bot.id),
+                                )
+                              }
+                              className="h-7 w-7 shrink-0 cursor-pointer text-destructive hover:text-destructive"
+                              title="Remove"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : null,
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-t" />
+                </>
+              )}
+
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground">
+                  All Bots
+                </p>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+
+                  <Input
+                    value={featuredSearch}
+                    onChange={(e) => setFeaturedSearch(e.target.value)}
+                    placeholder="Search your bots..."
+                    className="pl-9"
+                  />
+                </div>
+                {bots.length > 0 ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {filteredFeaturedBots.map((bot) => {
+                      const isSelected = validFeaturedBotIds.includes(bot.id);
+                      return (
+                        <label
+                          key={bot.id}
+                          className={cn(
+                            "flex w-full min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-lg border p-2.5 cursor-pointer transition-all",
+                            isSelected
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "hover:border-primary/30",
+                            !isSelected &&
+                              featuredCount >= MAX_FEATURED_BOTS &&
+                              "opacity-50",
+                          )}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            disabled={
+                              !isSelected && featuredCount >= MAX_FEATURED_BOTS
+                            }
+                            onCheckedChange={(checked) => {
+                              setFeaturedBotIds((prev) => {
+                                if (checked) {
+                                  if (prev.length >= MAX_FEATURED_BOTS) {
+                                    toast.error(
+                                      `You can feature up to ${MAX_FEATURED_BOTS} bots.`,
+                                    );
+                                    return prev;
+                                  }
+
+                                  return Array.from(new Set([...prev, bot.id]));
                                 }
 
-                                return Array.from(new Set([...prev, bot.id]));
-                              }
-
-                              return prev.filter((id) => id !== bot.id);
-                            });
-                          }}
-                          className="rounded shrink-0"
-                        />
-                        <div className="h-8 w-8 rounded bg-muted overflow-hidden shrink-0">
-                          {bot.imageUrl ? (
-                            <img
-                              src={bot.imageUrl}
-                              alt={bot.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center">
-                              <BotIcon className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">
-                            {bot.name}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {bot.shortDescription || "No description"}
-                          </p>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className="max-w-[4.5rem] shrink-0 truncate text-[9px]"
-                        >
-                          {bot.rating}
-                        </Badge>
-                      </label>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
-                  No bots created yet. Create a bot first to feature it.
-                </div>
-              )}
+                                return prev.filter((id) => id !== bot.id);
+                              });
+                            }}
+                            className="rounded shrink-0"
+                          />
+                          <div className="h-8 w-8 rounded bg-muted overflow-hidden shrink-0">
+                            {bot.imageUrl ? (
+                              <img
+                                src={bot.imageUrl}
+                                alt={bot.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center">
+                                <BotIcon className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">
+                              {bot.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {bot.shortDescription || "No description"}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
+                    No bots created yet. Create a bot first to feature it.
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             {/* ===== PRIVACY TAB ===== */}
@@ -1084,105 +1866,130 @@ export function ProfileEditor({
               value="privacy"
               className="space-y-4 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
             >
-              <div className="space-y-1.5">
-                <Label className="text-xs">Profile Visibility</Label>
-                <Select value={visibility} onValueChange={setVisibility}>
-                  <SelectTrigger className="h-9 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-3.5 w-3.5 text-emerald-500" />
-                        Public
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="followers">
-                      <div className="flex items-center gap-2">
-                        <UsersRound className="h-3.5 w-3.5 text-amber-500" />
-                        Followers Only
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="private">
-                      <div className="flex items-center gap-2">
-                        <EyeOff className="h-3.5 w-3.5 text-red-500" />
-                        Private
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Visibility explanation card */}
-              <div
-                className={cn(
-                  "rounded-lg border p-3 text-xs space-y-1",
-                  visibility === "public" &&
-                    "border-emerald-500/30 bg-emerald-500/5",
-                  visibility === "followers" &&
-                    "border-amber-500/30 bg-amber-500/5",
-                  visibility === "private" && "border-red-500/30 bg-red-500/5",
-                )}
+              <EditorSection
+                title="Profile Visibility"
+                description="Choose who can access your public profile."
               >
-                {visibility === "public" && (
-                  <>
-                    <div className="flex items-center gap-2 text-emerald-600">
-                      <Eye className="h-3.5 w-3.5 inline" />
-                      <p className="font-medium">Public Profile</p>
-                    </div>
-                    <p className="text-muted-foreground">
-                      Anyone can view your profile, including search engines.
-                      Your profile will appear in the public creator directory.
-                    </p>
-                  </>
-                )}
-                {visibility === "followers" && (
-                  <>
-                    <div className="flex items-center gap-2 text-amber-600">
-                      <UsersRound className="h-3.5 w-3.5 inline" />
-                      <p className="font-medium">Followers Only</p>
-                    </div>
-                    <p className="text-muted-foreground">
-                      Only users who follow you can see your full profile.
-                      Non-followers will see a limited preview.
-                    </p>
-                  </>
-                )}
-                {visibility === "private" && (
-                  <>
-                    <div className="flex items-center gap-2 text-red-600">
-                      <EyeOff className="h-3.5 w-3.5 inline" />
-                      <p className="font-medium">Private</p>
-                    </div>
-                    <p className="text-muted-foreground">
-                      Your profile is hidden from everyone except you. It won't
-                      appear in directories or search results.
-                    </p>
-                  </>
-                )}
-              </div>
+                <div className="grid gap-2">
+                  <VisualChoice
+                    selected={visibility === "public"}
+                    title="Public"
+                    description="Anyone can view your profile and it can appear in public discovery."
+                    icon={<Eye className="h-4 w-4 text-emerald-500" />}
+                    onClick={() => setVisibility("public")}
+                  />
+
+                  <VisualChoice
+                    selected={visibility === "followers"}
+                    title="Followers Only"
+                    description="Followers can see the full profile. Other users receive limited access."
+                    icon={<UsersRound className="h-4 w-4 text-amber-500" />}
+                    onClick={() => setVisibility("followers")}
+                  />
+
+                  <VisualChoice
+                    selected={visibility === "private"}
+                    title="Private"
+                    description="Your profile is hidden from everyone except you."
+                    icon={<EyeOff className="h-4 w-4 text-red-500" />}
+                    onClick={() => setVisibility("private")}
+                  />
+                </div>
+              </EditorSection>
             </TabsContent>
           </Tabs>
         )}
 
-        {/* Save button */}
-        <div className="shrink-0 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-end">
+        <ImageCropDialog
+          open={!!pendingProfileAsset}
+          onOpenChange={(cropOpen) => {
+            if (!cropOpen) {
+              setPendingProfileAsset(null);
+            }
+          }}
+          file={pendingProfileAsset?.file ?? null}
+          aspect={pendingProfilePreset.aspect}
+          cropShape={pendingProfilePreset.cropShape}
+          title={
+            pendingProfileAsset?.kind === "avatar"
+              ? "Adjust profile picture"
+              : "Adjust profile banner"
+          }
+          description={
+            pendingProfileAsset?.kind === "avatar"
+              ? "Drag and zoom the image to choose what will appear inside your profile picture."
+              : "Drag and zoom the image to choose what visitors will see in your profile banner."
+          }
+          recommendedWidth={pendingProfilePreset.recommendedWidth}
+          recommendedHeight={pendingProfilePreset.recommendedHeight}
+          outputWidth={pendingProfilePreset.recommendedWidth}
+          outputHeight={pendingProfilePreset.recommendedHeight}
+          onConfirm={handleCroppedProfileAssetUpload}
+        />
+
+        <AlertDialog
+          open={discardDialogOpen}
+          onOpenChange={setDiscardDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+
+              <AlertDialogDescription>
+                Your profile has changes that haven't been saved. Closing the
+                editor will discard them.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <AlertDialogFooter>
+              <AlertDialogCancel className="cursor-pointer">
+                Keep Editing
+              </AlertDialogCancel>
+
+              <AlertDialogAction
+                onClick={() => {
+                  setDiscardDialogOpen(false);
+
+                  void handleCancelProfileEdit();
+                }}
+                className="cursor-pointer bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Discard Changes
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <div className="shrink-0 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center">
+          <p className="text-xs text-muted-foreground sm:mr-auto">
+            {hasUnsavedChanges ? "Unsaved changes" : "All changes saved"}
+          </p>
+
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={requestCloseProfileEditor}
+            disabled={saving || uploadingAvatar || uploadingBanner}
             className="w-full cursor-pointer sm:w-auto"
           >
             Cancel
           </Button>
+
           <Button
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={
+              saving ||
+              loading ||
+              uploadingAvatar ||
+              uploadingBanner ||
+              !!pendingProfileAsset ||
+              !hasUnsavedChanges
+            }
             className="w-full cursor-pointer sm:w-auto"
           >
             {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="mr-2 h-4 w-4" />
             )}
             Save Profile
           </Button>

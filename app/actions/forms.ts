@@ -103,6 +103,13 @@ const formSectionSchema = z.object({
     .optional(),
 });
 
+const deactivationSettingsSchema = z.object({
+  message: z.string().max(10000),
+  redirectUrl: z.string().max(2000),
+  redirectLabel: z.string().max(100),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Invalid accent color"),
+});
+
 const formPayloadSchema = z.object({
   title: z.string().trim().min(1).max(3000),
   description: z.string().max(20000).default(""),
@@ -225,11 +232,9 @@ export async function uploadFormSectionImageAction(formData: FormData) {
     return { success: false, error: "Image is too large (max 5MB)" };
   }
 
-  const ext = (file.name.split(".").pop() || "bin").toLowerCase();
-  const path =
-    existingPath && existingPath.startsWith(`${userId}/`)
-      ? existingPath
-      : `${userId}/${Date.now()}-${uuidv4()}.${ext}`;
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+
+  const path = `${userId}/form-banner-${Date.now()}-${uuidv4()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(FORM_ASSETS_BUCKET)
@@ -243,7 +248,6 @@ export async function uploadFormSectionImageAction(formData: FormData) {
     return {
       success: false,
       error: friendlySupabaseError(uploadError, "Failed to upload image"),
-      raw: uploadError,
     };
   }
 
@@ -280,7 +284,6 @@ export async function removeFormSectionImageAction(path: string) {
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to remove image"),
-      raw: error,
     };
   }
 
@@ -289,13 +292,21 @@ export async function removeFormSectionImageAction(path: string) {
 
 export async function uploadFormBannerAction(formData: FormData) {
   const { supabase, userId } = await resolveUserIdForActions();
-  if (!userId) return { success: false, error: "Unauthenticated" };
+
+  if (!userId) {
+    return {
+      success: false,
+      error: "Unauthenticated",
+    };
+  }
 
   const file = formData.get("file");
-  const existingPath = String(formData.get("existingPath") || "").trim();
 
   if (!(file instanceof File)) {
-    return { success: false, error: "No image file provided" };
+    return {
+      success: false,
+      error: "No image file provided",
+    };
   }
 
   if (!ALLOWED_FORM_IMAGE_TYPES.includes(file.type)) {
@@ -306,37 +317,31 @@ export async function uploadFormBannerAction(formData: FormData) {
   }
 
   if (file.size > MAX_FORM_IMAGE_SIZE_BYTES) {
-    return { success: false, error: "Image is too large (max 5MB)" };
+    return {
+      success: false,
+      error: "Image is too large (max 5MB)",
+    };
   }
 
-  const ext = (file.name.split(".").pop() || "bin").toLowerCase();
-  const path =
-    existingPath && existingPath.startsWith(`${userId}/`)
-      ? existingPath
-      : `${userId}/form-banner-${Date.now()}-${uuidv4()}.${ext}`;
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+
+  const path = `${userId}/form-banner-${Date.now()}-${uuidv4()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(FORM_BANNERS_BUCKET)
     .upload(path, file, {
-      upsert: true,
+      upsert: false,
       contentType: file.type,
       cacheControl: "3600",
     });
 
   if (uploadError) {
+    console.error("Failed to upload form banner:", uploadError);
+
     return {
       success: false,
       error: friendlySupabaseError(uploadError, "Failed to upload banner"),
-      raw: uploadError,
     };
-  }
-
-  if (
-    existingPath &&
-    existingPath.startsWith(`${userId}/`) &&
-    existingPath !== path
-  ) {
-    await supabase.storage.from(FORM_BANNERS_BUCKET).remove([existingPath]);
   }
 
   return {
@@ -361,10 +366,11 @@ export async function removeFormBannerAction(path: string) {
     .from(FORM_BANNERS_BUCKET)
     .remove([target]);
   if (error) {
+    console.error("Failed to remove form banner:", error);
+
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to remove banner"),
-      raw: error,
     };
   }
 
@@ -420,7 +426,6 @@ export async function createFormAction(
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to create form"),
-      raw: error,
     };
   }
   return { success: true, form: inserted };
@@ -431,9 +436,10 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
   if (!userId) return { success: false, error: "Unauthenticated" };
 
   const { data: existingForm, error: existingError } = await supabase
-    .from("active_request_forms")
+    .from("request_forms")
     .select("id, user_id, sections, banner_asset_path")
     .eq("id", id)
+    .is("deleted_at", null)
     .single();
 
   if (existingError || !existingForm) {
@@ -444,6 +450,28 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
       success: false,
       error: "You don't have permission to update this form",
     };
+  }
+
+  const touchesDeactivationSettings =
+    data.deactivatedMessage !== undefined ||
+    data.deactivatedRedirectUrl !== undefined ||
+    data.deactivatedRedirectLabel !== undefined ||
+    data.deactivatedAccentColor !== undefined;
+
+  if (touchesDeactivationSettings) {
+    const parsedDeactivation = deactivationSettingsSchema.safeParse({
+      message: data.deactivatedMessage ?? "",
+      redirectUrl: data.deactivatedRedirectUrl ?? "",
+      redirectLabel: data.deactivatedRedirectLabel ?? "",
+      accentColor: data.deactivatedAccentColor ?? "#7c3aed",
+    });
+
+    if (!parsedDeactivation.success) {
+      return {
+        success: false,
+        error: "Invalid deactivation settings",
+      };
+    }
   }
 
   const payload: Record<string, unknown> = {};
@@ -524,13 +552,14 @@ export async function updateFormAction(id: string, data: Partial<RequestForm>) {
     .from("request_forms")
     .update(payload)
     .eq("id", id)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
     .select("*")
     .single();
   if (error) {
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to update form"),
-      raw: error,
     };
   }
 
@@ -570,9 +599,10 @@ export async function deleteFormAction(id: string) {
 
   // Verify ownership before deleting
   const { data: form, error: fetchError } = await supabase
-    .from("active_request_forms")
+    .from("request_forms")
     .select("user_id, sections, banner_asset_path, shareable_link")
     .eq("id", id)
+    .is("deleted_at", null)
     .single();
 
   if (fetchError || !form) {
@@ -610,7 +640,6 @@ export async function deleteFormAction(id: string) {
     return {
       success: false,
       error: friendlySupabaseError(error, "Failed to delete form"),
-      raw: error,
     };
   }
   return { success: true };

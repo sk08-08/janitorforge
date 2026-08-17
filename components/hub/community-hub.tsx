@@ -42,9 +42,9 @@ import {
   ThumbsDown,
   ThumbsUp,
   Trash2,
-  Logs,
   PenLineIcon,
   Upload,
+  Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/collapsible";
 import { MarkdownRenderer } from "../forms/markdown-renderer";
 
-type HubLogPostRow = {
+type HubCommunityPostRow = {
   id: string;
   title: string;
   excerpt: string | null;
@@ -70,7 +70,7 @@ type HubLogPostRow = {
   updated_at: string;
 };
 
-type HubLogPostFormState = {
+type HubCommunityPostFormState = {
   title: string;
   excerpt: string;
   body: string;
@@ -93,10 +93,10 @@ type HubCommentRow = {
   } | null;
 };
 
-const LOG_SELECTED_STORAGE_KEY = "janitorforge-logs-post";
-const LOG_VIEWER_STORAGE_KEY = "janitorforge-logs-viewer";
+const COMMUNITY_SELECTED_STORAGE_KEY = "janitorforge-community-post";
+const COMMUNITY_VIEWER_STORAGE_KEY = "janitorforge-community-viewer";
 
-const emptyLogForm: HubLogPostFormState = {
+const emptyLogForm: HubCommunityPostFormState = {
   title: "",
   excerpt: "",
   body: "",
@@ -109,7 +109,7 @@ const emptyLogForm: HubLogPostFormState = {
 function getOrCreateViewerFingerprint() {
   if (typeof window === "undefined") return "";
 
-  const current = localStorage.getItem(LOG_VIEWER_STORAGE_KEY);
+  const current = localStorage.getItem(COMMUNITY_VIEWER_STORAGE_KEY);
   if (current && current.trim()) return current;
 
   const generated =
@@ -117,12 +117,12 @@ function getOrCreateViewerFingerprint() {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-  localStorage.setItem(LOG_VIEWER_STORAGE_KEY, generated);
+  localStorage.setItem(COMMUNITY_VIEWER_STORAGE_KEY, generated);
   return generated;
 }
 
-export function LogsHub() {
-  const [posts, setPosts] = useState<HubLogPostRow[]>([]);
+export function CommunityHub() {
+  const [posts, setPosts] = useState<HubCommunityPostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
@@ -130,10 +130,11 @@ export function LogsHub() {
   const [hydrated, setHydrated] = useState(false);
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
-  const [postForm, setPostForm] = useState<HubLogPostFormState>(emptyLogForm);
+  const [postForm, setPostForm] =
+    useState<HubCommunityPostFormState>(emptyLogForm);
   const [saving, setSaving] = useState(false);
   const [deletePostTarget, setDeletePostTarget] =
-    useState<HubLogPostRow | null>(null);
+    useState<HubCommunityPostRow | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
@@ -176,12 +177,10 @@ export function LogsHub() {
 
       const { data, error } = await query;
       if (error) throw error;
-
-      setPosts((data || []) as HubLogPostRow[]);
     } catch (error: any) {
-      console.error("Failed to load logs hub:", error);
+      console.error("Failed to load community hub:", error);
       setPosts([]);
-      toast.error(error.message || "Failed to load logs");
+      toast.error(error.message || "Failed to load community");
     } finally {
       setLoading(false);
     }
@@ -195,9 +194,9 @@ export function LogsHub() {
     if (typeof window === "undefined") return;
 
     if (selectedPostId) {
-      localStorage.setItem(LOG_SELECTED_STORAGE_KEY, selectedPostId);
+      localStorage.setItem(COMMUNITY_SELECTED_STORAGE_KEY, selectedPostId);
     } else {
-      localStorage.removeItem(LOG_SELECTED_STORAGE_KEY);
+      localStorage.removeItem(COMMUNITY_SELECTED_STORAGE_KEY);
     }
   }, [selectedPostId]);
 
@@ -209,7 +208,7 @@ export function LogsHub() {
       return;
     }
 
-    const savedPostId = localStorage.getItem(LOG_SELECTED_STORAGE_KEY);
+    const savedPostId = localStorage.getItem(COMMUNITY_SELECTED_STORAGE_KEY);
     const resolvedPost =
       posts.find((post) => post.id === savedPostId) ?? posts[0];
 
@@ -442,14 +441,14 @@ export function LogsHub() {
     );
   }, [authUserId, loadPostMetrics, posts]);
 
-  const openPostDetail = (post: HubLogPostRow) => {
+  const openPostDetail = (post: HubCommunityPostRow) => {
     setSelectedPostId(post.id);
     setPostDetailOpen(true);
     trackPostView(post.id);
     loadPostComments(post.id);
   };
 
-  const openPostDialog = (post?: HubLogPostRow) => {
+  const openPostDialog = (post?: HubCommunityPostRow) => {
     if (post) {
       setEditingPostId(post.id);
       setPostForm({
@@ -559,7 +558,7 @@ export function LogsHub() {
     }
   };
 
-  const togglePublish = async (post: HubLogPostRow) => {
+  const togglePublish = async (post: HubCommunityPostRow) => {
     try {
       const supabase = createClient();
       const nextPublished = !post.is_published;
@@ -585,14 +584,14 @@ export function LogsHub() {
             <div className="space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Logs className="h-8 w-8 text-primary" />
+                  <Hash className="h-8 w-8 text-primary" />
                   <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                    Janitor AI Logs
+                    Community
                   </h1>
                 </div>
                 <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                  A masonry feed about the platform's errors, lack of
-                  communication, and other issues.
+                  A transparent community area for platform updates, reports,
+                  issues, feedback, and discussion.
                 </p>
               </div>
             </div>
@@ -610,7 +609,7 @@ export function LogsHub() {
         {loading ? (
           <Card className="border-border/70 bg-card/95">
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              Loading logs...
+              Loading community posts...
             </CardContent>
           </Card>
         ) : posts.length === 0 ? (

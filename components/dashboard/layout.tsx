@@ -16,7 +16,7 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
-  Logs,
+  Hash,
   LogOut,
   UserRound,
   Shield,
@@ -87,13 +87,13 @@ const hubNavItems: NavItem[] = [
     description: "Directory of Janitor resources and references",
   },
   {
-    id: "logs",
-    label: "Logs",
-    icon: Logs,
+    id: "community",
+    label: "Community",
+    icon: Hash,
     color: "text-purple-500",
     activeBg: "bg-purple-500/10",
     description:
-      "Visit a list of records about the platform's errors, lack of communication, and other issues",
+      "Visit a community area for platform updates, reports, issues, feedback, and discussion",
   },
 ];
 
@@ -341,7 +341,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
           : event.key === "2"
             ? "resources"
             : event.key === "3"
-              ? "logs"
+              ? "community"
               : event.key === "4"
                 ? "dashboard"
                 : event.key === "5"

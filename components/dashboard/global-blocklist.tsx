@@ -165,6 +165,7 @@ export function GlobalBlocklist() {
                     value={newPattern}
                     onChange={(e) => setNewPattern(e.target.value)}
                     className="mt-1"
+                    maxLength={300}
                   />
                 </div>
 
@@ -181,9 +182,14 @@ export function GlobalBlocklist() {
 
                 <div>
                   <Label className="text-sm">Severity</Label>
-                  <Select onValueChange={(v) => setSeverity(v as any)}>
+                  <Select
+                    value={severity}
+                    onValueChange={(value) =>
+                      setSeverity(value as "warning" | "dangerous")
+                    }
+                  >
                     <SelectTrigger className="w-45">
-                      <SelectValue placeholder="warning" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="warning">Warning</SelectItem>

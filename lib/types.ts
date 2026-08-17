@@ -429,7 +429,7 @@ export interface DashboardStats {
 export type NavigationView =
   | "profiles"
   | "resources"
-  | "logs"
+  | "community"
   | "dashboard"
   | "bots"
   | "forms"
