@@ -63,6 +63,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { stripMarkdownToText } from "@/lib/markdown";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +87,7 @@ import {
   MarkdownRenderer,
   MarkdownInlineRenderer,
 } from "../forms/markdown-renderer";
+import { BotTagBadge, BotTagCountBadge } from "@/components/bots/bot-tag-badge";
 import { formatDateTime } from "@/lib/utils";
 import { ModerationAdminTab } from "@/components/admin/moderation-admin-tab";
 import {
@@ -112,6 +114,7 @@ import {
   hardDeleteForm,
   hardDeleteBot,
 } from "@/app/actions/admin";
+import { getFormBannerPublicUrl } from "@/lib/form-assets";
 import { BadgeAdminTab } from "./badge-admin-tab";
 import { toast } from "sonner";
 
@@ -141,6 +144,57 @@ const ADMIN_TAB_IDS: AdminTab[] = [
 
 function isAdminTab(value: string): value is AdminTab {
   return ADMIN_TAB_IDS.includes(value as AdminTab);
+}
+
+function normalizeAdminFieldText(value: unknown) {
+  return stripMarkdownToText(String(value ?? "")).trim();
+}
+
+function buildAdminFormFieldMap(sections: any[] = []) {
+  const map = new Map<
+    string,
+    {
+      label: string;
+      sectionTitle: string;
+      description: string;
+      type: string;
+      required: boolean;
+    }
+  >();
+
+  for (const section of sections) {
+    const sectionTitle = normalizeAdminFieldText(section?.title);
+
+    for (const field of section?.fields || []) {
+      if (!field?.id) continue;
+
+      map.set(field.id, {
+        label: normalizeAdminFieldText(field.label),
+        sectionTitle,
+        description: normalizeAdminFieldText(field.description),
+        type: String(field.type || "field"),
+        required: field.required === true,
+      });
+    }
+  }
+
+  return map;
+}
+
+function getAdminFieldTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    text: "Text",
+    textarea: "Long text",
+    select: "Select",
+    radio: "Radio",
+    checkbox: "Checkbox",
+    number: "Number",
+    rating: "Rating",
+    url: "URL",
+    email: "Email",
+  };
+
+  return labels[type] || type || "Field";
 }
 
 // ============================================================================
@@ -593,6 +647,12 @@ function SubmissionsTab({
     }
   };
 
+  const submissionFieldMap = selectedItem
+    ? buildAdminFormFieldMap(
+        selectedItem.form?.sections || selectedItem.sections || [],
+      )
+    : new Map();
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -725,10 +785,11 @@ function SubmissionsTab({
                       </div>
                     </TableCell>
                     <TableCell className="max-w-40 text-sm">
-                      <MarkdownRenderer
-                        className="rendered-markdown line-clamp-1"
-                        content={item.form_title || "—"}
-                      />
+                      <div className="truncate text-sm">
+                        <MarkdownInlineRenderer
+                          content={item.form_title || "—"}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {item.submitter_name ?? "—"}
@@ -789,26 +850,39 @@ function SubmissionsTab({
             ) : (
               selectedItem && (
                 <div className="space-y-5">
-                  {/* Badges */}
-                  <div className="flex flex-wrap gap-2">
-                    <Badge
-                      variant={statusBadgeVariant(selectedItem.status) as any}
-                      className="capitalize"
-                    >
-                      {selectedItem.status}
-                    </Badge>
-                    {selectedItem.deleted_at && (
-                      <Badge variant="destructive">Soft-Deleted</Badge>
-                    )}
-                  </div>
+                  <div className="rounded-xl border bg-muted/15 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">
+                          Submission
+                        </p>
 
-                  {/* Form title */}
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Form</p>
-                    <MarkdownRenderer
-                      className="text-sm font-medium rendered-markdown"
-                      content={selectedItem.form_title || "—"}
-                    />
+                        <div className="mt-1 text-base font-semibold">
+                          <MarkdownInlineRenderer
+                            content={selectedItem.form_title || "Untitled form"}
+                          />
+                        </div>
+
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Request #{selectedItem.id?.slice(0, 8)}…
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          variant={
+                            statusBadgeVariant(selectedItem.status) as any
+                          }
+                          className="capitalize"
+                        >
+                          {selectedItem.status}
+                        </Badge>
+
+                        {selectedItem.deleted_at && (
+                          <Badge variant="destructive">Soft-Deleted</Badge>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Meta */}
@@ -863,28 +937,113 @@ function SubmissionsTab({
                   {/* Responses */}
                   {selectedItem.responses &&
                     Object.keys(selectedItem.responses).length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium mb-2">Responses</p>
-                        <div className="space-y-3 rounded-md border p-3">
-                          {Object.entries(
-                            selectedItem.responses as Record<string, any>,
-                          ).map(([key, value]) => {
-                            const label =
-                              (selectedItem.response_labels as any)?.[key] ??
-                              key;
-                            return (
-                              <div key={key}>
-                                <p className="text-xs text-muted-foreground">
-                                  {label}
-                                </p>
-                                <p className="text-sm wrap-break-word">
-                                  {Array.isArray(value)
-                                    ? value.join(", ")
-                                    : String(value ?? "—")}
-                                </p>
-                              </div>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold">Responses</p>
+
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Answers submitted through this form.
+                          </p>
+                        </div>
+
+                        <div className="space-y-4">
+                          {(() => {
+                            const grouped = new Map<
+                              string,
+                              Array<{
+                                key: string;
+                                value: any;
+                                label: string;
+                                description: string;
+                                required: boolean;
+                              }>
+                            >();
+
+                            for (const [key, value] of Object.entries(
+                              selectedItem.responses as Record<string, any>,
+                            )) {
+                              const meta = submissionFieldMap.get(key);
+
+                              const savedLabel = normalizeAdminFieldText(
+                                (selectedItem.response_labels as any)?.[key],
+                              );
+
+                              const sectionTitle =
+                                meta?.sectionTitle || "Additional Responses";
+
+                              const label =
+                                meta?.label ||
+                                meta?.sectionTitle ||
+                                savedLabel ||
+                                "Untitled field";
+
+                              const current = grouped.get(sectionTitle) || [];
+
+                              current.push({
+                                key,
+                                value,
+                                label,
+                                description: meta?.description || "",
+                                required: meta?.required || false,
+                              });
+
+                              grouped.set(sectionTitle, current);
+                            }
+
+                            return Array.from(grouped.entries()).map(
+                              ([sectionTitle, fields]) => (
+                                <section
+                                  key={sectionTitle}
+                                  className="space-y-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                      {sectionTitle}
+                                    </p>
+
+                                    <div className="h-px flex-1 bg-border" />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    {fields.map((field) => (
+                                      <div
+                                        key={field.key}
+                                        className="rounded-xl border bg-muted/15 p-3"
+                                      >
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <p className="text-xs font-medium">
+                                            {field.label}
+                                          </p>
+
+                                          {field.required && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-[10px]"
+                                            >
+                                              Required
+                                            </Badge>
+                                          )}
+                                        </div>
+
+                                        {field.description &&
+                                          field.description !== field.label && (
+                                            <p className="mt-1 text-[11px] text-muted-foreground">
+                                              {field.description}
+                                            </p>
+                                          )}
+
+                                        <div className="mt-2 whitespace-pre-wrap break-words text-sm">
+                                          {Array.isArray(field.value)
+                                            ? field.value.join(", ")
+                                            : String(field.value ?? "—")}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </section>
+                              ),
                             );
-                          })}
+                          })()}
                         </div>
                       </div>
                     )}
@@ -900,11 +1059,19 @@ function SubmissionsTab({
                   )}
 
                   {!selectedItem.deleted_at && (
-                    <div className="pt-4 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Soft delete this submission to hide it from regular
-                        views while keeping it recoverable.
-                      </p>
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-destructive">
+                          Danger Zone
+                        </p>
+
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Soft deleting this submission hides it from regular
+                          views while keeping the record available for recovery
+                          or administrative review.
+                        </p>
+                      </div>
+
                       <Button
                         variant="destructive"
                         size="sm"
@@ -913,39 +1080,60 @@ function SubmissionsTab({
                           const result = await softDeleteSubmission(
                             selectedItem.id,
                           );
+
                           if (!result.success) {
                             toast.error(result.error ?? "Failed");
                             return;
                           }
+
                           const deletedAt =
                             (result as any).deleted_at ??
                             new Date().toISOString();
+
                           toast.success("Submission soft-deleted");
+
                           setSelectedItem((prev: any) =>
-                            prev ? { ...prev, deleted_at: deletedAt } : prev,
+                            prev
+                              ? {
+                                  ...prev,
+                                  deleted_at: deletedAt,
+                                }
+                              : prev,
                           );
+
                           setItems((prev) =>
-                            prev.map((i) =>
-                              i.id === selectedItem.id
-                                ? { ...i, deleted_at: deletedAt }
-                                : i,
+                            prev.map((item) =>
+                              item.id === selectedItem.id
+                                ? {
+                                    ...item,
+                                    deleted_at: deletedAt,
+                                  }
+                                : item,
                             ),
                           );
                         }}
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Soft Delete
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Soft Delete Submission
                       </Button>
                     </div>
                   )}
 
                   {/* Hard delete */}
                   {selectedItem.deleted_at && (
-                    <div className="pt-4 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        This record is soft-deleted and can be permanently
-                        removed.
-                      </p>
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-destructive">
+                          Danger Zone
+                        </p>
+
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          This submission is already soft-deleted. Permanently
+                          deleting it removes the record completely and cannot
+                          be undone.
+                        </p>
+                      </div>
+
                       <Button
                         variant="destructive"
                         size="sm"
@@ -954,18 +1142,22 @@ function SubmissionsTab({
                           const result = await hardDeleteSubmission(
                             selectedItem.id,
                           );
+
                           if (!result.success) {
                             toast.error(result.error ?? "Failed");
                             return;
                           }
-                          toast.success("Permanently deleted");
+
+                          toast.success("Submission permanently deleted");
+
                           setSelectedItem(null);
+
                           setItems((prev) =>
-                            prev.filter((i) => i.id !== selectedItem.id),
+                            prev.filter((item) => item.id !== selectedItem.id),
                           );
                         }}
                       >
-                        <Flame className="h-4 w-4 mr-2" />
+                        <Flame className="mr-2 h-4 w-4" />
                         Permanently Delete
                       </Button>
                     </div>
@@ -1093,10 +1285,12 @@ function FormsTab() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Form</TableHead>
               <TableHead>Owner</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Active</TableHead>
-              <TableHead>Created</TableHead>
+              <TableHead>Structure</TableHead>
+              <TableHead>Security</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Updated</TableHead>
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -1104,7 +1298,7 @@ function FormsTab() {
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={7}
                   className="text-center py-8 text-muted-foreground"
                 >
                   Loading…
@@ -1113,7 +1307,7 @@ function FormsTab() {
             ) : items.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={7}
                   className="text-center py-8 text-muted-foreground"
                 >
                   No forms found.
@@ -1128,6 +1322,20 @@ function FormsTab() {
                     className={`cursor-pointer hover:bg-muted/50 ${isDeleted ? "opacity-60 bg-destructive/5" : ""}`}
                     onClick={() => handleOpenDetail(item.id)}
                   >
+                    <TableCell className="max-w-64">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">
+                          <MarkdownInlineRenderer content={item.title || "—"} />
+                        </div>
+
+                        {item.description && (
+                          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                            {stripMarkdownToText(item.description)}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
@@ -1138,24 +1346,37 @@ function FormsTab() {
                               .toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
+
                         <span className="text-sm">
                           @{item.owner?.username ?? "unknown"}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-48 text-sm font-medium">
-                      <MarkdownRenderer
-                        className="rendered-markdown line-clamp-1"
-                        content={item.title || "—"}
-                      />
+
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {(item.sections || []).length} sections ·{" "}
+                      {(item.sections || []).reduce(
+                        (total: number, section: any) =>
+                          total + (section.fields || []).length,
+                        0,
+                      )}{" "}
+                      fields
                     </TableCell>
+
                     <TableCell>
-                      <div className="flex gap-1 flex-wrap">
+                      <Badge variant="outline" className="capitalize">
+                        {item.security_sensitivity || "medium"}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
                         <Badge
                           variant={item.is_active ? "default" : "secondary"}
                         >
                           {item.is_active ? "Active" : "Inactive"}
                         </Badge>
+
                         {isDeleted && (
                           <Badge variant="destructive" className="text-xs">
                             Deleted
@@ -1163,9 +1384,11 @@ function FormsTab() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                      {formatDateTime(item.created_at)}
+
+                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                      {formatDateTime(item.updated_at || item.created_at)}
                     </TableCell>
+
                     <TableCell>
                       <Eye className="h-4 w-4 text-muted-foreground" />
                     </TableCell>
@@ -1191,7 +1414,7 @@ function FormsTab() {
       >
         <SheetContent
           side="right"
-          className="w-full sm:max-w-xl h-full overflow-hidden flex flex-col p-0"
+          className="flex h-full w-full flex-col overflow-hidden p-0 sm:max-w-3xl lg:max-w-4xl"
         >
           <SheetHeader className="px-6 pt-6 pb-4 border-b">
             <SheetTitle>Form Detail</SheetTitle>
@@ -1207,126 +1430,252 @@ function FormsTab() {
             ) : (
               selectedItem && (
                 <div className="space-y-5">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge
-                      variant={selectedItem.is_active ? "default" : "secondary"}
-                    >
-                      {selectedItem.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                    {selectedItem.deleted_at && (
-                      <Badge variant="destructive">Soft-Deleted</Badge>
-                    )}
-                    {selectedItem.security_sensitivity && (
-                      <Badge variant="outline">
-                        {selectedItem.security_sensitivity}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">
-                      Title
-                    </p>
-                    <MarkdownRenderer
-                      className="text-sm font-medium rendered-markdown"
-                      content={selectedItem.title || "—"}
-                    />
-                  </div>
-
-                  {selectedItem.description && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">
-                        Description
-                      </p>
-                      <div className="text-sm rendered-markdown leading-relaxed">
-                        <MarkdownRenderer
-                          content={selectedItem.description || "—"}
+                  <div className="overflow-hidden rounded-xl border bg-muted/10">
+                    {(selectedItem.banner_asset_path ||
+                      selectedItem.banner_url) && (
+                      <div className="aspect-[4/1] w-full overflow-hidden bg-muted">
+                        <img
+                          src={
+                            selectedItem.banner_asset_path
+                              ? getFormBannerPublicUrl(
+                                  selectedItem.banner_asset_path,
+                                )
+                              : selectedItem.banner_url
+                          }
+                          alt=""
+                          className="h-full w-full object-cover"
                         />
                       </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Owner</p>
-                      <a
-                        href={`/profile/${selectedItem.owner?.username ?? ""}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer flex items-center gap-2"
-                      >
-                        <p className="font-medium text-primary hover:underline cursor-pointer">
-                          @{selectedItem.owner?.username ?? "—"}
-                        </p>
-                      </a>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Sections</p>
-                      <p className="font-medium">
-                        {(selectedItem.sections as any[])?.length ?? 0}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Created</p>
-                      <p className="font-medium">
-                        {formatDateTime(selectedItem.created_at)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Updated</p>
-                      <p className="font-medium">
-                        {formatDateTime(selectedItem.updated_at)}
-                      </p>
-                    </div>
-                    {selectedItem.deleted_at && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Deleted at
-                        </p>
-                        <p className="font-medium text-destructive">
-                          {formatDateTime(selectedItem.deleted_at)}
-                        </p>
-                      </div>
                     )}
-                  </div>
 
-                  {selectedItem.shareable_link && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">
-                        Shareable Link
-                      </p>
-                      <a
-                        href={`/form/${selectedItem.shareable_link}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        /form/{selectedItem.shareable_link}{" "}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                    <div className="space-y-3 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-base font-semibold">
+                            <MarkdownInlineRenderer
+                              content={selectedItem.title || "Untitled form"}
+                            />
+                          </div>
+
+                          {selectedItem.description && (
+                            <div className="mt-1 line-clamp-3 text-sm text-muted-foreground">
+                              <MarkdownRenderer
+                                content={selectedItem.description}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Badge
+                            variant={
+                              selectedItem.is_active ? "default" : "secondary"
+                            }
+                          >
+                            {selectedItem.is_active ? "Active" : "Inactive"}
+                          </Badge>
+
+                          {selectedItem.security_sensitivity && (
+                            <Badge variant="outline">
+                              Security: {selectedItem.security_sensitivity}
+                            </Badge>
+                          )}
+
+                          {selectedItem.deleted_at && (
+                            <Badge variant="destructive">Soft-Deleted</Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          @{selectedItem.owner?.username || "unknown"}
+                        </span>
+
+                        <span>
+                          {(selectedItem.sections || []).length} sections
+                        </span>
+
+                        <span>
+                          {(selectedItem.sections || []).reduce(
+                            (total: number, section: any) =>
+                              total + (section.fields || []).length,
+                            0,
+                          )}{" "}
+                          fields
+                        </span>
+
+                        {selectedItem.shareable_link && (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <p>Shareable Link:</p>
+                            <a
+                              href={`/form/${selectedItem.shareable_link}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline flex items-center gap-1"
+                            >
+                              /form/{selectedItem.shareable_link}{" "}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
 
                   {Array.isArray(selectedItem.sections) &&
                     selectedItem.sections.length > 0 && (
-                      <div>
-                        <p className="text-sm font-medium mb-2">Sections</p>
-                        <div className="space-y-2">
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            Form Structure
+                          </p>
+
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Sections and fields currently configured in this
+                            form.
+                          </p>
+                        </div>
+
+                        <div className="space-y-4">
                           {(selectedItem.sections as any[]).map(
-                            (sec: any, i: number) => (
-                              <div
-                                key={sec.id ?? i}
-                                className="rounded-md border p-3"
+                            (section: any, sectionIndex: number) => (
+                              <section
+                                key={section.id ?? sectionIndex}
+                                className="overflow-hidden rounded-xl border"
                               >
-                                <MarkdownRenderer
-                                  className="text-sm font-medium rendered-markdown"
-                                  content={sec.title || `Section ${i + 1}`}
-                                />
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {(sec.fields ?? []).length} field
-                                  {(sec.fields ?? []).length !== 1 ? "s" : ""}
-                                </p>
-                              </div>
+                                <div className="border-b bg-muted/20 p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-semibold">
+                                        <MarkdownInlineRenderer
+                                          content={
+                                            section.title ||
+                                            `Section ${sectionIndex + 1}`
+                                          }
+                                        />
+                                      </div>
+
+                                      {section.description && (
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                          <MarkdownRenderer
+                                            content={section.description}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="flex gap-1">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px]"
+                                      >
+                                        {(section.fields || []).length} fields
+                                      </Badge>
+
+                                      {section.collapsible && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-[10px]"
+                                        >
+                                          Collapsible
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="divide-y">
+                                  {(section.fields || []).length === 0 ? (
+                                    <div className="p-3 text-xs text-muted-foreground">
+                                      No fields in this section.
+                                    </div>
+                                  ) : (
+                                    (section.fields || []).map(
+                                      (field: any, fieldIndex: number) => (
+                                        <div
+                                          key={field.id ?? fieldIndex}
+                                          className="space-y-2 p-3"
+                                        >
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <Badge
+                                              variant="outline"
+                                              className="text-[10px]"
+                                            >
+                                              {getAdminFieldTypeLabel(
+                                                field.type,
+                                              )}
+                                            </Badge>
+
+                                            {field.required && (
+                                              <Badge
+                                                variant="secondary"
+                                                className="text-[10px]"
+                                              >
+                                                Required
+                                              </Badge>
+                                            )}
+                                          </div>
+
+                                          <div>
+                                            <p className="text-xs font-medium">
+                                              {normalizeAdminFieldText(
+                                                field.label,
+                                              ) || (
+                                                <span className="italic text-muted-foreground">
+                                                  No field label
+                                                </span>
+                                              )}
+                                            </p>
+
+                                            {field.description && (
+                                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                                {normalizeAdminFieldText(
+                                                  field.description,
+                                                )}
+                                              </p>
+                                            )}
+                                          </div>
+
+                                          {field.placeholder && (
+                                            <div className="rounded-md bg-muted/30 px-2.5 py-2 text-[11px] text-muted-foreground">
+                                              Placeholder: {field.placeholder}
+                                            </div>
+                                          )}
+
+                                          {Array.isArray(field.options) &&
+                                            field.options.length > 0 && (
+                                              <div className="flex flex-wrap gap-1">
+                                                {field.options.map(
+                                                  (
+                                                    option: any,
+                                                    optionIndex: number,
+                                                  ) => (
+                                                    <Badge
+                                                      key={
+                                                        option.id ??
+                                                        option.value ??
+                                                        optionIndex
+                                                      }
+                                                      variant="secondary"
+                                                      className="text-[10px]"
+                                                    >
+                                                      {String(
+                                                        option.label ??
+                                                          option.value ??
+                                                          option,
+                                                      )}
+                                                    </Badge>
+                                                  ),
+                                                )}
+                                              </div>
+                                            )}
+                                        </div>
+                                      ),
+                                    )
+                                  )}
+                                </div>
+                              </section>
                             ),
                           )}
                         </div>
@@ -1334,67 +1683,100 @@ function FormsTab() {
                     )}
 
                   {!selectedItem.deleted_at && (
-                    <div className="pt-4 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Soft delete this form to hide it from regular views
-                        while keeping it recoverable.
-                      </p>
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-destructive">
+                          Danger Zone
+                        </p>
+
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Soft deleting this form hides it from normal use while
+                          keeping its record available for administrative
+                          recovery or review.
+                        </p>
+                      </div>
+
                       <Button
                         variant="destructive"
                         size="sm"
                         className="cursor-pointer"
                         onClick={async () => {
                           const result = await softDeleteForm(selectedItem.id);
+
                           if (!result.success) {
                             toast.error(result.error ?? "Failed");
                             return;
                           }
+
                           const deletedAt =
                             (result as any).deleted_at ??
                             new Date().toISOString();
+
                           toast.success("Form soft-deleted");
+
                           setSelectedItem((prev: any) =>
-                            prev ? { ...prev, deleted_at: deletedAt } : prev,
+                            prev
+                              ? {
+                                  ...prev,
+                                  deleted_at: deletedAt,
+                                }
+                              : prev,
                           );
+
                           setItems((prev) =>
-                            prev.map((i) =>
-                              i.id === selectedItem.id
-                                ? { ...i, deleted_at: deletedAt }
-                                : i,
+                            prev.map((item) =>
+                              item.id === selectedItem.id
+                                ? {
+                                    ...item,
+                                    deleted_at: deletedAt,
+                                  }
+                                : item,
                             ),
                           );
                         }}
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Soft Delete
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Soft Delete Form
                       </Button>
                     </div>
                   )}
 
                   {selectedItem.deleted_at && (
-                    <div className="pt-4 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        This form is soft-deleted and can be permanently
-                        removed.
-                      </p>
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-destructive">
+                          Danger Zone
+                        </p>
+
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          This form is already soft-deleted. Permanently
+                          deleting it also removes its remaining stored data and
+                          cannot be undone.
+                        </p>
+                      </div>
+
                       <Button
                         variant="destructive"
                         size="sm"
                         className="cursor-pointer"
                         onClick={async () => {
                           const result = await hardDeleteForm(selectedItem.id);
+
                           if (!result.success) {
                             toast.error(result.error ?? "Failed");
                             return;
                           }
+
                           toast.success("Form permanently deleted");
+
                           setSelectedItem(null);
+
                           setItems((prev) =>
-                            prev.filter((i) => i.id !== selectedItem.id),
+                            prev.filter((item) => item.id !== selectedItem.id),
                           );
                         }}
                       >
-                        <Flame className="h-4 w-4 mr-2" />
+                        <Flame className="mr-2 h-4 w-4" />
                         Permanently Delete
                       </Button>
                     </div>
@@ -1540,11 +1922,11 @@ function BotsTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Owner</TableHead>
-              <TableHead>Bot Name</TableHead>
+              <TableHead>Bot</TableHead>
+              <TableHead>Creator</TableHead>
               <TableHead>Rating</TableHead>
               <TableHead>Tags</TableHead>
-              <TableHead>Created</TableHead>
+              <TableHead>Updated</TableHead>
               <TableHead className="w-8" />
             </TableRow>
           </TableHeader>
@@ -1576,6 +1958,36 @@ function BotsTab() {
                     className={`cursor-pointer hover:bg-muted/50 ${isDeleted ? "opacity-60 bg-destructive/5" : ""}`}
                     onClick={() => handleOpenDetail(item.id)}
                   >
+                    <TableCell className="max-w-72">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border bg-muted">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Bot className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {item.name || "Untitled bot"}
+                          </p>
+
+                          {item.short_description && (
+                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                              {item.short_description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
@@ -1586,13 +1998,11 @@ function BotsTab() {
                               .toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
+
                         <span className="text-sm">
                           @{item.owner?.username ?? "unknown"}
                         </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm font-medium max-w-40 truncate">
-                      {item.name}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
@@ -1611,26 +2021,26 @@ function BotsTab() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-48">
-                      <div className="flex flex-wrap gap-1">
-                        {(item.tags ?? []).slice(0, 3).map((tag: string) => (
-                          <Badge
+                    <TableCell className="w-[220px] max-w-[220px]">
+                      <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                        {(item.tags ?? []).slice(0, 2).map((tag: string) => (
+                          <BotTagBadge
                             key={tag}
-                            variant="outline"
-                            className="text-xs"
-                          >
-                            {tag}
-                          </Badge>
+                            tag={tag}
+                            className="max-w-[92px] shrink"
+                          />
                         ))}
-                        {(item.tags ?? []).length > 3 && (
-                          <span className="text-xs text-muted-foreground">
-                            +{item.tags.length - 3}
-                          </span>
+
+                        {(item.tags ?? []).length > 2 && (
+                          <BotTagCountBadge
+                            count={item.tags.length - 2}
+                            className="shrink-0"
+                          />
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                      {formatDateTime(item.created_at)}
+                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                      {formatDateTime(item.updated_at || item.created_at)}
                     </TableCell>
                     <TableCell>
                       <Eye className="h-4 w-4 text-muted-foreground" />
@@ -1657,7 +2067,7 @@ function BotsTab() {
       >
         <SheetContent
           side="right"
-          className="w-full sm:max-w-xl h-full overflow-hidden flex flex-col p-0"
+          className="flex h-full w-full flex-col overflow-hidden p-0 sm:max-w-3xl"
         >
           <SheetHeader className="px-6 pt-6 pb-4 border-b">
             <SheetTitle>Bot Detail</SheetTitle>
@@ -1671,58 +2081,87 @@ function BotsTab() {
             ) : (
               selectedItem && (
                 <div className="space-y-5">
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {selectedItem.image_url && (
-                      <img
-                        src={selectedItem.image_url}
-                        alt={selectedItem.name}
-                        className="h-14 w-14 rounded-lg object-cover border"
-                      />
-                    )}
-                    <div>
-                      <p className="text-base font-semibold">
-                        {selectedItem.name}
-                      </p>
-                      {selectedItem.chat_name && (
-                        <p className="text-sm text-muted-foreground">
-                          aka {selectedItem.chat_name}
+                  <div className="rounded-xl border bg-muted/10 p-4">
+                    <div className="flex items-start gap-4">
+                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border bg-muted">
+                        {selectedItem.image_url ? (
+                          <img
+                            src={selectedItem.image_url}
+                            alt={selectedItem.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Bot className="h-7 w-7 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="truncate text-lg font-semibold">
+                              {selectedItem.name || "Untitled bot"}
+                            </h3>
+
+                            {selectedItem.chat_name && (
+                              <p className="mt-0.5 text-sm text-muted-foreground">
+                                Chat name: {selectedItem.chat_name}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-1">
+                            <Badge
+                              variant={
+                                selectedItem.rating === "NSFW"
+                                  ? "destructive"
+                                  : "secondary"
+                              }
+                            >
+                              {selectedItem.rating}
+                            </Badge>
+
+                            {selectedItem.deleted_at && (
+                              <Badge variant="destructive">Soft-Deleted</Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {selectedItem.short_description && (
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {selectedItem.short_description}
+                          </p>
+                        )}
+
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          @{selectedItem.owner?.username || "unknown"}
                         </p>
-                      )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Badge
-                      variant={
-                        selectedItem.rating === "NSFW"
-                          ? "destructive"
-                          : "secondary"
-                      }
-                    >
-                      {selectedItem.rating}
-                    </Badge>
-                    {selectedItem.deleted_at && (
-                      <Badge variant="destructive">Soft-Deleted</Badge>
-                    )}
-                    {selectedItem.hide_sensitive_fields && (
-                      <Badge variant="outline">Hidden fields</Badge>
-                    )}
-                  </div>
+                  {selectedItem.hide_sensitive_fields && (
+                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                      <div className="flex items-start gap-2">
+                        <Eye className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+
+                        <div>
+                          <p className="text-xs font-medium">
+                            Sensitive fields hidden publicly
+                          </p>
+
+                          <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                            The creator has hidden this bot's definition and
+                            message fields from public views. Administrators can
+                            still inspect the stored content here.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Owner</p>
-                      <a
-                        href={`/profile/${selectedItem.owner?.username ?? ""}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="cursor-pointer flex items-center gap-2"
-                      >
-                        <p className="font-medium text-primary cursor-pointer hover:underline">
-                          @{selectedItem.owner?.username ?? "—"}
-                        </p>
-                      </a>
-                    </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Created</p>
                       <p className="font-medium">
@@ -1747,125 +2186,229 @@ function BotsTab() {
                     )}
                   </div>
 
-                  {selectedItem.short_description && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">
-                        Short Description
-                      </p>
-                      <p className="text-sm">
-                        {selectedItem.short_description}
-                      </p>
-                    </div>
-                  )}
-
                   {selectedItem.tags?.length > 0 && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Tags</p>
-                      <div className="flex flex-wrap gap-1">
-                        {(selectedItem.tags as string[]).map((t) => (
-                          <Badge key={t} variant="outline" className="text-xs">
-                            <Tag className="h-2.5 w-2.5 mr-1" />
-                            {t}
-                          </Badge>
+                    <section className="space-y-2">
+                      <div>
+                        <p className="text-sm font-semibold">Tags</p>
+
+                        <p className="text-xs text-muted-foreground">
+                          Official and custom tags assigned to this bot.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {(selectedItem.tags as string[]).map((tag) => (
+                          <BotTagBadge key={tag} tag={tag} />
                         ))}
                       </div>
-                    </div>
+                    </section>
                   )}
 
                   {selectedItem.personality && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">
-                        Personality
-                      </p>
-                      <p className="text-sm bg-muted rounded p-2 max-h-32 overflow-y-auto">
-                        {selectedItem.personality}
-                      </p>
-                    </div>
-                  )}
+                    <section className="space-y-2">
+                      <div>
+                        <p className="text-sm font-semibold">Personality</p>
 
-                  {selectedItem.first_message && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">
-                        First Message
-                      </p>
-                      <p className="text-sm bg-muted rounded p-2 max-h-32 overflow-y-auto">
-                        {selectedItem.first_message}
-                      </p>
-                    </div>
+                        <p className="text-xs text-muted-foreground">
+                          Main character definition.
+                        </p>
+                      </div>
+
+                      <div className="max-h-[360px] overflow-y-auto rounded-xl border bg-muted/15 p-4">
+                        <MarkdownRenderer
+                          className="rendered-markdown break-words text-sm"
+                          content={selectedItem.personality}
+                        />
+                      </div>
+                    </section>
                   )}
 
                   {selectedItem.scenario && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-0.5">
-                        Scenario
-                      </p>
-                      <p className="text-sm bg-muted rounded p-2 max-h-32 overflow-y-auto">
-                        {selectedItem.scenario}
-                      </p>
-                    </div>
+                    <section className="space-y-2">
+                      <div>
+                        <p className="text-sm font-semibold">Scenario</p>
+                      </div>
+
+                      <div className="max-h-[320px] overflow-y-auto rounded-xl border bg-muted/15 p-4">
+                        <MarkdownRenderer
+                          className="rendered-markdown break-words text-sm"
+                          content={selectedItem.scenario}
+                        />
+                      </div>
+                    </section>
+                  )}
+
+                  {selectedItem.first_message && (
+                    <section className="space-y-2">
+                      <div>
+                        <p className="text-sm font-semibold">Initial Message</p>
+                      </div>
+
+                      <div className="max-h-[360px] overflow-y-auto rounded-xl border bg-muted/15 p-4">
+                        <MarkdownRenderer
+                          className="rendered-markdown break-words text-sm"
+                          content={selectedItem.first_message}
+                        />
+                      </div>
+                    </section>
+                  )}
+
+                  {Array.isArray(selectedItem.alternate_greetings) &&
+                    selectedItem.alternate_greetings.length > 0 && (
+                      <section className="space-y-2">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            Alternate Greetings
+                          </p>
+
+                          <p className="text-xs text-muted-foreground">
+                            {selectedItem.alternate_greetings.length} alternate
+                            messages.
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          {selectedItem.alternate_greetings.map(
+                            (greeting: any, index: number) => (
+                              <div
+                                key={greeting.id ?? index}
+                                className="max-h-[320px] overflow-y-auto rounded-xl border bg-muted/15 p-4"
+                              >
+                                <p className="mb-2 text-xs font-medium text-muted-foreground">
+                                  Greeting {index + 1}
+                                </p>
+
+                                <MarkdownRenderer
+                                  className="rendered-markdown text-sm"
+                                  content={
+                                    typeof greeting === "string"
+                                      ? greeting
+                                      : greeting.content || greeting.text || ""
+                                  }
+                                />
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </section>
+                    )}
+
+                  {selectedItem.example_dialogues && (
+                    <section className="space-y-2">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          Example Dialogues
+                        </p>
+
+                        <p className="text-xs text-muted-foreground">
+                          Example conversations stored in the bot definition.
+                        </p>
+                      </div>
+
+                      <div className="max-h-[360px] overflow-y-auto rounded-xl border bg-muted/15 p-4">
+                        <MarkdownRenderer
+                          className="rendered-markdown break-words text-sm"
+                          content={selectedItem.example_dialogues}
+                        />
+                      </div>
+                    </section>
                   )}
 
                   {!selectedItem.deleted_at && (
-                    <div className="pt-4 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Soft delete this bot to hide it from regular views while
-                        keeping it recoverable.
-                      </p>
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-destructive">
+                          Danger Zone
+                        </p>
+
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Soft deleting this bot hides it from regular platform
+                          views while keeping its database record available for
+                          administrative review.
+                        </p>
+                      </div>
+
                       <Button
                         variant="destructive"
                         size="sm"
                         className="cursor-pointer"
                         onClick={async () => {
                           const result = await softDeleteBot(selectedItem.id);
+
                           if (!result.success) {
                             toast.error(result.error ?? "Failed");
                             return;
                           }
+
                           const deletedAt =
                             (result as any).deleted_at ??
                             new Date().toISOString();
+
                           toast.success("Bot soft-deleted");
+
                           setSelectedItem((prev: any) =>
-                            prev ? { ...prev, deleted_at: deletedAt } : prev,
+                            prev
+                              ? {
+                                  ...prev,
+                                  deleted_at: deletedAt,
+                                }
+                              : prev,
                           );
+
                           setItems((prev) =>
-                            prev.map((i) =>
-                              i.id === selectedItem.id
-                                ? { ...i, deleted_at: deletedAt }
-                                : i,
+                            prev.map((item) =>
+                              item.id === selectedItem.id
+                                ? {
+                                    ...item,
+                                    deleted_at: deletedAt,
+                                  }
+                                : item,
                             ),
                           );
                         }}
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Soft Delete
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Soft Delete Bot
                       </Button>
                     </div>
                   )}
 
                   {selectedItem.deleted_at && (
-                    <div className="pt-4 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        This bot is soft-deleted and can be permanently removed.
-                      </p>
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-destructive">
+                          Danger Zone
+                        </p>
+
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          This bot is already soft-deleted. Permanently deleting
+                          it removes the record and its stored bot image and
+                          cannot be undone.
+                        </p>
+                      </div>
+
                       <Button
                         variant="destructive"
                         size="sm"
                         className="cursor-pointer"
                         onClick={async () => {
                           const result = await hardDeleteBot(selectedItem.id);
+
                           if (!result.success) {
                             toast.error(result.error ?? "Failed");
                             return;
                           }
+
                           toast.success("Bot permanently deleted");
+
                           setSelectedItem(null);
+
                           setItems((prev) =>
-                            prev.filter((i) => i.id !== selectedItem.id),
+                            prev.filter((item) => item.id !== selectedItem.id),
                           );
                         }}
                       >
-                        <Flame className="h-4 w-4 mr-2" />
+                        <Flame className="mr-2 h-4 w-4" />
                         Permanently Delete
                       </Button>
                     </div>

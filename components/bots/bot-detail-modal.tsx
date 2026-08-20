@@ -24,6 +24,8 @@ interface BotDetailData {
   firstMessage?: string;
   scenario?: string;
   exampleDialogues?: string;
+  alternateGreetings?: string[];
+  alternate_greetings?: string[];
   tags?: string[];
   rating?: string;
   imageUrl?: string;
@@ -48,6 +50,11 @@ export function BotDetailModal({
   const imgSrc = bot.imageUrl || bot.image_url;
   const description =
     bot.shortDescription || bot.short_description || "No description";
+  const alternateGreetings = Array.isArray(bot.alternateGreetings)
+    ? bot.alternateGreetings
+    : Array.isArray(bot.alternate_greetings)
+      ? bot.alternate_greetings
+      : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,6 +127,17 @@ export function BotDetailModal({
             </div>
           )}
 
+          {!hideSensitive && bot.scenario && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
+                Scenario
+              </p>
+              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
+                {bot.scenario}
+              </p>
+            </div>
+          )}
+
           {!hideSensitive && bot.firstMessage && (
             <div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
@@ -131,14 +149,28 @@ export function BotDetailModal({
             </div>
           )}
 
-          {!hideSensitive && bot.scenario && (
+          {!hideSensitive && alternateGreetings.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
-                Scenario
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Alternate Greetings
               </p>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
-                {bot.scenario}
-              </p>
+
+              <div className="space-y-2">
+                {alternateGreetings.map((message, index) => (
+                  <div
+                    key={index}
+                    className="rounded-lg border bg-muted/20 p-3"
+                  >
+                    <p className="mb-1 text-[10px] font-medium text-muted-foreground">
+                      Greeting {index + 2}
+                    </p>
+
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
+                      {message}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

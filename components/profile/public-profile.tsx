@@ -337,6 +337,20 @@ export function PublicProfile({
           ? ""
           : rawBot.exampleDialogues || rawBot.example_dialogues,
 
+        alternateGreetings: isHidden
+          ? []
+          : Array.isArray(rawBot.alternateGreetings)
+            ? rawBot.alternateGreetings
+            : Array.isArray(rawBot.alternate_greetings)
+              ? rawBot.alternate_greetings
+              : [],
+
+        alternate_greetings: isHidden
+          ? []
+          : Array.isArray(rawBot.alternate_greetings)
+            ? rawBot.alternate_greetings
+            : [],
+
         // Ensure the frontend flag matches the DB flag
         hideSensitiveFields: isHidden,
       };

@@ -103,10 +103,14 @@ export function BotTagBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("gap-1.5 border text-xs", meta.badgeClassName, className)}
+      className={cn(
+        "min-w-0 gap-1.5 border text-xs",
+        meta.badgeClassName,
+        className,
+      )}
     >
       <TagVisualIcon iconKey={meta.icon} className="h-3 w-3 shrink-0" />
-      <span>{meta.label}</span>
+      <span className="min-w-0 truncate">{meta.label}</span>
     </Badge>
   );
 }

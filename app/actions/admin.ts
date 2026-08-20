@@ -340,9 +340,23 @@ export async function getAllForms(
   // Step 2: Fetch forms (admin RLS allows seeing deleted records)
   let query = supabase
     .from("request_forms")
-    .select("id, title, is_active, created_at, deleted_at, user_id", {
-      count: "exact",
-    })
+    .select(
+      `
+      id,
+      title,
+      description,
+      sections,
+      is_active,
+      security_sensitivity,
+      created_at,
+      updated_at,
+      deleted_at,
+      user_id
+    `,
+      {
+        count: "exact",
+      },
+    )
     .order(safeSortBy, { ascending, nullsFirst: false })
     .range(from, to);
 
@@ -371,8 +385,12 @@ export async function getAllForms(
   const items = (forms ?? []).map((f) => ({
     id: f.id,
     title: f.title,
+    description: f.description,
+    sections: f.sections,
     is_active: f.is_active,
+    security_sensitivity: f.security_sensitivity || "medium",
     created_at: f.created_at,
+    updated_at: f.updated_at,
     deleted_at: f.deleted_at ?? null,
     user_id: f.user_id,
     owner: f.user_id ? (profileMap.get(f.user_id) ?? null) : null,
@@ -924,9 +942,23 @@ export async function getAllBots(
   // Step 2: Fetch bots
   let query = supabase
     .from("bots")
-    .select("id, name, rating, tags, created_at, deleted_at, user_id", {
-      count: "exact",
-    })
+    .select(
+      `
+      id,
+      name,
+      short_description,
+      image_url,
+      rating,
+      tags,
+      created_at,
+      updated_at,
+      deleted_at,
+      user_id
+    `,
+      {
+        count: "exact",
+      },
+    )
     .order(safeSortBy, { ascending, nullsFirst: false })
     .range(from, to);
 
@@ -954,9 +986,12 @@ export async function getAllBots(
   const items = (bots ?? []).map((b) => ({
     id: b.id,
     name: b.name,
+    short_description: b.short_description,
+    image_url: b.image_url,
     rating: b.rating,
     tags: b.tags,
     created_at: b.created_at,
+    updated_at: b.updated_at,
     deleted_at: b.deleted_at ?? null,
     user_id: b.user_id,
     owner: b.user_id ? (profileMap.get(b.user_id) ?? null) : null,
@@ -975,7 +1010,17 @@ export async function getSubmissionById(id: string) {
 
   const { data, error: dbError } = await supabase
     .from("requests")
-    .select("*, request_forms(title, user_id)")
+    .select(
+      `
+      *,
+      request_forms(
+        id,
+        title,
+        user_id,
+        sections
+      )
+    `,
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -993,13 +1038,26 @@ export async function getSubmissionById(id: string) {
     owner = profile;
   }
 
+  const form = data.request_forms as any;
+
   return {
     success: true,
     item: {
       ...data,
-      form_title:
-        (data.request_forms as any)?.title ?? (data as any).form_title,
+
+      form_title: form?.title ?? (data as any).form_title,
+
+      form: form
+        ? {
+            id: form.id,
+            title: form.title,
+            user_id: form.user_id,
+            sections: Array.isArray(form.sections) ? form.sections : [],
+          }
+        : null,
+
       owner,
+
       deleted_at: (data as any).deleted_at ?? null,
     },
   };
