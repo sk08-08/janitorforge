@@ -5,22 +5,22 @@
 
 "use client";
 
-import { StoreProvider, useStore } from "@/lib/store";
-import { DashboardLayout } from "@/components/dashboard/layout";
-import { DashboardHome } from "@/components/dashboard/dashboard-home";
-import { BotManager } from "@/components/bots/bot-manager";
-import { FormManager } from "@/components/forms/form-manager";
-import { RequestsView } from "@/components/forms/requests-view";
-import { AtlasHub } from "@/components/atlas/atlas-hub";
-import { CreatorPages } from "@/components/creator-pages/creator-pages";
-import { ProfilePage } from "@/components/profile/profile-page";
-import { FeedbackInbox } from "@/components/dashboard/feedback-inbox";
+import { StoreProvider, useStore } from "@/features/app-shell/store/app-store";
+import { DashboardLayout } from "@/features/dashboard/components/layout";
+import { DashboardHome } from "@/features/dashboard/components/dashboard-home";
+import { AdminPanel } from "@/features/admin/components/admin-panel";
+import { BotManager } from "@/features/bots/components/bot-manager";
+import { FormManager } from "@/features/forms/components/form-manager";
+import { RequestsView } from "@/features/forms/components/submissions/requests-view";
+import { AtlasHub } from "@/features/atlas/components/atlas-hub";
+import { CreatorPages } from "@/features/creator-pages/components/creator-pages";
+import { ProfilePage } from "@/features/profile/components/profile-page";
+import { FeedbackInbox } from "@/features/feedback/components/feedback-inbox";
 import ModerationPageContent from "@/app/dashboard/moderation/content";
-import { AdminPanel } from "@/components/admin/admin-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ProfilesHub } from "@/components/hub/profiles-hub";
-import { ResourcesHub } from "@/components/hub/resources-hub";
-import { CommunityHub } from "@/components/hub/community-hub";
+import { ProfilesHub } from "@/features/hub/components/profiles-hub";
+import { ResourcesHub } from "@/features/hub/components/resources-hub";
+import { CommunityHub } from "@/features/hub/components/community-hub";
 
 function ResourcesHubView() {
   return <ResourcesHub />;

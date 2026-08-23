@@ -1,7 +1,6 @@
 // ============================================================================
 // Rate Limiting Utilities
 // In-memory rate limiting with automatic cleanup and configurable limits.
-// For production with Redis, see redis-rate-limit.ts
 // ============================================================================
 
 export interface RateLimiterOptions {

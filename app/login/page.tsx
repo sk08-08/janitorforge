@@ -26,8 +26,8 @@ import {
   loginWithPin,
   registerUser,
   checkUsernameAvailability,
-} from "@/app/actions/auth";
-import { FeedbackActions } from "@/components/feedback/feedback-actions";
+} from "@/features/auth/actions/auth";
+import { FeedbackActions } from "@/features/feedback/components/feedback-actions";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 

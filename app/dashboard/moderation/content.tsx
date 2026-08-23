@@ -23,11 +23,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
-import { ModerationPanel } from "@/components/dashboard/moderation-panel";
-import type { RequestForm } from "@/lib/types";
+import { ModerationPanel } from "@/features/moderation/components/moderation-panel";
+import type { RequestForm } from "@/features/forms/types/form-types";
 import { getCurrentUserAccess } from "@/lib/access";
 import { cachedBrowserRequest } from "@/lib/browser-request-cache";
-import { stripMarkdownToText } from "@/lib/markdown";
+import { stripMarkdownToText } from "@/features/markdown/lib/markdown";
 
 interface ModerationPageContentProps {
   adminView?: boolean;

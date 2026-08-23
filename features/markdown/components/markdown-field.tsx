@@ -1,25 +1,44 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  useImperativeHandle,
+} from "react";
+import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
+import { Placeholder } from "@tiptap/extensions";
 import { Markdown } from "@tiptap/markdown";
-import { Mark, mergeAttributes } from "@tiptap/core";
 import LinkExtension from "@tiptap/extension-link";
 import { HexColorPicker } from "react-colorful";
+import { toast } from "sonner";
 import {
   Bold,
   Italic,
+  Strikethrough,
   Code,
+  FileCode2,
   Link as LinkIcon,
   List,
   ListOrdered,
+  Quote,
+  Minus,
   Palette,
+  ImagePlus,
   Undo,
   Redo,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+import {
+  getReferencedPendingImageIds,
+  replacePreviewUrlsWithPlaceholders,
+  type MarkdownPendingImage,
+} from "@/features/markdown/lib/markdown-image-assets";
 import {
   Popover,
   PopoverContent,
@@ -36,21 +55,44 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  closeMarkdownSlashCommand,
+  createMarkdownSlashCommand,
+} from "@/features/markdown/extensions/markdown-slash-command";
+import {
+  COLOR_PRESETS,
+  MARKDOWN_PRESET_FEATURES,
+  type MarkdownFeature,
+  type MarkdownPreset,
+} from "@/features/markdown/config/markdown-editor-config";
+import { MarkdownColor } from "@/features/markdown/extensions/markdown-color-extension";
+import { MarkdownImage } from "@/features/markdown/extensions/markdown-image-extension";
+import { normalizeMarkdownLinkUrl } from "@/features/markdown/lib/markdown-link-utils";
 
-// ---------------------------------------------------------------------------
-// Constants & Interceptors
-// ---------------------------------------------------------------------------
-
-const COLOR_PRESETS = [
-  { label: "Red", value: "#ef4444" },
-  { label: "Orange", value: "#f97316" },
-  { label: "Yellow", value: "#eab308" },
-  { label: "Green", value: "#22c55e" },
-  { label: "Cyan", value: "#06b6d4" },
-  { label: "Blue", value: "#3b82f6" },
-  { label: "Purple", value: "#a855f7" },
-  { label: "Rose", value: "#f43f5e" },
-];
+export type {
+  MarkdownFeature,
+  MarkdownPreset,
+} from "@/features/markdown/config/markdown-editor-config";
 
 // ---------------------------------------------------------------------------
 // Toolbar Components
@@ -61,31 +103,75 @@ function ToolbarButton({
   active,
   disabled,
   title,
+  shortcut,
+  tooltip = true,
   children,
 }: {
   onClick: () => void;
   active?: boolean;
   disabled?: boolean;
   title: string;
+  shortcut?: string;
+  tooltip?: boolean;
+
   children: React.ReactNode;
 }) {
-  return (
+  const button = (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={title}
+      aria-label={title}
+      aria-pressed={active !== undefined ? active : undefined}
       className={cn(
-        "flex h-8 w-8 cursor-pointer items-center justify-center rounded-md transition-colors",
-        active
-          ? "bg-primary/20 text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md",
+        "transition-[background-color,color,transform] duration-150",
+        "hover:bg-muted hover:text-foreground",
+        "active:scale-90",
+
+        active ? "bg-primary/15 text-primary" : "text-muted-foreground",
+
         disabled &&
-          "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground",
+          "cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground active:scale-100",
       )}
     >
       {children}
     </button>
+  );
+
+  /*
+   * BubbleMenu buttons intentionally skip Tooltip.
+   *
+   * This avoids nesting Radix/Floating UI positioning
+   * inside Tiptap's own floating menu.
+   */
+  if (!tooltip) {
+    return button;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+
+      <TooltipContent
+        side="bottom"
+        sideOffset={6}
+        className="flex items-center gap-2"
+      >
+        <span>{title}</span>
+
+        {shortcut && (
+          <kbd
+            className={cn(
+              "rounded border border-border/70 bg-muted/60 px-1.5 py-0.5",
+              "font-mono text-[10px] text-muted-foreground",
+            )}
+          >
+            {shortcut}
+          </kbd>
+        )}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -94,231 +180,239 @@ function ToolbarButton({
 // WYSIWYG Editor using Tiptap that seamlessly outputs Markdown
 // ---------------------------------------------------------------------------
 
+export interface MarkdownFieldHandle {
+  getPendingImages: () => MarkdownPendingImage[];
+
+  /**
+   * Call this only AFTER the database
+   * save succeeded.
+   */
+  applyCommittedMarkdown: (markdown: string) => void;
+}
+
+export interface MarkdownImageOptions {
+  enabled?: boolean;
+
+  /**
+   * Default: 5 MB
+   */
+  maxSizeBytes?: number;
+
+  /**
+   * Default: 10 pending images in one field.
+   */
+  maxImages?: number;
+}
+
 interface MarkdownFieldProps {
   id?: string;
   value?: string;
   onChange?: (value: string) => void;
+
   className?: string;
   placeholder?: string;
+
   minEditorHeightRem?: number;
   maxEditorHeightRem?: number;
+
   disabled?: boolean;
+
+  /**
+   * Controls which formatting tools appear.
+   *
+   * inline   → titles / labels
+   * standard → normal descriptions
+   * full     → long-form rich content
+   */
+  preset?: MarkdownPreset;
+
+  /**
+   * Optional complete toolbar override.
+   *
+   * If provided, this takes precedence over preset.
+   */
+  features?: MarkdownFeature[];
+
+  imageOptions?: MarkdownImageOptions;
+
+  slashMenuContainer?: string;
 }
 
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    markdownColor: {
-      setMarkdownColor: (color: string) => ReturnType;
-      unsetMarkdownColor: () => ReturnType;
-    };
-  }
-}
+export const MarkdownField = React.forwardRef<
+  MarkdownFieldHandle,
+  MarkdownFieldProps
+>(function MarkdownField(
+  {
+    id,
+    value = "",
+    onChange,
+    className,
+    placeholder = "Write something amazing...",
+    minEditorHeightRem = 10,
+    maxEditorHeightRem = 32,
+    disabled = false,
 
-const MarkdownColor = Mark.create({
-  name: "markdownColor",
+    preset = "standard",
+    features,
 
-  addAttributes() {
-    return {
-      color: {
-        default: null,
-      },
-    };
+    imageOptions,
+
+    slashMenuContainer,
   },
-
-  parseHTML() {
-    return [
-      {
-        tag: "span[data-markdown-color]",
-        getAttrs: (element) => ({
-          color: (element as HTMLElement).getAttribute("data-markdown-color"),
-        }),
-      },
-    ];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    const color = HTMLAttributes.color;
-
-    return [
-      "span",
-      mergeAttributes(HTMLAttributes, {
-        "data-markdown-color": color,
-        style: color ? `color: ${color}` : undefined,
-      }),
-      0,
-    ];
-  },
-
-  markdownTokenizer: {
-    name: "markdownColor",
-    level: "inline",
-
-    start(src) {
-      return src.indexOf("[");
-    },
-
-    tokenize(src, _tokens, lexer) {
-      const match = /^\[([^\]]+)\]\{(#[0-9a-fA-F]{3,6})\}/.exec(src);
-
-      if (!match) return undefined;
-
-      return {
-        type: "markdownColor",
-        raw: match[0],
-        text: match[1],
-        color: match[2],
-        tokens: lexer.inlineTokens(match[1]),
-      };
-    },
-  },
-
-  parseMarkdown(token, helpers) {
-    const content = helpers.parseInline(token.tokens || []);
-
-    return helpers.applyMark("markdownColor", content, {
-      color: token.color,
-    });
-  },
-
-  renderMarkdown(node, helpers) {
-    const content = helpers.renderChildren(node.content || []);
-    const color = node.attrs?.color;
-
-    if (!color) {
-      return content;
-    }
-
-    return `[${content}]{${color}}`;
-  },
-
-  addCommands() {
-    return {
-      setMarkdownColor:
-        (color: string) =>
-        ({ commands }) => {
-          return commands.setMark(this.name, { color });
-        },
-
-      unsetMarkdownColor:
-        () =>
-        ({ commands }) => {
-          return commands.unsetMark(this.name);
-        },
-    };
-  },
-});
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function normalizeLinkUrl(input: string): string | null {
-  const value = input.trim();
-
-  if (!value) return null;
-
-  if (EMAIL_PATTERN.test(value)) {
-    return `mailto:${value}`;
-  }
-
-  if (/^mailto:/i.test(value)) {
-    try {
-      const url = new URL(value);
-      return url.protocol === "mailto:" ? value : null;
-    } catch {
-      return null;
-    }
-  }
-
-  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(value)) {
-    try {
-      const url = new URL(value);
-
-      if (url.protocol !== "http:" && url.protocol !== "https:") {
-        return null;
-      }
-
-      return url.toString();
-    } catch {
-      return null;
-    }
-  }
-
-  try {
-    const url = new URL(`https://${value}`);
-
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-export function MarkdownField({
-  id,
-  value = "",
-  onChange,
-  className,
-  placeholder = "Write something amazing...",
-  minEditorHeightRem = 10,
-  maxEditorHeightRem = 32,
-  disabled = false,
-}: MarkdownFieldProps) {
+  ref,
+) {
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  const [, setForceUpdate] = useState(0);
   const [tempHexColor, setTempHexColor] = useState("");
 
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkInput, setLinkInput] = useState("");
   const [linkError, setLinkError] = useState("");
 
-  const colorPickerRef = useRef<HTMLDivElement>(null);
-  const lastEmittedValue = useRef(value);
+  const [, setPendingImages] = useState<MarkdownPendingImage[]>([]);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        colorPickerRef.current &&
-        !colorPickerRef.current.contains(event.target as Node)
-      ) {
-        setIsColorPickerOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+  const pendingImagesRef = useRef<MarkdownPendingImage[]>([]);
+
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+
+  const imageReplaceTargetPosRef = useRef<number | null>(null);
+
+  const replacePendingImages = useCallback((next: MarkdownPendingImage[]) => {
+    pendingImagesRef.current = next;
+
+    setPendingImages(next);
   }, []);
 
-  const editor = useEditor({
-    editable: !disabled,
-    extensions: [
+  const imagesEnabled = imageOptions?.enabled === true;
+
+  const imageMaxSizeBytes = imageOptions?.maxSizeBytes ?? 5 * 1024 * 1024;
+
+  const imageMaxImages = imageOptions?.maxImages ?? 10;
+
+  const enabledFeatures = useMemo(
+    () =>
+      new Set<MarkdownFeature>(features ?? MARKDOWN_PRESET_FEATURES[preset]),
+    [features, preset],
+  );
+
+  const hasFeature = useCallback(
+    (feature: MarkdownFeature) => enabledFeatures.has(feature),
+    [enabledFeatures],
+  );
+
+  const lastEmittedValue = useRef(value);
+
+  const markdownImageExtension = useMemo(
+    () =>
+      MarkdownImage.configure({
+        onReplaceRequest: (position) => {
+          imageReplaceTargetPosRef.current = position;
+
+          imageInputRef.current?.click();
+        },
+      }),
+    [],
+  );
+
+  const slashCommandExtension = useMemo(
+    () =>
+      createMarkdownSlashCommand({
+        imageEnabled: imagesEnabled,
+
+        container: slashMenuContainer,
+
+        enabledFeatures: Array.from(enabledFeatures),
+
+        onImageRequest: () => {
+          imageReplaceTargetPosRef.current = null;
+
+          imageInputRef.current?.click();
+        },
+      }),
+    [imagesEnabled, slashMenuContainer, enabledFeatures],
+  );
+
+  const placeholderExtension = useMemo(
+    () =>
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          if (node.type.name === "heading") {
+            return "Heading...";
+          }
+
+          if (node.type.name === "blockquote") {
+            return "Write a quote...";
+          }
+
+          if (node.type.name === "codeBlock") {
+            return "Paste or write code...";
+          }
+
+          return placeholder;
+        },
+
+        includeChildren: true,
+
+        showOnlyCurrent: true,
+      }),
+    [placeholder],
+  );
+
+  const starterKitExtension = useMemo(
+    () =>
       StarterKit.configure({
-        heading: false,
+        heading: {
+          levels: [1, 2, 3],
+        },
+
         paragraph: {
           HTMLAttributes: {
             class: "leading-relaxed",
           },
         },
-        bold: { HTMLAttributes: { class: "font-bold" } },
-        italic: { HTMLAttributes: { class: "italic" } },
-        strike: { HTMLAttributes: { class: "line-through" } },
+
+        bold: {
+          HTMLAttributes: {
+            class: "font-bold",
+          },
+        },
+
+        italic: {
+          HTMLAttributes: {
+            class: "italic",
+          },
+        },
+
+        strike: {
+          HTMLAttributes: {
+            class: "line-through",
+          },
+        },
+
         bulletList: {
           HTMLAttributes: {
             class: "list-disc list-outside ml-4 pl-2 space-y-1 my-2",
           },
         },
+
         orderedList: {
           HTMLAttributes: {
             class: "list-decimal list-outside ml-4 pl-2 space-y-1 my-2",
           },
         },
+
         listItem: {
           HTMLAttributes: {
             class: "mt-1 leading-relaxed",
           },
         },
+
         blockquote: {
           HTMLAttributes: {
             class:
               "border-l-4 border-primary/40 pl-4 italic text-muted-foreground my-2",
           },
         },
+
         codeBlock: {
           HTMLAttributes: {
             class:
@@ -326,9 +420,14 @@ export function MarkdownField({
           },
         },
       }),
-      MarkdownColor,
+    [],
+  );
+
+  const linkExtension = useMemo(
+    () =>
       LinkExtension.configure({
         openOnClick: false,
+
         protocols: ["http", "https", "mailto"],
 
         isAllowedUri: (url, ctx) => {
@@ -347,9 +446,22 @@ export function MarkdownField({
 
         HTMLAttributes: {
           class: "text-primary underline underline-offset-2",
+
           rel: "noopener noreferrer",
         },
       }),
+    [],
+  );
+
+  const editor = useEditor({
+    editable: !disabled,
+    extensions: [
+      starterKitExtension,
+      placeholderExtension,
+      MarkdownColor,
+      markdownImageExtension,
+      slashCommandExtension,
+      linkExtension,
       Markdown,
     ],
     content: value,
@@ -360,13 +472,36 @@ export function MarkdownField({
         class: cn(
           "prose prose-sm dark:prose-invert max-w-none",
           "focus:outline-none p-4 w-full overflow-y-auto",
+
+          // Paragraph spacing
           "[&_p]:my-0",
           "[&_p+p]:mt-3",
+
+          // Headings
+          "[&_h1]:mt-4 [&_h1]:mb-2",
+          "[&_h1]:text-xl [&_h1]:font-bold [&_h1]:tracking-tight",
+
+          "[&_h2]:mt-3 [&_h2]:mb-1.5",
+          "[&_h2]:text-lg [&_h2]:font-bold",
+
+          "[&_h3]:mt-2 [&_h3]:mb-1",
+          "[&_h3]:text-base [&_h3]:font-semibold",
+
+          // Rich image node
+          "[&_[data-type=markdown-image]]:my-4",
+
+          // Native Tiptap placeholders
+          "[&_.is-empty::before]:pointer-events-none",
+          "[&_.is-empty::before]:float-left",
+          "[&_.is-empty::before]:h-0",
+          "[&_.is-empty::before]:text-muted-foreground/55",
+          "[&_.is-empty::before]:content-[attr(data-placeholder)]",
         ),
         style: `min-height: ${minEditorHeightRem}rem; max-height: ${maxEditorHeightRem}rem;`,
       },
       handleKeyDown: (_view, event) => {
         if (
+          hasFeature("link") &&
           (event.metaKey || event.ctrlKey) &&
           event.key.toLowerCase() === "k"
         ) {
@@ -384,14 +519,104 @@ export function MarkdownField({
         return false;
       },
     },
-    onTransaction: () => {
-      setForceUpdate((x) => x + 1);
-    },
     onUpdate: ({ editor }) => {
-      const markdown = editor.getMarkdown();
+      const rawMarkdown = editor.getMarkdown();
+
+      /*
+       * Blob URLs are only valid inside this browser
+       * session, so they must never leave MarkdownField.
+       *
+       * Important:
+       * We DO NOT remove pending images here when they
+       * disappear from the document.
+       *
+       * TipTap may restore them through Undo/Redo, so
+       * their File + ObjectURL must stay alive until
+       * Save or editor disposal.
+       */
+      const markdown = replacePreviewUrlsWithPlaceholders(
+        rawMarkdown,
+        pendingImagesRef.current,
+      );
 
       lastEmittedValue.current = markdown;
+
       onChange?.(markdown);
+    },
+  });
+
+  const toolbarState = useEditorState({
+    editor,
+
+    selector: ({ editor }) => {
+      if (!editor) {
+        return {
+          isFocused: false,
+
+          bold: false,
+          italic: false,
+          strike: false,
+          code: false,
+          link: false,
+          markdownColor: false,
+
+          bulletList: false,
+          orderedList: false,
+          blockquote: false,
+          codeBlock: false,
+
+          h1: false,
+          h2: false,
+          h3: false,
+
+          currentColor: "",
+
+          canUndo: false,
+          canRedo: false,
+        };
+      }
+
+      return {
+        isFocused: editor.isFocused,
+
+        bold: editor.isActive("bold"),
+
+        italic: editor.isActive("italic"),
+
+        strike: editor.isActive("strike"),
+
+        code: editor.isActive("code"),
+
+        link: editor.isActive("link"),
+
+        markdownColor: editor.isActive("markdownColor"),
+
+        bulletList: editor.isActive("bulletList"),
+
+        orderedList: editor.isActive("orderedList"),
+
+        blockquote: editor.isActive("blockquote"),
+
+        codeBlock: editor.isActive("codeBlock"),
+
+        h1: editor.isActive("heading", {
+          level: 1,
+        }),
+
+        h2: editor.isActive("heading", {
+          level: 2,
+        }),
+
+        h3: editor.isActive("heading", {
+          level: 3,
+        }),
+
+        currentColor: editor.getAttributes("markdownColor").color || "",
+
+        canUndo: editor.can().undo(),
+
+        canRedo: editor.can().redo(),
+      };
     },
   });
 
@@ -399,6 +624,50 @@ export function MarkdownField({
     if (!editor) return;
     editor.setEditable(!disabled);
   }, [editor, disabled]);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+    const editorElement = editor.view.dom;
+
+    const handleEditorScroll = () => {
+      closeMarkdownSlashCommand(editor);
+    };
+
+    editorElement.addEventListener("scroll", handleEditorScroll, {
+      passive: true,
+    });
+
+    return () => {
+      editorElement.removeEventListener("scroll", handleEditorScroll);
+    };
+  }, [editor]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getPendingImages() {
+        return [...pendingImagesRef.current];
+      },
+
+      applyCommittedMarkdown(markdown: string) {
+        for (const asset of pendingImagesRef.current) {
+          URL.revokeObjectURL(asset.previewUrl);
+        }
+
+        replacePendingImages([]);
+
+        lastEmittedValue.current = markdown;
+
+        editor?.commands.setContent(markdown, {
+          contentType: "markdown",
+          emitUpdate: false,
+        });
+      },
+    }),
+    [editor, replacePendingImages],
+  );
 
   useEffect(() => {
     if (!editor || editor.isFocused) return;
@@ -416,6 +685,14 @@ export function MarkdownField({
     }
   }, [value, editor]);
 
+  useEffect(() => {
+    return () => {
+      for (const asset of pendingImagesRef.current) {
+        URL.revokeObjectURL(asset.previewUrl);
+      }
+    };
+  }, []);
+
   const openLinkDialog = useCallback(() => {
     if (!editor) return;
 
@@ -429,7 +706,7 @@ export function MarkdownField({
   const submitLink = useCallback(() => {
     if (!editor) return;
 
-    const normalizedUrl = normalizeLinkUrl(linkInput);
+    const normalizedUrl = normalizeMarkdownLinkUrl(linkInput);
 
     if (!normalizedUrl) {
       setLinkError("Enter a valid HTTP, HTTPS, or email address.");
@@ -459,11 +736,217 @@ export function MarkdownField({
     setLinkError("");
   }, [editor]);
 
+  const handleImageFile = useCallback(
+    (
+      file: File,
+      options?: {
+        replacePosition?: number | null;
+      },
+    ) => {
+      if (!editor || !imagesEnabled) {
+        return;
+      }
+
+      const allowedTypes = new Set([
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "image/avif",
+      ]);
+
+      if (!allowedTypes.has(file.type)) {
+        toast.error("Use PNG, JPG, WEBP or AVIF.");
+
+        return;
+      }
+
+      const maxSize = imageMaxSizeBytes;
+
+      if (file.size > maxSize) {
+        toast.error(
+          `Image is too large. Maximum size is ${Math.round(
+            maxSize / 1024 / 1024,
+          )} MB.`,
+        );
+
+        return;
+      }
+
+      const maxImages = imageMaxImages;
+
+      const currentRawMarkdown = editor.getMarkdown();
+
+      const currentDraftMarkdown = replacePreviewUrlsWithPlaceholders(
+        currentRawMarkdown,
+        pendingImagesRef.current,
+      );
+
+      const referencedPendingIds =
+        getReferencedPendingImageIds(currentDraftMarkdown);
+
+      /*
+       * Replacement does not increase the
+       * number of images in the document,
+       * so don't block it at the max limit.
+       */
+      const isReplacing = typeof options?.replacePosition === "number";
+
+      if (!isReplacing && referencedPendingIds.size >= maxImages) {
+        toast.info(`You can add up to ${maxImages} new images before saving.`);
+
+        return;
+      }
+
+      const assetId = crypto.randomUUID();
+
+      const previewUrl = URL.createObjectURL(file);
+
+      const fileAlt = file.name.replace(/\.[^.]+$/, "").trim() || "Image";
+
+      const asset: MarkdownPendingImage = {
+        id: assetId,
+        file,
+        previewUrl,
+        alt: fileAlt,
+      };
+
+      /*
+       * Keep every pending asset alive until
+       * Save / unmount so Undo can restore
+       * replaced/deleted images.
+       */
+      replacePendingImages([...pendingImagesRef.current, asset]);
+
+      // --------------------------------------------------------------------
+      // REPLACE EXISTING IMAGE
+      // --------------------------------------------------------------------
+
+      if (typeof options?.replacePosition === "number") {
+        const position = options.replacePosition;
+
+        const currentNode = editor.state.doc.nodeAt(position);
+
+        if (!currentNode || currentNode.type.name !== "markdownImage") {
+          URL.revokeObjectURL(previewUrl);
+
+          replacePendingImages(
+            pendingImagesRef.current.filter((item) => item.id !== assetId),
+          );
+
+          toast.error("The image could not be replaced.");
+
+          return;
+        }
+
+        /*
+         * Preserve existing alt text.
+         * If none exists, use the new file name.
+         */
+        const nextAlt = fileAlt;
+
+        const transaction = editor.state.tr.setNodeMarkup(position, undefined, {
+          ...currentNode.attrs,
+          src: previewUrl,
+          alt: nextAlt,
+        });
+
+        editor.view.dispatch(transaction);
+
+        editor.chain().focus().setNodeSelection(position).run();
+
+        return;
+      }
+
+      // --------------------------------------------------------------------
+      // INSERT NEW IMAGE
+      // --------------------------------------------------------------------
+
+      /*
+       * Even though markdownImage remains an
+       * inline node for Markdown compatibility,
+       * place it inside its own paragraph.
+       *
+       * This gives Move Up / Move Down a stable
+       * document block to reorder.
+       */
+      editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: "paragraph",
+
+          content: [
+            {
+              type: "markdownImage",
+
+              attrs: {
+                src: previewUrl,
+
+                alt: fileAlt,
+              },
+            },
+          ],
+        })
+        .run();
+    },
+    [
+      editor,
+      imagesEnabled,
+      imageMaxSizeBytes,
+      imageMaxImages,
+      replacePendingImages,
+    ],
+  );
+
   if (!editor) return null;
 
-  const isFocused = editor.isFocused;
-  const currentColor = editor.getAttributes("markdownColor").color || "";
-  const showColorActive = isFocused && editor.isActive("markdownColor");
+  const isFocused = toolbarState.isFocused;
+
+  const currentColor = toolbarState.currentColor;
+
+  const showColorActive = isFocused && toolbarState.markdownColor;
+
+  const currentBlockType = toolbarState.h1
+    ? "h1"
+    : toolbarState.h2
+      ? "h2"
+      : toolbarState.h3
+        ? "h3"
+        : "paragraph";
+
+  const moreMenuActive = toolbarState.blockquote || toolbarState.codeBlock;
+
+  const hasPersistentMoreItems =
+    hasFeature("blockquote") ||
+    hasFeature("codeBlock") ||
+    hasFeature("horizontalRule") ||
+    imagesEnabled;
+
+  const setBlockType = (nextType: string) => {
+    if (disabled) {
+      return;
+    }
+
+    if (nextType === "h1") {
+      editor.chain().focus().setHeading({ level: 1 }).run();
+
+      return;
+    }
+
+    if (nextType === "h2") {
+      editor.chain().focus().setHeading({ level: 2 }).run();
+
+      return;
+    }
+
+    if (nextType === "h3") {
+      editor.chain().focus().setHeading({ level: 3 }).run();
+
+      return;
+    }
+
+    editor.chain().focus().setParagraph().run();
+  };
 
   const handleOpenChange = (open: boolean) => {
     if (disabled) return;
@@ -489,299 +972,830 @@ export function MarkdownField({
     );
 
   return (
-    <div
-      className={cn(
-        "w-full overflow-hidden rounded-xl border border-input bg-background shadow-sm transition-colors duration-300",
-        "focus-within:border-ring focus-within:ring-[2px] focus-within:ring-ring/50",
-        className,
-      )}
-    >
-      <Dialog
-        open={linkDialogOpen}
-        onOpenChange={(open) => {
-          setLinkDialogOpen(open);
-
-          if (!open) {
-            setLinkInput("");
-            setLinkError("");
-          }
-        }}
+    <TooltipProvider delayDuration={300}>
+      <div
+        className={cn(
+          "relative w-full rounded-xl border border-input bg-background shadow-sm transition-colors duration-300",
+          "focus-within:border-ring focus-within:ring-[2px] focus-within:ring-ring/50",
+          className,
+        )}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Insert link</DialogTitle>
-            <DialogDescription>
-              Enter a website or email address. URLs without a protocol will use
-              HTTPS automatically.
-            </DialogDescription>
-          </DialogHeader>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/avif"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
 
-          <div className="space-y-2">
-            <Label htmlFor={`${id || "markdown"}-link-url`}>URL</Label>
+            const replacePosition = imageReplaceTargetPosRef.current;
 
-            <Input
-              id={`${id || "markdown"}-link-url`}
-              value={linkInput}
-              onChange={(e) => {
-                setLinkInput(e.target.value);
-                setLinkError("");
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  submitLink();
-                }
-              }}
-              placeholder="youtube.com"
-              autoFocus
-            />
+            if (file) {
+              handleImageFile(file, {
+                replacePosition,
+              });
+            }
 
-            {linkError && (
-              <p className="text-xs text-destructive">{linkError}</p>
-            )}
+            imageReplaceTargetPosRef.current = null;
 
-            <p className="text-xs text-muted-foreground">
-              Allowed: HTTP, HTTPS, and email links.
-            </p>
-          </div>
+            event.target.value = "";
+          }}
+        />
+        <Dialog
+          open={linkDialogOpen}
+          onOpenChange={(open) => {
+            setLinkDialogOpen(open);
 
-          <DialogFooter className="gap-2">
-            {editor?.isActive("link") && (
+            if (!open) {
+              setLinkInput("");
+              setLinkError("");
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Insert link</DialogTitle>
+              <DialogDescription>
+                Enter a website or email address. URLs without a protocol will
+                use HTTPS automatically.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <Label htmlFor={`${id || "markdown"}-link-url`}>URL</Label>
+
+              <Input
+                id={`${id || "markdown"}-link-url`}
+                value={linkInput}
+                onChange={(e) => {
+                  setLinkInput(e.target.value);
+                  setLinkError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submitLink();
+                  }
+                }}
+                placeholder="youtube.com"
+                autoFocus
+              />
+
+              {linkError && (
+                <p className="text-xs text-destructive">{linkError}</p>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Allowed: HTTP, HTTPS, and email links.
+              </p>
+            </div>
+
+            <DialogFooter className="gap-2">
+              {editor?.isActive("link") && (
+                <Button
+                  type="button"
+                  className="cursor-pointer"
+                  variant="destructive"
+                  onClick={removeLink}
+                >
+                  Remove link
+                </Button>
+              )}
+
               <Button
                 type="button"
                 className="cursor-pointer"
-                variant="destructive"
-                onClick={removeLink}
+                variant="outline"
+                onClick={() => setLinkDialogOpen(false)}
               >
-                Remove link
+                Cancel
               </Button>
+
+              <Button
+                type="button"
+                className="cursor-pointer"
+                onClick={submitLink}
+              >
+                Apply link
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {!disabled && (
+          <BubbleMenu
+            editor={editor}
+            options={{
+              placement: "top",
+              offset: 8,
+            }}
+            shouldShow={({ editor, from, to }) => {
+              /*
+               * No text selection.
+               */
+              if (from === to) {
+                return false;
+              }
+
+              /*
+               * Code blocks have their own editing
+               * context and shouldn't show inline tools.
+               */
+              if (editor.isActive("codeBlock")) {
+                return false;
+              }
+
+              /*
+               * Images already have their own NodeView
+               * controls.
+               */
+              if (editor.isActive("markdownImage")) {
+                return false;
+              }
+
+              return true;
+            }}
+          >
+            <div
+              className={cn(
+                "flex items-center gap-0.5 rounded-xl",
+                "border border-border/80",
+                "bg-popover/95 p-1 shadow-xl backdrop-blur-xl",
+
+                /*
+                 * Small entrance animation without
+                 * affecting Floating UI positioning.
+                 */
+                "animate-in fade-in-0 zoom-in-95 duration-150",
+              )}
+            >
+              {hasFeature("bold") && (
+                <ToolbarButton
+                  tooltip={false}
+                  onClick={() => editor.chain().focus().toggleBold().run()}
+                  active={editor.isActive("bold")}
+                  title="Bold"
+                >
+                  <Bold className="h-4 w-4" />
+                </ToolbarButton>
+              )}
+
+              {hasFeature("italic") && (
+                <ToolbarButton
+                  tooltip={false}
+                  onClick={() => editor.chain().focus().toggleItalic().run()}
+                  active={editor.isActive("italic")}
+                  title="Italic"
+                >
+                  <Italic className="h-4 w-4" />
+                </ToolbarButton>
+              )}
+
+              {hasFeature("strike") && (
+                <ToolbarButton
+                  tooltip={false}
+                  onClick={() => editor.chain().focus().toggleStrike().run()}
+                  active={editor.isActive("strike")}
+                  title="Strikethrough"
+                >
+                  <Strikethrough className="h-4 w-4" />
+                </ToolbarButton>
+              )}
+
+              {hasFeature("code") && (
+                <ToolbarButton
+                  tooltip={false}
+                  onClick={() => editor.chain().focus().toggleCode().run()}
+                  active={editor.isActive("code")}
+                  title="Inline code"
+                >
+                  <Code className="h-4 w-4" />
+                </ToolbarButton>
+              )}
+
+              {hasFeature("link") && (
+                <>
+                  <div className="mx-0.5 h-5 w-px bg-border" />
+
+                  <ToolbarButton
+                    tooltip={false}
+                    onClick={openLinkDialog}
+                    active={editor.isActive("link")}
+                    title="Link"
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                  </ToolbarButton>
+                </>
+              )}
+            </div>
+          </BubbleMenu>
+        )}
+
+        {/* Editor Toolbar */}
+        <div
+          className={cn(
+            "relative flex min-w-0 items-center gap-1",
+            "overflow-x-hidden",
+            "border-b border-border/50 bg-muted/20 p-1.5",
+            "transition-colors duration-200",
+          )}
+        >
+          {/* =====================================================
+      HISTORY
+  ====================================================== */}
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-0.5",
+              "border-r border-border/50 pr-1 sm:pr-2",
+            )}
+          >
+            <ToolbarButton
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={disabled || !toolbarState.canUndo}
+              title="Undo (Ctrl/Cmd+Z)"
+              shortcut="Ctrl+Z"
+            >
+              <Undo className="h-4 w-4" />
+            </ToolbarButton>
+
+            <ToolbarButton
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={disabled || !toolbarState.canRedo}
+              title="Redo (Ctrl/Cmd+Y)"
+              shortcut="Ctrl+Y"
+            >
+              <Redo className="h-4 w-4" />
+            </ToolbarButton>
+          </div>
+
+          {/* =====================================================
+      BLOCK TYPE
+  ====================================================== */}
+          {hasFeature("heading") && (
+            <div
+              className={cn(
+                "hidden shrink-0 items-center",
+                "border-r border-border/50 px-1",
+                "md:flex",
+              )}
+            >
+              <Select
+                value={currentBlockType}
+                onValueChange={setBlockType}
+                disabled={disabled}
+              >
+                <SelectTrigger
+                  className={cn(
+                    "h-8 w-[116px] cursor-pointer sm:w-[126px]",
+                    "border-0 bg-transparent px-2 text-xs shadow-none",
+                    "focus:ring-0 focus:ring-offset-0",
+                  )}
+                  title="Text style"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectItem value="paragraph">Paragraph</SelectItem>
+
+                  <SelectItem value="h1">Heading 1</SelectItem>
+
+                  <SelectItem value="h2">Heading 2</SelectItem>
+
+                  <SelectItem value="h3">Heading 3</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* =====================================================
+      INLINE FORMATTING
+  ====================================================== */}
+          <div className="flex shrink-0 items-center gap-0.5 px-1">
+            {hasFeature("bold") && (
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                active={isFocused && toolbarState.bold}
+                disabled={disabled}
+                title="Bold (Ctrl/Cmd+B)"
+              >
+                <Bold className="h-4 w-4" />
+              </ToolbarButton>
             )}
 
-            <Button
-              type="button"
-              className="cursor-pointer"
-              variant="outline"
-              onClick={() => setLinkDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              type="button"
-              className="cursor-pointer"
-              onClick={submitLink}
-            >
-              Apply link
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Editor Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 border-b border-border/50 bg-muted/20 p-1.5 relative">
-        <div className="flex items-center gap-0.5 pr-2 border-r border-border/50">
-          <ToolbarButton
-            onClick={() => editor.chain().focus().undo().run()}
-            disabled={disabled || !editor.can().undo()}
-            title="Undo (Ctrl/Cmd+Z)"
-          >
-            <Undo className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().redo().run()}
-            disabled={disabled || !editor.can().redo()}
-            title="Redo (Ctrl/Cmd+Shift+Z)"
-          >
-            <Redo className="h-4 w-4" />
-          </ToolbarButton>
-        </div>
-
-        <div className="flex items-center gap-0.5 pl-1">
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            active={isFocused && editor.isActive("bold")}
-            disabled={disabled}
-            title="Bold (Ctrl/Cmd+B)"
-          >
-            <Bold className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            active={isFocused && editor.isActive("italic")}
-            disabled={disabled}
-            title="Italic (Ctrl/Cmd+I)"
-          >
-            <Italic className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleCode().run()}
-            active={isFocused && editor.isActive("code")}
-            disabled={disabled}
-            title="Inline Code"
-          >
-            <Code className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={openLinkDialog}
-            active={isFocused && editor.isActive("link")}
-            disabled={disabled}
-            title="Link (Ctrl/Cmd+K)"
-          >
-            <LinkIcon className="h-4 w-4" />
-          </ToolbarButton>
-
-          {/* Color Picker */}
-          <Popover open={isColorPickerOpen} onOpenChange={handleOpenChange}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
+            {hasFeature("italic") && (
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                active={isFocused && toolbarState.italic}
                 disabled={disabled}
-                className={cn(
-                  "flex h-8 w-8 cursor-pointer items-center justify-center rounded-md transition-all duration-200 active:scale-90",
-                  isColorPickerOpen || showColorActive
-                    ? "bg-primary/20 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-                title="Text Color"
+                title="Italic (Ctrl/Cmd+I)"
               >
-                <Palette
-                  className="h-4 w-4 transition-colors duration-200"
-                  style={{ color: showColorActive ? currentColor : "inherit" }}
-                />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-80 border-border/80 bg-popover p-4 shadow-xl"
-              align="start"
-              sideOffset={8}
-              avoidCollisions={false}
+                <Italic className="h-4 w-4" />
+              </ToolbarButton>
+            )}
+
+            {hasFeature("strike") && (
+              <div className="hidden sm:block">
+                <ToolbarButton
+                  onClick={() => editor.chain().focus().toggleStrike().run()}
+                  active={isFocused && toolbarState.strike}
+                  disabled={disabled}
+                  title="Strikethrough"
+                >
+                  <Strikethrough className="h-4 w-4" />
+                </ToolbarButton>
+              </div>
+            )}
+
+            {hasFeature("code") && (
+              <div className="hidden sm:block">
+                <ToolbarButton
+                  onClick={() => editor.chain().focus().toggleCode().run()}
+                  active={isFocused && toolbarState.code}
+                  disabled={disabled}
+                  title="Inline Code"
+                >
+                  <Code className="h-4 w-4" />
+                </ToolbarButton>
+              </div>
+            )}
+          </div>
+
+          {/* =====================================================
+      LINK
+  ====================================================== */}
+          {hasFeature("link") && (
+            <div
+              className={cn(
+                "hidden shrink-0 items-center",
+                "border-l border-border/50 pl-1",
+                "sm:flex",
+              )}
             >
-              <div className="space-y-4">
-                <div className="w-full overflow-hidden rounded-lg border border-border/50 shadow-inner">
-                  <HexColorPicker
-                    color={
-                      tempHexColor.startsWith("#") ? tempHexColor : "#000000"
-                    }
-                    onChange={setTempHexColor}
-                    style={{ width: "100%", height: "140px" }}
-                  />
-                </div>
+              <ToolbarButton
+                onClick={openLinkDialog}
+                active={isFocused && toolbarState.link}
+                disabled={disabled}
+                title="Link (Ctrl/Cmd+K)"
+              >
+                <LinkIcon className="h-4 w-4" />
+              </ToolbarButton>
+            </div>
+          )}
 
-                <div>
-                  <p className="text-sm font-medium mb-2">Suggested colors</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {COLOR_PRESETS.map((preset) => {
-                      const isActive =
-                        tempHexColor.toLowerCase() ===
-                        preset.value.toLowerCase();
-                      return (
-                        <button
-                          key={preset.value}
-                          type="button"
-                          data-state={isActive ? "on" : "off"}
-                          className={cn(
-                            "group flex flex-col items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-2 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-muted/40 cursor-pointer",
-                            isActive &&
-                              "border-primary/70 bg-primary/10 shadow-sm",
-                          )}
-                          onClick={() => {
-                            editor
-                              .chain()
-                              .focus()
-                              .unsetLink()
-                              .setMarkdownColor(preset.value)
-                              .run();
-                            setTempHexColor(preset.value);
-                            setIsColorPickerOpen(false);
-                          }}
-                        >
-                          <span
-                            className="h-7 w-7 rounded-full border shadow-sm transition-transform group-hover:scale-105"
-                            style={{ backgroundColor: preset.value }}
-                          />
-                          <span className="text-[10px] font-medium text-muted-foreground">
-                            {preset.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5 pt-1">
-                  <Label className="text-xs">Custom hex</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={tempHexColor}
-                      onChange={(e) => setTempHexColor(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && applyCustomColor()}
-                      className="h-9 font-mono text-xs uppercase"
-                      maxLength={7}
-                      spellCheck={false}
+          {/* =====================================================
+      COLOR
+  ====================================================== */}
+          {hasFeature("color") && (
+            <div className="hidden shrink-0 sm:block">
+              <Popover open={isColorPickerOpen} onOpenChange={handleOpenChange}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md",
+                      "transition-all duration-200 active:scale-90",
+                      isColorPickerOpen || showColorActive
+                        ? "bg-primary/20 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      disabled &&
+                        "cursor-not-allowed opacity-50 active:scale-100",
+                    )}
+                    title="Text Color"
+                    aria-label="Text Color"
+                  >
+                    <Palette
+                      className="h-4 w-4 transition-colors duration-200"
+                      style={{
+                        color: showColorActive ? currentColor : "inherit",
+                      }}
                     />
+                  </button>
+                </PopoverTrigger>
+
+                <PopoverContent
+                  className="w-80 border-border/80 bg-popover p-4 shadow-xl"
+                  align="start"
+                  sideOffset={8}
+                  avoidCollisions={false}
+                >
+                  <div className="space-y-4">
+                    <div className="w-full overflow-hidden rounded-lg border border-border/50 shadow-inner">
+                      <HexColorPicker
+                        color={
+                          tempHexColor.startsWith("#")
+                            ? tempHexColor
+                            : "#000000"
+                        }
+                        onChange={setTempHexColor}
+                        style={{
+                          width: "100%",
+                          height: "140px",
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-sm font-medium">
+                        Suggested colors
+                      </p>
+
+                      <div className="grid grid-cols-4 gap-2">
+                        {COLOR_PRESETS.map((preset) => {
+                          const isActive =
+                            tempHexColor.toLowerCase() ===
+                            preset.value.toLowerCase();
+
+                          return (
+                            <button
+                              key={preset.value}
+                              type="button"
+                              data-state={isActive ? "on" : "off"}
+                              className={cn(
+                                "group flex cursor-pointer flex-col items-center gap-1 rounded-xl",
+                                "border border-border/70 bg-card/70 p-2",
+                                "transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-muted/40",
+                                isActive &&
+                                  "border-primary/70 bg-primary/10 shadow-sm",
+                              )}
+                              onClick={() => {
+                                editor
+                                  .chain()
+                                  .focus()
+                                  .unsetLink()
+                                  .setMarkdownColor(preset.value)
+                                  .run();
+
+                                setTempHexColor(preset.value);
+
+                                setIsColorPickerOpen(false);
+                              }}
+                            >
+                              <span
+                                className="h-7 w-7 rounded-full border shadow-sm transition-transform group-hover:scale-105"
+                                style={{
+                                  backgroundColor: preset.value,
+                                }}
+                              />
+
+                              <span className="text-[10px] font-medium text-muted-foreground">
+                                {preset.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-xs">Custom hex</Label>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={tempHexColor}
+                          onChange={(e) => setTempHexColor(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              applyCustomColor();
+                            }
+                          }}
+                          className="h-9 font-mono text-xs uppercase"
+                          maxLength={7}
+                          spellCheck={false}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={applyCustomColor}
+                          className="h-9 cursor-pointer rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95"
+                        >
+                          Apply
+                        </button>
+                      </div>
+
+                      {isCustomColor && (
+                        <div
+                          className="mt-2 h-1.5 w-full rounded-full shadow-inner transition-colors duration-300"
+                          style={{
+                            backgroundColor: tempHexColor,
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div className="my-1 h-px w-full bg-border/50" />
+
                     <button
                       type="button"
-                      onClick={applyCustomColor}
-                      className="h-9 rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer active:scale-95 shadow-sm"
+                      onClick={() => {
+                        editor.chain().focus().unsetMarkdownColor().run();
+
+                        setTempHexColor("");
+                        setIsColorPickerOpen(false);
+                      }}
+                      className="w-full cursor-pointer rounded-md bg-destructive py-1.5 text-xs font-medium text-destructive-foreground shadow-sm transition-all hover:bg-destructive/90 active:scale-95"
                     >
-                      Apply
+                      Remove Color
                     </button>
                   </div>
-                  {isCustomColor && (
-                    <div
-                      className="mt-2 h-1.5 w-full rounded-full shadow-inner transition-colors duration-300"
-                      style={{ backgroundColor: tempHexColor }}
-                    />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
+          {/* =====================================================
+      LISTS
+  ====================================================== */}
+          {(hasFeature("bulletList") || hasFeature("orderedList")) && (
+            <div className="mx-1 hidden h-5 w-px bg-border/50 md:block" />
+          )}
+
+          <div className="hidden shrink-0 items-center gap-0.5 md:flex">
+            {hasFeature("bulletList") && (
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                active={isFocused && toolbarState.bulletList}
+                disabled={disabled}
+                title="Bullet List"
+              >
+                <List className="h-4 w-4" />
+              </ToolbarButton>
+            )}
+
+            {hasFeature("orderedList") && (
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                active={isFocused && toolbarState.orderedList}
+                disabled={disabled}
+                title="Numbered List"
+              >
+                <ListOrdered className="h-4 w-4" />
+              </ToolbarButton>
+            )}
+          </div>
+
+          {/* =====================================================
+    MORE FORMATTING
+====================================================== */}
+
+          {(hasFeature("heading") ||
+            hasFeature("strike") ||
+            hasFeature("code") ||
+            hasFeature("link") ||
+            hasFeature("color") ||
+            hasFeature("bulletList") ||
+            hasFeature("orderedList") ||
+            hasFeature("blockquote") ||
+            hasFeature("codeBlock") ||
+            hasFeature("horizontalRule") ||
+            imagesEnabled) && (
+            <div
+              className={cn(
+                "shrink-0 items-center",
+                hasPersistentMoreItems ? "flex" : "flex sm:hidden",
+              )}
+            >
+              <div className="mx-1 h-5 w-px bg-border/50" />
+
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        aria-label="More formatting"
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md",
+                          "text-muted-foreground",
+                          "transition-all duration-150",
+                          "hover:bg-muted hover:text-foreground",
+                          "active:scale-90",
+                          "data-[state=open]:bg-primary/10 data-[state=open]:text-primary",
+
+                          moreMenuActive && "bg-primary/10 text-primary",
+
+                          disabled && "cursor-not-allowed opacity-40",
+                        )}
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+
+                  <TooltipContent side="bottom">More formatting</TooltipContent>
+                </Tooltip>
+
+                <DropdownMenuContent align="end" className="w-52">
+                  {hasFeature("heading") && (
+                    <>
+                      <DropdownMenuItem
+                        className="cursor-pointer md:hidden"
+                        onSelect={() =>
+                          editor.chain().focus().setParagraph().run()
+                        }
+                      >
+                        Paragraph
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        className={cn(
+                          "cursor-pointer md:hidden",
+                          toolbarState.h1 && "bg-primary/10 text-primary",
+                        )}
+                        onSelect={() =>
+                          editor
+                            .chain()
+                            .focus()
+                            .setHeading({
+                              level: 1,
+                            })
+                            .run()
+                        }
+                      >
+                        Heading 1
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        className={cn(
+                          "cursor-pointer md:hidden",
+                          toolbarState.h2 && "bg-primary/10 text-primary",
+                        )}
+                        onSelect={() =>
+                          editor
+                            .chain()
+                            .focus()
+                            .setHeading({
+                              level: 2,
+                            })
+                            .run()
+                        }
+                      >
+                        Heading 2
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        className={cn(
+                          "cursor-pointer md:hidden",
+                          toolbarState.h3 && "bg-primary/10 text-primary",
+                        )}
+                        onSelect={() =>
+                          editor
+                            .chain()
+                            .focus()
+                            .setHeading({
+                              level: 3,
+                            })
+                            .run()
+                        }
+                      >
+                        Heading 3
+                      </DropdownMenuItem>
+
+                      <DropdownMenuSeparator className="md:hidden" />
+                    </>
                   )}
-                </div>
+                  {hasFeature("strike") && (
+                    <DropdownMenuItem
+                      className={cn(
+                        "cursor-pointer sm:hidden",
+                        toolbarState.strike && "bg-primary/10 text-primary",
+                      )}
+                      onSelect={() =>
+                        editor.chain().focus().toggleStrike().run()
+                      }
+                    >
+                      <Strikethrough className="mr-2 h-4 w-4" />
+                      Strikethrough
+                    </DropdownMenuItem>
+                  )}
 
-                <div className="h-px w-full bg-border/50 my-1" />
+                  {hasFeature("code") && (
+                    <DropdownMenuItem
+                      className={cn(
+                        "cursor-pointer sm:hidden",
+                        toolbarState.code && "bg-primary/10 text-primary",
+                      )}
+                      onSelect={() => editor.chain().focus().toggleCode().run()}
+                    >
+                      <Code className="mr-2 h-4 w-4" />
+                      Inline code
+                    </DropdownMenuItem>
+                  )}
+                  {hasFeature("link") && (
+                    <DropdownMenuItem
+                      className="cursor-pointer sm:hidden"
+                      onSelect={() => {
+                        requestAnimationFrame(openLinkDialog);
+                      }}
+                    >
+                      <LinkIcon className="mr-2 h-4 w-4" />
+                      Link
+                    </DropdownMenuItem>
+                  )}
+                  {hasFeature("bulletList") && (
+                    <DropdownMenuItem
+                      className={cn(
+                        "cursor-pointer md:hidden",
+                        toolbarState.bulletList && "bg-primary/10 text-primary",
+                      )}
+                      onSelect={() =>
+                        editor.chain().focus().toggleBulletList().run()
+                      }
+                    >
+                      <List className="mr-2 h-4 w-4" />
+                      Bullet list
+                    </DropdownMenuItem>
+                  )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    editor.chain().focus().unsetMarkdownColor().run();
-                    setTempHexColor("");
-                    setIsColorPickerOpen(false);
-                  }}
-                  className="w-full rounded-md py-1.5 text-xs font-medium bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90 active:scale-95 cursor-pointer shadow-sm"
-                >
-                  Remove Color
-                </button>
-              </div>
-            </PopoverContent>
-          </Popover>
+                  {hasFeature("orderedList") && (
+                    <DropdownMenuItem
+                      className={cn(
+                        "cursor-pointer md:hidden",
+                        toolbarState.orderedList &&
+                          "bg-primary/10 text-primary",
+                      )}
+                      onSelect={() =>
+                        editor.chain().focus().toggleOrderedList().run()
+                      }
+                    >
+                      <ListOrdered className="mr-2 h-4 w-4" />
+                      Numbered list
+                    </DropdownMenuItem>
+                  )}
+                  {hasFeature("blockquote") && (
+                    <DropdownMenuItem
+                      className={cn(
+                        "cursor-pointer",
+                        toolbarState.blockquote && "bg-primary/10 text-primary",
+                      )}
+                      onSelect={() =>
+                        editor.chain().focus().toggleBlockquote().run()
+                      }
+                    >
+                      <Quote className="mr-2 h-4 w-4" />
+                      Quote
+                    </DropdownMenuItem>
+                  )}
 
-          <div className="mx-1 h-5 w-px bg-border/50" />
+                  {hasFeature("codeBlock") && (
+                    <DropdownMenuItem
+                      className={cn(
+                        "cursor-pointer",
+                        toolbarState.codeBlock && "bg-primary/10 text-primary",
+                      )}
+                      onSelect={() =>
+                        editor.chain().focus().toggleCodeBlock().run()
+                      }
+                    >
+                      <FileCode2 className="mr-2 h-4 w-4" />
+                      Code block
+                    </DropdownMenuItem>
+                  )}
 
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            active={isFocused && editor.isActive("bulletList")}
-            disabled={disabled}
-            title="Bullet List"
-          >
-            <List className="h-4 w-4" />
-          </ToolbarButton>
-          <ToolbarButton
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            active={isFocused && editor.isActive("orderedList")}
-            disabled={disabled}
-            title="Numbered List"
-          >
-            <ListOrdered className="h-4 w-4" />
-          </ToolbarButton>
+                  {hasFeature("horizontalRule") && (
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onSelect={() =>
+                        editor.chain().focus().setHorizontalRule().run()
+                      }
+                    >
+                      <Minus className="mr-2 h-4 w-4" />
+                      Divider
+                    </DropdownMenuItem>
+                  )}
+
+                  {imagesEnabled && (
+                    <>
+                      <DropdownMenuSeparator />
+
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onSelect={() => {
+                          imageReplaceTargetPosRef.current = null;
+
+                          requestAnimationFrame(() =>
+                            imageInputRef.current?.click(),
+                          );
+                        }}
+                      >
+                        <ImagePlus className="mr-2 h-4 w-4" />
+                        Upload image
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+        </div>
+
+        {/* Editor Content Area */}
+        <div className="relative w-full">
+          <EditorContent editor={editor} />
         </div>
       </div>
-
-      {/* Editor Content Area */}
-      <div className="relative w-full">
-        {editor.isEmpty && (
-          <div className="pointer-events-none absolute left-4 top-4 text-sm text-muted-foreground opacity-70 transition-opacity duration-300">
-            {placeholder}
-          </div>
-        )}
-        <EditorContent editor={editor} />
-      </div>
-    </div>
+    </TooltipProvider>
   );
-}
+});

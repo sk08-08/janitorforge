@@ -1,4 +1,4 @@
-import { filterContent } from "../lib/content-filter";
+import { filterContent } from "../features/moderation/lib/content-filter";
 
 type TestCase = {
   text: string;

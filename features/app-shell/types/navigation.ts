@@ -1,0 +1,14 @@
+export type NavigationView =
+  | "profiles"
+  | "resources"
+  | "community"
+  | "dashboard"
+  | "bots"
+  | "forms"
+  | "requests"
+  | "moderation"
+  | "feedback"
+  | "atlas"
+  | "creator-pages"
+  | "profile"
+  | "admin";

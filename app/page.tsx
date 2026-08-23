@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { redirect } from "next/navigation";
-import { getSession } from "@/app/actions/auth";
+import { getSession } from "@/features/auth/actions/auth";
 import { ClientApp } from "./client-app";
 import { LandingPage } from "@/components/landing/landing-page";
 

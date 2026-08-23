@@ -6,12 +6,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { CreatorPageView } from "@/components/creator-pages/creator-page-view";
+import { CreatorPageView } from "@/features/creator-pages/components/creator-page-view";
 import {
   fetchCreatorPageData,
   buildCreatorPageMeta,
-} from "@/lib/creator-page-data";
-import type { CreatorPageConfig, PageLayout } from "@/lib/types";
+} from "@/features/creator-pages/lib/creator-page-data";
+import type {
+  CreatorPageConfig,
+  PageLayout,
+} from "@/features/creator-pages/types/creator-page-types";
 
 interface PageProps {
   params: Promise<{ slug: string }>;

@@ -19,26 +19,45 @@ export interface Database {
           id: string;
           username: string | null;
           display_name: string | null;
-          is_admin: boolean;
+
           avatar_url: string | null;
+
+          staff_role: "owner" | "moderator" | null;
+
+          is_blocked: boolean;
+
           created_at: string;
           updated_at: string;
         };
+
         Insert: {
           id: string;
+
           username?: string | null;
           display_name?: string | null;
-          is_admin?: boolean;
+
           avatar_url?: string | null;
+
+          staff_role?: "owner" | "moderator" | null;
+
+          is_blocked?: boolean;
+
           created_at?: string;
           updated_at?: string;
         };
+
         Update: {
           id?: string;
+
           username?: string | null;
           display_name?: string | null;
-          is_admin?: boolean;
+
           avatar_url?: string | null;
+
+          staff_role?: "owner" | "moderator" | null;
+
+          is_blocked?: boolean;
+
           created_at?: string;
           updated_at?: string;
         };

@@ -73,6 +73,58 @@ export function MarkdownRenderer({
               {children}
             </p>
           ),
+          img: ({ src, alt, title, ...props }: any) => {
+            const value = String(src || "").trim();
+
+            if (!value) {
+              return null;
+            }
+
+            let allowed = false;
+
+            try {
+              const imageUrl = new URL(value);
+
+              const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+              if (supabaseUrl) {
+                const base = new URL(supabaseUrl);
+
+                allowed =
+                  imageUrl.origin === base.origin &&
+                  imageUrl.pathname.includes(
+                    "/storage/v1/object/public/markdown-assets/",
+                  );
+              }
+            } catch {
+              allowed = false;
+            }
+
+            if (!allowed) {
+              return (
+                <span className="my-2 block rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Image unavailable
+                  {alt ? `: ${alt}` : ""}
+                </span>
+              );
+            }
+
+            return (
+              <img
+                src={value}
+                alt={alt || ""}
+                title={title}
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                className={cn(
+                  "my-3 block",
+                  "max-h-[32rem] w-auto max-w-full",
+                  "rounded-xl border object-contain shadow-sm",
+                )}
+                {...props}
+              />
+            );
+          },
           a: ({ children, href, ...props }: any) => {
             if (href?.startsWith("#color-")) {
               const color = "#" + href.replace("#color-", "");
@@ -100,6 +152,14 @@ export function MarkdownRenderer({
               {children}
             </em>
           ),
+          del: ({ children, ...props }: any) => (
+            <del
+              className="text-muted-foreground line-through decoration-2"
+              {...props}
+            >
+              {children}
+            </del>
+          ),
           ul: ({ children, ...props }: any) => (
             <ul className="list-disc pl-5 mb-2 space-y-1" {...props}>
               {children}
@@ -123,26 +183,35 @@ export function MarkdownRenderer({
               {children}
             </blockquote>
           ),
-          code: ({ children, className: codeClass, ...props }: any) => {
-            const isInline = !codeClass;
-            if (isInline) {
-              return (
-                <code
-                  className="rounded bg-muted px-1.5 py-0.5 text-sm font-mono break-all wrap-anywhere"
-                  {...props}
-                >
-                  {children}
-                </code>
-              );
-            }
-            return (
-              <pre className="max-w-full overflow-x-auto rounded-lg bg-muted p-4 mb-2">
-                <code className="text-sm font-mono" {...props}>
-                  {children}
-                </code>
-              </pre>
-            );
-          },
+          pre: ({ children, ...props }: any) => (
+            <pre
+              className={cn(
+                "mb-2 max-w-full overflow-x-auto rounded-lg bg-muted p-4",
+                "text-sm",
+                "[&_code]:bg-transparent",
+                "[&_code]:p-0",
+                "[&_code]:text-inherit",
+                "[&_code]:break-normal",
+              )}
+              {...props}
+            >
+              {children}
+            </pre>
+          ),
+
+          code: ({ children, className: codeClass, ...props }: any) => (
+            <code
+              className={cn(
+                "font-mono",
+                "rounded bg-muted px-1.5 py-0.5 text-sm",
+                "break-all wrap-anywhere",
+                codeClass,
+              )}
+              {...props}
+            >
+              {children}
+            </code>
+          ),
           hr: (props: any) => <hr className="border-border my-4" {...props} />,
           table: ({ children, ...props }: any) => (
             <div className="overflow-x-auto mb-2">
@@ -199,6 +268,7 @@ export function MarkdownInlineRenderer({
         rehypePlugins={[rehypeSanitize as any]}
         components={{
           p: ({ children }) => <>{children}</>,
+          img: () => null,
           ul: ({ children }) => <>{children}</>,
           ol: ({ children }) => <>{children}</>,
           li: ({ children }) => <>{children}</>,
@@ -232,6 +302,9 @@ export function MarkdownInlineRenderer({
             <code className="rounded bg-muted px-1 py-0.5 font-mono">
               {children}
             </code>
+          ),
+          del: ({ children }) => (
+            <del className="text-muted-foreground line-through">{children}</del>
           ),
         }}
       >

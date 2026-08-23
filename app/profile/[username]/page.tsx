@@ -6,8 +6,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { PublicProfile } from "@/components/profile/public-profile";
-import { loadProfileBadges } from "@/lib/profile-badges";
+import { PublicProfile } from "@/features/profile/components/public-profile";
+import { loadProfileBadges } from "@/features/profile/lib/profile-badges";
 
 interface PageProps {
   params: Promise<{ username: string }>;

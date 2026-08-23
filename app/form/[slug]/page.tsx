@@ -4,9 +4,9 @@
 // ============================================================================
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import PublicForm from "@/components/forms/public-form";
-import type { FormSection } from "@/lib/types";
-import { FormDeactivationPage } from "@/components/forms/form-deactivation-page";
+import PublicForm from "@/features/forms/components/public-form";
+import type { FormSection } from "@/features/forms/types/form-types";
+import { FormDeactivationPage } from "@/features/forms/components/form-deactivation-page";
 
 export default async function PublicFormPage({
   params,

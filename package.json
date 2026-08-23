@@ -2,6 +2,7 @@
   "name": "janitorforge",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.27.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,10 +10,10 @@
     "test:cf": "ts-node ./scripts/content-filter-tests.ts",
     "lint": "eslint . --ext .ts,.tsx --report-unused-disable-directives",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "type-check": "tsc --noEmit",
-    "db:apply": "node ./scripts/applySchema.js"
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
     "@giphy/js-fetch-api": "^5.8.0",
     "@giphy/js-types": "^5.1.0",
     "@giphy/react-components": "^10.1.2",
@@ -50,9 +51,11 @@
     "@tanstack/react-virtual": "^3.13.26",
     "@tiptap/core": "^3.29.2",
     "@tiptap/extension-link": "^3.29.2",
+    "@tiptap/extensions": "^3.30.2",
     "@tiptap/markdown": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
+    "@tiptap/suggestion": "^3.30.2",
     "@vercel/analytics": "1.6.1",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
