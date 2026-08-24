@@ -53,6 +53,7 @@
     "@tiptap/extension-link": "^3.29.2",
     "@tiptap/extensions": "^3.30.2",
     "@tiptap/markdown": "^3.29.2",
+    "@tiptap/pm": "^3.29.2",
     "@tiptap/react": "^3.29.2",
     "@tiptap/starter-kit": "^3.29.2",
     "@tiptap/suggestion": "^3.30.2",
