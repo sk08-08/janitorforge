@@ -10,7 +10,11 @@ import {
 } from "@/lib/storage-assets";
 import { loadProfileBadges } from "@/features/profile/lib/profile-badges";
 import { normalizeHttpUrl } from "@/lib/safe-url";
-import { PROFILE_SOCIAL_KEYS } from "@/features/profile/lib/profile-socials";
+import {
+  PROFILE_SOCIAL_KEYS,
+  getProfileSocialHref,
+  isProfileSocialLink,
+} from "@/features/profile/lib/profile-socials";
 
 const ALLOWED_PROFILE_IMAGE_TYPES = [
   "image/jpeg",
@@ -374,9 +378,20 @@ export async function updateProfile(input: UpdateProfileInput) {
 
       // Discord may be either a username or an HTTP(S) link.
       if (key === "discord") {
-        const discordUrl = normalizeHttpUrl(value);
+        if (isProfileSocialLink(key, value)) {
+          const discordUrl = getProfileSocialHref(key, value);
 
-        normalizedSocialLinks[key] = discordUrl || value;
+          if (!discordUrl) {
+            return {
+              success: false,
+              error: "Invalid Discord link",
+            };
+          }
+
+          normalizedSocialLinks[key] = discordUrl;
+        } else {
+          normalizedSocialLinks[key] = value;
+        }
 
         continue;
       }

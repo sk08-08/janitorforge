@@ -32,7 +32,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { normalizeHttpUrl } from "@/lib/safe-url";
-import { getProfileSocialLabel } from "@/features/profile/lib/profile-socials";
+import {
+  getProfileSocialHref,
+  getProfileSocialLabel,
+} from "@/features/profile/lib/profile-socials";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Pagination,
@@ -640,7 +643,7 @@ export function PublicProfile({
                   {Object.entries(socialLinks).map(([key, value]) => {
                     if (!value || !value.trim()) return null;
                     const Icon = socialIconMap[key] || Globe;
-                    const safeUrl = normalizeHttpUrl(value);
+                    const safeUrl = getProfileSocialHref(key, value);
                     const label = getProfileSocialLabel(key);
                     return safeUrl ? (
                       <a

@@ -1,3 +1,5 @@
+import { normalizeHttpUrl } from "@/lib/safe-url";
+
 export const PROFILE_SOCIAL_PLATFORMS = [
   {
     key: "janitorai",
@@ -12,7 +14,7 @@ export const PROFILE_SOCIAL_PLATFORMS = [
   {
     key: "discord",
     label: "Discord",
-    placeholder: "username#0000",
+    placeholder: "username or https://discord.gg/...",
   },
   {
     key: "github",
@@ -46,8 +48,38 @@ const PROFILE_SOCIAL_LABELS = Object.fromEntries(
   PROFILE_SOCIAL_PLATFORMS.map((platform) => [platform.key, platform.label]),
 ) as Record<string, string>;
 
+const DISCORD_LINK_PATTERN =
+  /^(?:https?:\/\/)?(?:www\.)?(?:discord\.gg|discord\.com|discordapp\.com)\//i;
+
 export function getProfileSocialLabel(key: string): string {
   return (
     PROFILE_SOCIAL_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1)
   );
+}
+
+export function isProfileSocialLink(key: string, value: string): boolean {
+  const trimmed = String(value || "").trim();
+
+  if (!trimmed) return false;
+
+  if (key === "discord") {
+    return DISCORD_LINK_PATTERN.test(trimmed);
+  }
+
+  return true;
+}
+
+export function getProfileSocialHref(
+  key: string,
+  value: string,
+): string | null {
+  const trimmed = String(value || "").trim();
+
+  if (!trimmed) return null;
+
+  if (!isProfileSocialLink(key, trimmed)) {
+    return null;
+  }
+
+  return normalizeHttpUrl(trimmed);
 }
