@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { BotDetailModal } from "@/features/bots/components/bot-detail-modal";
 import { MarkdownRenderer } from "@/features/markdown/components/markdown-renderer";
+import { normalizeHttpUrl } from "@/lib/safe-url";
+import { getProfileSocialLabel } from "@/features/profile/lib/profile-socials";
 import {
   Pencil,
   MapPin,
@@ -80,6 +82,18 @@ import {
   getReadableProfileMutedAccentColor,
   resolveProfileTheme,
 } from "@/features/profile/lib/profile-theme";
+import {
+  applyProfileSectionSelection,
+  getOrderedProfileSectionIds,
+  getProfileSection,
+  resolveProfileSections,
+  getProfileSectionEmptyCopy,
+  type ProfileSectionBotRow,
+  type ProfileSectionCreatorPageRow,
+  type ProfileSectionFormRow,
+  type ProfileSectionRow,
+  type ProfileSectionWorldRow,
+} from "@/features/profile/lib/profile-sections";
 
 const PROFILE_BOTS_PAGE_SIZE = 15;
 
@@ -107,6 +121,11 @@ interface Profile {
   banner_url: string | null;
   slug: string | null;
   theme: Record<string, unknown> | null;
+  profile_sections?: ProfileSectionRow[] | null;
+  profile_section_bots?: ProfileSectionBotRow[] | null;
+  profile_section_forms?: ProfileSectionFormRow[] | null;
+  profile_section_creator_pages?: ProfileSectionCreatorPageRow[] | null;
+  profile_section_worlds?: ProfileSectionWorldRow[] | null;
   created_at: string;
   pronouns?: string | null;
   location?: string | null;
@@ -141,7 +160,7 @@ export function ProfilePage() {
     followers: 0,
     following: 0,
   });
-  const { bots, forms, requests } = useStore();
+  const { bots, forms } = useStore();
   const [creatorPages, setCreatorPages] = useState<
     Array<{
       id: string;
@@ -260,17 +279,6 @@ export function ProfilePage() {
     loadProfile();
   }, [loadProfile]);
 
-  const totalBotPages = Math.max(
-    1,
-    Math.ceil(bots.length / PROFILE_BOTS_PAGE_SIZE),
-  );
-
-  useEffect(() => {
-    if (botsPage > totalBotPages - 1) {
-      setBotsPage(Math.max(0, totalBotPages - 1));
-    }
-  }, [botsPage, totalBotPages]);
-
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center p-6">
@@ -294,19 +302,104 @@ export function ProfilePage() {
 
   const p = profile;
   const resolvedTheme = resolveProfileTheme(p.theme || {});
+  const resolvedSections = resolveProfileSections(
+    p.profile_sections,
+    p.theme || {},
+  );
+
+  const featuredBotsSection = getProfileSection(
+    resolvedSections,
+    "featured_bots",
+  );
+
+  const botsSection = getProfileSection(resolvedSections, "bots");
+
+  const creatorPagesSection = getProfileSection(
+    resolvedSections,
+    "creator_pages",
+  );
+
+  const worldsSection = getProfileSection(resolvedSections, "worlds");
+
+  const formsSection = getProfileSection(resolvedSections, "forms");
+  const selectedBotIds = getOrderedProfileSectionIds(
+    p.profile_section_bots,
+    (row) => row.bot_id,
+    (row) => row.sort_order,
+  );
+
+  const selectedCreatorPageIds = getOrderedProfileSectionIds(
+    p.profile_section_creator_pages,
+    (row) => row.creator_page_id,
+    (row) => row.sort_order,
+  );
+
+  const selectedWorldIds = getOrderedProfileSectionIds(
+    p.profile_section_worlds,
+    (row) => row.world_id,
+    (row) => row.sort_order,
+  );
+
+  const selectedFormIds = getOrderedProfileSectionIds(
+    p.profile_section_forms,
+    (row) => row.form_id,
+    (row) => row.sort_order,
+  );
+
+  const ownForms = forms.filter((form) => form.ownerId === p.id);
+
+  const ownBots = bots.filter((bot) => bot.ownerId === p.id);
+
+  const profileBots = applyProfileSectionSelection(
+    ownBots,
+    botsSection,
+    selectedBotIds,
+  );
+
+  const profileCreatorPages = applyProfileSectionSelection(
+    creatorPages,
+    creatorPagesSection,
+    selectedCreatorPageIds,
+  );
+
+  const profileWorlds = applyProfileSectionSelection(
+    worlds,
+    worldsSection,
+    selectedWorldIds,
+  );
+
+  const profileForms = applyProfileSectionSelection(
+    ownForms,
+    formsSection,
+    selectedFormIds,
+  );
+
+  const totalBotPages = Math.max(
+    1,
+    Math.ceil(profileBots.length / PROFILE_BOTS_PAGE_SIZE),
+  );
+
+  const safeBotsPage = Math.min(botsPage, totalBotPages - 1);
+
+  const paginatedBots = profileBots.slice(
+    safeBotsPage * PROFILE_BOTS_PAGE_SIZE,
+    (safeBotsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
+  );
+
+  const botsRangeStart =
+    profileBots.length === 0 ? 0 : safeBotsPage * PROFILE_BOTS_PAGE_SIZE + 1;
+
+  const botsRangeEnd = Math.min(
+    (safeBotsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
+    profileBots.length,
+  );
   const {
     primaryColor,
     accentColor,
     avatarBorderColor,
     cardStyle,
     layout,
-    showStats,
     showBadges,
-    showFeatured,
-    showBots,
-    showCreatorPages,
-    showWorlds,
-    showForms,
     hideCompletenessNudge,
   } = resolvedTheme;
   const readablePrimaryColor = getReadableProfileAccentColor(primaryColor);
@@ -314,6 +407,21 @@ export function ProfilePage() {
     accentColor,
     "medium",
   );
+  const featuredBotsEmpty = getProfileSectionEmptyCopy(
+    featuredBotsSection,
+    "owner",
+  );
+
+  const botsEmpty = getProfileSectionEmptyCopy(botsSection, "owner");
+
+  const creatorPagesEmpty = getProfileSectionEmptyCopy(
+    creatorPagesSection,
+    "owner",
+  );
+
+  const worldsEmpty = getProfileSectionEmptyCopy(worldsSection, "owner");
+
+  const formsEmpty = getProfileSectionEmptyCopy(formsSection, "owner");
   const readablePrimaryMutedColor =
     getReadableProfileMutedAccentColor(primaryColor);
   const accentBorderTint = getProfileBorderTintColor(accentColor, 30);
@@ -333,6 +441,8 @@ export function ProfilePage() {
       : undefined;
 
   const socialLinks = p.social_links || {};
+  const safeWebsiteUrl =
+    typeof p.website_url === "string" ? normalizeHttpUrl(p.website_url) : null;
   const badges = p.profile_badges || [];
   const specialtiesList = p.specialties || [];
   const completeness = (p.profile_completeness as number) || 0;
@@ -385,23 +495,6 @@ export function ProfilePage() {
       };
     })
     .filter(Boolean);
-
-  const paginatedBots = bots.slice(
-    botsPage * PROFILE_BOTS_PAGE_SIZE,
-    (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
-  );
-
-  const botsRangeStart =
-    bots.length === 0 ? 0 : botsPage * PROFILE_BOTS_PAGE_SIZE + 1;
-  const botsRangeEnd = Math.min(
-    (botsPage + 1) * PROFILE_BOTS_PAGE_SIZE,
-    bots.length,
-  );
-
-  // Use 'forms' directly for 'ownForms'
-  const ownForms = forms.filter(
-    (f) => f.ownerId === (p.id as string) || f.ownerId === undefined,
-  );
 
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
 
@@ -519,7 +612,7 @@ export function ProfilePage() {
                   </p>
                   <p className="text-xs text-muted-foreground">Following</p>
                 </button>
-                {showStats && !hideCompletenessNudge && completeness < 100 && (
+                {!hideCompletenessNudge && completeness < 100 && (
                   <div className="text-center">
                     <p
                       className="text-lg font-bold"
@@ -554,21 +647,15 @@ export function ProfilePage() {
                   {p.location}
                 </span>
               )}
-              {typeof p.website_url === "string" && p.website_url && (
+              {safeWebsiteUrl && (
                 <a
-                  href={p.website_url}
+                  href={safeWebsiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 hover:text-primary transition-colors"
                 >
                   <Globe className="h-3 w-3" />
-                  {(() => {
-                    try {
-                      return new URL(p.website_url).hostname;
-                    } catch {
-                      return p.website_url;
-                    }
-                  })()}
+                  {new URL(safeWebsiteUrl).hostname}
                   <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               )}
@@ -590,11 +677,12 @@ export function ProfilePage() {
                 {Object.entries(socialLinks).map(([key, value]) => {
                   if (!value || !value.trim()) return null;
                   const Icon = socialIconMap[key] || Globe;
-                  const isUrl = value.startsWith("http");
-                  return isUrl ? (
+                  const safeUrl = normalizeHttpUrl(value);
+                  const label = getProfileSocialLabel(key);
+                  return safeUrl ? (
                     <a
                       key={key}
-                      href={value}
+                      href={safeUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -603,7 +691,7 @@ export function ProfilePage() {
                         className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
                       >
                         <Icon className="h-3 w-3 mr-1" />
-                        {key.charAt(0).toUpperCase() + key.slice(1)}
+                        {label}
                       </Badge>
                     </a>
                   ) : (
@@ -641,7 +729,7 @@ export function ProfilePage() {
             )}
 
             {/* Featured Bots */}
-            {showFeatured && (
+            {featuredBotsSection.enabled && (
               <div className="mt-4 min-w-0 max-w-full overflow-hidden">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
                   Featured Bots
@@ -662,8 +750,8 @@ export function ProfilePage() {
                   <ProfileSectionEmpty
                     icon={<Star className="h-5 w-5" />}
                     iconColor={primaryColor}
-                    title="No featured bots yet"
-                    description="Pick bots in the editor to highlight them here and make the profile feel more complete."
+                    title={featuredBotsEmpty.title}
+                    description={featuredBotsEmpty.description}
                   />
                 )}
               </div>
@@ -695,6 +783,7 @@ export function ProfilePage() {
             open={followModalOpen}
             onOpenChange={setFollowModalOpen}
             userId={p.id as string}
+            isOwnProfile
             tab={followModalTab}
             themeColor={primaryColor}
           />
@@ -702,7 +791,7 @@ export function ProfilePage() {
 
         {/* ===== Unified Content Sections ===== */}
         {/* Bots */}
-        {showBots && (
+        {botsSection.enabled && (
           <div id="profile-bots-section" className="space-y-4">
             <div className="flex items-center gap-3">
               <Bot
@@ -711,97 +800,129 @@ export function ProfilePage() {
               />
 
               <h2 className="text-lg font-semibold">Bots</h2>
-              <Badge variant="outline">{bots.length}</Badge>
+              <Badge variant="outline">{profileBots.length}</Badge>
             </div>
-            <div className={collectionGridClass}>
-              {paginatedBots.map((bot) => (
-                <ProfileBotGridCard
-                  key={bot.id}
-                  bot={bot}
-                  cardStyle={cardStyle}
-                  layout={layout}
-                  accentColor={accentColor}
-                  onClick={() => setBotDetailBot(bot)}
-                />
-              ))}
-            </div>
-            {totalBotPages > 1 && (
-              <div className="mt-2 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Showing {botsRangeStart}-{botsRangeEnd} of {bots.length} bots
-                </p>
-                <Pagination className="w-auto">
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (botsPage > 0) {
-                            setBotsPage((prev) => prev - 1);
-                            document
-                              .getElementById("profile-bots-section")
-                              ?.scrollIntoView({ behavior: "smooth" });
-                          }
-                        }}
-                        className={cn(
-                          "cursor-pointer",
-                          botsPage === 0 && "pointer-events-none opacity-50",
-                        )}
-                      />
-                    </PaginationItem>
-                    {Array.from(
-                      { length: Math.min(totalBotPages, 5) },
-                      (_, i) => {
-                        const page =
-                          totalBotPages <= 5
-                            ? i
-                            : Math.max(
-                                0,
-                                Math.min(botsPage - 2, totalBotPages - 5),
-                              ) + i;
-                        return (
-                          <PaginationItem key={page}>
-                            <PaginationLink
-                              href="#"
-                              isActive={page === botsPage}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setBotsPage(page);
+            {profileBots.length > 0 ? (
+              <>
+                <div className={collectionGridClass}>
+                  {paginatedBots.map((bot) => (
+                    <ProfileBotGridCard
+                      key={bot.id}
+                      bot={bot}
+                      cardStyle={cardStyle}
+                      layout={layout}
+                      accentColor={accentColor}
+                      onClick={() => setBotDetailBot(bot)}
+                    />
+                  ))}
+                </div>
+
+                {totalBotPages > 1 && (
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      Showing {botsRangeStart}-{botsRangeEnd} of{" "}
+                      {profileBots.length} bots
+                    </p>
+
+                    <Pagination className="w-auto">
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+
+                              if (safeBotsPage > 0) {
+                                setBotsPage((prev) => prev - 1);
+
                                 document
                                   .getElementById("profile-bots-section")
-                                  ?.scrollIntoView({ behavior: "smooth" });
-                              }}
-                              className="cursor-pointer"
-                            >
-                              {page + 1}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      },
-                    )}
-                    <PaginationItem>
-                      <PaginationNext
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (botsPage < totalBotPages - 1) {
-                            setBotsPage((prev) => prev + 1);
-                            document
-                              .getElementById("profile-bots-section")
-                              ?.scrollIntoView({ behavior: "smooth" });
-                          }
-                        }}
-                        className={cn(
-                          "cursor-pointer",
-                          botsPage >= totalBotPages - 1 &&
-                            "pointer-events-none opacity-50",
+                                  ?.scrollIntoView({
+                                    behavior: "smooth",
+                                  });
+                              }
+                            }}
+                            className={cn(
+                              "cursor-pointer",
+                              safeBotsPage === 0 &&
+                                "pointer-events-none opacity-50",
+                            )}
+                          />
+                        </PaginationItem>
+
+                        {Array.from(
+                          { length: Math.min(totalBotPages, 5) },
+                          (_, i) => {
+                            const page =
+                              totalBotPages <= 5
+                                ? i
+                                : Math.max(
+                                    0,
+                                    Math.min(
+                                      safeBotsPage - 2,
+                                      totalBotPages - 5,
+                                    ),
+                                  ) + i;
+
+                            return (
+                              <PaginationItem key={page}>
+                                <PaginationLink
+                                  href="#"
+                                  isActive={page === safeBotsPage}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setBotsPage(page);
+
+                                    document
+                                      .getElementById("profile-bots-section")
+                                      ?.scrollIntoView({
+                                        behavior: "smooth",
+                                      });
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  {page + 1}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          },
                         )}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              </div>
+
+                        <PaginationItem>
+                          <PaginationNext
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+
+                              if (safeBotsPage < totalBotPages - 1) {
+                                setBotsPage((prev) => prev + 1);
+
+                                document
+                                  .getElementById("profile-bots-section")
+                                  ?.scrollIntoView({
+                                    behavior: "smooth",
+                                  });
+                              }
+                            }}
+                            className={cn(
+                              "cursor-pointer",
+                              safeBotsPage >= totalBotPages - 1 &&
+                                "pointer-events-none opacity-50",
+                            )}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </>
+            ) : (
+              <ProfileSectionEmpty
+                icon={<Bot className="h-5 w-5" />}
+                iconColor={primaryColor}
+                title={botsEmpty.title}
+                description={botsEmpty.description}
+              />
             )}
             <hr
               className="border-t"
@@ -811,7 +932,7 @@ export function ProfilePage() {
         )}
 
         {/* Creator Pages */}
-        {showCreatorPages && (
+        {creatorPagesSection.enabled && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <AppWindow
@@ -820,28 +941,25 @@ export function ProfilePage() {
               />
 
               <h2 className="text-lg font-semibold">Creator Pages</h2>
-              <Badge variant="outline">{creatorPages.length}</Badge>
+              <Badge variant="outline">{profileCreatorPages.length}</Badge>
             </div>
-            {creatorPages.length > 0 ? (
+            {profileCreatorPages.length > 0 ? (
               <div
                 className={cn(
                   "grid gap-3",
-                  creatorPages.length === 1
+                  profileCreatorPages.length === 1
                     ? "grid-cols-1"
                     : collectionGridClass,
                 )}
               >
-                {creatorPages.map((page) => (
-                  <a
-                    key={page.id}
-                    href={page.is_published ? `/page/${page.slug}` : "#"}
-                    target={page.is_published ? "_blank" : undefined}
-                    rel="noopener noreferrer"
-                  >
+                {profileCreatorPages.map((page) => {
+                  const card = (
                     <div
                       className={cn(
                         cardClass,
-                        "cursor-pointer h-full",
+                        "h-full",
+                        page.is_published && "cursor-pointer",
+                        !page.is_published && "cursor-default opacity-80",
                         layout === "list" && "sm:flex sm:flex-col",
                       )}
                       style={sectionCardStyle}
@@ -850,6 +968,7 @@ export function ProfilePage() {
                         <p className="text-sm font-medium truncate">
                           {page.title || "Untitled"}
                         </p>
+
                         <Badge
                           variant={page.is_published ? "default" : "secondary"}
                           className="text-[10px] shrink-0"
@@ -857,18 +976,33 @@ export function ProfilePage() {
                           {page.is_published ? "Live" : "Draft"}
                         </Badge>
                       </div>
+
                       <p className="text-xs text-muted-foreground line-clamp-2">
                         {page.description || "No description"}
                       </p>
                     </div>
-                  </a>
-                ))}
+                  );
+
+                  return page.is_published ? (
+                    <Link
+                      key={page.id}
+                      href={`/page/${page.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {card}
+                    </Link>
+                  ) : (
+                    <div key={page.id}>{card}</div>
+                  );
+                })}
               </div>
             ) : (
               <ProfileSectionEmpty
                 icon={<AppWindow className="h-5 w-5" />}
                 iconColor={primaryColor}
-                title="No creator pages yet"
+                title={creatorPagesEmpty.title}
+                description={creatorPagesEmpty.description}
               />
             )}
             <hr
@@ -879,7 +1013,7 @@ export function ProfilePage() {
         )}
 
         {/* Worlds */}
-        {showWorlds && (
+        {worldsSection.enabled && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <Globe
@@ -888,16 +1022,18 @@ export function ProfilePage() {
               />
 
               <h2 className="text-lg font-semibold">Worlds</h2>
-              <Badge variant="outline">{worlds.length}</Badge>
+              <Badge variant="outline">{profileWorlds.length}</Badge>
             </div>
-            {worlds.length > 0 ? (
+            {profileWorlds.length > 0 ? (
               <div
                 className={cn(
                   "grid gap-3",
-                  worlds.length === 1 ? "grid-cols-1" : collectionGridClass,
+                  profileWorlds.length === 1
+                    ? "grid-cols-1"
+                    : collectionGridClass,
                 )}
               >
-                {worlds.map((world) => (
+                {profileWorlds.map((world) => (
                   <div
                     key={world.id}
                     className={cn(cardClass, "cursor-pointer")}
@@ -931,7 +1067,8 @@ export function ProfilePage() {
               <ProfileSectionEmpty
                 icon={<Globe className="h-5 w-5" />}
                 iconColor={primaryColor}
-                title="No worlds created yet"
+                title={worldsEmpty.title}
+                description={worldsEmpty.description}
               />
             )}
             <hr
@@ -942,7 +1079,7 @@ export function ProfilePage() {
         )}
 
         {/* Forms */}
-        {showForms && (
+        {formsSection.enabled && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <FileText
@@ -950,16 +1087,18 @@ export function ProfilePage() {
                 style={{ color: readablePrimaryColor }}
               />
               <h2 className="text-lg font-semibold">Forms</h2>
-              <Badge variant="outline">{ownForms.length}</Badge>
+              <Badge variant="outline">{profileForms.length}</Badge>
             </div>
-            {ownForms.length > 0 ? (
+            {profileForms.length > 0 ? (
               <div
                 className={cn(
                   "grid gap-3",
-                  ownForms.length === 1 ? "grid-cols-1" : collectionGridClass,
+                  profileForms.length === 1
+                    ? "grid-cols-1"
+                    : collectionGridClass,
                 )}
               >
-                {ownForms.map((form) => (
+                {profileForms.map((form) => (
                   <Link
                     href={`/form/${form.shareableLink}`}
                     target="_blank"
@@ -970,11 +1109,14 @@ export function ProfilePage() {
                       className={cn(cardClass, "h-full")}
                       style={sectionCardStyle}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <MarkdownRenderer
-                          content={form.title}
-                          className="text-sm font-medium truncate"
-                        />
+                      <div className="flex min-w-0 items-center gap-2 mb-1">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <MarkdownRenderer
+                            content={form.title}
+                            className="text-sm font-medium [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                          />
+                        </div>
+
                         <Badge
                           variant={form.isActive ? "default" : "secondary"}
                           className="text-[10px] shrink-0"
@@ -997,7 +1139,8 @@ export function ProfilePage() {
               <ProfileSectionEmpty
                 icon={<FileText className="h-5 w-5" />}
                 iconColor={primaryColor}
-                title="No forms yet"
+                title={formsEmpty.title}
+                description={formsEmpty.description}
               />
             )}
           </div>

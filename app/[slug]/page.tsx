@@ -9,6 +9,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { stripMarkdownToText } from "@/features/markdown/lib/markdown";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -35,15 +36,17 @@ export async function generateMetadata({
   // Check profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, username, tagline, bio, avatar_url, visibility")
+    .select("display_name, username, tagline, bio, avatar_url")
     .eq("slug", slug)
     .maybeSingle();
 
-  if (profile && profile.visibility !== "private") {
+  if (profile) {
     const title = profile.display_name || profile.username || slug;
+
+    const plainBio = stripMarkdownToText(profile.bio || "");
     const description =
       profile.tagline ||
-      profile.bio?.slice(0, 160) ||
+      plainBio.slice(0, 160) ||
       `Profile page of ${title} on JanitorForge`;
 
     return {
@@ -58,7 +61,7 @@ export async function generateMetadata({
     };
   }
 
-  return { title: "Page Not Found — JanitorForge" };
+  return { title: "Page Not Found" };
 }
 
 export default async function SlugPage({ params }: PageProps) {
@@ -80,7 +83,7 @@ export default async function SlugPage({ params }: PageProps) {
   // 2) Profile → redirect to /profile/[username]
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, visibility")
+    .select("id, username")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -88,21 +91,11 @@ export default async function SlugPage({ params }: PageProps) {
     notFound();
   }
 
-  if (profile.visibility === "private") {
-    notFound();
-  }
-
-  if (profile.visibility === "followers") {
-    const { data: authData } = await supabase.auth.getUser();
-    if (!authData.user) {
-      notFound();
-    }
-  }
-
-  // Profile found — redirect to /profile/[username]
   if (profile.username) {
     redirect(`/profile/${profile.username}`);
   }
+
+  notFound();
 
   // Fallback: slug matches a profile that has no username
   notFound();

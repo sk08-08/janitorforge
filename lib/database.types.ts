@@ -1,725 +1,3417 @@
-﻿// ============================================================================
-// JanitorForge - Supabase Database Types
-// Auto-generated types for TypeScript integration
-// ============================================================================
-
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
-export interface Database {
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
-      profiles: {
+      app_users: {
         Row: {
-          id: string;
-          username: string | null;
-          display_name: string | null;
-
-          avatar_url: string | null;
-
-          staff_role: "owner" | "moderator" | null;
-
-          is_blocked: boolean;
-
-          created_at: string;
-          updated_at: string;
-        };
-
+          created_at: string | null
+          id: string
+          last_login: string | null
+          pin: string
+          username: string
+        }
         Insert: {
-          id: string;
-
-          username?: string | null;
-          display_name?: string | null;
-
-          avatar_url?: string | null;
-
-          staff_role?: "owner" | "moderator" | null;
-
-          is_blocked?: boolean;
-
-          created_at?: string;
-          updated_at?: string;
-        };
-
+          created_at?: string | null
+          id?: string
+          last_login?: string | null
+          pin: string
+          username: string
+        }
         Update: {
-          id?: string;
-
-          username?: string | null;
-          display_name?: string | null;
-
-          avatar_url?: string | null;
-
-          staff_role?: "owner" | "moderator" | null;
-
-          is_blocked?: boolean;
-
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      bots: {
-        Row: {
-          id: string;
-          user_id: string;
-          name: string;
-          short_description: string;
-          personality: string;
-          first_message: string;
-          alternate_greetings: string[];
-          scenario: string;
-          example_dialogues: string;
-          tags: string[];
-          rating: "SFW" | "NSFW";
-          image_url: string | null;
-          hide_sensitive_fields: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          name: string;
-          short_description: string;
-          personality: string;
-          first_message: string;
-          alternate_greetings?: string[];
-          scenario?: string;
-          example_dialogues?: string;
-          tags?: string[];
-          rating?: "SFW" | "NSFW";
-          image_url?: string | null;
-          hide_sensitive_fields?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          name?: string;
-          short_description?: string;
-          personality?: string;
-          first_message?: string;
-          alternate_greetings?: string[];
-          scenario?: string;
-          example_dialogues?: string;
-          tags?: string[];
-          rating?: "SFW" | "NSFW";
-          image_url?: string | null;
-          hide_sensitive_fields?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      request_forms: {
-        Row: {
-          id: string;
-          user_id: string;
-          title: string;
-          description: string;
-          sections: Json;
-          appearance: Json | null;
-          shareable_link: string;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          title: string;
-          description?: string;
-          sections?: Json;
-          appearance?: Json | null;
-          shareable_link: string;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          title?: string;
-          description?: string;
-          sections?: Json;
-          appearance?: Json | null;
-          shareable_link?: string;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      form_templates: {
-        Row: {
-          id: string;
-          name: string;
-          description: string | null;
-          category: string;
-          icon: string | null;
-          is_builtin: boolean;
-          owner_id: string | null;
-          sections: Json;
-          appearance: Json | null;
-          usage_count: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          name: string;
-          description?: string | null;
-          category?: string;
-          icon?: string | null;
-          is_builtin?: boolean;
-          owner_id?: string | null;
-          sections?: Json;
-          appearance?: Json | null;
-          usage_count?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          name?: string;
-          description?: string | null;
-          category?: string;
-          usage_count?: number;
-          updated_at?: string;
-        };
-      };
-      moderation_audit_log: {
-        Row: {
-          id: string;
-          moderator_id: string | null;
-          action: string;
-          target_type: string;
-          target_id: string | null;
-          details: Json | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          moderator_id: string | null;
-          action: string;
-          target_type: string;
-          target_id?: string | null;
-          details?: Json | null;
-          created_at?: string;
-        };
-        Update: never;
-      };
-      notifications: {
-        Row: {
-          id: string;
-          user_id: string;
-          type: string;
-          title: string;
-          message: string | null;
-          link: string | null;
-          is_read: boolean;
-          metadata: Json | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          type: string;
-          title: string;
-          message?: string | null;
-          link?: string | null;
-          is_read?: boolean;
-          metadata?: Json | null;
-          created_at?: string;
-        };
-        Update: {
-          is_read?: boolean;
-        };
-      };
-      ip_blocklist: {
-        Row: {
-          id: string;
-          ip_address: string;
-          reason: string | null;
-          blocked_by: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          ip_address: string;
-          reason?: string | null;
-          blocked_by: string | null;
-          created_at?: string;
-        };
-        Update: never;
-      };
-      requests: {
-        Row: {
-          id: string;
-          form_id: string;
-          user_id: string;
-          form_title: string;
-          status: "new" | "accepted" | "completed" | "rejected";
-          submitter_name: string | null;
-          responses: Json;
-          response_labels: Json;
-          notes: string | null;
-          honeypot_value: string | null;
-          submission_ip: string | null;
-          submission_user_agent: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          form_id: string;
-          user_id: string;
-          form_title: string;
-          status?: "new" | "accepted" | "completed" | "rejected";
-          submitter_name?: string | null;
-          responses?: Json;
-          response_labels?: Json;
-          notes?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          form_id?: string;
-          user_id?: string;
-          form_title?: string;
-          status?: "new" | "accepted" | "completed" | "rejected";
-          submitter_name?: string | null;
-          responses?: Json;
-          response_labels?: Json;
-          notes?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      feedback_submissions: {
-        Row: {
-          id: string;
-          feedback_type: "suggestion" | "bug";
-          status: "new" | "reviewing" | "resolved" | "closed";
-          subject: string;
-          message: string;
-          contact: string | null;
-          source_page: string;
-          source_label: string;
-          source_path: string;
-          related_id: string | null;
-          metadata: Json;
-          submitter_user_id: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          feedback_type: "suggestion" | "bug";
-          status?: "new" | "reviewing" | "resolved" | "closed";
-          subject: string;
-          message: string;
-          contact?: string | null;
-          source_page?: string;
-          source_label?: string;
-          source_path?: string;
-          related_id?: string | null;
-          metadata?: Json;
-          submitter_user_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          feedback_type?: "suggestion" | "bug";
-          status?: "new" | "reviewing" | "resolved" | "closed";
-          subject?: string;
-          message?: string;
-          contact?: string | null;
-          source_page?: string;
-          source_label?: string;
-          source_path?: string;
-          related_id?: string | null;
-          metadata?: Json;
-          submitter_user_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      creator_pages: {
-        Row: {
-          id: string;
-          user_id: string;
-          title: string;
-          slug: string;
-          description: string | null;
-          layout: string | null;
-          config: Json | null;
-          is_published: boolean;
-          deleted_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          title: string;
-          slug: string;
-          description?: string | null;
-          layout?: string | null;
-          config?: Json | null;
-          is_published?: boolean;
-          deleted_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          title?: string;
-          slug?: string;
-          description?: string | null;
-          layout?: string | null;
-          config?: Json | null;
-          is_published?: boolean;
-          deleted_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      creator_page_sections: {
-        Row: {
-          id: string;
-          page_id: string;
-          type: string;
-          title: string | null;
-          content: string | null;
-          config: Json | null;
-          position: number;
-          deleted_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          page_id: string;
-          type: string;
-          title?: string | null;
-          content?: string | null;
-          config?: Json | null;
-          position?: number;
-          deleted_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          page_id?: string;
-          type?: string;
-          title?: string | null;
-          content?: string | null;
-          config?: Json | null;
-          position?: number;
-          deleted_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      atlas_worlds: {
-        Row: {
-          id: string;
-          user_id: string;
-          title: string;
-          slug: string;
-          kind: "series" | "universe" | "location" | "timeline";
-          status: "draft" | "active";
-          description: string;
-          lore_summary: string;
-          form_ids: string[];
-          deleted_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          title: string;
-          slug: string;
-          kind: "series" | "universe" | "location" | "timeline";
-          status?: "draft" | "active";
-          description?: string;
-          lore_summary?: string;
-          form_ids?: string[];
-          deleted_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          title?: string;
-          slug?: string;
-          kind?: "series" | "universe" | "location" | "timeline";
-          status?: "draft" | "active";
-          description?: string;
-          lore_summary?: string;
-          form_ids?: string[];
-          deleted_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      profile_featured_bots: {
-        Row: {
-          profile_id: string;
-          bot_id: string;
-          sort_order: number;
-          created_at: string;
-        };
-        Insert: {
-          profile_id: string;
-          bot_id: string;
-          sort_order?: number;
-          created_at?: string;
-        };
-        Update: {
-          profile_id?: string;
-          bot_id?: string;
-          sort_order?: number;
-          created_at?: string;
-        };
-      };
-      atlas_world_bots: {
-        Row: {
-          world_id: string;
-          bot_id: string;
-          sort_order: number;
-          created_at: string;
-        };
-        Insert: {
-          world_id: string;
-          bot_id: string;
-          sort_order?: number;
-          created_at?: string;
-        };
-        Update: {
-          world_id?: string;
-          bot_id?: string;
-          sort_order?: number;
-          created_at?: string;
-        };
-      };
-      atlas_world_featured_entries: {
-        Row: {
-          world_id: string;
-          entry_id: string;
-          sort_order: number;
-          created_at: string;
-        };
-        Insert: {
-          world_id: string;
-          entry_id: string;
-          sort_order?: number;
-          created_at?: string;
-        };
-        Update: {
-          world_id?: string;
-          entry_id?: string;
-          sort_order?: number;
-          created_at?: string;
-        };
-      };
-      atlas_world_featured_lorebooks: {
-        Row: {
-          world_id: string;
-          lorebook_id: string;
-          sort_order: number;
-          created_at: string;
-        };
-        Insert: {
-          world_id: string;
-          lorebook_id: string;
-          sort_order?: number;
-          created_at?: string;
-        };
-        Update: {
-          world_id?: string;
-          lorebook_id?: string;
-          sort_order?: number;
-          created_at?: string;
-        };
-      };
-      atlas_lorebooks: {
-        Row: {
-          id: string;
-          user_id: string;
-          world_id: string | null;
-          title: string;
-          summary: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          world_id?: string | null;
-          title: string;
-          summary?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          world_id?: string | null;
-          title?: string;
-          summary?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
+          created_at?: string | null
+          id?: string
+          last_login?: string | null
+          pin?: string
+          username?: string
+        }
+        Relationships: []
+      }
       atlas_entries: {
         Row: {
-          id: string;
-          user_id: string;
-          world_id: string | null;
-          lorebook_id: string;
-          title: string;
-          kind: "lore" | "character" | "location" | "timeline" | "note";
-          body: string;
-          created_at: string;
-          updated_at: string;
-        };
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          kind: string
+          lorebook_id: string
+          title: string
+          updated_at: string
+          user_id: string
+          world_id: string | null
+        }
         Insert: {
-          id?: string;
-          user_id: string;
-          world_id?: string | null;
-          lorebook_id: string;
-          title: string;
-          kind?: "lore" | "character" | "location" | "timeline" | "note";
-          body?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          kind?: string
+          lorebook_id: string
+          title: string
+          updated_at?: string
+          user_id: string
+          world_id?: string | null
+        }
         Update: {
-          id?: string;
-          user_id?: string;
-          world_id?: string | null;
-          lorebook_id?: string;
-          title?: string;
-          kind?: "lore" | "character" | "location" | "timeline" | "note";
-          body?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-    };
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          kind?: string
+          lorebook_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          world_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atlas_entries_lorebook_id_fkey"
+            columns: ["lorebook_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_lorebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atlas_entries_lorebook_id_fkey"
+            columns: ["lorebook_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_lorebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atlas_entries_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atlas_entries_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atlas_lorebooks: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          summary: string
+          title: string
+          updated_at: string
+          user_id: string
+          world_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          summary?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          world_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          world_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atlas_lorebooks_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atlas_lorebooks_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atlas_world_bots: {
+        Row: {
+          bot_id: string
+          created_at: string
+          sort_order: number
+          world_id: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          sort_order?: number
+          world_id: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          sort_order?: number
+          world_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_bot"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_bot"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atlas_world_featured_entries: {
+        Row: {
+          created_at: string
+          entry_id: string
+          sort_order: number
+          world_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          sort_order?: number
+          world_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          sort_order?: number
+          world_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_entry"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_entry"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atlas_world_featured_lorebooks: {
+        Row: {
+          created_at: string
+          lorebook_id: string
+          sort_order: number
+          world_id: string
+        }
+        Insert: {
+          created_at?: string
+          lorebook_id: string
+          sort_order?: number
+          world_id: string
+        }
+        Update: {
+          created_at?: string
+          lorebook_id?: string
+          sort_order?: number
+          world_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_lorebook"
+            columns: ["lorebook_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_lorebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_lorebook"
+            columns: ["lorebook_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_lorebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      atlas_worlds: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          description: string
+          id: string
+          kind: string
+          lore_summary: string
+          slug: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          kind: string
+          lore_summary?: string
+          slug: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          kind?: string
+          lore_summary?: string
+          slug?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      badge_definitions: {
+        Row: {
+          category: string
+          color: string
+          created_at: string
+          description: string | null
+          emoji: string | null
+          group_key: string | null
+          icon: string
+          image_url: string | null
+          is_active: boolean
+          is_manual_only: boolean
+          is_system: boolean
+          label: string
+          metadata: Json
+          rarity: string
+          slug: string
+          sort_order: number
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          category?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          emoji?: string | null
+          group_key?: string | null
+          icon?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_manual_only?: boolean
+          is_system?: boolean
+          label: string
+          metadata?: Json
+          rarity?: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          category?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          emoji?: string | null
+          group_key?: string | null
+          icon?: string
+          image_url?: string | null
+          is_active?: boolean
+          is_manual_only?: boolean
+          is_system?: boolean
+          label?: string
+          metadata?: Json
+          rarity?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      blocked_ips: {
+        Row: {
+          blocked_at: string
+          form_id: string
+          id: string
+          ip_address: string
+          reason: string
+        }
+        Insert: {
+          blocked_at?: string
+          form_id: string
+          id?: string
+          ip_address: string
+          reason: string
+        }
+        Update: {
+          blocked_at?: string
+          form_id?: string
+          id?: string
+          ip_address?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocked_ips_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "active_request_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocked_ips_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "request_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_activity_log: {
+        Row: {
+          action: string
+          bot_id: string
+          created_at: string
+          details: Json
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          bot_id: string
+          created_at?: string
+          details?: Json
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          bot_id?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_activity_log_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_activity_log_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_change_requests: {
+        Row: {
+          author_id: string
+          bot_id: string
+          created_at: string
+          description: string | null
+          id: string
+          proposed_changes: Json
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          bot_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          proposed_changes?: Json
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          bot_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          proposed_changes?: Json
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_change_requests_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_change_requests_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_collaborators: {
+        Row: {
+          bot_id: string
+          created_at: string
+          id: string
+          invited_by: string
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          id?: string
+          invited_by: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          id?: string
+          invited_by?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_collaborators_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_collaborators_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_comments: {
+        Row: {
+          bot_id: string
+          content: string
+          created_at: string
+          id: string
+          parent_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bot_id: string
+          content: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bot_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_comments_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_comments_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "bot_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bot_forks: {
+        Row: {
+          created_at: string
+          fork_reason: string | null
+          forked_bot_id: string
+          forked_by: string
+          id: string
+          original_bot_id: string
+        }
+        Insert: {
+          created_at?: string
+          fork_reason?: string | null
+          forked_bot_id: string
+          forked_by: string
+          id?: string
+          original_bot_id: string
+        }
+        Update: {
+          created_at?: string
+          fork_reason?: string | null
+          forked_bot_id?: string
+          forked_by?: string
+          id?: string
+          original_bot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_forks_forked_bot_id_fkey"
+            columns: ["forked_bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_forks_forked_bot_id_fkey"
+            columns: ["forked_bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_forks_original_bot_id_fkey"
+            columns: ["original_bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bot_forks_original_bot_id_fkey"
+            columns: ["original_bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bots: {
+        Row: {
+          alternate_greetings: string[]
+          chat_name: string | null
+          created_at: string
+          deleted_at: string | null
+          example_dialogues: string
+          first_message: string
+          hide_sensitive_fields: boolean
+          id: string
+          image_url: string | null
+          name: string
+          personality: string
+          rating: string
+          require_collab_approval: boolean | null
+          scenario: string
+          short_description: string
+          tags: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alternate_greetings?: string[]
+          chat_name?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          example_dialogues?: string
+          first_message: string
+          hide_sensitive_fields?: boolean
+          id?: string
+          image_url?: string | null
+          name: string
+          personality: string
+          rating?: string
+          require_collab_approval?: boolean | null
+          scenario?: string
+          short_description: string
+          tags?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alternate_greetings?: string[]
+          chat_name?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          example_dialogues?: string
+          first_message?: string
+          hide_sensitive_fields?: boolean
+          id?: string
+          image_url?: string | null
+          name?: string
+          personality?: string
+          rating?: string
+          require_collab_approval?: boolean | null
+          scenario?: string
+          short_description?: string
+          tags?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      creator_page_sections: {
+        Row: {
+          config: Json
+          created_at: string
+          deleted_at: string | null
+          id: string
+          kind: string
+          page_id: string
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          kind: string
+          page_id: string
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          kind?: string
+          page_id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_page_sections_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "active_creator_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_page_sections_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "creator_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creator_pages: {
+        Row: {
+          config: Json
+          created_at: string
+          deleted_at: string | null
+          description: string
+          id: string
+          is_published: boolean
+          layout: string
+          slug: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          is_published?: boolean
+          layout?: string
+          slug: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          is_published?: boolean
+          layout?: string
+          slug?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      custom_blocklists: {
+        Row: {
+          created_at: string
+          form_id: string
+          id: string
+          is_regex: boolean
+          pattern: string
+          severity: string | null
+        }
+        Insert: {
+          created_at?: string
+          form_id: string
+          id?: string
+          is_regex?: boolean
+          pattern: string
+          severity?: string | null
+        }
+        Update: {
+          created_at?: string
+          form_id?: string
+          id?: string
+          is_regex?: boolean
+          pattern?: string
+          severity?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_blocklists_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "active_request_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_blocklists_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "request_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_notes: {
+        Row: {
+          author_id: string
+          created_at: string
+          feedback_id: string
+          id: string
+          note: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          feedback_id: string
+          id?: string
+          note: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          feedback_id?: string
+          id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_notes_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "active_feedback_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_notes_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_submissions: {
+        Row: {
+          assigned_to: string | null
+          contact: string | null
+          created_at: string
+          deleted_at: string | null
+          feedback_type: string
+          id: string
+          is_read: boolean
+          message: string
+          metadata: Json
+          priority: string
+          related_id: string | null
+          source_label: string
+          source_page: string
+          source_path: string
+          status: string
+          subject: string
+          submitter_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          contact?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          feedback_type: string
+          id?: string
+          is_read?: boolean
+          message: string
+          metadata?: Json
+          priority?: string
+          related_id?: string | null
+          source_label?: string
+          source_page?: string
+          source_path?: string
+          status?: string
+          subject: string
+          submitter_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          contact?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          feedback_type?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          metadata?: Json
+          priority?: string
+          related_id?: string | null
+          source_label?: string
+          source_page?: string
+          source_path?: string
+          status?: string
+          subject?: string
+          submitter_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      flagged_requests: {
+        Row: {
+          created_at: string
+          flagged_fields: Json
+          form_id: string
+          id: string
+          reason: string | null
+          request_id: string
+          review_action: string | null
+          review_notes: string | null
+          reviewed: boolean
+          reviewed_at: string | null
+          risk_level: string
+        }
+        Insert: {
+          created_at?: string
+          flagged_fields?: Json
+          form_id: string
+          id?: string
+          reason?: string | null
+          request_id: string
+          review_action?: string | null
+          review_notes?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          risk_level: string
+        }
+        Update: {
+          created_at?: string
+          flagged_fields?: Json
+          form_id?: string
+          id?: string
+          reason?: string | null
+          request_id?: string
+          review_action?: string | null
+          review_notes?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          risk_level?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flagged_requests_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "active_request_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flagged_requests_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "request_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flagged_requests_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "active_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flagged_requests_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      form_templates: {
+        Row: {
+          appearance: Json | null
+          category: string
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_builtin: boolean | null
+          name: string
+          owner_id: string | null
+          sections: Json
+          updated_at: string
+          usage_count: number | null
+        }
+        Insert: {
+          appearance?: Json | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_builtin?: boolean | null
+          name: string
+          owner_id?: string | null
+          sections?: Json
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Update: {
+          appearance?: Json | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_builtin?: boolean | null
+          name?: string
+          owner_id?: string | null
+          sections?: Json
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
+      global_blocklists: {
+        Row: {
+          created_at: string
+          id: string
+          is_regex: boolean
+          pattern: string
+          severity: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_regex?: boolean
+          pattern: string
+          severity?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_regex?: boolean
+          pattern?: string
+          severity?: string | null
+        }
+        Relationships: []
+      }
+      hub_log_post_comments: {
+        Row: {
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_log_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "hub_log_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_log_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_log_post_reactions: {
+        Row: {
+          created_at: string
+          post_id: string
+          reaction: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          reaction: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          reaction?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_log_post_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "hub_log_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_log_post_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_log_post_views: {
+        Row: {
+          id: string
+          post_id: string
+          user_id: string | null
+          viewed_at: string
+          viewer_fingerprint: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          user_id?: string | null
+          viewed_at?: string
+          viewer_fingerprint: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          user_id?: string | null
+          viewed_at?: string
+          viewer_fingerprint?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_log_post_views_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "hub_log_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_log_post_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_log_posts: {
+        Row: {
+          body: string | null
+          created_at: string
+          excerpt: string | null
+          id: string
+          is_published: boolean
+          label: string | null
+          published_at: string | null
+          sort_order: number
+          source_name: string | null
+          source_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          is_published?: boolean
+          label?: string | null
+          published_at?: string | null
+          sort_order?: number
+          source_name?: string | null
+          source_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          is_published?: boolean
+          label?: string | null
+          published_at?: string | null
+          sort_order?: number
+          source_name?: string | null
+          source_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hub_resource_entries: {
+        Row: {
+          created_at: string
+          id: string
+          is_platform_pinned: boolean
+          is_published: boolean
+          label: string | null
+          section_id: string
+          sort_order: number
+          summary: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_platform_pinned?: boolean
+          is_published?: boolean
+          label?: string | null
+          section_id: string
+          sort_order?: number
+          summary?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_platform_pinned?: boolean
+          is_published?: boolean
+          label?: string | null
+          section_id?: string
+          sort_order?: number
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_resource_entries_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "hub_resource_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_resource_entry_comments: {
+        Row: {
+          body: string
+          created_at: string
+          deleted_at: string | null
+          entry_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          entry_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          entry_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_resource_entry_comments_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "hub_resource_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_resource_entry_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_resource_entry_reactions: {
+        Row: {
+          created_at: string
+          entry_id: string
+          reaction: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          reaction: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          reaction?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_resource_entry_reactions_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "hub_resource_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_resource_entry_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_resource_entry_views: {
+        Row: {
+          entry_id: string
+          id: string
+          user_id: string | null
+          viewed_at: string
+          viewer_fingerprint: string
+        }
+        Insert: {
+          entry_id: string
+          id?: string
+          user_id?: string | null
+          viewed_at?: string
+          viewer_fingerprint: string
+        }
+        Update: {
+          entry_id?: string
+          id?: string
+          user_id?: string | null
+          viewed_at?: string
+          viewer_fingerprint?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_resource_entry_views_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "hub_resource_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_resource_entry_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_resource_sections: {
+        Row: {
+          accent_color: string
+          created_at: string
+          description: string | null
+          icon_name: string
+          id: string
+          is_published: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          created_at?: string
+          description?: string | null
+          icon_name?: string
+          id?: string
+          is_published?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          created_at?: string
+          description?: string | null
+          icon_name?: string
+          id?: string
+          is_published?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ip_blocklist: {
+        Row: {
+          blocked_by: string | null
+          created_at: string
+          id: string
+          ip_address: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_by?: string | null
+          created_at?: string
+          id?: string
+          ip_address: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_by?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      moderation_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          moderator_id: string | null
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          moderator_id?: string | null
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          moderator_id?: string | null
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          message: string | null
+          metadata: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string | null
+          metadata?: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string | null
+          metadata?: Json | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profile_badge_awards: {
+        Row: {
+          awarded_at: string
+          awarded_by: string | null
+          badge_slug: string
+          created_at: string
+          id: string
+          metadata: Json
+          note: string | null
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          awarded_at?: string
+          awarded_by?: string | null
+          badge_slug: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          note?: string | null
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          awarded_at?: string
+          awarded_by?: string | null
+          badge_slug?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          note?: string | null
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_badge_awards_awarded_by_fkey"
+            columns: ["awarded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_badge_awards_badge_slug_fkey"
+            columns: ["badge_slug"]
+            isOneToOne: false
+            referencedRelation: "badge_definitions"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "profile_badge_awards_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_featured_bots: {
+        Row: {
+          bot_id: string
+          created_at: string
+          profile_id: string
+          sort_order: number
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          profile_id: string
+          sort_order?: number
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          profile_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_bot"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_bot"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_profile"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_section_bots: {
+        Row: {
+          bot_id: string
+          created_at: string
+          profile_id: string
+          sort_order: number
+        }
+        Insert: {
+          bot_id: string
+          created_at?: string
+          profile_id: string
+          sort_order?: number
+        }
+        Update: {
+          bot_id?: string
+          created_at?: string
+          profile_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_section_bots_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_section_bots_bot_id_fkey"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_section_bots_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_section_creator_pages: {
+        Row: {
+          created_at: string
+          creator_page_id: string
+          profile_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          creator_page_id: string
+          profile_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          creator_page_id?: string
+          profile_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_section_creator_pages_creator_page_id_fkey"
+            columns: ["creator_page_id"]
+            isOneToOne: false
+            referencedRelation: "active_creator_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_section_creator_pages_creator_page_id_fkey"
+            columns: ["creator_page_id"]
+            isOneToOne: false
+            referencedRelation: "creator_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_section_creator_pages_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_section_forms: {
+        Row: {
+          created_at: string
+          form_id: string
+          profile_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          form_id: string
+          profile_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          form_id?: string
+          profile_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_section_forms_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "active_request_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_section_forms_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "request_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_section_forms_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_section_worlds: {
+        Row: {
+          created_at: string
+          profile_id: string
+          sort_order: number
+          world_id: string
+        }
+        Insert: {
+          created_at?: string
+          profile_id: string
+          sort_order?: number
+          world_id: string
+        }
+        Update: {
+          created_at?: string
+          profile_id?: string
+          sort_order?: number
+          world_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_section_worlds_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_section_worlds_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_section_worlds_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_sections: {
+        Row: {
+          config: Json
+          created_at: string
+          enabled: boolean
+          profile_id: string
+          section_key: string
+          selection_mode: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          profile_id: string
+          section_key: string
+          selection_mode?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          profile_id?: string
+          section_key?: string
+          selection_mode?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_sections_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          banner_url: string | null
+          bio: string
+          created_at: string
+          custom_css: string | null
+          display_name: string | null
+          id: string
+          is_admin: boolean
+          is_blocked: boolean
+          location: string | null
+          profile_badges: Json | null
+          profile_completeness: number | null
+          pronouns: string | null
+          slug: string | null
+          social_links: Json
+          specialties: string[] | null
+          staff_role: string | null
+          status_message: string | null
+          tagline: string
+          theme: Json
+          updated_at: string
+          username: string | null
+          visibility: string | null
+          website_url: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          banner_url?: string | null
+          bio?: string
+          created_at?: string
+          custom_css?: string | null
+          display_name?: string | null
+          id: string
+          is_admin?: boolean
+          is_blocked?: boolean
+          location?: string | null
+          profile_badges?: Json | null
+          profile_completeness?: number | null
+          pronouns?: string | null
+          slug?: string | null
+          social_links?: Json
+          specialties?: string[] | null
+          staff_role?: string | null
+          status_message?: string | null
+          tagline?: string
+          theme?: Json
+          updated_at?: string
+          username?: string | null
+          visibility?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          banner_url?: string | null
+          bio?: string
+          created_at?: string
+          custom_css?: string | null
+          display_name?: string | null
+          id?: string
+          is_admin?: boolean
+          is_blocked?: boolean
+          location?: string | null
+          profile_badges?: Json | null
+          profile_completeness?: number | null
+          pronouns?: string | null
+          slug?: string | null
+          social_links?: Json
+          specialties?: string[] | null
+          staff_role?: string | null
+          status_message?: string | null
+          tagline?: string
+          theme?: Json
+          updated_at?: string
+          username?: string | null
+          visibility?: string | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      request_forms: {
+        Row: {
+          appearance: Json
+          banner_asset_path: string | null
+          banner_url: string | null
+          created_at: string
+          deactivated_accent_color: string | null
+          deactivated_message: string | null
+          deactivated_redirect_label: string | null
+          deactivated_redirect_url: string | null
+          deleted_at: string | null
+          description: string
+          id: string
+          is_active: boolean
+          sections: Json
+          security_sensitivity: string | null
+          shareable_link: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          appearance?: Json
+          banner_asset_path?: string | null
+          banner_url?: string | null
+          created_at?: string
+          deactivated_accent_color?: string | null
+          deactivated_message?: string | null
+          deactivated_redirect_label?: string | null
+          deactivated_redirect_url?: string | null
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          sections?: Json
+          security_sensitivity?: string | null
+          shareable_link: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          appearance?: Json
+          banner_asset_path?: string | null
+          banner_url?: string | null
+          created_at?: string
+          deactivated_accent_color?: string | null
+          deactivated_message?: string | null
+          deactivated_redirect_label?: string | null
+          deactivated_redirect_url?: string | null
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          sections?: Json
+          security_sensitivity?: string | null
+          shareable_link?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      requests: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          form_id: string
+          form_title: string
+          honeypot_value: string | null
+          id: string
+          ip_address: string | null
+          notes: string | null
+          response_labels: Json
+          responses: Json
+          status: string
+          submission_ip: string | null
+          submission_user_agent: string | null
+          submitter_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          form_id: string
+          form_title: string
+          honeypot_value?: string | null
+          id?: string
+          ip_address?: string | null
+          notes?: string | null
+          response_labels?: Json
+          responses?: Json
+          status?: string
+          submission_ip?: string | null
+          submission_user_agent?: string | null
+          submitter_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          form_id?: string
+          form_title?: string
+          honeypot_value?: string | null
+          id?: string
+          ip_address?: string | null
+          notes?: string | null
+          response_labels?: Json
+          responses?: Json
+          status?: string
+          submission_ip?: string | null
+          submission_user_agent?: string | null
+          submitter_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requests_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "active_request_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requests_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "request_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
     Views: {
-      active_bots: {
-        Row: Database["public"]["Tables"]["bots"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-      active_request_forms: {
-        Row: Database["public"]["Tables"]["request_forms"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-      active_requests: {
-        Row: Database["public"]["Tables"]["requests"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-      active_atlas_worlds: {
-        Row: Database["public"]["Tables"]["atlas_worlds"]["Row"];
-        Insert: never;
-        Update: never;
-      };
       active_atlas_entries: {
-        Row: Database["public"]["Tables"]["atlas_entries"]["Row"];
-        Insert: never;
-        Update: never;
-      };
+        Row: {
+          body: string | null
+          created_at: string | null
+          deleted_at: string | null
+          id: string | null
+          kind: string | null
+          lorebook_id: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+          world_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          kind?: string | null
+          lorebook_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          world_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          kind?: string | null
+          lorebook_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          world_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atlas_entries_lorebook_id_fkey"
+            columns: ["lorebook_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_lorebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atlas_entries_lorebook_id_fkey"
+            columns: ["lorebook_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_lorebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atlas_entries_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atlas_entries_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       active_atlas_lorebooks: {
-        Row: Database["public"]["Tables"]["atlas_lorebooks"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-      active_feedback_submissions: {
-        Row: Database["public"]["Tables"]["feedback_submissions"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-      active_creator_pages: {
-        Row: Database["public"]["Tables"]["creator_pages"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-      active_creator_page_sections: {
-        Row: Database["public"]["Tables"]["creator_page_sections"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-      active_notifications: {
-        Row: Database["public"]["Tables"]["notifications"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-      active_profile_featured_bots: {
-        Row: Database["public"]["Tables"]["profile_featured_bots"]["Row"];
-        Insert: never;
-        Update: never;
-      };
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          id: string | null
+          summary: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+          world_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          world_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          world_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atlas_lorebooks_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atlas_lorebooks_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       active_atlas_world_bots: {
-        Row: Database["public"]["Tables"]["atlas_world_bots"]["Row"];
-        Insert: never;
-        Update: never;
-      };
+        Row: {
+          bot_id: string | null
+          created_at: string | null
+          sort_order: number | null
+          world_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_bot"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_bot"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       active_atlas_world_featured_entries: {
-        Row: Database["public"]["Tables"]["atlas_world_featured_entries"]["Row"];
-        Insert: never;
-        Update: never;
-      };
+        Row: {
+          created_at: string | null
+          entry_id: string | null
+          sort_order: number | null
+          world_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_entry"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_entry"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       active_atlas_world_featured_lorebooks: {
-        Row: Database["public"]["Tables"]["atlas_world_featured_lorebooks"]["Row"];
-        Insert: never;
-        Update: never;
-      };
-    };
+        Row: {
+          created_at: string | null
+          lorebook_id: string | null
+          sort_order: number | null
+          world_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_lorebook"
+            columns: ["lorebook_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_lorebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_lorebook"
+            columns: ["lorebook_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_lorebooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "active_atlas_worlds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_world"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "atlas_worlds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      active_atlas_worlds: {
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string | null
+          kind: string | null
+          lore_summary: string | null
+          slug: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          kind?: string | null
+          lore_summary?: string | null
+          slug?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          kind?: string | null
+          lore_summary?: string | null
+          slug?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      active_bots: {
+        Row: {
+          alternate_greetings: string[] | null
+          chat_name: string | null
+          created_at: string | null
+          deleted_at: string | null
+          example_dialogues: string | null
+          first_message: string | null
+          hide_sensitive_fields: boolean | null
+          id: string | null
+          image_url: string | null
+          name: string | null
+          personality: string | null
+          rating: string | null
+          require_collab_approval: boolean | null
+          scenario: string | null
+          short_description: string | null
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          alternate_greetings?: string[] | null
+          chat_name?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          example_dialogues?: string | null
+          first_message?: string | null
+          hide_sensitive_fields?: boolean | null
+          id?: string | null
+          image_url?: string | null
+          name?: string | null
+          personality?: string | null
+          rating?: string | null
+          require_collab_approval?: boolean | null
+          scenario?: string | null
+          short_description?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          alternate_greetings?: string[] | null
+          chat_name?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          example_dialogues?: string | null
+          first_message?: string | null
+          hide_sensitive_fields?: boolean | null
+          id?: string | null
+          image_url?: string | null
+          name?: string | null
+          personality?: string | null
+          rating?: string | null
+          require_collab_approval?: boolean | null
+          scenario?: string | null
+          short_description?: string | null
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      active_creator_page_sections: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          deleted_at: string | null
+          id: string | null
+          kind: string | null
+          page_id: string | null
+          position: number | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          kind?: string | null
+          page_id?: string | null
+          position?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          kind?: string | null
+          page_id?: string | null
+          position?: number | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_page_sections_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "active_creator_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_page_sections_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "creator_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      active_creator_pages: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string | null
+          is_published: boolean | null
+          layout: string | null
+          slug: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_published?: boolean | null
+          layout?: string | null
+          slug?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_published?: boolean | null
+          layout?: string | null
+          slug?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      active_feedback_submissions: {
+        Row: {
+          assigned_to: string | null
+          contact: string | null
+          created_at: string | null
+          deleted_at: string | null
+          feedback_type: string | null
+          id: string | null
+          is_read: boolean | null
+          message: string | null
+          metadata: Json | null
+          priority: string | null
+          related_id: string | null
+          source_label: string | null
+          source_page: string | null
+          source_path: string | null
+          status: string | null
+          subject: string | null
+          submitter_user_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          contact?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          feedback_type?: string | null
+          id?: string | null
+          is_read?: boolean | null
+          message?: string | null
+          metadata?: Json | null
+          priority?: string | null
+          related_id?: string | null
+          source_label?: string | null
+          source_page?: string | null
+          source_path?: string | null
+          status?: string | null
+          subject?: string | null
+          submitter_user_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          contact?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          feedback_type?: string | null
+          id?: string | null
+          is_read?: boolean | null
+          message?: string | null
+          metadata?: Json | null
+          priority?: string | null
+          related_id?: string | null
+          source_label?: string | null
+          source_page?: string | null
+          source_path?: string | null
+          status?: string | null
+          subject?: string | null
+          submitter_user_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      active_hub_log_post_comments: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          deleted_at: string | null
+          id: string | null
+          post_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          post_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          post_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_log_post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "hub_log_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_log_post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      active_hub_resource_entry_comments: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          deleted_at: string | null
+          entry_id: string | null
+          id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          entry_id?: string | null
+          id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          entry_id?: string | null
+          id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_resource_entry_comments_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "hub_resource_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_resource_entry_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      active_notifications: {
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          id: string | null
+          is_read: boolean | null
+          link: string | null
+          message: string | null
+          metadata: Json | null
+          title: string | null
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          is_read?: boolean | null
+          link?: string | null
+          message?: string | null
+          metadata?: Json | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string | null
+          is_read?: boolean | null
+          link?: string | null
+          message?: string | null
+          metadata?: Json | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      active_profile_featured_bots: {
+        Row: {
+          bot_id: string | null
+          created_at: string | null
+          profile_id: string | null
+          sort_order: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_bot"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "active_bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_bot"
+            columns: ["bot_id"]
+            isOneToOne: false
+            referencedRelation: "bots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_profile"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      active_request_forms: {
+        Row: {
+          appearance: Json | null
+          banner_asset_path: string | null
+          banner_url: string | null
+          created_at: string | null
+          deactivated_accent_color: string | null
+          deactivated_message: string | null
+          deactivated_redirect_label: string | null
+          deactivated_redirect_url: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          sections: Json | null
+          security_sensitivity: string | null
+          shareable_link: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          appearance?: Json | null
+          banner_asset_path?: string | null
+          banner_url?: string | null
+          created_at?: string | null
+          deactivated_accent_color?: string | null
+          deactivated_message?: string | null
+          deactivated_redirect_label?: string | null
+          deactivated_redirect_url?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          sections?: Json | null
+          security_sensitivity?: string | null
+          shareable_link?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          appearance?: Json | null
+          banner_asset_path?: string | null
+          banner_url?: string | null
+          created_at?: string | null
+          deactivated_accent_color?: string | null
+          deactivated_message?: string | null
+          deactivated_redirect_label?: string | null
+          deactivated_redirect_url?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          sections?: Json | null
+          security_sensitivity?: string | null
+          shareable_link?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      active_requests: {
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          form_id: string | null
+          form_title: string | null
+          honeypot_value: string | null
+          id: string | null
+          ip_address: string | null
+          notes: string | null
+          response_labels: Json | null
+          responses: Json | null
+          status: string | null
+          submission_ip: string | null
+          submission_user_agent: string | null
+          submitter_name: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
+          form_id?: string | null
+          form_title?: string | null
+          honeypot_value?: string | null
+          id?: string | null
+          ip_address?: string | null
+          notes?: string | null
+          response_labels?: Json | null
+          responses?: Json | null
+          status?: string | null
+          submission_ip?: string | null
+          submission_user_agent?: string | null
+          submitter_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deleted_at?: string | null
+          form_id?: string | null
+          form_title?: string | null
+          honeypot_value?: string | null
+          id?: string | null
+          ip_address?: string | null
+          notes?: string | null
+          response_labels?: Json | null
+          responses?: Json | null
+          status?: string | null
+          submission_ip?: string | null
+          submission_user_agent?: string | null
+          submitter_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requests_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "active_request_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requests_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "request_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
     Functions: {
-      [_ in never]: never;
-    };
+      add_custom_blocklist: {
+        Args: { p_form_id: string; p_is_regex?: boolean; p_pattern: string }
+        Returns: undefined
+      }
+      award_badge: {
+        Args: {
+          p_badge_id: string
+          p_color?: string
+          p_icon?: string
+          p_label: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      award_profile_badge: {
+        Args: {
+          p_awarded_by?: string
+          p_badge_slug: string
+          p_metadata?: Json
+          p_note?: string
+          p_profile_id: string
+        }
+        Returns: undefined
+      }
+      calculate_profile_completeness: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
+      can_create_request_for_form: {
+        Args: { p_form_id: string }
+        Returns: boolean
+      }
+      delete_user_account: { Args: never; Returns: undefined }
+      delete_user_as_admin: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
+      get_active_badge_definitions: {
+        Args: never
+        Returns: {
+          category: string
+          color: string
+          created_at: string
+          description: string | null
+          emoji: string | null
+          group_key: string | null
+          icon: string
+          image_url: string | null
+          is_active: boolean
+          is_manual_only: boolean
+          is_system: boolean
+          label: string
+          metadata: Json
+          rarity: string
+          slug: string
+          sort_order: number
+          updated_at: string
+          visibility: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "badge_definitions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_badge_definitions_admin: {
+        Args: { p_include_inactive?: boolean }
+        Returns: {
+          category: string
+          color: string
+          created_at: string
+          description: string | null
+          emoji: string | null
+          group_key: string | null
+          icon: string
+          image_url: string | null
+          is_active: boolean
+          is_manual_only: boolean
+          is_system: boolean
+          label: string
+          metadata: Json
+          rarity: string
+          slug: string
+          sort_order: number
+          updated_at: string
+          visibility: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "badge_definitions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_bot_activity: {
+        Args: { p_bot_id: string; p_limit?: number }
+        Returns: {
+          action: string
+          avatar_url: string
+          bot_id: string
+          created_at: string
+          details: Json
+          display_name: string
+          id: string
+          user_id: string
+          username: string
+        }[]
+      }
+      get_bot_change_requests: {
+        Args: { p_bot_id: string }
+        Returns: {
+          author_avatar_url: string
+          author_display_name: string
+          author_id: string
+          author_username: string
+          bot_id: string
+          created_at: string
+          description: string
+          id: string
+          proposed_changes: Json
+          rejection_reason: string
+          reviewed_at: string
+          reviewed_by: string
+          reviewer_display_name: string
+          reviewer_username: string
+          status: string
+          updated_at: string
+        }[]
+      }
+      get_collaborative_bots: {
+        Args: { p_user_id: string }
+        Returns: {
+          alternate_greetings: string[]
+          chat_name: string
+          collaborator_role: string
+          collaborator_status: string
+          created_at: string
+          example_dialogues: string
+          first_message: string
+          id: string
+          image_url: string
+          name: string
+          owner_avatar_url: string
+          owner_display_name: string
+          owner_username: string
+          personality: string
+          rating: string
+          scenario: string
+          short_description: string
+          tags: string[]
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_follower_count: { Args: { p_user_id: string }; Returns: number }
+      get_following_count: { Args: { p_user_id: string }; Returns: number }
+      get_pending_change_requests_count: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
+      get_pending_invites_with_bot_info: {
+        Args: { p_user_id: string }
+        Returns: {
+          bot_id: string
+          bot_image_url: string
+          bot_name: string
+          bot_short_description: string
+          created_at: string
+          id: string
+          invited_by: string
+          inviter_avatar_url: string
+          inviter_display_name: string
+          inviter_username: string
+          role: string
+          status: string
+        }[]
+      }
+      get_profile_badges: { Args: { p_profile_id: string }; Returns: Json }
+      get_public_profile_forms: {
+        Args: { p_user_id: string }
+        Returns: {
+          description: string
+          id: string
+          is_active: boolean
+          responses_count: number
+          sections: Json
+          shareable_link: string
+          title: string
+          updated_at: string
+        }[]
+      }
+      get_public_profile_section_selections: {
+        Args: { p_profile_id: string }
+        Returns: {
+          item_id: string
+          section_key: string
+          sort_order: number
+        }[]
+      }
+      get_public_request_form: {
+        Args: { p_shareable_link: string }
+        Returns: {
+          appearance: Json
+          banner_asset_path: string
+          banner_url: string
+          deactivated_accent_color: string
+          deactivated_message: string
+          deactivated_redirect_label: string
+          deactivated_redirect_url: string
+          description: string
+          id: string
+          is_active: boolean
+          sections: Json
+          title: string
+          user_id: string
+        }[]
+      }
+      get_submission_blocklists: {
+        Args: { p_form_id: string }
+        Returns: {
+          is_regex: boolean
+          pattern: string
+          severity: string
+        }[]
+      }
+      get_submission_security_settings: {
+        Args: { p_form_id: string }
+        Returns: {
+          security_sensitivity: string
+        }[]
+      }
+      get_unread_notification_count: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
+      increment_template_usage: {
+        Args: { p_template_id: string }
+        Returns: undefined
+      }
+      is_admin_user: { Args: { p_user_id: string }; Returns: boolean }
+      is_bot_collaborator: {
+        Args: { p_bot_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_bot_editor: {
+        Args: { p_bot_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_bot_owner: {
+        Args: { p_bot_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_current_user_admin: { Args: never; Returns: boolean }
+      is_following: {
+        Args: { p_follower: string; p_following: string }
+        Returns: boolean
+      }
+      is_ip_blocked_for_form: {
+        Args: { p_form_id: string; p_ip_address: string }
+        Returns: boolean
+      }
+      is_profile_follower: { Args: { p_profile_id: string }; Returns: boolean }
+      mark_all_notifications_read: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      mark_notification_read: {
+        Args: { p_notification_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      purge_old_soft_deleted: {
+        Args: { p_days?: number; p_table: string }
+        Returns: number
+      }
+      record_flagged_submission: {
+        Args: {
+          p_flagged_fields: Json
+          p_form_id: string
+          p_reason?: string
+          p_request_id: string
+          p_risk_level: string
+        }
+        Returns: undefined
+      }
+      record_hub_log_post_view: {
+        Args: {
+          p_post_id: string
+          p_user_id?: string
+          p_viewer_fingerprint: string
+        }
+        Returns: undefined
+      }
+      record_hub_resource_entry_view: {
+        Args: {
+          p_entry_id: string
+          p_user_id?: string
+          p_viewer_fingerprint: string
+        }
+        Returns: undefined
+      }
+      restore_soft_deleted: {
+        Args: { p_id: string; p_table: string }
+        Returns: undefined
+      }
+      revoke_profile_badge: {
+        Args: { p_badge_slug: string; p_profile_id: string }
+        Returns: undefined
+      }
+      storage_public_url_to_object_path: {
+        Args: { p_bucket: string; p_url: string }
+        Returns: string
+      }
+      sync_profile_badges_cache: {
+        Args: { p_profile_id: string }
+        Returns: undefined
+      }
+    }
     Enums: {
-      [_ in never]: never;
-    };
-  };
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
 }
 
-// ============================================================================
-// Helper Types
-// ============================================================================
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-export type Tables<T extends keyof Database["public"]["Tables"]> =
-  Database["public"]["Tables"][T]["Row"];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
-export type InsertTables<T extends keyof Database["public"]["Tables"]> =
-  Database["public"]["Tables"][T]["Insert"];
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
-export type UpdateTables<T extends keyof Database["public"]["Tables"]> =
-  Database["public"]["Tables"][T]["Update"];
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
-// Convenience type aliases
-export type Profile = Tables<"profiles">;
-export type Bot = Tables<"bots">;
-export type RequestForm = Tables<"request_forms">;
-export type Request = Tables<"requests">;
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
-export type InsertBot = InsertTables<"bots">;
-export type UpdateBot = UpdateTables<"bots">;
-export type InsertRequestForm = InsertTables<"request_forms">;
-export type UpdateRequestForm = UpdateTables<"request_forms">;
-export type InsertRequest = InsertTables<"requests">;
-export type UpdateRequest = UpdateTables<"requests">;
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

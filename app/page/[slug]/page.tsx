@@ -34,7 +34,7 @@ export async function generateMetadata({
     .maybeSingle();
 
   if (!creatorPage) {
-    return { title: "Page Not Found — JanitorForge" };
+    return { title: "Page Not Found" };
   }
 
   const { data: profile } = await supabase

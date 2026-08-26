@@ -147,10 +147,12 @@ export function ProfileCompletenessCard({
             Profile completeness
           </div>
           <h3 className="text-base font-semibold leading-tight">
-            Finish the profile, then this card disappears.
+            Finish setting up your profile
           </h3>
+
           <p className="text-sm text-muted-foreground">
-            The profile is {completeness}% complete right now.
+            You're {completeness}% of the way there. Complete the remaining
+            details to make your profile more useful to visitors.
           </p>
         </div>
         <div

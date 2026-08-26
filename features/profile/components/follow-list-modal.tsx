@@ -34,6 +34,7 @@ interface FollowListModalProps {
   userId: string;
   tab: "followers" | "following";
   themeColor?: string;
+  isOwnProfile?: boolean;
 }
 
 export function FollowListModal({
@@ -42,6 +43,7 @@ export function FollowListModal({
   userId,
   tab,
   themeColor = "#7c3aed",
+  isOwnProfile = false,
 }: FollowListModalProps) {
   const readableThemeColor = getReadableProfileAccentColor(themeColor);
   const [users, setUsers] = useState<FollowUser[]>([]);
@@ -147,7 +149,9 @@ export function FollowListModal({
                         {user.display_name || user.username || "Unknown"}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {user.slug ? `@${user.slug}` : user.tagline || ""}
+                        {user.username
+                          ? `@${user.username}`
+                          : user.tagline || ""}
                       </p>
                     </div>
                   </div>
@@ -162,12 +166,19 @@ export function FollowListModal({
               <p className="text-sm font-medium">
                 {activeTab === "followers"
                   ? "No followers yet"
-                  : "Not following anyone yet"}
+                  : isOwnProfile
+                    ? "You're not following anyone yet"
+                    : "Not following anyone yet"}
               </p>
+
               <p className="text-xs text-muted-foreground mt-1">
                 {activeTab === "followers"
-                  ? "When someone follows you, they'll appear here."
-                  : "When you follow someone, they'll appear here."}
+                  ? isOwnProfile
+                    ? "When someone follows you, they'll appear here."
+                    : "No one follows this creator yet."
+                  : isOwnProfile
+                    ? "People you follow will appear here."
+                    : "This creator isn't following anyone yet."}
               </p>
             </div>
           )}

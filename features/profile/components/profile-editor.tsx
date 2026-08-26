@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MarkdownField } from "@/features/markdown/components/markdown-field";
+import { MarkdownRenderer } from "@/features/markdown/components/markdown-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -69,6 +70,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { PROFILE_SOCIAL_PLATFORMS as socialPlatforms } from "@/features/profile/lib/profile-socials";
 import {
   getOwnProfile,
   removeTemporaryProfileAssetAction,
@@ -78,16 +80,28 @@ import {
 import { useStore } from "@/features/app-shell/store/app-store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import {
   getProfileBackgroundStyles,
   getProfileCardClass,
   getProfileFontStyle,
   getProfileGridClass,
+  resolveProfileTheme,
   type ProfileBackground,
   type ProfileCardStyle,
   type ProfileFontFamily,
   type ProfileLayout,
 } from "@/features/profile/lib/profile-theme";
+import {
+  getOrderedProfileSectionIds,
+  getProfileSection,
+  resolveProfileSections,
+  type ProfileSectionBotRow,
+  type ProfileSectionCreatorPageRow,
+  type ProfileSectionFormRow,
+  type ProfileSectionSelectionMode,
+  type ProfileSectionWorldRow,
+} from "@/features/profile/lib/profile-sections";
 import { CustomColorPicker } from "@/components/ui/custom-color-picker";
 
 // ----------------------------------------------------------------------------
@@ -102,19 +116,13 @@ interface ProfileEditorProps {
 
 const MAX_FEATURED_BOTS = 5;
 
-const socialPlatforms = [
-  {
-    key: "janitorai",
-    label: "Janitor AI",
-    placeholder: "https://janitorai.com/...",
-  },
-  { key: "twitter", label: "Twitter / X", placeholder: "https://x.com/..." },
-  { key: "discord", label: "Discord", placeholder: "username#0000" },
-  { key: "github", label: "GitHub", placeholder: "https://github.com/..." },
-  { key: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/..." },
-  { key: "youtube", label: "YouTube", placeholder: "https://youtube.com/..." },
-  { key: "twitch", label: "Twitch", placeholder: "https://twitch.tv/..." },
-];
+function normalizeSocialLinksForSnapshot(
+  links: Record<string, string> | null | undefined,
+) {
+  return Object.fromEntries(
+    socialPlatforms.map(({ key }) => [key, String(links?.[key] ?? "")]),
+  );
+}
 
 const accentPresets = [
   { label: "Violet", value: "#7c3aed" },
@@ -274,6 +282,158 @@ function VisualChoice({
   );
 }
 
+function ProfileContentSelector({
+  title,
+  description,
+  mode,
+  onModeChange,
+  items,
+  selectedIds,
+  onSelectedIdsChange,
+  emptyMessage,
+}: {
+  title: string;
+  description: string;
+  mode: ProfileSectionSelectionMode;
+  onModeChange: (mode: ProfileSectionSelectionMode) => void;
+  items: Array<{
+    id: string;
+    label: string;
+    description?: string;
+    renderLabelAsMarkdown?: boolean;
+  }>;
+  selectedIds: string[];
+  onSelectedIdsChange: (ids: string[]) => void;
+  emptyMessage: string;
+}) {
+  const [search, setSearch] = useState("");
+
+  const normalizedSearch = search.trim().toLowerCase();
+
+  const filteredItems = normalizedSearch
+    ? items.filter((item) => {
+        return [item.label, item.description]
+          .filter(Boolean)
+          .some((value) =>
+            String(value).toLowerCase().includes(normalizedSearch),
+          );
+      })
+    : items;
+
+  return (
+    <EditorSection title={title} description={description}>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <VisualChoice
+          selected={mode === "all"}
+          title="All"
+          description="Show every resource available in this section."
+          onClick={() => onModeChange("all")}
+        />
+
+        <VisualChoice
+          selected={mode === "selected"}
+          title="Selected"
+          description="Only show the resources you choose."
+          onClick={() => onModeChange("selected")}
+        />
+      </div>
+
+      {mode === "selected" && (
+        <div className="space-y-3">
+          {items.length > 0 ? (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={`Search ${title.toLowerCase()}...`}
+                  className="pl-9"
+                />
+              </div>
+
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                {filteredItems.length > 0 ? (
+                  filteredItems.map((item) => {
+                    const checked = selectedIds.includes(item.id);
+
+                    return (
+                      <label
+                        key={item.id}
+                        className={cn(
+                          "flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
+                          checked
+                            ? "border-primary bg-primary/5"
+                            : "hover:border-primary/30",
+                        )}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(nextChecked) => {
+                            if (nextChecked) {
+                              onSelectedIdsChange(
+                                Array.from(new Set([...selectedIds, item.id])),
+                              );
+                              return;
+                            }
+
+                            onSelectedIdsChange(
+                              selectedIds.filter((id) => id !== item.id),
+                            );
+                          }}
+                          className="mt-0.5 shrink-0"
+                        />
+
+                        <div className="min-w-0 flex-1">
+                          {item.renderLabelAsMarkdown ? (
+                            <div className="min-w-0 overflow-hidden text-sm font-medium">
+                              <MarkdownRenderer
+                                content={item.label}
+                                className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                              />
+                            </div>
+                          ) : (
+                            <p className="truncate text-sm font-medium">
+                              {item.label}
+                            </p>
+                          )}
+
+                          {item.description && (
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">
+                    No results found.
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>{selectedIds.length} selected</span>
+
+                <span>
+                  {filteredItems.length} of {items.length}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">
+              {emptyMessage}
+            </div>
+          )}
+        </div>
+      )}
+    </EditorSection>
+  );
+}
+
 export function ProfileEditor({
   open,
   onOpenChange,
@@ -282,7 +442,7 @@ export function ProfileEditor({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const initialSnapshotRef = useRef("");
-
+  const initialBioRef = useRef("");
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
 
   // General
@@ -290,6 +450,7 @@ export function ProfileEditor({
   const [pronouns, setPronouns] = useState("");
   const [tagline, setTagline] = useState("");
   const [bio, setBio] = useState("");
+  const [bioTouched, setBioTouched] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
   const [location, setLocation] = useState("");
@@ -338,7 +499,45 @@ export function ProfileEditor({
   // Featured bots
   const [featuredBotIds, setFeaturedBotIds] = useState<string[]>([]);
   const [featuredSearch, setFeaturedSearch] = useState("");
-  const { bots } = useStore();
+  const { bots, forms } = useStore();
+
+  // Profile content resources
+  const [profileOwnerId, setProfileOwnerId] = useState("");
+
+  const [creatorPages, setCreatorPages] = useState<
+    Array<{
+      id: string;
+      title: string;
+      is_published: boolean;
+    }>
+  >([]);
+
+  const [worlds, setWorlds] = useState<
+    Array<{
+      id: string;
+      title: string;
+      kind: string;
+    }>
+  >([]);
+
+  // Profile content selection
+  const [botsSelectionMode, setBotsSelectionMode] =
+    useState<ProfileSectionSelectionMode>("all");
+  const [selectedBotIds, setSelectedBotIds] = useState<string[]>([]);
+
+  const [creatorPagesSelectionMode, setCreatorPagesSelectionMode] =
+    useState<ProfileSectionSelectionMode>("all");
+  const [selectedCreatorPageIds, setSelectedCreatorPageIds] = useState<
+    string[]
+  >([]);
+
+  const [worldsSelectionMode, setWorldsSelectionMode] =
+    useState<ProfileSectionSelectionMode>("all");
+  const [selectedWorldIds, setSelectedWorldIds] = useState<string[]>([]);
+
+  const [formsSelectionMode, setFormsSelectionMode] =
+    useState<ProfileSectionSelectionMode>("all");
+  const [selectedFormIds, setSelectedFormIds] = useState<string[]>([]);
 
   const buildProfileSnapshot = useCallback(
     (
@@ -346,7 +545,6 @@ export function ProfileEditor({
         displayName: string;
         pronouns: string;
         tagline: string;
-        bio: string;
         avatarUrl: string;
         bannerUrl: string;
         location: string;
@@ -356,6 +554,14 @@ export function ProfileEditor({
         socialLinks: Record<string, string>;
         visibility: string;
         featuredBotIds: string[];
+        botsSelectionMode: ProfileSectionSelectionMode;
+        selectedBotIds: string[];
+        creatorPagesSelectionMode: ProfileSectionSelectionMode;
+        selectedCreatorPageIds: string[];
+        worldsSelectionMode: ProfileSectionSelectionMode;
+        selectedWorldIds: string[];
+        formsSelectionMode: ProfileSectionSelectionMode;
+        selectedFormIds: string[];
         primaryColor: string;
         accentColor: string;
         avatarBorderColor: string;
@@ -377,16 +583,28 @@ export function ProfileEditor({
         displayName: overrides?.displayName ?? displayName,
         pronouns: overrides?.pronouns ?? pronouns,
         tagline: overrides?.tagline ?? tagline,
-        bio: overrides?.bio ?? bio,
         avatarUrl: overrides?.avatarUrl ?? avatarUrl,
         bannerUrl: overrides?.bannerUrl ?? bannerUrl,
         location: overrides?.location ?? location,
         websiteUrl: overrides?.websiteUrl ?? websiteUrl,
         statusMessage: overrides?.statusMessage ?? statusMessage,
         specialties: overrides?.specialties ?? specialties,
-        socialLinks: overrides?.socialLinks ?? socialLinks,
+        socialLinks: normalizeSocialLinksForSnapshot(
+          overrides?.socialLinks ?? socialLinks,
+        ),
         visibility: overrides?.visibility ?? visibility,
         featuredBotIds: overrides?.featuredBotIds ?? featuredBotIds,
+        botsSelectionMode: overrides?.botsSelectionMode ?? botsSelectionMode,
+        selectedBotIds: overrides?.selectedBotIds ?? selectedBotIds,
+        creatorPagesSelectionMode:
+          overrides?.creatorPagesSelectionMode ?? creatorPagesSelectionMode,
+        selectedCreatorPageIds:
+          overrides?.selectedCreatorPageIds ?? selectedCreatorPageIds,
+        worldsSelectionMode:
+          overrides?.worldsSelectionMode ?? worldsSelectionMode,
+        selectedWorldIds: overrides?.selectedWorldIds ?? selectedWorldIds,
+        formsSelectionMode: overrides?.formsSelectionMode ?? formsSelectionMode,
+        selectedFormIds: overrides?.selectedFormIds ?? selectedFormIds,
         primaryColor: overrides?.primaryColor ?? primaryColor,
         accentColor: overrides?.accentColor ?? accentColor,
         avatarBorderColor: overrides?.avatarBorderColor ?? avatarBorderColor,
@@ -409,7 +627,6 @@ export function ProfileEditor({
       displayName,
       pronouns,
       tagline,
-      bio,
       avatarUrl,
       bannerUrl,
       location,
@@ -419,6 +636,14 @@ export function ProfileEditor({
       socialLinks,
       visibility,
       featuredBotIds,
+      botsSelectionMode,
+      selectedBotIds,
+      creatorPagesSelectionMode,
+      selectedCreatorPageIds,
+      worldsSelectionMode,
+      selectedWorldIds,
+      formsSelectionMode,
+      selectedFormIds,
       primaryColor,
       accentColor,
       avatarBorderColor,
@@ -577,6 +802,50 @@ export function ProfileEditor({
 
       if (result.success && result.profile) {
         const p = result.profile;
+        setProfileOwnerId(p.id);
+
+        const supabase = createClient();
+
+        const [
+          { data: creatorPageRows, error: creatorPagesError },
+          { data: worldRows, error: worldsError },
+        ] = await Promise.all([
+          supabase
+            .from("active_creator_pages")
+            .select("id, title, is_published")
+            .eq("user_id", p.id)
+            .order("updated_at", { ascending: false }),
+
+          supabase
+            .from("active_atlas_worlds")
+            .select("id, title, kind")
+            .eq("user_id", p.id)
+            .order("updated_at", { ascending: false }),
+        ]);
+
+        if (creatorPagesError) {
+          throw creatorPagesError;
+        }
+
+        if (worldsError) {
+          throw worldsError;
+        }
+
+        setCreatorPages(
+          (creatorPageRows || []).map((page) => ({
+            id: page.id,
+            title: page.title || "Untitled",
+            is_published: page.is_published === true,
+          })),
+        );
+
+        setWorlds(
+          (worldRows || []).map((world) => ({
+            id: world.id,
+            title: world.title || "Untitled",
+            kind: world.kind || "world",
+          })),
+        );
         const loadedFeaturedBotIds = (p.active_profile_featured_bots || [])
           .map((relation: any) => relation?.bot?.id)
           .filter(Boolean)
@@ -586,6 +855,8 @@ export function ProfileEditor({
         setPronouns(p.pronouns || "");
         setTagline(p.tagline || "");
         setBio(p.bio || "");
+        initialBioRef.current = p.bio || "";
+        setBioTouched(false);
         setAvatarUrl(p.avatar_url || "");
         setBannerUrl(p.banner_url || "");
         setLocation(p.location || "");
@@ -599,103 +870,135 @@ export function ProfileEditor({
 
         const theme = (p.theme as Record<string, unknown>) || {};
 
-        setPrimaryColor((theme.primaryColor as string) || "#7c3aed");
+        const resolvedTheme = resolveProfileTheme(theme);
 
-        setAccentColor((theme.accentColor as string) || "#a78bfa");
-
-        setAvatarBorderColor(
-          (theme.avatarBorderColor as string) ||
-            (theme.primaryColor as string) ||
-            "#7c3aed",
+        const resolvedSections = resolveProfileSections(
+          p.profile_sections,
+          theme,
         );
 
-        setLayout((theme.layout as string) || "grid");
-
-        setCardStyle((theme.cardStyle as string) || "default");
-
-        setFontFamily((theme.fontFamily as string) || "default");
-
-        setProfileBackground((theme.profileBackground as string) || "default");
-
-        setShowStats(theme.showStats === true || theme.showStats === "true");
-
-        setShowBadges(theme.showBadges === true || theme.showBadges === "true");
-
-        setShowFeatured(
-          theme.showFeatured === true || theme.showFeatured === "true",
+        const featuredBotsSection = getProfileSection(
+          resolvedSections,
+          "featured_bots",
         );
 
-        setShowBots(theme.showBots !== false && theme.showBots !== "false");
+        const botsSection = getProfileSection(resolvedSections, "bots");
 
-        setShowCreatorPages(
-          theme.showCreatorPages !== false &&
-            theme.showCreatorPages !== "false",
+        const creatorPagesSection = getProfileSection(
+          resolvedSections,
+          "creator_pages",
         );
 
-        setShowWorlds(
-          theme.showWorlds !== false && theme.showWorlds !== "false",
+        const worldsSection = getProfileSection(resolvedSections, "worlds");
+
+        const formsSection = getProfileSection(resolvedSections, "forms");
+
+        const loadedSelectedBotIds = getOrderedProfileSectionIds(
+          (p.profile_section_bots || []) as ProfileSectionBotRow[],
+          (row) => row.bot_id,
+          (row) => row.sort_order,
         );
 
-        setShowForms(theme.showForms !== false && theme.showForms !== "false");
-
-        setHideCompletenessNudge(
-          theme.hideCompletenessNudge === true ||
-            theme.hideCompletenessNudge === "true",
+        const loadedSelectedCreatorPageIds = getOrderedProfileSectionIds(
+          (p.profile_section_creator_pages ||
+            []) as ProfileSectionCreatorPageRow[],
+          (row) => row.creator_page_id,
+          (row) => row.sort_order,
         );
+
+        const loadedSelectedWorldIds = getOrderedProfileSectionIds(
+          (p.profile_section_worlds || []) as ProfileSectionWorldRow[],
+          (row) => row.world_id,
+          (row) => row.sort_order,
+        );
+
+        const loadedSelectedFormIds = getOrderedProfileSectionIds(
+          (p.profile_section_forms || []) as ProfileSectionFormRow[],
+          (row) => row.form_id,
+          (row) => row.sort_order,
+        );
+
+        setPrimaryColor(resolvedTheme.primaryColor);
+        setAccentColor(resolvedTheme.accentColor);
+        setAvatarBorderColor(resolvedTheme.avatarBorderColor);
+        setLayout(resolvedTheme.layout);
+        setCardStyle(resolvedTheme.cardStyle);
+        setFontFamily(resolvedTheme.fontFamily);
+        setProfileBackground(resolvedTheme.profileBackground);
+        setShowStats(resolvedTheme.showStats);
+        setShowBadges(resolvedTheme.showBadges);
+
+        setShowFeatured(featuredBotsSection.enabled);
+
+        setShowBots(botsSection.enabled);
+
+        setShowCreatorPages(creatorPagesSection.enabled);
+
+        setShowWorlds(worldsSection.enabled);
+
+        setShowForms(formsSection.enabled);
+
+        setBotsSelectionMode(botsSection.selectionMode);
+        setSelectedBotIds(loadedSelectedBotIds);
+
+        setCreatorPagesSelectionMode(creatorPagesSection.selectionMode);
+        setSelectedCreatorPageIds(loadedSelectedCreatorPageIds);
+
+        setWorldsSelectionMode(worldsSection.selectionMode);
+        setSelectedWorldIds(loadedSelectedWorldIds);
+
+        setFormsSelectionMode(formsSection.selectionMode);
+        setSelectedFormIds(loadedSelectedFormIds);
+
+        setHideCompletenessNudge(resolvedTheme.hideCompletenessNudge);
 
         initialSnapshotRef.current = JSON.stringify({
           displayName: p.display_name || "",
           pronouns: p.pronouns || "",
           tagline: p.tagline || "",
-          bio: p.bio || "",
           avatarUrl: p.avatar_url || "",
           bannerUrl: p.banner_url || "",
           location: p.location || "",
           websiteUrl: p.website_url || "",
           statusMessage: p.status_message || "",
           specialties: p.specialties || [],
-          socialLinks: p.social_links || {},
+          socialLinks: normalizeSocialLinksForSnapshot(p.social_links || {}),
           visibility: p.visibility || "public",
           featuredBotIds: loadedFeaturedBotIds,
 
-          primaryColor: (theme.primaryColor as string) || "#7c3aed",
+          botsSelectionMode: botsSection.selectionMode,
+          selectedBotIds: loadedSelectedBotIds,
 
-          accentColor: (theme.accentColor as string) || "#a78bfa",
+          creatorPagesSelectionMode: creatorPagesSection.selectionMode,
+          selectedCreatorPageIds: loadedSelectedCreatorPageIds,
 
-          avatarBorderColor:
-            (theme.avatarBorderColor as string) ||
-            (theme.primaryColor as string) ||
-            "#7c3aed",
+          worldsSelectionMode: worldsSection.selectionMode,
+          selectedWorldIds: loadedSelectedWorldIds,
 
-          layout: (theme.layout as string) || "grid",
+          formsSelectionMode: formsSection.selectionMode,
+          selectedFormIds: loadedSelectedFormIds,
 
-          cardStyle: (theme.cardStyle as string) || "default",
+          primaryColor: resolvedTheme.primaryColor,
+          accentColor: resolvedTheme.accentColor,
+          avatarBorderColor: resolvedTheme.avatarBorderColor,
+          layout: resolvedTheme.layout,
+          cardStyle: resolvedTheme.cardStyle,
+          fontFamily: resolvedTheme.fontFamily,
+          profileBackground: resolvedTheme.profileBackground,
+          showStats: resolvedTheme.showStats,
+          showBadges: resolvedTheme.showBadges,
 
-          fontFamily: (theme.fontFamily as string) || "default",
+          showFeatured: featuredBotsSection.enabled,
 
-          profileBackground: (theme.profileBackground as string) || "default",
+          showBots: botsSection.enabled,
 
-          showStats: theme.showStats === true || theme.showStats === "true",
+          showCreatorPages: creatorPagesSection.enabled,
 
-          showBadges: theme.showBadges === true || theme.showBadges === "true",
+          showWorlds: worldsSection.enabled,
 
-          showFeatured:
-            theme.showFeatured === true || theme.showFeatured === "true",
+          showForms: formsSection.enabled,
 
-          showBots: theme.showBots !== false && theme.showBots !== "false",
-
-          showCreatorPages:
-            theme.showCreatorPages !== false &&
-            theme.showCreatorPages !== "false",
-
-          showWorlds:
-            theme.showWorlds !== false && theme.showWorlds !== "false",
-
-          showForms: theme.showForms !== false && theme.showForms !== "false",
-
-          hideCompletenessNudge:
-            theme.hideCompletenessNudge === true ||
-            theme.hideCompletenessNudge === "true",
+          hideCompletenessNudge: resolvedTheme.hideCompletenessNudge,
         });
       }
     } catch (err) {
@@ -712,6 +1015,10 @@ export function ProfileEditor({
   const handleSave = async () => {
     setSaving(true);
     try {
+      const savedFeaturedBotIds = validFeaturedBotIds.slice(
+        0,
+        MAX_FEATURED_BOTS,
+      );
       const result = await updateProfile({
         display_name: displayName,
         pronouns,
@@ -725,7 +1032,55 @@ export function ProfileEditor({
         specialties,
         social_links: socialLinks,
         visibility,
-        featuredBotIds: validFeaturedBotIds.slice(0, MAX_FEATURED_BOTS),
+        featuredBotIds: savedFeaturedBotIds,
+        profileSections: {
+          featured_bots: showFeatured,
+          bots: showBots,
+          creator_pages: showCreatorPages,
+          worlds: showWorlds,
+          forms: showForms,
+        },
+        profileSectionSelections: {
+          bots:
+            botsSelectionMode === "selected"
+              ? {
+                  selectionMode: "selected",
+                  selectedIds: selectedBotIds,
+                }
+              : {
+                  selectionMode: "all",
+                },
+
+          creator_pages:
+            creatorPagesSelectionMode === "selected"
+              ? {
+                  selectionMode: "selected",
+                  selectedIds: selectedCreatorPageIds,
+                }
+              : {
+                  selectionMode: "all",
+                },
+
+          worlds:
+            worldsSelectionMode === "selected"
+              ? {
+                  selectionMode: "selected",
+                  selectedIds: selectedWorldIds,
+                }
+              : {
+                  selectionMode: "all",
+                },
+
+          forms:
+            formsSelectionMode === "selected"
+              ? {
+                  selectionMode: "selected",
+                  selectedIds: selectedFormIds,
+                }
+              : {
+                  selectionMode: "all",
+                },
+        },
         theme: {
           primaryColor,
           accentColor,
@@ -736,11 +1091,6 @@ export function ProfileEditor({
           profileBackground,
           showStats,
           showBadges,
-          showFeatured,
-          showBots,
-          showCreatorPages,
-          showWorlds,
-          showForms,
           hideCompletenessNudge,
         },
       });
@@ -750,8 +1100,13 @@ export function ProfileEditor({
         setTemporaryBannerPath(null);
         setPendingProfileAsset(null);
 
+        setFeaturedBotIds(savedFeaturedBotIds);
+
+        initialBioRef.current = bio;
+        setBioTouched(false);
+
         initialSnapshotRef.current = buildProfileSnapshot({
-          featuredBotIds: validFeaturedBotIds,
+          featuredBotIds: savedFeaturedBotIds,
         });
 
         toast.success("Profile saved!");
@@ -784,14 +1139,25 @@ export function ProfileEditor({
   const filledSocialCount = Object.values(socialLinks).filter(
     (v) => v && v.trim(),
   ).length;
+  const ownBots = profileOwnerId
+    ? bots.filter((bot) => bot.ownerId === profileOwnerId)
+    : [];
+
+  const ownForms = profileOwnerId
+    ? forms.filter((form) => form.ownerId === profileOwnerId)
+    : [];
+
   const validFeaturedBotIds =
-    bots.length > 0
-      ? featuredBotIds.filter((id) => bots.some((bot) => bot.id === id))
+    ownBots.length > 0
+      ? featuredBotIds.filter((id) => ownBots.some((bot) => bot.id === id))
       : featuredBotIds.slice(0, MAX_FEATURED_BOTS);
+
   const featuredCount = validFeaturedBotIds.length;
-  const featuredBotsSorted = [...bots].sort((a, b) =>
+
+  const featuredBotsSorted = [...ownBots].sort((a, b) =>
     a.name.localeCompare(b.name),
   );
+
   const filteredFeaturedBots = featuredBotsSorted.filter((bot) => {
     const query = featuredSearch.trim().toLowerCase();
 
@@ -804,8 +1170,9 @@ export function ProfileEditor({
         .includes(query)
     );
   });
+
   const selectedFeaturedBots = validFeaturedBotIds
-    .map((id) => bots.find((bot) => bot.id === id))
+    .map((id) => ownBots.find((bot) => bot.id === id))
     .filter(Boolean);
   const moveFeaturedBot = (index: number, direction: -1 | 1) => {
     setFeaturedBotIds((prev) => {
@@ -834,13 +1201,13 @@ export function ProfileEditor({
   const previewGrid = getProfileGridClass(layout as ProfileLayout);
   const previewCard = getProfileCardClass(cardStyle as ProfileCardStyle);
 
-  const currentSnapshot = buildProfileSnapshot({
-    featuredBotIds: validFeaturedBotIds,
-  });
+  const currentSnapshot = buildProfileSnapshot();
+
+  const hasUnsavedBioChanges = bioTouched && bio !== initialBioRef.current;
 
   const hasUnsavedChanges =
     !!initialSnapshotRef.current &&
-    currentSnapshot !== initialSnapshotRef.current;
+    (currentSnapshot !== initialSnapshotRef.current || hasUnsavedBioChanges);
 
   const requestCloseProfileEditor = () => {
     if (hasUnsavedChanges || temporaryAvatarPath || temporaryBannerPath) {
@@ -867,8 +1234,8 @@ export function ProfileEditor({
         <DialogHeader className="shrink-0">
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
-            Customize your public profile. Changes are saved when you click
-            Save.
+            Customize how your profile looks and what it shows. Changes are
+            saved when you click Save.
           </DialogDescription>
         </DialogHeader>
 
@@ -882,7 +1249,7 @@ export function ProfileEditor({
             className="flex-1 overflow-hidden flex flex-col min-h-0"
           >
             {/* Responsive tab bar — horizontal scroll on mobile */}
-            <TabsList className="shrink-0 w-full overflow-x-auto flex sm:grid sm:grid-cols-5 h-auto gap-0.5 sm:gap-1 scrollbar-none">
+            <TabsList className="shrink-0 w-full overflow-x-auto flex sm:grid sm:grid-cols-6 h-auto gap-0.5 sm:gap-1 scrollbar-none">
               <TabsTrigger
                 value="general"
                 className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
@@ -908,6 +1275,13 @@ export function ProfileEditor({
               >
                 <Palette className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
                 Customize
+              </TabsTrigger>
+              <TabsTrigger
+                value="content"
+                className="text-xs px-2 sm:px-1 py-1.5 whitespace-nowrap flex-shrink-0 sm:flex-shrink"
+              >
+                <LayoutGrid className="h-3.5 w-3.5 mr-1 hidden sm:inline" />
+                Content
               </TabsTrigger>
               <TabsTrigger
                 value="featured"
@@ -1184,14 +1558,23 @@ export function ProfileEditor({
                 {/* Bio */}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Bio</Label>
-                  <MarkdownField
-                    value={bio}
-                    onChange={(value) => setBio(value)}
-                    placeholder="Tell the community about yourself..."
-                    minEditorHeightRem={8}
-                    maxEditorHeightRem={16}
-                    className="min-h-[10rem] md:min-h-[11rem]"
-                  />
+                  <div
+                    onFocusCapture={() => {
+                      if (!bioTouched) {
+                        initialBioRef.current = bio;
+                        setBioTouched(true);
+                      }
+                    }}
+                  >
+                    <MarkdownField
+                      value={bio}
+                      onChange={(value) => setBio(value)}
+                      placeholder="Tell the community about yourself..."
+                      minEditorHeightRem={8}
+                      maxEditorHeightRem={16}
+                      className="min-h-[10rem] md:min-h-[11rem]"
+                    />
+                  </div>
                   <p className="text-[10px] text-muted-foreground text-right">
                     {bio.length}/2000
                   </p>
@@ -1595,18 +1978,21 @@ export function ProfileEditor({
 
               <div className="border-t" />
 
-              {/* Section Toggles */}
+              {/* Public profile visibility */}
               <div className="space-y-3">
                 <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Content Visibility
+                  Public Profile Visibility
                 </Label>
+
                 <p className="text-xs text-muted-foreground">
-                  Choose which sections visitors can see on your profile.
+                  Choose which sections and public information visitors can see
+                  on your profile.
                 </p>
+
                 <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
                   {[
                     {
-                      label: "Show Statistics",
+                      label: "Show Follower Counts",
                       value: showStats,
                       onChange: setShowStats,
                     },
@@ -1640,20 +2026,15 @@ export function ProfileEditor({
                       value: showForms,
                       onChange: setShowForms,
                     },
-                    {
-                      label: "Show Profile Completion",
-                      value: !hideCompletenessNudge,
-                      onChange: (checked: boolean) =>
-                        setHideCompletenessNudge(!checked),
-                    },
                   ].map((toggle) => (
                     <div
                       key={toggle.label}
-                      className="flex items-center justify-between rounded-lg border p-2.5"
+                      className="flex items-center justify-between gap-3 rounded-lg border p-2.5"
                     >
                       <Label className="text-xs cursor-pointer">
                         {toggle.label}
                       </Label>
+
                       <Switch
                         checked={toggle.value}
                         onCheckedChange={toggle.onChange}
@@ -1662,6 +2043,122 @@ export function ProfileEditor({
                   ))}
                 </div>
               </div>
+
+              <div className="border-t" />
+
+              {/* Owner-only preferences */}
+              <div className="space-y-3">
+                <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Your Profile View
+                </Label>
+
+                <p className="text-xs text-muted-foreground">
+                  These options only affect what you see while managing your own
+                  profile.
+                </p>
+
+                <div className="flex items-center justify-between gap-3 rounded-lg border p-2.5">
+                  <div className="min-w-0">
+                    <Label className="text-xs cursor-pointer">
+                      Show Completion Reminder
+                    </Label>
+
+                    <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                      Show your profile completion card and percentage until the
+                      profile reaches 100%.
+                    </p>
+                  </div>
+
+                  <Switch
+                    checked={!hideCompletenessNudge}
+                    onCheckedChange={(checked) =>
+                      setHideCompletenessNudge(!checked)
+                    }
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ===== CONTENT TAB ===== */}
+            <TabsContent
+              value="content"
+              className="space-y-5 mt-4 overflow-y-auto pr-1 flex-1 min-h-0"
+            >
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <p className="text-sm font-medium">Profile Content</p>
+
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Choose whether each profile section shows all of your
+                  resources or only specific ones.
+                </p>
+              </div>
+
+              <ProfileContentSelector
+                title="Bots"
+                description="Choose which of your bots can appear in the Bots section."
+                mode={botsSelectionMode}
+                onModeChange={setBotsSelectionMode}
+                items={ownBots.map((bot) => ({
+                  id: bot.id,
+                  label: bot.name,
+                  description: bot.shortDescription || "No description",
+                }))}
+                selectedIds={selectedBotIds}
+                onSelectedIdsChange={setSelectedBotIds}
+                emptyMessage="You don't have any bots to select yet."
+              />
+
+              <div className="border-t" />
+
+              <ProfileContentSelector
+                title="Creator Pages"
+                description="Choose which Creator Pages can appear on your profile. Draft pages are visible to you but won't be shown to other visitors."
+                mode={creatorPagesSelectionMode}
+                onModeChange={setCreatorPagesSelectionMode}
+                items={creatorPages.map((page) => ({
+                  id: page.id,
+                  label: page.title,
+                  description: page.is_published ? "Published" : "Draft",
+                }))}
+                selectedIds={selectedCreatorPageIds}
+                onSelectedIdsChange={setSelectedCreatorPageIds}
+                emptyMessage="You don't have any Creator Pages to select yet."
+              />
+
+              <div className="border-t" />
+
+              <ProfileContentSelector
+                title="Worlds"
+                description="Choose which Atlas Worlds can appear on your profile."
+                mode={worldsSelectionMode}
+                onModeChange={setWorldsSelectionMode}
+                items={worlds.map((world) => ({
+                  id: world.id,
+                  label: world.title,
+                  description: world.kind,
+                }))}
+                selectedIds={selectedWorldIds}
+                onSelectedIdsChange={setSelectedWorldIds}
+                emptyMessage="You don't have any Worlds to select yet."
+              />
+
+              <div className="border-t" />
+
+              <ProfileContentSelector
+                title="Forms"
+                description="Choose which forms can appear on your profile."
+                mode={formsSelectionMode}
+                onModeChange={setFormsSelectionMode}
+                items={ownForms.map((form) => ({
+                  id: form.id,
+                  label: form.title,
+                  description: form.isActive ? "Active" : "Inactive",
+                  renderLabelAsMarkdown: true,
+                }))}
+                selectedIds={selectedFormIds}
+                onSelectedIdsChange={setSelectedFormIds}
+                emptyMessage="You don't have any forms to select yet."
+              />
             </TabsContent>
 
             {/* ===== FEATURED TAB ===== */}
@@ -1788,7 +2285,7 @@ export function ProfileEditor({
                     className="pl-9"
                   />
                 </div>
-                {bots.length > 0 ? (
+                {ownBots.length > 0 ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     {filteredFeaturedBots.map((bot) => {
                       const isSelected = validFeaturedBotIds.includes(bot.id);
@@ -1882,7 +2379,7 @@ export function ProfileEditor({
                   <VisualChoice
                     selected={visibility === "followers"}
                     title="Followers Only"
-                    description="Followers can see the full profile. Other users receive limited access."
+                    description="Only people who follow you can view your profile."
                     icon={<UsersRound className="h-4 w-4 text-amber-500" />}
                     onClick={() => setVisibility("followers")}
                   />

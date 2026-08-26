@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot as BotIcon, Star } from "lucide-react";
+import { Bot as BotIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {

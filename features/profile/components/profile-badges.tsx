@@ -6,7 +6,7 @@
 "use client";
 
 import { useState } from "react";
-import { Award, Badge } from "lucide-react";
+import { Award } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Empty,
@@ -95,28 +95,16 @@ function BadgeDetailsPanel({
         </div>
       </div>
 
+      {badge.description && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {badge.description}
+        </p>
+      )}
+
       {badge.note && (
         <p className="text-xs leading-relaxed text-muted-foreground">
           {badge.note}
         </p>
-      )}
-
-      {badge.metadata && Object.keys(badge.metadata).length > 0 && (
-        <div className="rounded-lg border border-dashed px-3 py-2 text-[11px] text-muted-foreground">
-          {Object.entries(badge.metadata)
-            .slice(0, 2)
-            .map(([key, value]) => (
-              <div
-                key={key}
-                className="flex items-center justify-between gap-3"
-              >
-                <span className="font-medium uppercase tracking-wide">
-                  {key}
-                </span>
-                <span className="truncate text-right">{String(value)}</span>
-              </div>
-            ))}
-        </div>
       )}
     </div>
   );
@@ -220,7 +208,7 @@ export function ProfileBadgesSection({
     <div className={className}>
       <div className="flex items-center gap-3 mb-4">
         <Award className="h-5 w-5" style={{ color: readableThemeColor }} />
-        <h2 className="text-lg font-semibold">Badges</h2>
+        <h2 className={cn("text-lg font-semibold", titleClassName)}>Badges</h2>
       </div>
 
       {badges.length > 0 ? (

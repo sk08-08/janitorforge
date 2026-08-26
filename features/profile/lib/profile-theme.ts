@@ -15,11 +15,6 @@ export interface ResolvedProfileTheme {
   profileBackground: ProfileBackground;
   showStats: boolean;
   showBadges: boolean;
-  showFeatured: boolean;
-  showBots: boolean;
-  showCreatorPages: boolean;
-  showWorlds: boolean;
-  showForms: boolean;
   hideCompletenessNudge: boolean;
 }
 
@@ -127,11 +122,6 @@ export function resolveProfileTheme(
     profileBackground,
     showStats: asBooleanDefaultTrue(theme.showStats),
     showBadges: asBooleanDefaultTrue(theme.showBadges),
-    showFeatured: asBooleanDefaultTrue(theme.showFeatured),
-    showBots: asBooleanDefaultTrue(theme.showBots),
-    showCreatorPages: asBooleanDefaultTrue(theme.showCreatorPages),
-    showWorlds: asBooleanDefaultTrue(theme.showWorlds),
-    showForms: asBooleanDefaultTrue(theme.showForms),
     hideCompletenessNudge: asBooleanDefaultFalse(theme.hideCompletenessNudge),
   };
 }

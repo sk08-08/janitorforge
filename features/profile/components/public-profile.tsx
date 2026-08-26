@@ -27,9 +27,12 @@ import {
   YoutubeIcon,
   TwitchIcon,
   WebsiteIcon,
+  JanitorAIIcon,
 } from "@/components/ui/social-icons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { normalizeHttpUrl } from "@/lib/safe-url";
+import { getProfileSocialLabel } from "@/features/profile/lib/profile-socials";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Pagination,
@@ -58,6 +61,12 @@ import {
 } from "./profile-bot-cards";
 import { cn } from "@/lib/utils";
 import type { ProfileBadgeRecord } from "@/features/profile/lib/profile-badges";
+import {
+  getProfileSection,
+  resolveProfileSections,
+  getProfileSectionEmptyCopy,
+  type ProfileSectionRow,
+} from "@/features/profile/lib/profile-sections";
 import {
   getProfileBackgroundTintColor,
   getProfileBackgroundStyles,
@@ -92,6 +101,7 @@ interface Profile {
   specialties?: string[] | null;
   status_message?: string | null;
   social_links?: Record<string, string> | null;
+  profile_sections?: ProfileSectionRow[] | null;
   active_profile_featured_bots?: Array<{
     sort_order: number;
     bot: BotPreview;
@@ -154,9 +164,11 @@ interface PublicProfileProps {
 function FollowButton({
   profileId,
   themeColor,
+  onFollowChange,
 }: {
   profileId: string;
   themeColor: string;
+  onFollowChange?: (following: boolean) => void;
 }) {
   const readablePrimaryColor = getReadableProfileAccentColor(themeColor);
   const readablePrimaryMutedColor =
@@ -184,12 +196,22 @@ function FollowButton({
     try {
       if (isFollowing) {
         const r = await unfollowUser(profileId);
-        if (r.success) setIsFollowing(false);
-        else toast.error(r.error || "Failed to unfollow");
+
+        if (r.success) {
+          setIsFollowing(false);
+          onFollowChange?.(false);
+        } else {
+          toast.error(r.error || "Failed to unfollow");
+        }
       } else {
         const r = await followUser(profileId);
-        if (r.success) setIsFollowing(true);
-        else toast.error(r.error || "Failed to follow");
+
+        if (r.success) {
+          setIsFollowing(true);
+          onFollowChange?.(true);
+        } else {
+          toast.error(r.error || "Failed to follow");
+        }
       }
     } catch {
       toast.error("Something went wrong");
@@ -237,6 +259,7 @@ const socialIconMap: Record<
   string,
   React.FC<{ className?: string; size?: number }>
 > = {
+  janitorai: JanitorAIIcon,
   twitter: TwitterIcon,
   discord: DiscordIcon,
   github: GithubIcon,
@@ -264,22 +287,44 @@ export function PublicProfile({
   >("followers");
   const [botsPage, setBotsPage] = useState(0);
 
+  const [followersCount, setFollowersCount] = useState(profile._followers || 0);
+
+  useEffect(() => {
+    setFollowersCount(profile._followers || 0);
+  }, [profile._followers]);
+
   const displayName = profile.display_name || profile.username || "User";
   const resolvedTheme = resolveProfileTheme(
     (profile.theme as Record<string, unknown>) || {},
   );
+  const resolvedSections = resolveProfileSections(
+    profile.profile_sections,
+    (profile.theme as Record<string, unknown>) || {},
+  );
+
+  const featuredBotsSection = getProfileSection(
+    resolvedSections,
+    "featured_bots",
+  );
+
+  const botsSection = getProfileSection(resolvedSections, "bots");
+
+  const creatorPagesSection = getProfileSection(
+    resolvedSections,
+    "creator_pages",
+  );
+
+  const worldsSection = getProfileSection(resolvedSections, "worlds");
+
+  const formsSection = getProfileSection(resolvedSections, "forms");
   const {
     primaryColor,
     accentColor,
     avatarBorderColor,
     cardStyle,
     layout,
+    showStats,
     showBadges,
-    showFeatured,
-    showBots,
-    showCreatorPages,
-    showWorlds,
-    showForms,
   } = resolvedTheme;
   const readablePrimaryColor = getReadableProfileAccentColor(primaryColor);
   const readablePrimaryMutedColor =
@@ -288,6 +333,25 @@ export function PublicProfile({
     accentColor,
     "medium",
   );
+  const featuredBotsEmpty = getProfileSectionEmptyCopy(
+    featuredBotsSection,
+    "visitor",
+  );
+
+  const botsEmpty = getProfileSectionEmptyCopy(botsSection, "visitor");
+
+  const creatorPagesEmpty = getProfileSectionEmptyCopy(
+    creatorPagesSection,
+    "visitor",
+  );
+
+  const worldsEmpty = getProfileSectionEmptyCopy(worldsSection, "visitor");
+
+  const safeWebsiteUrl = profile.website_url
+    ? normalizeHttpUrl(profile.website_url)
+    : null;
+
+  const formsEmpty = getProfileSectionEmptyCopy(formsSection, "visitor");
   const accentBorderTint = getProfileBorderTintColor(accentColor, 30);
   const primaryBorderTint = getProfileBorderTintColor(primaryColor, 30);
   const primarySoftTint = getProfileBackgroundTintColor(primaryColor, 10);
@@ -398,7 +462,15 @@ export function PublicProfile({
         >
           <div className="absolute inset-x-0 top-15 sm:top-40 z-10 flex justify-end p-3 sm:p-4">
             <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-              <FollowButton profileId={profile.id} themeColor={themeColor} />
+              <FollowButton
+                profileId={profile.id}
+                themeColor={themeColor}
+                onFollowChange={(following) => {
+                  setFollowersCount((current) =>
+                    Math.max(0, current + (following ? 1 : -1)),
+                  );
+                }}
+              />
               <Link href="/" className="w-full sm:w-auto">
                 <Button
                   variant="outline"
@@ -478,41 +550,42 @@ export function PublicProfile({
               )}
 
               {/* Follow counts */}
-              {(profile._followers !== undefined ||
-                profile._following !== undefined) && (
-                <div className="flex items-center gap-5 mt-2 text-sm">
-                  <button
-                    className="text-center cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => {
-                      setFollowModalTab("followers");
-                      setFollowModalOpen(true);
-                    }}
-                  >
-                    <p
-                      className="text-lg font-bold"
-                      style={{ color: readablePrimaryColor }}
+              {showStats &&
+                (profile._followers !== undefined ||
+                  profile._following !== undefined) && (
+                  <div className="flex items-center gap-5 mt-2 text-sm">
+                    <button
+                      className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => {
+                        setFollowModalTab("followers");
+                        setFollowModalOpen(true);
+                      }}
                     >
-                      {profile._followers || 0}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Followers</p>
-                  </button>
-                  <button
-                    className="text-center cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => {
-                      setFollowModalTab("following");
-                      setFollowModalOpen(true);
-                    }}
-                  >
-                    <p
-                      className="text-lg font-bold"
-                      style={{ color: readablePrimaryColor }}
+                      <p
+                        className="text-lg font-bold"
+                        style={{ color: readablePrimaryColor }}
+                      >
+                        {followersCount}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Followers</p>
+                    </button>
+                    <button
+                      className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => {
+                        setFollowModalTab("following");
+                        setFollowModalOpen(true);
+                      }}
                     >
-                      {profile._following || 0}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Following</p>
-                  </button>
-                </div>
-              )}
+                      <p
+                        className="text-lg font-bold"
+                        style={{ color: readablePrimaryColor }}
+                      >
+                        {profile._following || 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Following</p>
+                    </button>
+                  </div>
+                )}
 
               {/* Tagline */}
               {profile.tagline && (
@@ -536,22 +609,16 @@ export function PublicProfile({
                     <MapPin className="h-3 w-3" /> {profile.location}
                   </span>
                 )}
-                {profile.website_url && (
+                {safeWebsiteUrl && (
                   <a
-                    href={profile.website_url}
+                    href={safeWebsiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 hover:underline"
                     style={{ color: readablePrimaryMutedColor }}
                   >
                     <Globe className="h-3 w-3" />
-                    {(() => {
-                      try {
-                        return new URL(profile.website_url).hostname;
-                      } catch {
-                        return profile.website_url;
-                      }
-                    })()}
+                    {new URL(safeWebsiteUrl).hostname}
                     <ExternalLink className="h-2.5 w-2.5" />
                   </a>
                 )}
@@ -572,12 +639,13 @@ export function PublicProfile({
                 <div className="flex flex-wrap gap-2 mt-4">
                   {Object.entries(socialLinks).map(([key, value]) => {
                     if (!value || !value.trim()) return null;
-                    const Icon = socialIconMap[key] || WebsiteIcon;
-                    const isUrl = value.startsWith("http");
-                    return isUrl ? (
+                    const Icon = socialIconMap[key] || Globe;
+                    const safeUrl = normalizeHttpUrl(value);
+                    const label = getProfileSocialLabel(key);
+                    return safeUrl ? (
                       <a
                         key={key}
-                        href={value}
+                        href={safeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                       >
@@ -590,7 +658,7 @@ export function PublicProfile({
                           }}
                         >
                           <Icon className="h-3 w-3 mr-1" />
-                          {key.charAt(0).toUpperCase() + key.slice(1)}
+                          {label}
                         </Badge>
                       </a>
                     ) : (
@@ -634,7 +702,7 @@ export function PublicProfile({
           </div>
 
           {/* Featured Bots */}
-          {showFeatured && (
+          {featuredBotsSection.enabled && (
             <div className="min-w-0 max-w-full space-y-4 mt-4">
               <div className="flex items-center gap-3">
                 <Star
@@ -660,23 +728,25 @@ export function PublicProfile({
                 <ProfileSectionEmpty
                   icon={<Star className="h-5 w-5" />}
                   iconColor={themeColor}
-                  title="No featured bots yet"
-                  description="Pick bots in the editor to highlight them here and make the profile feel more complete."
+                  title={featuredBotsEmpty.title}
+                  description={featuredBotsEmpty.description}
                 />
               )}
             </div>
           )}
 
-          <ProfileBadgesSection
-            badges={badges}
-            themeColor={themeColor}
-            showBadges={showBadges}
-            className="mt-4 mb-14"
-            emptyClassName="rounded-lg border border-dashed bg-card/40 px-5 py-7"
-          />
+          {badges.length > 0 && (
+            <ProfileBadgesSection
+              badges={badges}
+              themeColor={themeColor}
+              showBadges={showBadges}
+              className="mt-4 mb-14"
+              emptyClassName="rounded-lg border border-dashed bg-card/40 px-5 py-7"
+            />
+          )}
 
           {/* Bots */}
-          {showBots && (
+          {botsSection.enabled && (
             <div id="profile-bots-section" className="space-y-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -793,7 +863,8 @@ export function PublicProfile({
                   <ProfileSectionEmpty
                     icon={<Bot className="h-5 w-5" />}
                     iconColor={themeColor}
-                    title="No bots published yet"
+                    title={botsEmpty.title}
+                    description={botsEmpty.description}
                   />
                 )}
               </div>
@@ -805,7 +876,7 @@ export function PublicProfile({
           )}
 
           {/* Creator Pages */}
-          {showCreatorPages && (
+          {creatorPagesSection.enabled && (
             <div className="space-y-4 mt-4">
               <div className="flex items-center gap-3">
                 <AppWindow
@@ -838,14 +909,6 @@ export function PublicProfile({
                           <p className="text-sm font-medium truncate">
                             {page.title || "Untitled"}
                           </p>
-                          <Badge
-                            variant={
-                              page.is_published ? "default" : "secondary"
-                            }
-                            className="text-[10px] shrink-0"
-                          >
-                            {page.is_published ? "Live" : "Draft"}
-                          </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {page.description || "No description"}
@@ -858,14 +921,15 @@ export function PublicProfile({
                 <ProfileSectionEmpty
                   icon={<AppWindow className="h-5 w-5" />}
                   iconColor={themeColor}
-                  title="No creator pages yet"
+                  title={creatorPagesEmpty.title}
+                  description={creatorPagesEmpty.description}
                 />
               )}
             </div>
           )}
 
           {/* Worlds */}
-          {showWorlds && (
+          {worldsSection.enabled && (
             <div className="space-y-4 mt-12">
               <div className="flex items-center gap-3">
                 <Globe
@@ -912,7 +976,8 @@ export function PublicProfile({
                 <ProfileSectionEmpty
                   icon={<Globe className="h-5 w-5" />}
                   iconColor={themeColor}
-                  title="No worlds created yet"
+                  title={worldsEmpty.title}
+                  description={worldsEmpty.description}
                 />
               )}
             </div>
@@ -935,7 +1000,7 @@ export function PublicProfile({
           />
 
           {/* Forms */}
-          {showForms && (
+          {formsSection.enabled && (
             <div className="space-y-4 mt-12">
               <div className="flex items-center gap-3">
                 <FileText
@@ -963,11 +1028,14 @@ export function PublicProfile({
                         className={cn(cardClass, "h-full")}
                         style={sectionCardStyle}
                       >
-                        <div className="flex items-center gap-2 mb-1">
-                          <MarkdownRenderer
-                            content={form.title}
-                            className="text-sm font-medium truncate"
-                          />
+                        <div className="flex min-w-0 items-center gap-2 mb-1">
+                          <div className="min-w-0 flex-1 overflow-hidden">
+                            <MarkdownRenderer
+                              content={form.title}
+                              className="text-sm font-medium [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                            />
+                          </div>
+
                           <Badge
                             variant={form.is_active ? "default" : "secondary"}
                             className="text-[10px] shrink-0"
@@ -990,7 +1058,8 @@ export function PublicProfile({
                 <ProfileSectionEmpty
                   icon={<FileText className="h-5 w-5" />}
                   iconColor={themeColor}
-                  title="No forms yet"
+                  title={formsEmpty.title}
+                  description={formsEmpty.description}
                 />
               )}
             </div>
