@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { createClient } from "@/lib/supabase/server";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { PublicProfile } from "@/features/profile/components/public-profile";
 import { loadProfileBadges } from "@/features/profile/lib/profile-badges";
@@ -27,11 +27,27 @@ export async function generateMetadata({
   const { username } = await params;
   const supabase = await createClient();
 
-  const { data: profile } = await supabase
+  const normalizedHandle = decodeURIComponent(username).trim();
+
+  let { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, username, tagline, avatar_url, bio, visibility")
-    .eq("username", username)
+    .select(
+      "display_name, username, slug, tagline, avatar_url, bio, visibility",
+    )
+    .eq("slug", normalizedHandle)
     .maybeSingle();
+
+  if (!profile) {
+    const fallback = await supabase
+      .from("profiles")
+      .select(
+        "display_name, username, slug, tagline, avatar_url, bio, visibility",
+      )
+      .eq("username", normalizedHandle)
+      .maybeSingle();
+
+    profile = fallback.data;
+  }
 
   if (!profile || profile.visibility === "private") {
     return { title: "Profile Not Found" };
@@ -60,31 +76,101 @@ export async function generateMetadata({
 export default async function UserProfilePage({ params }: PageProps) {
   const { username } = await params;
   const supabase = await createClient();
+
   const {
     data: { user: currentUser },
   } = await supabase.auth.getUser();
 
-  // Find profile by username
-  const { data: profile } = await supabase
+  // Find profile by public slug, with username fallback for older links
+  const normalizedHandle = decodeURIComponent(username).trim();
+
+  let { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
       `
-  id, username, display_name, bio, tagline, avatar_url, banner_url, slug, theme, created_at, pronouns, location, website_url, specialties, status_message, social_links, visibility, profile_completeness,
-  profile_sections (
-    section_key,
-    enabled,
-    sort_order,
-    selection_mode,
-    config
-  ),
-  active_profile_featured_bots (
-    sort_order,
-    bot:active_bots (*)
-  )
-`,
+      id,
+      username,
+      display_name,
+      bio,
+      tagline,
+      avatar_url,
+      banner_url,
+      slug,
+      theme,
+      created_at,
+      pronouns,
+      location,
+      website_url,
+      specialties,
+      status_message,
+      social_links,
+      visibility,
+      profile_completeness,
+      profile_sections (
+        section_key,
+        enabled,
+        sort_order,
+        selection_mode,
+        config
+      ),
+      active_profile_featured_bots (
+        sort_order,
+        bot:active_bots (*)
+      )
+    `,
     )
-    .eq("username", username)
+    .eq("slug", normalizedHandle)
     .maybeSingle();
+
+  if (profileError) {
+    console.error("Failed to load profile by slug:", profileError);
+  }
+
+  if (!profile) {
+    const fallback = await supabase
+      .from("profiles")
+      .select(
+        `
+        id,
+        username,
+        display_name,
+        bio,
+        tagline,
+        avatar_url,
+        banner_url,
+        slug,
+        theme,
+        created_at,
+        pronouns,
+        location,
+        website_url,
+        specialties,
+        status_message,
+        social_links,
+        visibility,
+        profile_completeness,
+        profile_sections (
+          section_key,
+          enabled,
+          sort_order,
+          selection_mode,
+          config
+        ),
+        active_profile_featured_bots (
+          sort_order,
+          bot:active_bots (*)
+        )
+      `,
+      )
+      .eq("username", normalizedHandle)
+      .maybeSingle();
+
+    if (fallback.error) {
+      console.error("Failed to load profile by username:", fallback.error);
+    }
+
+    profile = fallback.data;
+  }
 
   if (!profile) {
     notFound();
@@ -95,10 +181,7 @@ export default async function UserProfilePage({ params }: PageProps) {
     profile_badges: await loadProfileBadges(supabase, profile.id),
   };
 
-  // Viewing own public URL always returns to the dashboard/profile area.
-  if (currentUser?.id === normalizedProfile.id) {
-    redirect("/");
-  }
+  const isOwnProfile = currentUser?.id === normalizedProfile.id;
 
   // A private profile is unavailable to everyone else.
   if (normalizedProfile.visibility === "private") {
@@ -267,6 +350,7 @@ export default async function UserProfilePage({ params }: PageProps) {
 
   return (
     <PublicProfile
+      isOwnProfile={isOwnProfile}
       profile={
         {
           ...(normalizedProfile as Record<string, unknown>),

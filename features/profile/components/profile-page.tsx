@@ -38,6 +38,8 @@ import {
   Globe,
   Calendar,
   ExternalLink,
+  Copy,
+  CheckCircle,
   Star,
   Bot,
   AppWindow,
@@ -60,6 +62,7 @@ import {
 } from "@/features/profile/actions/profile";
 import { useStore } from "@/features/app-shell/store/app-store";
 import Link from "next/link";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { cachedBrowserRequest } from "@/lib/browser-request-cache";
 import { ProfileEditor } from "./profile-editor";
@@ -148,6 +151,7 @@ export function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{
     type: "bot" | "world";
@@ -304,6 +308,12 @@ export function ProfilePage() {
   }
 
   const p = profile;
+
+  const publicProfileHandle = p.slug || p.username;
+  const publicProfilePath = publicProfileHandle
+    ? `/profile/${publicProfileHandle}`
+    : null;
+
   const resolvedTheme = resolveProfileTheme(p.theme || {});
   const resolvedSections = resolveProfileSections(
     p.profile_sections,
@@ -501,6 +511,27 @@ export function ProfilePage() {
 
   const hasSocialLinks = Object.values(socialLinks).some((v) => v && v.trim());
 
+  const handleCopyPublicProfileLink = async () => {
+    if (!publicProfilePath) {
+      toast.error("Your public profile link is not available yet.");
+      return;
+    }
+
+    const publicProfileUrl = `${window.location.origin}${publicProfilePath}`;
+
+    try {
+      await navigator.clipboard.writeText(publicProfileUrl);
+
+      setProfileLinkCopied(true);
+
+      window.setTimeout(() => {
+        setProfileLinkCopied(false);
+      }, 2000);
+    } catch {
+      toast.error("Could not copy your profile link.");
+    }
+  };
+
   return (
     <ScrollArea className="h-screen w-full overflow-hidden">
       <div
@@ -628,6 +659,63 @@ export function ProfilePage() {
                 )}
               </div>
             </div>
+
+            {/* Public profile actions */}
+            {publicProfilePath && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="cursor-pointer"
+                >
+                  <Link
+                    href={publicProfilePath}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                    View Public Profile
+                  </Link>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleCopyPublicProfileLink()}
+                  className={cn(
+                    "cursor-pointer transition-all duration-300",
+                    profileLinkCopied &&
+                      "border-green-500/30 bg-green-500/10 text-green-600 hover:bg-green-500/10 hover:text-green-600",
+                  )}
+                >
+                  <span className="relative mr-2 flex h-4 w-4 items-center justify-center">
+                    <Copy
+                      className={cn(
+                        "absolute h-4 w-4 transition-all duration-300",
+                        profileLinkCopied
+                          ? "scale-50 opacity-0"
+                          : "scale-100 opacity-100",
+                      )}
+                    />
+
+                    <CheckCircle
+                      className={cn(
+                        "absolute h-4 w-4 text-green-600 transition-all duration-300",
+                        profileLinkCopied
+                          ? "scale-100 opacity-100"
+                          : "scale-50 opacity-0",
+                      )}
+                    />
+                  </span>
+
+                  <span className="transition-all duration-300">
+                    {profileLinkCopied ? "Copied!" : "Copy Profile Link"}
+                  </span>
+                </Button>
+              </div>
+            )}
 
             {/* Tagline */}
             {typeof p.tagline === "string" && p.tagline && (

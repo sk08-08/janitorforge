@@ -158,6 +158,7 @@ interface PublicProfileProps {
   bots: BotPreview[];
   worlds: WorldPreview[];
   forms: FormPreview[];
+  isOwnProfile?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -282,6 +283,7 @@ export function PublicProfile({
   bots,
   worlds,
   forms,
+  isOwnProfile = false,
 }: PublicProfileProps) {
   const [botDetailBot, setBotDetailBot] = useState<any>(null);
   const [followModalOpen, setFollowModalOpen] = useState(false);
@@ -465,15 +467,29 @@ export function PublicProfile({
         >
           <div className="absolute inset-x-0 top-15 sm:top-40 z-10 flex justify-end p-3 sm:p-4">
             <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-              <FollowButton
-                profileId={profile.id}
-                themeColor={themeColor}
-                onFollowChange={(following) => {
-                  setFollowersCount((current) =>
-                    Math.max(0, current + (following ? 1 : -1)),
-                  );
-                }}
-              />
+              {isOwnProfile ? (
+                <Badge
+                  variant="secondary"
+                  className="justify-center border border-background/60 bg-background/80 px-3 py-2 text-xs font-medium backdrop-blur-sm"
+                  style={{
+                    borderColor: primaryBorderTint,
+                    color: readablePrimaryMutedColor,
+                  }}
+                >
+                  Your public profile
+                </Badge>
+              ) : (
+                <FollowButton
+                  profileId={profile.id}
+                  themeColor={themeColor}
+                  onFollowChange={(following) => {
+                    setFollowersCount((current) =>
+                      Math.max(0, current + (following ? 1 : -1)),
+                    );
+                  }}
+                />
+              )}
+
               <Link href="/" className="w-full sm:w-auto">
                 <Button
                   variant="outline"
@@ -484,8 +500,9 @@ export function PublicProfile({
                     color: readablePrimaryMutedColor,
                   }}
                 >
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Back
+                  <ArrowLeft className="mr-1 h-4 w-4" />
+
+                  {isOwnProfile ? "Back to Dashboard" : "Back"}
                 </Button>
               </Link>
             </div>
@@ -1000,6 +1017,7 @@ export function PublicProfile({
             userId={profile.id}
             tab={followModalTab}
             themeColor={themeColor}
+            isOwnProfile={isOwnProfile}
           />
 
           {/* Forms */}
