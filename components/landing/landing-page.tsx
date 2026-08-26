@@ -1,36 +1,84 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useTheme } from "@/components/theme-provider";
-import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
   Bot,
-  FileText,
-  Kanban,
-  Users,
-  Shield,
-  Globe,
-  Sparkles,
-  ChevronDown,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
-  Zap,
-  Heart,
-  Palette,
-  Eye,
-  Send,
-  Menu,
-  X,
-  Quote,
+  FileText,
+  Globe,
+  Hash,
+  Inbox,
+  Kanban,
   Maximize2,
+  Menu,
   Moon,
+  Palette,
+  Send,
+  Shield,
+  Sparkles,
   Sun,
+  Users,
+  WandSparkles,
+  X,
 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/components/theme-provider";
+import { cn } from "@/lib/utils";
+
+// ============================================================================
+// Landing assets
+// ============================================================================
+
+const landingScreenshots = {
+  dashboard: {
+    dark: "/landing/dashboard-dark.webp",
+    light: "/landing/dashboard-light.webp",
+    alt: "JanitorForge dashboard",
+  },
+  forms: {
+    dark: "/landing/form-builder-dark.webp",
+    light: "/landing/form-builder-light.webp",
+    alt: "JanitorForge form builder",
+  },
+  submissions: {
+    dark: "/landing/submissions-dark.webp",
+    light: "/landing/submissions-light.webp",
+    alt: "JanitorForge submissions board",
+  },
+  profile: {
+    dark: "/landing/profile-dark.webp",
+    light: "/landing/profile-light.webp",
+    alt: "Customized JanitorForge creator profile",
+  },
+  bots: {
+    dark: "/landing/bot-manager-dark.webp",
+    light: "/landing/bot-manager-light.webp",
+    alt: "JanitorForge Bot Manager",
+  },
+} as const;
+
+type LandingScreenshot = {
+  dark: string;
+  light: string;
+  alt: string;
+};
+
+function resolveLandingScreenshot(
+  screenshot: LandingScreenshot,
+  resolvedTheme: string | undefined,
+) {
+  return {
+    src: resolvedTheme === "light" ? screenshot.light : screenshot.dark,
+    alt: screenshot.alt,
+  };
+}
 
 // ============================================================================
 // Hooks
@@ -42,60 +90,84 @@ function useScrollDirection() {
   const lastY = useRef(0);
 
   useEffect(() => {
-    const handle = () => {
+    const handleScroll = () => {
       const y = window.scrollY;
-      setScrolled(y > 50);
-      setScrollDir(y > lastY.current && y > 300 ? "down" : "up");
+
+      setScrolled(y > 40);
+
+      setScrollDir(y > lastY.current && y > 280 ? "down" : "up");
+
       lastY.current = y;
     };
-    window.addEventListener("scroll", handle, { passive: true });
-    return () => window.removeEventListener("scroll", handle);
+
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
+
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  return { scrollDir, scrolled };
+  return {
+    scrollDir,
+    scrolled,
+  };
 }
 
-function useInView(threshold = 0.15) {
+function useInView(threshold = 0.1) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
+    const element = ref.current;
+
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          obs.disconnect();
-        }
+        if (!entry.isIntersecting) return;
+
+        setVisible(true);
+        observer.disconnect();
       },
-      { threshold },
+      {
+        threshold,
+      },
     );
-    obs.observe(el);
-    return () => obs.disconnect();
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
   }, [threshold]);
 
-  return { ref, visible };
+  return {
+    ref,
+    visible,
+  };
 }
 
-function FadeIn({
+// ============================================================================
+// Shared animation wrappers
+// ============================================================================
+
+function Reveal({
   children,
-  delay = 0,
   className,
+  delay = 0,
   direction = "up",
 }: {
   children: React.ReactNode;
-  delay?: number;
   className?: string;
-  direction?: "up" | "down" | "left" | "right";
+  delay?: number;
+  direction?: "up" | "left" | "right";
 }) {
-  const { ref, visible } = useInView(0.1);
-  const transforms: Record<string, string> = {
-    up: "translateY(40px)",
-    down: "translateY(-40px)",
-    left: "translateX(40px)",
-    right: "translateX(-40px)",
-  };
+  const { ref, visible } = useInView();
+
+  const transform =
+    direction === "left"
+      ? "translateX(28px)"
+      : direction === "right"
+        ? "translateX(-28px)"
+        : "translateY(28px)";
 
   return (
     <div
@@ -103,14 +175,21 @@ function FadeIn({
       className={className}
       style={{
         opacity: visible ? 1 : 0,
-        transform: visible ? "none" : transforms[direction],
-        transition: `opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1) ${delay}s, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) ${delay}s`,
+        transform: visible ? "none" : transform,
+        transition: `
+          opacity 700ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}s,
+          transform 700ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}s
+        `,
       }}
     >
       {children}
     </div>
   );
 }
+
+// ============================================================================
+// Theme toggle
+// ============================================================================
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -119,9 +198,9 @@ function ThemeToggle() {
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="ghost"
       size="icon-sm"
-      className="cursor-pointer border-border/60 bg-background/80"
+      className="cursor-pointer rounded-full"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={`Switch to ${isDark ? "light" : "dark"} theme`}
       title={`Switch to ${isDark ? "light" : "dark"} theme`}
@@ -132,61 +211,35 @@ function ThemeToggle() {
 }
 
 // ============================================================================
-// Noise Texture + Background
+// Background
 // ============================================================================
 
-function NoiseOverlay() {
+function LandingBackground() {
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-[1] opacity-[0.015]"
-      style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-        backgroundRepeat: "repeat",
-        backgroundSize: "128px 128px",
-      }}
-    />
-  );
-}
+      aria-hidden="true"
+      className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+    >
+      {/* Purple */}
+      <div className="absolute -left-56 -top-32 h-150 w-150 rounded-full bg-purple-500/10 blur-[120px]" />
 
-function HeroGlow() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Main violet glow */}
+      {/* Pink */}
+      <div className="absolute -right-64 top-[24rem] h-140 w-140 rounded-full bg-pink-500/8 blur-[130px]" />
+
+      {/* Blue */}
+      <div className="absolute bottom-[20%] left-[45%] h-120 w-120 rounded-full bg-blue-500/6 blur-[130px]" />
+
+      {/* Subtle grid */}
       <div
-        className="absolute left-1/2 top-0 -translate-x-1/2 h-[700px] w-[1000px] opacity-[0.12]"
+        className="absolute inset-0 opacity-[0.025]"
         style={{
-          background:
-            "radial-gradient(ellipse at center, #7c3aed 0%, transparent 60%)",
-          filter: "blur(80px)",
+          backgroundImage: `
+            linear-gradient(to right, currentColor 1px, transparent 1px),
+            linear-gradient(to bottom, currentColor 1px, transparent 1px)
+          `,
+          backgroundSize: "48px 48px",
         }}
       />
-      {/* Warm accent */}
-      <div
-        className="absolute -top-40 -right-40 h-[500px] w-[500px] opacity-[0.06] animate-pulse"
-        style={{
-          background: "radial-gradient(circle, #f59e0b 0%, transparent 60%)",
-          animationDuration: "8s",
-        }}
-      />
-      {/* Cool accent */}
-      <div
-        className="absolute top-1/3 -left-32 h-[400px] w-[400px] opacity-[0.05]"
-        style={{
-          background: "radial-gradient(circle, #06b6d4 0%, transparent 60%)",
-          animation: "orb-drift 22s ease-in-out infinite",
-        }}
-      />
-      <style jsx>{`
-        @keyframes orb-drift {
-          0%,
-          100% {
-            transform: translate(0, 0);
-          }
-          50% {
-            transform: translate(30px, 20px);
-          }
-        }
-      `}</style>
     </div>
   );
 }
@@ -199,74 +252,92 @@ function Navbar() {
   const { scrollDir, scrolled } = useScrollDirection();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const links = [
+    {
+      href: "#workflow",
+      label: "Workflow",
+    },
+    {
+      href: "#tools",
+      label: "Tools",
+    },
+    {
+      href: "#why",
+      label: "Why",
+    },
+    {
+      href: "#screenshots",
+      label: "Screenshots",
+    },
+  ];
+
   return (
     <nav
       data-landing-nav
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-all duration-500",
+        "fixed inset-x-0 top-0 z-50 transition-all duration-500",
         scrolled
-          ? "bg-background/78 backdrop-blur-2xl border-b border-border/60 shadow-2xl shadow-black/10"
+          ? "border-b border-border/60 bg-background/80 shadow-sm backdrop-blur-2xl"
           : "bg-transparent",
         scrollDir === "down" && scrolled
           ? "-translate-y-full"
           : "translate-y-0",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-        <Link href="/" className="flex items-center gap-2.5">
-          <Image
-            src="/logo.png"
-            alt="JanitorForge"
-            width={32}
-            height={32}
-            className="rounded-lg"
-          />
-          <span className="text-lg font-bold tracking-tight">
-            JanitorForge (Beta)
-          </span>
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-7">
+        <Link href="/" className="group flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105">
+            <Image src="/logo.png" alt="JanitorForge" width={24} height={24} />
+          </div>
+
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold leading-tight sm:text-base">
+              JanitorForge
+            </span>
+
+            <span className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+              Beta
+            </span>
+          </div>
         </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden items-center gap-8 md:flex">
-          <a
-            href="#features"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Features
-          </a>
-          <a
-            href="#how"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            How it works
-          </a>
-          <a
-            href="#showcase"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Showcase
-          </a>
+        <div className="hidden items-center gap-6 md:flex">
+          {links.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {link.label}
+            </a>
+          ))}
+
+          <div className="ml-1 h-5 w-px bg-border" />
+
+          <ThemeToggle />
+
           <Link href="/login">
             <Button variant="ghost" size="sm" className="cursor-pointer">
               Sign in
             </Button>
           </Link>
-          <ThemeToggle />
+
           <Link href="/login">
             <Button
               size="sm"
-              className="cursor-pointer bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 shadow-lg shadow-violet-600/25"
+              className="group cursor-pointer rounded-full px-5 shadow-md shadow-primary/15"
             >
-              Get started
-              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              Try JanitorForge
+              <ArrowRight className="ml-1.5 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </Button>
           </Link>
         </div>
 
-        {/* Mobile menu button */}
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-muted md:hidden"
-          onClick={() => setMobileOpen(!mobileOpen)}
+          type="button"
+          className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-muted md:hidden"
+          onClick={() => setMobileOpen((current) => !current)}
+          aria-label="Toggle navigation menu"
         >
           {mobileOpen ? (
             <X className="h-5 w-5" />
@@ -276,42 +347,33 @@ function Navbar() {
         </button>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
-        <div className="border-t border-border/60 bg-background/95 backdrop-blur-2xl px-5 py-4 md:hidden">
-          <div className="flex flex-col gap-3">
-            <a
-              href="#features"
-              className="py-2 text-sm text-muted-foreground"
-              onClick={() => setMobileOpen(false)}
-            >
-              Features
-            </a>
-            <a
-              href="#how"
-              className="py-2 text-sm text-muted-foreground"
-              onClick={() => setMobileOpen(false)}
-            >
-              How it works
-            </a>
-            <a
-              href="#showcase"
-              className="py-2 text-sm text-muted-foreground"
-              onClick={() => setMobileOpen(false)}
-            >
-              Showcase
-            </a>
-            <div className="flex items-center gap-2 pt-2">
+        <div className="border-t border-border/60 bg-background/95 px-5 py-4 backdrop-blur-2xl md:hidden">
+          <div className="flex flex-col gap-1">
+            {links.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                onClick={() => setMobileOpen(false)}
+              >
+                {link.label}
+              </a>
+            ))}
+
+            <div className="my-2 h-px bg-border" />
+
+            <div className="flex items-center gap-2">
               <ThemeToggle />
+
               <Link href="/login" className="flex-1">
                 <Button variant="outline" className="w-full cursor-pointer">
                   Sign in
                 </Button>
               </Link>
+
               <Link href="/login" className="flex-1">
-                <Button className="w-full cursor-pointer bg-gradient-to-r from-violet-600 to-purple-600">
-                  Get started
-                </Button>
+                <Button className="w-full cursor-pointer">Try it</Button>
               </Link>
             </div>
           </div>
@@ -322,568 +384,795 @@ function Navbar() {
 }
 
 // ============================================================================
+// Screenshot frame
+// ============================================================================
+
+function ScreenshotFrame({
+  src,
+  alt,
+  label,
+  className,
+  priority = false,
+  onClick,
+}: {
+  src: string;
+  alt: string;
+  label?: string;
+  className?: string;
+  priority?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group relative block w-full overflow-hidden rounded-2xl border border-border/70 bg-card text-left shadow-xl shadow-black/5",
+        onClick && "cursor-zoom-in",
+        className,
+      )}
+    >
+      <div className="flex h-9 items-center gap-1.5 border-b border-border/60 bg-muted/35 px-3">
+        <span className="h-2.5 w-2.5 rounded-full bg-red-400/60" />
+        <span className="h-2.5 w-2.5 rounded-full bg-amber-400/60" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/60" />
+
+        {label && (
+          <span className="ml-2 truncate font-mono text-[9px] text-muted-foreground">
+            {label}
+          </span>
+        )}
+      </div>
+
+      <div className="relative aspect-[16/10] overflow-hidden bg-muted/30">
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          priority={priority}
+          unoptimized
+          className="object-cover object-top transition-transform duration-700 group-hover:scale-[1.012]"
+        />
+
+        {onClick && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-300 group-hover:bg-black/15">
+            <div className="flex h-10 w-10 scale-90 items-center justify-center rounded-full bg-black/65 text-white opacity-0 shadow-lg backdrop-blur transition-all duration-300 group-hover:scale-100 group-hover:opacity-100">
+              <Maximize2 className="h-4 w-4" />
+            </div>
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ============================================================================
 // Hero
 // ============================================================================
 
 function Hero() {
+  const { resolvedTheme } = useTheme();
+  const dashboardScreenshot = resolveLandingScreenshot(
+    landingScreenshots.dashboard,
+    resolvedTheme,
+  );
+
   return (
-    <section className="relative min-h-[100vh] flex items-center justify-center overflow-hidden pt-16">
-      <HeroGlow />
-
-      {/* Dot grid */}
+    <section className="relative overflow-hidden pb-20 pt-28 sm:pb-28 sm:pt-36 lg:min-h-screen lg:pb-24">
+      {/* Hero-specific atmosphere */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.04]"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at center, currentColor 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }}
-      />
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        <div className="absolute left-[52%] top-10 h-150 w-150 rounded-full bg-primary/10 blur-[110px]" />
 
-      <div className="relative mx-auto max-w-6xl px-5 py-20 text-center">
-        <FadeIn>
-          <Badge
-            variant="outline"
-            className="mb-6 gap-1.5 border-violet-500/30 bg-violet-500/[0.08] px-4 py-1.5 text-violet-400 text-xs tracking-wide uppercase"
-          >
-            Built for character creators
-          </Badge>
-        </FadeIn>
+        <WandSparkles className="absolute right-[9%] top-[21%] hidden h-7 w-7 rotate-12 text-primary/25 lg:block lg:animate-[bounce_5s_ease-in-out_infinite]" />
 
-        <FadeIn delay={0.1}>
-          <h1 className="mx-auto max-w-4xl text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl md:text-6xl lg:text-[4.5rem]">
-            Your characters deserve
-            <br />
-            <span className="relative inline-block">
-              <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-purple-400 bg-clip-text text-transparent">
-                better tools
-              </span>
-              <span className="absolute -bottom-1 left-0 right-0 h-[3px] rounded-full bg-gradient-to-r from-violet-500/50 via-fuchsia-500/50 to-purple-500/50 blur-sm" />
-            </span>
-          </h1>
-        </FadeIn>
+        <Sparkles className="absolute left-[7%] top-[38%] hidden h-5 w-5 -rotate-12 text-pink-400/25 lg:block lg:animate-[pulse_4s_ease-in-out_infinite]" />
+      </div>
 
-        <FadeIn delay={0.2}>
-          <p className="mx-auto mt-7 max-w-2xl text-base text-muted-foreground/80 sm:text-lg md:text-xl leading-relaxed">
-            JanitorForge is where you create, manage, and share your characters.
-            Custom forms, visual boards, real collaboration — everything in one
-            place, no juggling five different apps.
-          </p>
-        </FadeIn>
-
-        <FadeIn delay={0.3}>
-          <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link href="/login">
-              <Button
-                size="lg"
-                className="group cursor-pointer bg-gradient-to-r from-violet-600 to-purple-600 px-8 text-base shadow-2xl shadow-violet-600/25 hover:from-violet-500 hover:to-purple-500 hover:shadow-violet-500/30 transition-all duration-300"
-              >
-                Start creating
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </Link>
-            <a href="#features">
-              <Button
+      <div className="relative mx-auto grid max-w-7xl gap-14 px-5 sm:px-7 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-12">
+        {/* Copy */}
+        <div className="relative z-10 mx-auto max-w-xl text-center lg:mx-0 lg:text-left">
+          <Reveal>
+            <div className="mb-6 flex justify-center lg:justify-start">
+              <Badge
                 variant="outline"
-                size="lg"
-                className="cursor-pointer px-8 text-base border-white/10 hover:bg-white/[0.04]"
+                className="border-primary/25 bg-primary/8 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary"
               >
-                See what's inside
-                <ChevronDown className="ml-2 h-4 w-4 animate-bounce" />
-              </Button>
-            </a>
-          </div>
-        </FadeIn>
-
-        {/* Hero visual — floating dashboard mockup */}
-        <FadeIn delay={0.45} className="mt-16 sm:mt-20">
-          <div className="relative mx-auto max-w-4xl">
-            {/* Ambient glow behind */}
-            <div className="absolute -inset-x-12 top-12 -bottom-8 rounded-4xl bg-linear-to-b from-violet-600/8 via-purple-600/5 to-transparent blur-2xl" />
-
-            <div className="relative rounded-2xl border border-border/60 bg-card/90 p-1.5 shadow-[0_0_80px_-12px_rgba(124,58,237,0.18)] backdrop-blur-xl">
-              {/* Browser chrome */}
-              <div className="flex items-center gap-2 rounded-t-xl border-b border-border/60 bg-background/70 px-4 py-3">
-                <div className="flex gap-1.5">
-                  <div className="h-3 w-3 rounded-full bg-[#ff5f57]/80" />
-                  <div className="h-3 w-3 rounded-full bg-[#febc2e]/80" />
-                  <div className="h-3 w-3 rounded-full bg-[#28c840]/80" />
-                </div>
-                <div className="ml-3 flex-1 rounded-md bg-muted/70 px-3 py-1 text-xs text-muted-foreground font-mono">
-                  janitorforge.vercel.app
-                </div>
-              </div>
-
-              {/* Mockup content */}
-              <div className="rounded-b-xl bg-gradient-to-br from-background/80 to-transparent p-4 sm:p-6 md:p-8">
-                <div className="grid gap-4 md:grid-cols-3">
-                  {[
-                    {
-                      label: "Characters",
-                      value: "12",
-                      icon: Bot,
-                      color: "text-violet-400",
-                      bg: "bg-violet-500/10",
-                    },
-                    {
-                      label: "Active Forms",
-                      value: "4",
-                      icon: FileText,
-                      color: "text-cyan-400",
-                      bg: "bg-cyan-500/10",
-                    },
-                    {
-                      label: "Submissions",
-                      value: "89",
-                      icon: Send,
-                      color: "text-amber-400",
-                      bg: "bg-amber-500/10",
-                    },
-                  ].map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="rounded-xl border border-border/60 bg-background/75 p-4 text-left"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
-                          {stat.label}
-                        </span>
-                        <div
-                          className={cn(
-                            "flex h-7 w-7 items-center justify-center rounded-lg",
-                            stat.bg,
-                          )}
-                        >
-                          <stat.icon
-                            className={cn("h-3.5 w-3.5", stat.color)}
-                          />
-                        </div>
-                      </div>
-                      <p className="mt-2 text-2xl font-bold tracking-tight">
-                        {stat.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Fake request cards */}
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {[
-                    {
-                      name: "Luna",
-                      initial: "L",
-                      status: "New",
-                      form: "Open Commissions",
-                      color: "bg-violet-500/15 text-violet-400",
-                      avatar: "from-violet-500 to-fuchsia-500",
-                    },
-                    {
-                      name: "Marco",
-                      initial: "M",
-                      status: "In progress",
-                      form: "Custom Portrait",
-                      color: "bg-cyan-500/15 text-cyan-400",
-                      avatar: "from-cyan-500 to-blue-500",
-                    },
-                  ].map((req) => (
-                    <div
-                      key={req.name}
-                      className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/75 p-3"
-                    >
-                      <div
-                        className={cn(
-                          "flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br text-xs font-bold text-white",
-                          req.avatar,
-                        )}
-                      >
-                        {req.initial}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {req.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {req.form}
-                        </p>
-                      </div>
-                      <span
-                        className={cn(
-                          "rounded-full px-2.5 py-0.5 text-[10px] font-semibold",
-                          req.color,
-                        )}
-                      >
-                        {req.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                Free · Beta · Made for Janitor AI creators
+              </Badge>
             </div>
+          </Reveal>
 
-            {/* Floating badges */}
-            <div className="absolute -top-4 -right-4 hidden sm:block">
-              <div className="rounded-full border border-border/60 bg-background/85 px-3.5 py-1.5 text-xs font-medium shadow-xl backdrop-blur-md">
-                <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Active Forms: 4
-              </div>
+          <Reveal delay={0.08}>
+            <h1 className="text-balance text-4xl font-extrabold leading-[1.04] tracking-[-0.045em] sm:text-5xl lg:text-6xl xl:text-[4.35rem]">
+              Tools I wanted as a{" "}
+              <span className="relative inline-block">
+                <span className="bg-linear-to-r from-primary via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  Janitor AI creator.
+                </span>
+
+                <span className="absolute -bottom-1 left-0 right-0 h-px bg-linear-to-r from-primary/0 via-primary/55 to-primary/0" />
+              </span>
+            </h1>
+          </Reveal>
+
+          <Reveal delay={0.16}>
+            <p className="mx-auto mt-6 max-w-xl text-pretty text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8 lg:mx-0">
+              JanitorForge started as a better way to handle creator requests
+              without relying on DMs and generic forms. I kept adding the tools
+              I wanted for my own bots, and it slowly became a workspace for
+              forms, submissions, profiles, collaboration, and more.
+            </p>
+          </Reveal>
+
+          <Reveal delay={0.24}>
+            <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
+              <Link href="/login">
+                <Button
+                  size="lg"
+                  className="group h-11 w-full cursor-pointer rounded-full px-6 shadow-lg shadow-primary/20 transition-all duration-300 hover:scale-[1.02] sm:w-auto"
+                >
+                  Try JanitorForge
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Button>
+              </Link>
+
+              <a href="#workflow">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-11 w-full cursor-pointer rounded-full border-border/70 bg-background/50 px-6 backdrop-blur sm:w-auto"
+                >
+                  See what it does
+                </Button>
+              </a>
             </div>
-            <div className="absolute -bottom-4 -left-4 hidden sm:block">
-              <div className="rounded-full border border-border/60 bg-background/85 px-3.5 py-1.5 text-xs font-medium shadow-xl backdrop-blur-md">
-                <Heart className="mr-1 inline-block h-3 w-3 text-red-400" />
-                89 submissions
+          </Reveal>
+
+          <Reveal delay={0.3}>
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground lg:justify-start">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Free
+              </span>
+
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                No email required
+              </span>
+
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                Still in Beta
+              </span>
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Real product screenshot */}
+        <Reveal delay={0.18} direction="left" className="relative">
+          <div className="relative mx-auto max-w-3xl lg:ml-0">
+            <div className="absolute -inset-10 rounded-[3rem] bg-primary/10 blur-3xl" />
+
+            <div className="relative lg:rotate-[1.5deg]">
+              <ScreenshotFrame
+                src={dashboardScreenshot.src}
+                alt={dashboardScreenshot.alt}
+                label="janitorforge / dashboard"
+                priority
+              />
+
+              {/* Real-product labels */}
+              <div className="absolute -bottom-5 -left-3 hidden rotate-[-3deg] rounded-xl border border-green-500/20 bg-background/90 px-3 py-2 shadow-xl backdrop-blur sm:block">
+                <div className="flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-green-500" />
+
+                  <div>
+                    <p className="text-[10px] font-semibold">Bot Manager</p>
+
+                    <p className="text-[9px] text-muted-foreground">
+                      actual workspace
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute -right-4 -top-5 hidden rotate-[3deg] rounded-xl border border-blue-500/20 bg-background/90 px-3 py-2 shadow-xl backdrop-blur sm:block">
+                <div className="flex items-center gap-2">
+                  <Inbox className="h-4 w-4 text-blue-500" />
+
+                  <div>
+                    <p className="text-[10px] font-semibold">Submissions</p>
+
+                    <p className="text-[9px] text-muted-foreground">
+                      one workspace
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </FadeIn>
+        </Reveal>
       </div>
     </section>
   );
 }
 
 // ============================================================================
-// Features
+// Workflow
 // ============================================================================
 
-const features = [
+const workflowSteps = [
   {
-    icon: Bot,
-    title: "Bot Manager",
-    description:
-      "Full character editor — backstory, personality, scenarios, example dialogues. Not a boring form. A real tool built for creators.",
-    accent: "violet",
-    imagePlaceholder: true,
-  },
-  {
+    number: "01",
     icon: FileText,
-    title: "Forms that actually work",
+    title: "Build the form",
     description:
-      "Custom sections, field types, validation, your own style. Share with a link, get submissions straight to your board.",
-    accent: "cyan",
-    imagePlaceholder: true,
+      "Create the questions you actually need, split them into sections, customize the appearance, and share one public link.",
+    tone: "text-muted-foreground",
+    bg: "bg-muted/60",
   },
   {
-    icon: Kanban,
-    title: "Visual submission boards",
-    description:
-      "Drag, drop, change status, add notes. Kanban-style management for your submissions. See everything at a glance.",
-    accent: "amber",
-    imagePlaceholder: true,
-  },
-  {
-    icon: Users,
-    title: "Real collaboration",
-    description:
-      "Invite other creators to work on a character together. Roles, permissions, live activity. No more copy-pasting through Discord.",
-    accent: "emerald",
-    imagePlaceholder: true,
-  },
-  {
+    number: "02",
     icon: Shield,
-    title: "Built-in moderation",
+    title: "Let requests come in",
     description:
-      "Content filters, custom blocklists, flagged submission reviews. You decide what gets through and what doesn't.",
-    accent: "rose",
-    imagePlaceholder: true,
+      "Incoming submissions can be checked by moderation tools before they become another thing you have to deal with manually.",
+    tone: "text-orange-500",
+    bg: "bg-orange-500/10",
   },
   {
-    icon: Globe,
-    title: "Your creator page",
+    number: "03",
+    icon: Kanban,
+    title: "Keep track of them",
     description:
-      "One link to share your whole portfolio — characters, forms, socials. Like a personal website but made for creators.",
-    accent: "sky",
-    imagePlaceholder: true,
+      "Move submissions through your workflow, open the full responses, add notes, and keep the queue somewhere other than your DMs.",
+    tone: "text-blue-500",
+    bg: "bg-blue-500/10",
   },
 ];
 
-const accentStyles: Record<
-  string,
+function Workflow() {
+  const { resolvedTheme } = useTheme();
+  const formsScreenshot = resolveLandingScreenshot(
+    landingScreenshots.forms,
+    resolvedTheme,
+  );
+  const submissionsScreenshot = resolveLandingScreenshot(
+    landingScreenshots.submissions,
+    resolvedTheme,
+  );
+
+  return (
+    <section id="workflow" className="relative py-24 sm:py-32">
+      <div className="mx-auto max-w-7xl px-5 sm:px-7">
+        <Reveal>
+          <div className="max-w-3xl">
+            <div className="mb-5 flex items-center gap-3">
+              <span className="h-px w-10 bg-primary/60" />
+
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
+                Where it started
+              </span>
+            </div>
+
+            <h2 className="text-balance text-3xl font-bold tracking-[-0.035em] sm:text-4xl md:text-5xl">
+              Requests shouldn&apos;t have to live in random DMs and generic
+              forms.
+            </h2>
+
+            <p className="mt-5 max-w-2xl text-pretty leading-7 text-muted-foreground sm:text-lg">
+              Forms were the first reason JanitorForge existed. The workflow
+              grew from one simple idea: give creators somewhere safer and more
+              organized to receive and manage requests.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mt-14 grid gap-4 lg:grid-cols-3">
+          {workflowSteps.map((step, index) => (
+            <Reveal key={step.number} delay={index * 0.08} className="h-full">
+              <div className="relative h-full overflow-hidden rounded-2xl border border-border/70 bg-card/75 p-6 shadow-sm">
+                <span className="absolute right-5 top-3 select-none font-mono text-5xl font-black text-foreground/[0.035]">
+                  {step.number}
+                </span>
+
+                <div
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-xl",
+                    step.bg,
+                  )}
+                >
+                  <step.icon className={cn("h-5 w-5", step.tone)} />
+                </div>
+
+                <h3 className="mt-5 text-lg font-semibold">{step.title}</h3>
+
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {step.description}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Real workflow screenshots */}
+        <div className="mt-12 grid items-start gap-6 lg:grid-cols-[1.12fr_0.88fr]">
+          <Reveal direction="right">
+            <div>
+              <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" />
+                Form Builder
+              </div>
+
+              <ScreenshotFrame
+                src={formsScreenshot.src}
+                alt={formsScreenshot.alt}
+                label="forms / builder"
+              />
+            </div>
+          </Reveal>
+
+          <Reveal direction="left" delay={0.08} className="lg:pt-20">
+            <div>
+              <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+                <Inbox className="h-3.5 w-3.5 text-blue-500" />
+                Submission workflow
+              </div>
+
+              <ScreenshotFrame
+                src={submissionsScreenshot.src}
+                alt={submissionsScreenshot.alt}
+                label="submissions / board"
+              />
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Tools
+// ============================================================================
+
+const tools = [
   {
-    bg: string;
-    text: string;
-    glow: string;
-    ring: string;
-  }
-> = {
-  violet: {
-    bg: "bg-violet-500/10",
-    text: "text-violet-400",
-    glow: "group-hover:shadow-violet-500/10",
-    ring: "group-hover:ring-violet-500/20",
+    icon: Bot,
+    title: "Bot Manager",
+    eyebrow: "Forge",
+    description:
+      "Keep your character definitions, scenarios, initial messages, alternate greetings, tags, images, and other bot information together.",
+    className: "lg:col-span-2",
+    iconClass: "bg-green-500/10 text-green-500",
   },
-  cyan: {
-    bg: "bg-cyan-500/10",
-    text: "text-cyan-400",
-    glow: "group-hover:shadow-cyan-500/10",
-    ring: "group-hover:ring-cyan-500/20",
+  {
+    icon: Palette,
+    title: "Profiles",
+    eyebrow: "Your space",
+    description:
+      "Customize how your creator profile looks and decide which bots, forms, worlds, and pages you actually want to show.",
+    className: "lg:col-span-1",
+    iconClass: "bg-purple-500/10 text-purple-500",
   },
-  amber: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-400",
-    glow: "group-hover:shadow-amber-500/10",
-    ring: "group-hover:ring-amber-500/20",
+  {
+    icon: Users,
+    title: "Collaboration",
+    eyebrow: "Shared bots",
+    description:
+      "Invite another creator to work on a bot with roles, permissions, activity, comments, and review tools.",
+    className: "lg:col-span-1",
+    iconClass: "bg-emerald-500/10 text-emerald-500",
   },
-  emerald: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-400",
-    glow: "group-hover:shadow-emerald-500/10",
-    ring: "group-hover:ring-emerald-500/20",
+  {
+    icon: WandSparkles,
+    title: "Markdown Editor",
+    eyebrow: "Writing",
+    description:
+      "A visual editor for Markdown with formatting, colors, links, lists, slash commands, selection tools, and proper rendering across the platform.",
+    className: "lg:col-span-2",
+    iconClass: "bg-pink-500/10 text-pink-500",
   },
-  rose: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-400",
-    glow: "group-hover:shadow-rose-500/10",
-    ring: "group-hover:ring-rose-500/20",
+  {
+    icon: Globe,
+    title: "Atlas",
+    eyebrow: "W.I.P.",
+    description:
+      "Worlds, lorebooks, characters, and connected creations. Atlas exists today, but it is still one of the systems I want to rethink more deeply.",
+    className: "lg:col-span-1",
+    iconClass: "bg-pink-500/10 text-pink-500",
   },
-  sky: {
-    bg: "bg-sky-500/10",
-    text: "text-sky-400",
-    glow: "group-hover:shadow-sky-500/10",
-    ring: "group-hover:ring-sky-500/20",
+  {
+    icon: Hash,
+    title: "Community & Resources",
+    eyebrow: "Hub",
+    description:
+      "Browse creator profiles, platform discussions, project updates, reports, and Janitor-related resources without leaving the workspace.",
+    className: "lg:col-span-2",
+    iconClass: "bg-violet-500/10 text-violet-500",
   },
-};
+];
+
+function Tools() {
+  return (
+    <section id="tools" className="relative py-24 sm:py-32">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-border to-transparent"
+      />
+
+      <div className="mx-auto max-w-7xl px-5 sm:px-7">
+        <Reveal>
+          <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
+            <div>
+              <div className="mb-5 flex items-center gap-3">
+                <span className="h-px w-10 bg-purple-500/60" />
+
+                <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-purple-500">
+                  What grew around it
+                </span>
+              </div>
+
+              <h2 className="text-3xl font-bold tracking-[-0.035em] sm:text-4xl md:text-5xl">
+                I kept building things I wanted to use.
+              </h2>
+            </div>
+
+            <p className="max-w-2xl text-pretty leading-7 text-muted-foreground sm:text-lg lg:justify-self-end">
+              JanitorForge stopped being only a request-form project once I
+              started using it myself. Bot management, profiles, collaboration,
+              Markdown, community tools, and Atlas grew from that.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mt-14 grid gap-4 lg:grid-cols-3">
+          {tools.map((tool, index) => (
+            <Reveal
+              key={tool.title}
+              delay={(index % 3) * 0.06}
+              className={tool.className}
+            >
+              <div className="group relative h-full overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-card">
+                <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/0 blur-2xl transition-colors group-hover:bg-primary/5" />
+
+                <div className="relative flex items-start justify-between gap-4">
+                  <div
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-xl",
+                      tool.iconClass,
+                    )}
+                  >
+                    <tool.icon className="h-5 w-5" />
+                  </div>
+
+                  <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    {tool.eyebrow}
+                  </span>
+                </div>
+
+                <h3 className="relative mt-6 text-xl font-semibold">
+                  {tool.title}
+                </h3>
+
+                <p className="relative mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                  {tool.description}
+                </p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Why JanitorForge exists
+// ============================================================================
+
+function Why() {
+  return (
+    <section id="why" className="relative py-24 sm:py-32">
+      <div className="mx-auto max-w-7xl px-5 sm:px-7">
+        <Reveal>
+          <div className="relative overflow-hidden rounded-[2rem] border border-border/70 bg-card/75">
+            {/* atmosphere */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 overflow-hidden"
+            >
+              <div className="absolute -left-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-purple-500/10 blur-[80px]" />
+
+              <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-pink-500/8 blur-[80px]" />
+
+              <div
+                className="absolute inset-0 opacity-[0.025]"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at center, currentColor 1px, transparent 1px)",
+                  backgroundSize: "26px 26px",
+                }}
+              />
+            </div>
+
+            <div className="relative grid gap-10 p-7 sm:p-10 lg:grid-cols-[0.72fr_1.28fr] lg:p-14">
+              <div>
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+
+                <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
+                  Why I made this
+                </p>
+
+                <h2 className="mt-3 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
+                  It wasn&apos;t supposed to become a platform.
+                </h2>
+              </div>
+
+              <div className="space-y-5 text-sm leading-7 text-muted-foreground sm:text-base">
+                <p>
+                  JanitorForge originally started because a friend was handling
+                  bot requests through Google Forms and received a seriously
+                  abusive submission. I wanted to make something that gave her
+                  more control over what reached her and made the requests
+                  easier to organize.
+                </p>
+
+                <p>
+                  After Forms worked, I started adding things because I&apos;m a
+                  creator too. I wanted somewhere to keep my own bots, so Bot
+                  Manager happened. I liked the idea of customizable creator
+                  profiles, so I built those. Then Markdown, collaboration,
+                  Creator Pages, Atlas, and the rest slowly followed.
+                </p>
+
+                <p className="font-medium text-foreground">
+                  It&apos;s still a personal project. I&apos;m building it
+                  because I enjoy working on it, I use parts of it myself, and
+                  maybe other creators will find those tools useful too.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Lightbox
+// ============================================================================
 
 function ImageLightbox({
   images,
   initialIndex,
   onClose,
 }: {
-  images: { src: string; alt: string }[];
+  images: {
+    src: string;
+    alt: string;
+  }[];
   initialIndex: number;
   onClose: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-  const goNext = () => setCurrentIndex((prev) => (prev + 1) % images.length);
-  const goPrev = () =>
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  const goNext = () => {
+    setCurrentIndex((current) => (current + 1) % images.length);
+  };
 
-  // Keyboard navigation
+  const goPrevious = () => {
+    setCurrentIndex((current) => (current - 1 + images.length) % images.length);
+  };
+
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") goNext();
-      if (e.key === "ArrowLeft") goPrev();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+
+      if (event.key === "ArrowRight") {
+        goNext();
+      }
+
+      if (event.key === "ArrowLeft") {
+        goPrevious();
+      }
     };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  // Lock body scroll + hide navbar
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    document.body.dataset.lightbox = "open";
+
     return () => {
       document.body.style.overflow = "";
-      delete document.body.dataset.lightbox;
     };
   }, []);
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
       onClick={onClose}
     >
-      {/* Hide navbar while lightbox is open */}
-      <style>{`nav[data-landing-nav] { visibility: hidden !important; }`}</style>
-      {/* Close button */}
+      <style>
+        {`
+          nav[data-landing-nav] {
+            visibility: hidden !important;
+          }
+        `}
+      </style>
+
       <button
+        type="button"
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 cursor-pointer"
+        className="absolute right-4 top-4 z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+        aria-label="Close image"
       >
         <X className="h-5 w-5" />
       </button>
 
-      {/* Counter */}
-      <div className="absolute top-4 left-4 z-10 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white">
+      <div className="absolute left-4 top-4 z-20 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white">
         {currentIndex + 1} / {images.length}
       </div>
 
-      {/* Image container */}
       <div
-        className="relative mx-14 flex h-[80vh] w-full max-w-5xl items-center justify-center sm:mx-20"
-        onClick={(e) => e.stopPropagation()}
+        className="relative h-[82vh] w-full max-w-6xl"
+        onClick={(event) => event.stopPropagation()}
       >
         <Image
           src={images[currentIndex].src}
           alt={images[currentIndex].alt}
           fill
-          className="object-contain"
           unoptimized
+          className="object-contain"
         />
       </div>
 
-      {/* Prev button */}
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          goPrev();
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          goPrevious();
         }}
-        className="absolute left-2 sm:left-4 z-10 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 cursor-pointer"
+        className="absolute left-2 z-20 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:left-5"
+        aria-label="Previous image"
       >
-        <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+        <ChevronLeft className="h-5 w-5" />
       </button>
 
-      {/* Next button */}
       <button
-        onClick={(e) => {
-          e.stopPropagation();
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
           goNext();
         }}
-        className="absolute right-2 sm:right-4 z-10 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 cursor-pointer"
+        className="absolute right-2 z-20 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 sm:right-5"
+        aria-label="Next image"
       >
-        <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+        <ChevronRight className="h-5 w-5" />
       </button>
-
-      {/* Thumbnail strip */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2 rounded-full bg-black/50 p-2 backdrop-blur-md">
-        {images.map((img, i) => (
-          <button
-            key={i}
-            onClick={(e) => {
-              e.stopPropagation();
-              setCurrentIndex(i);
-            }}
-            className={cn(
-              "relative h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-lg transition-all cursor-pointer",
-              i === currentIndex
-                ? "ring-2 ring-violet-400 scale-105"
-                : "opacity-50 hover:opacity-80",
-            )}
-          >
-            <Image
-              src={img.src}
-              alt={img.alt}
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
 
-function FeatureCard({
-  feature,
-  index,
-  onImageClick,
-}: {
-  feature: (typeof features)[number];
-  index: number;
-  onImageClick?: () => void;
-}) {
-  const accent = accentStyles[feature.accent] || accentStyles.violet;
+// ============================================================================
+// Screenshots
+// ============================================================================
 
-  return (
-    <FadeIn delay={index * 0.08} className="h-full">
-      <div
-        className={cn(
-          "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-6 transition-all duration-500",
-          "hover:border-border/80 hover:bg-card hover:shadow-2xl hover:ring-1",
-          accent.glow,
-          accent.ring,
-        )}
-      >
-        {/* Subtle gradient on hover */}
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-          style={{
-            background: `radial-gradient(ellipse at 50% 0%, ${feature.accent === "violet" ? "rgba(124,58,237,0.04)" : feature.accent === "cyan" ? "rgba(6,182,212,0.04)" : feature.accent === "amber" ? "rgba(245,158,11,0.04)" : feature.accent === "emerald" ? "rgba(16,185,129,0.04)" : feature.accent === "rose" ? "rgba(244,63,94,0.04)" : "rgba(14,165,233,0.04)"} 0%, transparent 70%)`,
-          }}
-        />
+const screenshotCardConfig = [
+  {
+    screenshot: landingScreenshots.dashboard,
+    label: "Dashboard",
+    description:
+      "Your workspace at a glance: bots, forms, submissions, recent activity, and quick actions.",
+  },
+  {
+    screenshot: landingScreenshots.bots,
+    label: "Bot Manager",
+    description:
+      "Keep character content somewhere built around bot creation instead of a generic notes app.",
+  },
+  {
+    screenshot: landingScreenshots.forms,
+    label: "Form Builder",
+    description:
+      "Build request forms with sections, appearance controls, Markdown, media, and shareable links.",
+  },
+  {
+    screenshot: landingScreenshots.profile,
+    label: "Profiles",
+    description:
+      "Build a creator profile and choose exactly which parts of your work you want visitors to see.",
+  },
+] as const;
 
-        {/* Image — clickable to open lightbox */}
-        {feature.imagePlaceholder && (
-          <button
-            type="button"
-            onClick={onImageClick}
-            className="relative mb-4 h-40 overflow-hidden rounded-xl border border-border/60 bg-background/70 cursor-pointer group/image"
-          >
-            <Image
-              src={`/landing/feature-${feature.accent}.jpg`}
-              alt={feature.title}
-              fill
-              className="object-cover transition-transform duration-300 group-hover/image:scale-105"
-              unoptimized
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/image:bg-black/30">
-              <Maximize2 className="h-6 w-6 text-white opacity-0 transition-opacity group-hover/image:opacity-100" />
-            </div>
-          </button>
-        )}
-
-        <div
-          className={cn(
-            "relative mb-3 flex h-10 w-10 items-center justify-center rounded-xl",
-            accent.bg,
-          )}
-        >
-          <feature.icon className={cn("h-5 w-5", accent.text)} />
-        </div>
-        <h3 className="relative text-lg font-semibold">{feature.title}</h3>
-        <p className="relative mt-2 flex-1 text-sm leading-relaxed text-muted-foreground/70">
-          {feature.description}
-        </p>
-      </div>
-    </FadeIn>
-  );
-}
-
-function Features() {
+function Screenshots() {
+  const { resolvedTheme } = useTheme();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const imageFeatures = features.filter((f) => f.imagePlaceholder);
-  const lightboxImages = imageFeatures.map((f) => ({
-    src: `/landing/feature-${f.accent}.jpg`,
-    alt: f.title,
+  const screenshotCards = screenshotCardConfig.map((item) => ({
+    ...resolveLandingScreenshot(item.screenshot, resolvedTheme),
+    label: item.label,
+    description: item.description,
   }));
 
   return (
-    <section id="features" className="relative py-24 sm:py-32">
-      {/* Divider */}
-      <div className="absolute top-0 left-1/2 h-px w-[80%] max-w-xl -translate-x-1/2 bg-linear-to-r from-transparent via-white/8 to-transparent" />
+    <section id="screenshots" className="relative py-24 sm:py-32">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-border to-transparent"
+      />
 
-      <div className="mx-auto max-w-6xl px-5">
-        <FadeIn className="text-center">
-          <Badge
-            variant="outline"
-            className="mb-4 border-violet-500/30 bg-violet-500/8 text-xs uppercase tracking-wide text-violet-400"
-          >
-            Everything you need
-          </Badge>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-            Not another generic tool
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground/70 sm:text-lg">
-            JanitorForge was built specifically for character creators. Every
-            feature exists because someone actually needed it.
-          </p>
-        </FadeIn>
+      <div className="mx-auto max-w-7xl px-5 sm:px-7">
+        <Reveal>
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="mb-5 flex items-center gap-3">
+                <span className="h-px w-10 bg-blue-500/60" />
 
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature, i) => {
-            const imageIdx = imageFeatures.indexOf(feature);
-            return (
-              <FeatureCard
-                key={feature.title}
-                feature={feature}
-                index={i}
-                onImageClick={
-                  feature.imagePlaceholder
-                    ? () => setLightboxIndex(imageIdx)
-                    : undefined
-                }
-              />
-            );
-          })}
+                <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-blue-500">
+                  The actual platform
+                </span>
+              </div>
+
+              <h2 className="text-3xl font-bold tracking-[-0.035em] sm:text-4xl md:text-5xl">
+                This is JanitorForge.
+              </h2>
+            </div>
+
+            <p className="max-w-md text-sm leading-6 text-muted-foreground sm:text-base">
+              These are screenshots from the real application. Click one if you
+              want a closer look before making an account.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="mt-14 grid gap-6 lg:grid-cols-2">
+          {screenshotCards.map((screenshot, index) => (
+            <Reveal key={screenshot.label} delay={(index % 2) * 0.07}>
+              <div className="group">
+                <ScreenshotFrame
+                  src={screenshot.src}
+                  alt={screenshot.alt}
+                  label={screenshot.label.toLowerCase()}
+                  onClick={() => setLightboxIndex(index)}
+                />
+
+                <div className="mt-4 flex items-start gap-3">
+                  <span className="mt-1 font-mono text-[10px] text-primary">
+                    0{index + 1}
+                  </span>
+
+                  <div>
+                    <h3 className="font-semibold">{screenshot.label}</h3>
+
+                    <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
+                      {screenshot.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          ))}
         </div>
       </div>
 
-      {/* Lightbox */}
       {lightboxIndex !== null && (
         <ImageLightbox
-          images={lightboxImages}
+          images={screenshotCards.map((item) => ({
+            src: item.src,
+            alt: item.alt,
+          }))}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />
@@ -893,358 +1182,63 @@ function Features() {
 }
 
 // ============================================================================
-// How It Works
+// Beta / feedback
 // ============================================================================
 
-const steps = [
-  {
-    num: "01",
-    title: "Create your account",
-    description:
-      "Pick a username and a PIN. No lengthy sign-ups, no email verification loops. You're in within 30 seconds.",
-    icon: Zap,
-    accent: "violet",
-  },
-  {
-    num: "02",
-    title: "Build your workspace",
-    description:
-      "Design characters, craft forms, set up your creator page. Everything is easy and intuitive.",
-    icon: Palette,
-    accent: "cyan",
-  },
-  {
-    num: "03",
-    title: "Share and receive",
-    description:
-      "Drop your link wherever your audience is. Submissions roll in, you manage them on the board. No extra apps needed.",
-    icon: Send,
-    accent: "amber",
-  },
-];
-
-function HowItWorks() {
-  return (
-    <section id="how" className="relative py-24 sm:py-32">
-      {/* Background accent */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute left-1/2 top-1/2 h-150 w-200 -translate-x-1/2 -translate-y-1/2 opacity-[0.04]"
-          style={{
-            background: "radial-gradient(ellipse, #06b6d4 0%, transparent 60%)",
-            filter: "blur(60px)",
-          }}
-        />
-      </div>
-
-      {/* Top divider */}
-      <div className="absolute top-0 left-1/2 h-px w-[80%] max-w-xl -translate-x-1/2 bg-linear-to-r from-transparent via-white/8 to-transparent" />
-
-      <div className="relative mx-auto max-w-6xl px-5">
-        <FadeIn className="text-center">
-          <Badge
-            variant="outline"
-            className="mb-4 border-cyan-500/30 bg-cyan-500/8 text-xs uppercase tracking-wide text-cyan-400"
-          >
-            <ArrowRight className="mr-1 h-3 w-3" />
-            Three steps
-          </Badge>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-            It&rsquo;s really that simple
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground/70 sm:text-lg">
-            If you can post on social media, you can use JanitorForge.
-            Seriously.
-          </p>
-        </FadeIn>
-
-        <div className="mt-16 grid gap-10 md:grid-cols-3">
-          {steps.map((step, i) => (
-            <FadeIn key={step.num} delay={i * 0.12} className="relative">
-              {/* Connector */}
-              {i < steps.length - 1 && (
-                <div className="absolute left-[calc(50%+2.5rem)] top-8 hidden h-px w-[calc(100%-5rem)] bg-linear-to-r from-border/70 to-transparent md:block" />
-              )}
-
-              <div className="flex flex-col items-center text-center">
-                <div className="relative mb-6">
-                  <div
-                    className={cn(
-                      "flex h-16 w-16 items-center justify-center rounded-2xl border border-border/60",
-                      step.accent === "violet" && "bg-violet-500/8",
-                      step.accent === "cyan" && "bg-cyan-500/8",
-                      step.accent === "amber" && "bg-amber-500/8",
-                    )}
-                  >
-                    <step.icon
-                      className={cn("h-7 w-7", {
-                        "text-violet-400": step.accent === "violet",
-                        "text-cyan-400": step.accent === "cyan",
-                        "text-amber-400": step.accent === "amber",
-                      })}
-                    />
-                  </div>
-                  <span className="absolute -top-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full border border-border/60 bg-background/90 text-[11px] font-bold text-muted-foreground">
-                    {step.num}
-                  </span>
-                </div>
-                <h3 className="text-xl font-semibold">{step.title}</h3>
-                <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground/70">
-                  {step.description}
-                </p>
-              </div>
-            </FadeIn>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ============================================================================
-// Showcase
-// ============================================================================
-
-function Showcase() {
-  return (
-    <section id="showcase" className="relative py-24 sm:py-32">
-      {/* Background glow */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute -top-40 left-1/2 h-175 w-225 -translate-x-1/2 opacity-[0.06]"
-          style={{
-            background: "radial-gradient(ellipse, #7c3aed 0%, transparent 55%)",
-            filter: "blur(80px)",
-          }}
-        />
-      </div>
-
-      {/* Top divider */}
-      <div className="absolute top-0 left-1/2 h-px w-[80%] max-w-xl -translate-x-1/2 bg-linear-to-r from-transparent via-white/8 to-transparent" />
-
-      <div className="relative mx-auto max-w-6xl px-5">
-        <FadeIn className="text-center">
-          <Badge
-            variant="outline"
-            className="mb-4 border-amber-500/30 bg-amber-500/8 text-xs uppercase tracking-wide text-amber-400"
-          >
-            See it live
-          </Badge>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-            Looks as good as it works
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground/70 sm:text-lg">
-            Your forms, your creator page, your dashboard. Everything looks
-            polished out of the box — no design skills needed.
-          </p>
-        </FadeIn>
-
-        <div className="mt-16 grid gap-6 lg:grid-cols-2">
-          {/* Public form mockup */}
-          <FadeIn direction="left">
-            <div className="group overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-[0_0_60px_-16px_rgba(124,58,237,0.12)] transition-all duration-500 hover:shadow-[0_0_80px_-12px_rgba(124,58,237,0.2)]">
-              <div className="flex items-center gap-2 border-b border-border/60 bg-background/70 px-4 py-3">
-                <div className="flex gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/60" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/60" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]/60" />
-                </div>
-                <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                  janitorforge.vercel.app/form/open-commissions
-                </span>
-              </div>
-              <div className="p-6">
-                <h3 className="text-xl font-bold">Open Commissions</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Fill out this form to request a commission. Please read the
-                  rules before submitting.
-                </p>
-
-                <div className="mt-5 space-y-4">
-                  {[
-                    { label: "Your name", value: "Luna Starlight" },
-                    { label: "Commission type", value: "Digital portrait" },
-                  ].map((field) => (
-                    <div key={field.label} className="space-y-1.5">
-                      <label className="text-sm font-medium">
-                        {field.label}
-                      </label>
-                      <div className="h-10 rounded-lg border border-border/60 bg-background/70 px-3 flex items-center">
-                        <span className="text-sm text-muted-foreground/50">
-                          {field.value}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Description</label>
-                    <div className="h-20 rounded-lg border border-border/60 bg-background/70 px-3 py-2">
-                      <span className="text-sm text-muted-foreground/50 leading-relaxed">
-                        I'd like a portrait of my OC with a sunset background,
-                        anime style...
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-11 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 flex items-center justify-center font-medium text-white text-sm shadow-lg shadow-violet-600/20">
-                    Submit request
-                  </div>
-                </div>
-              </div>
-            </div>
-          </FadeIn>
-
-          {/* Creator page mockup */}
-          <FadeIn direction="right">
-            <div className="group overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-[0_0_60px_-16px_rgba(16,185,129,0.08)] transition-all duration-500 hover:shadow-[0_0_80px_-12px_rgba(16,185,129,0.14)]">
-              <div className="flex items-center gap-2 border-b border-border/60 bg-background/70 px-4 py-3">
-                <div className="flex gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]/60" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-[#febc2e]/60" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]/60" />
-                </div>
-                <span className="ml-2 font-mono text-[11px] text-muted-foreground">
-                  janitorforge.vercel.app/@luna-creates
-                </span>
-              </div>
-              <div className="p-6">
-                {/* Banner placeholder */}
-                <div className="mb-4 flex h-28 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border/60 bg-linear-to-br from-violet-500/6 via-fuchsia-500/4 to-cyan-500/6">
-                  <div className="text-center">
-                    <Palette className="mx-auto h-5 w-5 text-muted-foreground/30" />
-                    <p className="mt-1 font-mono text-[10px] text-muted-foreground/30">
-                      [Creator banner image]
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-lg font-bold text-white shadow-lg shadow-violet-500/20">
-                    L
-                  </div>
-                  <div>
-                    <h3 className="font-bold">Luna Creates</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Digital artist & character designer
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  I make characters and digital commissions. If you want to work
-                  with me, fill out the form below ✨
-                </p>
-
-                <div className="mt-4 flex gap-2">
-                  <span className="rounded-full bg-violet-500/10 px-2.5 py-1 text-xs text-violet-400 font-medium">
-                    12 characters
-                  </span>
-                  <span className="rounded-full bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-400 font-medium">
-                    4 forms
-                  </span>
-                </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  {["Aria", "Kai", "Nova"].map((name) => (
-                    <div
-                      key={name}
-                      className="flex h-20 flex-col items-center justify-center rounded-lg border border-border/60 bg-background/70"
-                    >
-                      {/* Image placeholder for bot thumbnails */}
-                      <span className="font-mono text-[10px] text-muted-foreground/40">
-                        [Bot]
-                      </span>
-                      <span className="mt-1 text-[9px] text-muted-foreground/30">
-                        {name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </FadeIn>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ============================================================================
-// Testimonial
-// ============================================================================
-
-// function Testimonial() {
-//   return (
-//     <section className="py-20 sm:py-28">
-//       <FadeIn>
-//         <div className="mx-auto max-w-3xl px-5">
-//           <div className="relative rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 sm:p-10">
-//             <Quote className="absolute top-6 left-6 h-8 w-8 text-violet-500/20" />
-//             <blockquote className="relative text-lg sm:text-xl leading-relaxed text-foreground/90 font-medium">
-//               &ldquo;I used to juggle between Google Forms, Notion boards, and
-//               Discord DMs to manage my commissions. JanitorForge replaced all of
-//               that. It just works.&rdquo;
-//             </blockquote>
-//             <div className="mt-6 flex items-center gap-3">
-//               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-sm font-bold text-white">
-//                 S
-//               </div>
-//               <div>
-//                 <p className="text-sm font-semibold">Sakura</p>
-//                 <p className="text-xs text-muted-foreground/50">
-//                   Character artist, 200+ commissions
-//                 </p>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       </FadeIn>
-//     </section>
-//   );
-// }
-
-// ============================================================================
-// CTA
-// ============================================================================
-
-function CTA() {
+function BetaSection() {
   return (
     <section className="relative py-24 sm:py-32">
-      {/* Background glow */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute left-1/2 top-1/2 h-125 w-175 -translate-x-1/2 -translate-y-1/2 opacity-[0.08]"
-          style={{
-            background: "radial-gradient(ellipse, #7c3aed 0%, transparent 50%)",
-            filter: "blur(60px)",
-          }}
-        />
-      </div>
-
-      {/* Top divider */}
-      <div className="absolute top-0 left-1/2 h-px w-[80%] max-w-xl -translate-x-1/2 bg-linear-to-r from-transparent via-white/8 to-transparent" />
-
-      <FadeIn className="relative mx-auto max-w-3xl px-5 text-center">
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-          Stop winging it
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-muted-foreground/70 sm:text-lg">
-          You don't need three different apps to do one thing. Create your
-          account in seconds and start building your creator space.
-        </p>
-        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Link href="/login">
-            <Button
-              size="lg"
-              className="group cursor-pointer bg-linear-to-r from-violet-600 to-purple-600 px-8 text-base shadow-2xl shadow-violet-600/25 transition-all duration-300 hover:from-violet-500 hover:to-purple-500"
+      <div className="mx-auto max-w-5xl px-5 sm:px-7">
+        <Reveal>
+          <div className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-linear-to-br from-primary/8 via-card to-pink-500/5 p-7 text-center shadow-xl shadow-primary/5 sm:p-12">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
             >
-              Create my account
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Button>
-          </Link>
-        </div>
-        <p className="mt-5 text-xs text-muted-foreground/40">
-          Free. No catch. Start whenever you're ready.
-        </p>
-      </FadeIn>
+              <div className="absolute left-1/2 top-0 h-52 w-96 -translate-x-1/2 rounded-full bg-primary/12 blur-[70px]" />
+
+              <Sparkles className="absolute left-[12%] top-[24%] h-5 w-5 text-purple-400/25" />
+
+              <WandSparkles className="absolute bottom-[20%] right-[12%] h-6 w-6 text-pink-400/20" />
+            </div>
+
+            <div className="relative">
+              <Badge
+                variant="outline"
+                className="border-primary/25 bg-background/40 text-[10px] uppercase tracking-[0.18em] text-primary"
+              >
+                Still Beta
+              </Badge>
+
+              <h2 className="mx-auto mt-5 max-w-2xl text-balance text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
+                Try it if it sounds useful.
+              </h2>
+
+              <p className="mx-auto mt-4 max-w-xl text-pretty leading-7 text-muted-foreground">
+                JanitorForge is free, still changing, and definitely not
+                finished. Make an account, poke around, break things, and tell
+                me what could be better.
+              </p>
+
+              <div className="mt-7">
+                <Link href="/login">
+                  <Button
+                    size="lg"
+                    className="group cursor-pointer rounded-full px-7 shadow-lg shadow-primary/20"
+                  >
+                    Try JanitorForge
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Button>
+                </Link>
+              </div>
+
+              <p className="mt-5 text-xs text-muted-foreground">
+                Free · No email required · Feedback genuinely welcome
+              </p>
+            </div>
+          </div>
+        </Reveal>
+      </div>
     </section>
   );
 }
@@ -1255,30 +1249,47 @@ function CTA() {
 
 function Footer() {
   return (
-    <footer className="border-t border-border/60 bg-background/70 backdrop-blur-xl">
-      <div className="mx-auto max-w-6xl px-5 py-12">
-        <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-          <div className="flex items-center gap-2.5">
-            <Image
-              src="/logo.png"
-              alt="JanitorForge (Beta)"
-              width={24}
-              height={24}
-              className="rounded"
-            />
-            <span className="font-semibold text-sm">JanitorForge (Beta)</span>
+    <footer className="border-t border-border/60">
+      <div className="mx-auto max-w-7xl px-5 py-10 sm:px-7">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto] lg:items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+              <Image
+                src="/logo.png"
+                alt="JanitorForge"
+                width={23}
+                height={23}
+              />
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold">JanitorForge</p>
+
+              <p className="text-[10px] text-muted-foreground">
+                An independent creator project.
+              </p>
+            </div>
           </div>
 
-          <div className="flex gap-6 text-sm text-muted-foreground">
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
             <a
-              href="#features"
+              href="#workflow"
               className="transition-colors hover:text-foreground"
             >
-              Features
+              Workflow
             </a>
-            <a href="#how" className="transition-colors hover:text-foreground">
-              How it works
+
+            <a
+              href="#tools"
+              className="transition-colors hover:text-foreground"
+            >
+              Tools
             </a>
+
+            <a href="#why" className="transition-colors hover:text-foreground">
+              Why
+            </a>
+
             <Link
               href="/login"
               className="transition-colors hover:text-foreground"
@@ -1287,20 +1298,22 @@ function Footer() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-muted-foreground/40">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
             <Link
               href="/terms"
               className="transition-colors hover:text-foreground"
             >
               Terms
             </Link>
+
             <Link
               href="/privacy"
               className="transition-colors hover:text-foreground"
             >
               Privacy
             </Link>
-            <span>© {new Date().getFullYear()} JanitorForge (Beta).</span>
+
+            <span>© {new Date().getFullYear()}</span>
           </div>
         </div>
       </div>
@@ -1309,23 +1322,28 @@ function Footer() {
 }
 
 // ============================================================================
-// Main Landing Page
+// Main
 // ============================================================================
 
 export function LandingPage() {
   return (
-    <div className="relative min-h-screen bg-background text-foreground antialiased">
-      <NoiseOverlay />
+    <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground antialiased">
+      <LandingBackground />
+
       <Navbar />
-      <main className="relative z-[2]">
+
+      <main className="relative z-10">
         <Hero />
-        <Features />
-        <HowItWorks />
-        <Showcase />
-        {/* <Testimonial /> */}
-        <CTA />
+        <Workflow />
+        <Tools />
+        <Why />
+        <Screenshots />
+        <BetaSection />
       </main>
-      <Footer />
+
+      <div className="relative z-10">
+        <Footer />
+      </div>
     </div>
   );
 }

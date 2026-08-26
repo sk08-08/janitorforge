@@ -1,300 +1,435 @@
-"use client";
-
+import type { ReactNode } from "react";
 import Link from "next/link";
 
-function H2({ n, children }: { n: number; children: React.ReactNode }) {
+function PolicySection({
+  number,
+  title,
+  children,
+}: {
+  number: string;
+  title: string;
+  children: ReactNode;
+}) {
   return (
-    <h2 className="text-xl font-semibold text-foreground">
-      {n}. {children}
-    </h2>
+    <section className="relative border-b border-border/50 py-8 first:pt-0 last:border-b-0 last:pb-0">
+      <div className="grid gap-4 sm:grid-cols-[3rem_minmax(0,1fr)]">
+        <div>
+          <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/7 px-2 font-mono text-[10px] font-semibold text-primary">
+            {number}
+          </span>
+        </div>
+
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">
+            {title}
+          </h2>
+
+          <div className="mt-4 space-y-4 text-sm leading-7 text-muted-foreground sm:text-[15px]">
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function H3({ id, children }: { id: string; children: React.ReactNode }) {
+function Subheading({ children }: { children: ReactNode }) {
   return (
-    <h3 className="text-lg font-medium text-foreground pt-2">
-      {id} {children}
-    </h3>
+    <h3 className="pt-2 text-sm font-semibold text-foreground">{children}</h3>
   );
+}
+
+function List({ children }: { children: ReactNode }) {
+  return (
+    <ul className="space-y-2.5 pl-5 marker:text-primary [&>li]:pl-1">
+      {children}
+    </ul>
+  );
+}
+
+function Strong({ children }: { children: ReactNode }) {
+  return <strong className="font-semibold text-foreground">{children}</strong>;
 }
 
 export function PrivacyContent() {
   return (
-    <>
-      <section className="space-y-4">
-        <H2 n={1}>Introduction</H2>
+    <div>
+      <PolicySection number="01" title="About this policy">
         <p>
-          JanitorForge is a platform for creating, managing, and sharing
-          AI-powered characters. This Privacy Policy explains what information
-          we collect, how we use it, and how we keep it safe. We want to be
-          honest and transparent with you — no surprises.
+          JanitorForge is an independent creator toolkit for managing bots,
+          forms, submissions, profiles, creator pages, collaboration, and
+          related content.
         </p>
+
         <p>
-          By using JanitorForge, you agree to this policy. If you don&apos;t
-          agree, that&apos;s okay — but please don&apos;t use the Service.
+          This Privacy Policy explains what information the platform handles,
+          why that information is needed, and what choices you have. The goal is
+          to keep this understandable instead of filling the page with
+          unnecessary legal language.
         </p>
+
         <p>
-          This policy works together with our{" "}
+          By using JanitorForge, you acknowledge this Privacy Policy. The{" "}
           <Link
             href="/terms"
-            className="text-violet-400 hover:text-violet-300 transition-colors"
+            className="font-medium text-primary transition-opacity hover:opacity-75"
           >
             Terms of Service
-          </Link>
-          .
+          </Link>{" "}
+          explain the separate rules for using the platform.
         </p>
-      </section>
+      </PolicySection>
 
-      <section className="space-y-4">
-        <H2 n={2}>What We Collect</H2>
-        <H3 id="2.1">Account</H3>
-        <p>When you create an account, we collect:</p>
-        <ul className="list-disc space-y-2 pl-6">
+      <PolicySection number="02" title="Information JanitorForge handles">
+        <Subheading>Account information</Subheading>
+
+        <p>An account currently uses:</p>
+
+        <List>
           <li>
-            <strong>Username</strong> — the name you choose for your account.
+            <Strong>Username</Strong> — the name you choose for your account.
           </li>
+
           <li>
-            <strong>PIN</strong> — a numeric code you use to log in. We store it
-            securely through our authentication provider so it&apos;s never
-            saved in plain text.
+            <Strong>PIN</Strong> — the code used to authenticate your account.
+            Authentication is handled through the platform&apos;s authentication
+            system rather than being exposed as readable profile information.
           </li>
-        </ul>
+        </List>
+
         <p>
-          We don&apos;t ask for a real email address. Our system generates an
-          internal technical identifier for authentication, but it can&apos;t
-          receive emails and is never shared with anyone.
+          JanitorForge does not require you to provide a normal email address to
+          register. A technical authentication identifier may be created
+          internally so the account system can function.
         </p>
 
-        <H3 id="2.2">Profile</H3>
-        <p>If you want, you can also add:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>Display name</li>
-          <li>Bio</li>
-          <li>Avatar and banner images</li>
-          <li>Social media links</li>
-        </ul>
+        <Subheading>Optional profile information</Subheading>
 
-        <H3 id="2.3">Your Content</H3>
-        <p>We store what you create on the platform:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>Bots (names, descriptions, personalities)</li>
-          <li>Forms and submissions</li>
-          <li>Lorebooks</li>
-          <li>Creator pages</li>
-          <li>Comments and messages</li>
-          <li>Collaboration activity</li>
-          <li>Feedback you send us</li>
-        </ul>
-
-        <H3 id="2.4">Automatic Data</H3>
-        <p>When you browse JanitorForge, we may collect:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>
-            <strong>Usage:</strong> pages you visit, features you use, and when.
-          </li>
-          <li>
-            <strong>Device:</strong> browser type, operating system, screen
-            size.
-          </li>
-          <li>
-            <strong>Analytics:</strong> aggregated, anonymous stats via Vercel
-            Analytics to help us understand what works and what doesn&apos;t.
-          </li>
-        </ul>
-
-        <H3 id="2.5">What We Don&apos;t Collect</H3>
-        <p>To be clear, we do not collect:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>Real email addresses (unless you share one in feedback)</li>
-          <li>Phone numbers or physical addresses</li>
-          <li>Government IDs</li>
-          <li>Payment info (the platform is free)</li>
-          <li>Biometric or precise location data</li>
-        </ul>
-      </section>
-
-      <section className="space-y-4">
-        <H2 n={3}>How We Use Your Data</H2>
-        <p>We use what we collect to:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>Run and improve the platform.</li>
-          <li>Keep your account secure.</li>
-          <li>Store and deliver your content.</li>
-          <li>Enable collaboration between users.</li>
-          <li>
-            Send you notifications (like collaboration invites or replies).
-          </li>
-          <li>Respond to your feedback and questions.</li>
-          <li>Understand how the platform is used so we can make it better.</li>
-          <li>Keep the community safe and enforce our rules.</li>
-          <li>Comply with legal requirements when necessary.</li>
-        </ul>
-      </section>
-
-      <section className="space-y-4">
-        <H2 n={4}>How We Share Your Data</H2>
         <p>
-          We don&apos;t sell your information. Here&apos;s when we do share it:
+          Depending on what you choose to add, your profile may contain things
+          such as:
         </p>
-        <H3 id="4.1">With Other Users</H3>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>
-            Your profile (name, avatar, bio, links) is visible to others based
-            on your settings.
-          </li>
-          <li>Content you make public is accessible to other users.</li>
-          <li>
-            Collaboration activity is visible to people you&apos;ve invited.
-          </li>
-        </ul>
-        <H3 id="4.2">Service Providers</H3>
-        <p>We work with a small number of providers to run the platform:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>
-            <strong>Vercel</strong> — hosting and anonymous analytics.
-          </li>
-          <li>
-            <strong>Supabase</strong> — database and authentication. Your data
-            lives on their infrastructure.
-          </li>
-        </ul>
-        <p>
-          These providers only use your data to help us operate the Service.
-        </p>
-        <H3 id="4.3">Legal Obligations</H3>
-        <p>
-          If the law requires us to share data (for example, a court order),
-          we&apos;ll comply.
-        </p>
-      </section>
 
-      <section className="space-y-4">
-        <H2 n={5}>Cookies</H2>
-        <p>We use a few cookies to keep things running:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>
-            <strong>Session cookie:</strong> keeps you logged in.
-          </li>
-          <li>
-            <strong>UI preferences:</strong> remembers things like sidebar
-            state.
-          </li>
-          <li>
-            <strong>Vercel Analytics:</strong> anonymous usage stats, no
-            personal tracking.
-          </li>
-        </ul>
-        <p>
-          You can disable cookies in your browser, but the platform may not work
-          properly without them.
-        </p>
-      </section>
+        <List>
+          <li>Display name, pronouns, bio, tagline, and status.</li>
+          <li>Avatar and banner images.</li>
+          <li>Location or website information you choose to publish.</li>
+          <li>Social usernames or links.</li>
+          <li>Specialties and profile appearance settings.</li>
+        </List>
 
-      <section className="space-y-4">
-        <H2 n={6}>How Long We Keep Your Data</H2>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>
-            <strong>Account data:</strong> while your account is active. If you
-            delete it, we remove your data within 30 days.
-          </li>
-          <li>
-            <strong>Your content:</strong> while your account is active. Content
-            shared with collaborators may remain in their workspaces.
-          </li>
-          <li>
-            <strong>Activity logs:</strong> kept for security. Logs older than
-            12 months may be cleared.
-          </li>
-          <li>
-            <strong>Analytics:</strong> anonymous, aggregated data may be kept
-            indefinitely.
-          </li>
-        </ul>
-      </section>
+        <Subheading>Content you create or submit</Subheading>
 
-      <section className="space-y-4">
-        <H2 n={7}>Security</H2>
-        <p>We take security seriously and use:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>HTTPS encryption for all data in transit.</li>
-          <li>Secure authentication through our provider.</li>
-          <li>Row-level security in our database.</li>
-          <li>Access controls to limit who can see your data.</li>
-        </ul>
         <p>
-          No system is perfect, but we do our best to keep your information
-          safe.
+          JanitorForge stores content needed for the features you use. This may
+          include:
         </p>
-      </section>
 
-      <section className="space-y-4">
-        <H2 n={8}>Your Rights</H2>
-        <p>You can always:</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>
-            <strong>View</strong> your profile and content through the platform.
-          </li>
-          <li>
-            <strong>Edit</strong> your profile and content directly.
-          </li>
-          <li>
-            <strong>Delete</strong> your account and data.
-          </li>
-          <li>
-            <strong>Request a copy</strong> of your data.
-          </li>
-        </ul>
+        <List>
+          <li>Bots and their character information.</li>
+          <li>Forms, form configuration, and submissions.</li>
+          <li>Creator Pages and their sections.</li>
+          <li>Worlds, lorebooks, and Atlas content.</li>
+          <li>Comments, community activity, and reactions.</li>
+          <li>Collaboration records and activity.</li>
+          <li>Feedback, bug reports, or suggestions you send.</li>
+        </List>
+
+        <Subheading>Technical and safety information</Subheading>
+
         <p>
-          If you&apos;re in the EEA, UK, or Switzerland, you also have the right
-          to object to certain processing or lodge a complaint with your local
-          data protection authority.
+          Hosting, authentication, and security systems may process standard
+          technical information needed to operate a web service, such as request
+          timestamps, browser or device information, and network information.
         </p>
+
         <p>
-          To exercise any of these rights, reach out through the JanitorForge
+          In particular, public form submissions may involve limited network
+          information such as an IP address for purposes including abuse
+          prevention, rate limiting, moderation, security review, and blocking
+          repeat offenders.
+        </p>
+      </PolicySection>
+
+      <PolicySection number="03" title="What JanitorForge does not require">
+        <p>
+          JanitorForge is intentionally designed to require relatively little
+          personal information.
+        </p>
+
+        <p>The platform does not require:</p>
+
+        <List>
+          <li>A real email address to create an account.</li>
+          <li>A phone number.</li>
+          <li>A physical mailing address.</li>
+          <li>Government identification.</li>
+          <li>Payment information, since JanitorForge is currently free.</li>
+          <li>Biometric information.</li>
+          <li>Precise GPS location.</li>
+        </List>
+
+        <p>
+          This does not prevent users from voluntarily placing personal
+          information inside a profile, form response, comment, feedback
+          message, or other content field. Please avoid sharing information you
+          do not want stored or seen by the relevant audience.
+        </p>
+      </PolicySection>
+
+      <PolicySection number="04" title="How the information is used">
+        <p>
+          Information is used only where it is reasonably needed to operate,
+          protect, or improve JanitorForge.
+        </p>
+
+        <List>
+          <li>Authenticate your account and keep it accessible to you.</li>
+          <li>Store and display the content you create.</li>
+          <li>Deliver and organize form submissions.</li>
+          <li>Enable collaboration and notifications.</li>
+          <li>Apply profile, resource, and visibility settings.</li>
+          <li>Moderate abusive or suspicious submissions.</li>
+          <li>Prevent spam, automated abuse, or unauthorized access.</li>
+          <li>Respond to feedback and bug reports.</li>
+          <li>Maintain and improve platform reliability.</li>
+          <li>Comply with applicable legal obligations when required.</li>
+        </List>
+      </PolicySection>
+
+      <PolicySection number="05" title="Public, private, and shared content">
+        <p>
+          Some parts of JanitorForge are designed to be public while others are
+          private or limited by access settings.
+        </p>
+
+        <List>
+          <li>
+            Profile information may be visible according to your profile
+            visibility settings.
+          </li>
+
+          <li>
+            Content you deliberately publish may be accessible without signing
+            in.
+          </li>
+
+          <li>
+            Public or shareable Forms can be opened by people who receive their
+            links.
+          </li>
+
+          <li>
+            Collaborators can access the shared information permitted by their
+            role.
+          </li>
+
+          <li>
+            Community posts, comments, reactions, and similar public activity
+            may be visible to other users.
+          </li>
+        </List>
+
+        <p>
+          Making something public or sharing it with another person means they
+          may be able to copy or retain what they can see. JanitorForge cannot
+          control what another person does with information after they receive
+          it outside the platform.
+        </p>
+      </PolicySection>
+
+      <PolicySection number="06" title="Infrastructure and service providers">
+        <p>
+          JanitorForge relies on third-party infrastructure to function. The
+          main providers currently include:
+        </p>
+
+        <List>
+          <li>
+            <Strong>Vercel</Strong> — hosting and delivery of the web
+            application.
+          </li>
+
+          <li>
+            <Strong>Supabase</Strong> — authentication, database, and storage
+            infrastructure.
+          </li>
+        </List>
+
+        <p>
+          These providers may process technical data as necessary to provide
+          their services. JanitorForge does not sell user information to
+          advertisers.
+        </p>
+
+        <p>
+          If infrastructure providers change in the future, this policy may be
+          updated accordingly.
+        </p>
+      </PolicySection>
+
+      <PolicySection number="07" title="Cookies and local preferences">
+        <p>
+          JanitorForge uses browser storage and authentication mechanisms needed
+          to keep the application working.
+        </p>
+
+        <List>
+          <li>
+            Authentication data may be stored so you can remain signed in.
+          </li>
+
+          <li>
+            Local browser storage may remember interface preferences such as
+            navigation state.
+          </li>
+
+          <li>
+            Hosting infrastructure may use technically necessary cookies or
+            similar mechanisms as part of providing the service.
+          </li>
+        </List>
+
+        <p>
+          Blocking required browser storage may prevent some features, including
+          authentication, from working correctly.
+        </p>
+      </PolicySection>
+
+      <PolicySection number="08" title="Retention and deletion">
+        <p>
+          Active account and creator data is generally kept for as long as it is
+          needed to provide the features you use.
+        </p>
+
+        <p>
+          When an account or content is deleted, JanitorForge removes or
+          schedules removal of associated information where technically
+          supported. Some residual information may temporarily remain in
+          backups, logs, cached systems, moderation records, or storage
+          infrastructure.
+        </p>
+
+        <p>
+          Content that was shared with collaborators or copied outside
+          JanitorForge may also continue to exist independently of your account.
+        </p>
+
+        <p>
+          Security and abuse-prevention records may be retained for a reasonable
+          period where they are needed to protect the platform or investigate
+          misuse.
+        </p>
+      </PolicySection>
+
+      <PolicySection number="09" title="Security">
+        <p>
+          JanitorForge uses technical safeguards intended to reduce unauthorized
+          access and protect stored information.
+        </p>
+
+        <List>
+          <li>Encrypted HTTPS connections for data in transit.</li>
+          <li>Authentication controls for account access.</li>
+          <li>
+            Database access rules designed to limit users to information they
+            are allowed to access.
+          </li>
+          <li>
+            Permission checks for collaborative and administrative actions.
+          </li>
+          <li>
+            Abuse-prevention and moderation controls for public submissions.
+          </li>
+        </List>
+
+        <p>
+          No online service can guarantee perfect security. JanitorForge is
+          actively developed, and security-related issues are treated as
+          something to investigate and improve rather than something the project
+          claims can never happen.
+        </p>
+      </PolicySection>
+
+      <PolicySection number="10" title="Your controls and privacy rights">
+        <p>
+          JanitorForge provides direct controls for much of the information
+          associated with your account.
+        </p>
+
+        <List>
+          <li>View and edit your profile.</li>
+          <li>Change profile visibility settings.</li>
+          <li>Create, edit, publish, unpublish, or remove creator content.</li>
+          <li>Manage collaborators where supported.</li>
+          <li>Delete your account through platform settings.</li>
+          <li>Ask about the information associated with your account.</li>
+        </List>
+
+        <p>
+          Depending on where you live, local privacy law may give you additional
+          rights concerning access, correction, deletion, restriction, or
+          objection to certain processing.
+        </p>
+
+        <p>
+          If you need help exercising a privacy-related right that is not
+          available directly in the interface, contact JanitorForge through the
           platform.
         </p>
-      </section>
+      </PolicySection>
 
-      <section className="space-y-4">
-        <H2 n={9}>Age Requirement</H2>
+      <PolicySection number="11" title="Age requirement">
         <p>
-          JanitorForge is for users 18 and older. We don&apos;t knowingly
-          collect data from anyone under 18. If we find out a minor has created
-          an account, we&apos;ll delete it.
+          JanitorForge is intended for users who are at least{" "}
+          <Strong>18 years old</Strong>.
         </p>
-      </section>
 
-      <section className="space-y-4">
-        <H2 n={10}>Third-Party Links</H2>
         <p>
-          The platform may link to other websites. We don&apos;t control those
-          sites, so please check their privacy policies if you visit them.
+          JanitorForge does not knowingly maintain accounts belonging to users
+          known to be under that age. If an underage account is identified,
+          appropriate action may be taken, including removal of the account.
         </p>
-      </section>
+      </PolicySection>
 
-      <section className="space-y-4">
-        <H2 n={11}>Changes to This Policy</H2>
+      <PolicySection number="12" title="Third-party links">
         <p>
-          We may update this policy from time to time. When we make significant
-          changes, we&apos;ll update the date at the top of this page and let
-          you know through the platform. Using JanitorForge after changes means
-          you accept the updated policy.
+          Profiles, Creator Pages, community content, and other parts of
+          JanitorForge may contain links to external websites or services.
         </p>
-      </section>
 
-      <section className="space-y-4">
-        <H2 n={12}>Contact</H2>
         <p>
-          Questions or concerns? Reach out to us through the{" "}
-          <Link
-            href="/"
-            className="text-violet-400 hover:text-violet-300 transition-colors"
-          >
-            JanitorForge platform
-          </Link>
-          .
+          JanitorForge does not control those sites or their privacy practices.
+          Once you leave JanitorForge, the destination&apos;s own policies
+          apply.
         </p>
-      </section>
-    </>
+      </PolicySection>
+
+      <PolicySection number="13" title="Changes to this policy">
+        <p>
+          JanitorForge is still in Beta, so the platform and the information it
+          needs may change over time.
+        </p>
+
+        <p>
+          If this Privacy Policy changes meaningfully, the date at the top will
+          be updated. Important changes may also be communicated through the
+          platform where appropriate.
+        </p>
+      </PolicySection>
+
+      <PolicySection number="14" title="Questions or concerns">
+        <p>
+          If something about this policy is unclear, or you have a concern about
+          information connected to your account, please reach out through
+          JanitorForge.
+        </p>
+
+        <p>
+          The project is still independently maintained, so straightforward
+          questions and reports are genuinely useful.
+        </p>
+      </PolicySection>
+    </div>
   );
 }
