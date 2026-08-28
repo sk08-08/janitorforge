@@ -51,7 +51,7 @@ function EmptyState() {
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
         <Inbox className="h-10 w-10 text-muted-foreground" />
       </div>
-      <h3 className="mt-6 text-xl font-semibold">No requests yet</h3>
+      <h3 className="mt-6 text-xl font-semibold">No submissions yet</h3>
       <p className="mt-2 max-w-sm text-muted-foreground">
         Share your forms with your community to start receiving submissions.
       </p>

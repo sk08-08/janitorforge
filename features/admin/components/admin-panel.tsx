@@ -2643,9 +2643,9 @@ function BotsTab({ staffRole }: { staffRole: StaffRole }) {
                           </p>
 
                           <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                            The creator has hidden this bot's definition and
-                            message fields from public views. Administrators can
-                            still inspect the stored content here.
+                            The creator has hidden this bot&apos;s definition
+                            and message fields from public views. Administrators
+                            can still inspect the stored content here.
                           </p>
                         </div>
                       </div>

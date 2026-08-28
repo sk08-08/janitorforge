@@ -57,7 +57,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -418,7 +417,7 @@ function FieldEditor({
                       htmlFor={`allow-other-${field.id}`}
                       className="cursor-pointer"
                     >
-                      Allow "Other" option
+                      Allow &quot;Other&quot; option
                     </Label>
                   </div>
                 )}
@@ -2479,7 +2478,6 @@ interface ShareableLinkProps {
 }
 
 export function ShareableLinkDisplay({
-  formId,
   shareableLink,
   isActive,
 }: ShareableLinkProps) {

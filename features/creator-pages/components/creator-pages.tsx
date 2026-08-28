@@ -20,7 +20,6 @@ import {
   Loader2,
   Globe,
   LayoutGrid,
-  LayoutList,
   Layers,
   Sparkles,
   MessageCircle,
@@ -29,7 +28,6 @@ import {
   Share2,
   Type,
   GripVertical,
-  AppWindow,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

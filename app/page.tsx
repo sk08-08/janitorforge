@@ -3,7 +3,6 @@
 // Entry point that renders the dashboard with dynamic views
 // ============================================================================
 
-import { redirect } from "next/navigation";
 import { getSession } from "@/features/auth/actions/auth";
 import { ClientApp } from "./client-app";
 import { LandingPage } from "@/components/landing/landing-page";

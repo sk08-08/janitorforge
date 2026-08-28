@@ -19,6 +19,12 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -39,7 +45,8 @@ import {
   Calendar,
   ExternalLink,
   Copy,
-  CheckCircle,
+  Ellipsis,
+  Share2,
   Star,
   Bot,
   AppWindow,
@@ -151,7 +158,6 @@ export function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [profileLinkCopied, setProfileLinkCopied] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{
     type: "bot" | "world";
@@ -521,15 +527,38 @@ export function ProfilePage() {
 
     try {
       await navigator.clipboard.writeText(publicProfileUrl);
-
-      setProfileLinkCopied(true);
-
-      window.setTimeout(() => {
-        setProfileLinkCopied(false);
-      }, 2000);
+      toast.success("Profile link copied!");
     } catch {
       toast.error("Could not copy your profile link.");
     }
+  };
+
+  const handleSharePublicProfile = async () => {
+    if (!publicProfilePath) {
+      toast.error("Your public profile link is not available yet.");
+      return;
+    }
+
+    const publicProfileUrl = `${window.location.origin}${publicProfilePath}`;
+    const profileName =
+      p.display_name || p.slug || p.username || "JanitorForge profile";
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${profileName} on JanitorForge`,
+          text: `Check out ${profileName}'s profile on JanitorForge.`,
+          url: publicProfileUrl,
+        });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
+    await handleCopyPublicProfileLink();
   };
 
   return (
@@ -555,15 +584,63 @@ export function ProfilePage() {
                 : `linear-gradient(135deg, ${primaryColor}88, ${primaryColor}22)`,
             }}
           >
-            <Button
-              variant="secondary"
-              size="sm"
-              className="absolute top-3 right-3 cursor-pointer bg-background/80 backdrop-blur-sm"
-              onClick={() => setEditorOpen(true)}
-            >
-              <Pencil className="h-3.5 w-3.5 mr-1" />
-              Edit Profile
-            </Button>
+            <div className="absolute top-3 right-3 flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="cursor-pointer bg-background/80 backdrop-blur-sm"
+                onClick={() => setEditorOpen(true)}
+              >
+                <Pencil className="mr-1 h-3.5 w-3.5" />
+                Edit Profile
+              </Button>
+
+              {publicProfilePath && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      className="h-8 w-8 cursor-pointer bg-background/80 backdrop-blur-sm transition-colors hover:bg-background"
+                      aria-label="Profile actions"
+                    >
+                      <Ellipsis className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem
+                      onClick={() => void handleSharePublicProfile()}
+                      className="cursor-pointer"
+                    >
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Share Profile
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      onClick={() => void handleCopyPublicProfileLink()}
+                      className="cursor-pointer"
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy Profile Link
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href={publicProfilePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer"
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        View Public Profile
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
 
           <CardContent className="px-4 sm:px-6 pb-6 -mt-12 relative z-10">
@@ -659,63 +736,6 @@ export function ProfilePage() {
                 )}
               </div>
             </div>
-
-            {/* Public profile actions */}
-            {publicProfilePath && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="cursor-pointer"
-                >
-                  <Link
-                    href={publicProfilePath}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                    View Public Profile
-                  </Link>
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleCopyPublicProfileLink()}
-                  className={cn(
-                    "cursor-pointer transition-all duration-300",
-                    profileLinkCopied &&
-                      "border-green-500/30 bg-green-500/10 text-green-600 hover:bg-green-500/10 hover:text-green-600",
-                  )}
-                >
-                  <span className="relative mr-2 flex h-4 w-4 items-center justify-center">
-                    <Copy
-                      className={cn(
-                        "absolute h-4 w-4 transition-all duration-300",
-                        profileLinkCopied
-                          ? "scale-50 opacity-0"
-                          : "scale-100 opacity-100",
-                      )}
-                    />
-
-                    <CheckCircle
-                      className={cn(
-                        "absolute h-4 w-4 text-green-600 transition-all duration-300",
-                        profileLinkCopied
-                          ? "scale-100 opacity-100"
-                          : "scale-50 opacity-0",
-                      )}
-                    />
-                  </span>
-
-                  <span className="transition-all duration-300">
-                    {profileLinkCopied ? "Copied!" : "Copy Profile Link"}
-                  </span>
-                </Button>
-              </div>
-            )}
 
             {/* Tagline */}
             {typeof p.tagline === "string" && p.tagline && (

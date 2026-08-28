@@ -23,7 +23,6 @@ import {
   Inbox,
   Lightbulb,
   ListChecks,
-  Pencil,
   Star,
   Upload,
   UsersRound,
@@ -45,7 +44,6 @@ import { createClient } from "@/lib/supabase/client";
 import { getCurrentUserAccess } from "@/lib/access";
 import { FeedbackActions } from "@/features/feedback/components/feedback-actions";
 import type { NavigationView } from "@/features/app-shell/types/navigation";
-import Image from "next/image";
 
 // ----------------------------------------------------------------------------
 // Helpers

@@ -14,7 +14,6 @@ import {
   GitPullRequest,
   Send,
   Loader2,
-  User,
   Check,
   X,
   Clock,
@@ -34,12 +33,8 @@ import {
   Zap,
   BarChart3,
   FileText,
-  GitBranch,
   AlertCircle,
-  Globe,
-  Hash,
   Tag,
-  ImageIcon,
   UsersRound,
   UserRound,
 } from "lucide-react";
@@ -93,7 +88,6 @@ import {
   rejectChangeRequest,
   toggleBotApproval,
   getMyFollowing,
-  forkBot,
   getBotApprovalSetting,
 } from "@/features/bots/actions/collaboration";
 import { updateBotAction } from "@/features/bots/actions/bots";

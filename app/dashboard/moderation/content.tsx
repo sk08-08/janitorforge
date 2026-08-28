@@ -6,7 +6,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -188,7 +188,7 @@ export default function ModerationPageContent({
             <CardHeader>
               <CardTitle className="text-base">Select Form</CardTitle>
               <CardDescription>
-                Choose which form's submissions you want to moderate
+                Choose which form&apos;s submissions you want to moderate
               </CardDescription>
             </CardHeader>
             <CardContent>

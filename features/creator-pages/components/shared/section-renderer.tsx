@@ -9,7 +9,6 @@
 import {
   Globe,
   Bot,
-  ExternalLink,
   Layout,
   Layers,
   Sparkles,

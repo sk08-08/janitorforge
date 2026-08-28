@@ -11,7 +11,6 @@ import {
   useState,
   useCallback,
   useEffect,
-  useRef,
   type ReactNode,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -153,7 +152,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Try to load real data from Supabase on client mount. Fall back to sample data on error.
   useEffect(() => {
     let mounted = true;
-    let supabase = createClient();
+    const supabase = createClient();
     let activeRequestsChannel: { remove: () => void } | null = null;
     let loadVersion = 0;
 

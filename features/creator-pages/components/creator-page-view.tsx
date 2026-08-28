@@ -12,12 +12,9 @@ import { BotDetailModal } from "@/features/bots/components/bot-detail-modal";
 import { CreatorHeader } from "./shared/creator-header";
 import { SectionRenderer } from "./shared/section-renderer";
 import type {
-  CreatorInfo,
-  CreatorPageData,
   CreatorPageSection,
   BotPreview,
   WorldPreview,
-  CreatorPageConfig,
   CreatorPageViewProps,
 } from "@/features/creator-pages/types/creator-page-types";
 

@@ -6,7 +6,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, Trash2, AlertCircle, X } from "lucide-react";
+import { Plus, Trash2, AlertCircle } from "lucide-react";
 import {
   Card,
   CardContent,

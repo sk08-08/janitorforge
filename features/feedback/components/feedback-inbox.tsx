@@ -48,7 +48,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -2003,8 +2002,8 @@ export function FeedbackInbox() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete feedback?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{deleteTarget?.subject}" and all
-              associated notes. This action cannot be undone.
+              This will permanently delete &quot;{deleteTarget?.subject}&quot;
+              and all associated notes. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

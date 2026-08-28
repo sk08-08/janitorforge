@@ -151,7 +151,7 @@ export function ProfileCompletenessCard({
           </h3>
 
           <p className="text-sm text-muted-foreground">
-            You're {completeness}% of the way there. Complete the remaining
+            You&apos;re {completeness}% of the way there. Complete the remaining
             details to make your profile more useful to visitors.
           </p>
         </div>

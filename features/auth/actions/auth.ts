@@ -116,22 +116,6 @@ export async function checkUsernameAvailability(username: string) {
     };
   }
 
-  // Also check auth.users email pattern (since we use {username}@janitorforge.local)
-  // This handles edge cases where profile exists but auth doesn't or vice versa
-  const { data: authUsers } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("username", clean)
-    .limit(1);
-
-  if (authUsers && authUsers.length > 0) {
-    return {
-      available: false,
-      error: "This username is already taken",
-      checked: clean,
-    };
-  }
-
   return { available: true, error: null, checked: clean };
 }
 

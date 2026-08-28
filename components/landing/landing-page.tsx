@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bot,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -18,7 +17,6 @@ import {
   Menu,
   Moon,
   Palette,
-  Send,
   Shield,
   Sparkles,
   Sun,

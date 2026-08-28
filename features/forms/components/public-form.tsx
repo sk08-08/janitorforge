@@ -24,13 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1027,7 +1021,7 @@ export default function PublicForm({ form, feedbackContext }: PublicFormProps) {
             </div>
             <h2 className="mt-6 text-2xl font-bold">Form Not Found</h2>
             <p className="mt-2 max-w-sm text-muted-foreground">
-              This form doesn't exist or is no longer accepting responses.
+              This form doesn&apos;t exist or is no longer accepting responses.
             </p>
             <Link href="/">
               <Button variant="outline" className="mt-6 cursor-pointer">

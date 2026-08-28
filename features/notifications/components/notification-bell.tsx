@@ -1,70 +1,213 @@
 // ============================================================================
 // JanitorForge - Notification Bell
-// In-app notification bell with dropdown showing recent notifications
+// Important account activity: social, collaboration, and moderation
 // ============================================================================
 
 "use client";
 
-import { useState, useEffect, useCallback, type MouseEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Bell,
   Check,
   CheckCheck,
-  Trash2,
-  Loader2,
+  GitPullRequest,
   Inbox,
-  ArrowUpRight,
-  FileText,
-  AlertTriangle,
+  Loader2,
+  ShieldAlert,
+  Trash2,
+  UserRoundCheck,
   UsersRound,
+  type LucideIcon,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+import { MarkdownRenderer } from "@/features/markdown/components/markdown-renderer";
+
 import {
+  deleteNotification,
   getNotifications,
   getUnreadCount,
-  markAsRead,
   markAllAsRead,
-  deleteNotification,
-  type Notification,
+  markAsRead,
 } from "@/features/notifications/actions/notifications";
+
+import {
+  isNotificationType,
+  type NotificationRecord,
+  type NotificationType,
+} from "@/features/notifications/lib/notification-types";
+
 import { useStore } from "@/features/app-shell/store/app-store";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
+// ---------------------------------------------------------------------------
+// Notification UI config
+// ---------------------------------------------------------------------------
+
+type NotificationDestination = "profile" | "bots" | "moderation";
+
+interface NotificationConfig {
+  icon: LucideIcon;
+  iconClassName: string;
+  borderClassName: string;
+  destination: NotificationDestination;
+}
+
+const notificationConfig: Record<NotificationType, NotificationConfig> = {
+  new_follower: {
+    icon: UserRoundCheck,
+    iconClassName: "text-green-500",
+    borderClassName: "border-l-green-500/60",
+    destination: "profile",
+  },
+
+  collaboration_invite: {
+    icon: UsersRound,
+    iconClassName: "text-purple-500",
+    borderClassName: "border-l-purple-500/60",
+    destination: "bots",
+  },
+
+  collaboration_accepted: {
+    icon: UsersRound,
+    iconClassName: "text-purple-500",
+    borderClassName: "border-l-purple-500/60",
+    destination: "bots",
+  },
+
+  collaboration_declined: {
+    icon: UsersRound,
+    iconClassName: "text-purple-500",
+    borderClassName: "border-l-purple-500/60",
+    destination: "bots",
+  },
+
+  collaboration_role_changed: {
+    icon: UsersRound,
+    iconClassName: "text-purple-500",
+    borderClassName: "border-l-purple-500/60",
+    destination: "bots",
+  },
+
+  collaborator_removed: {
+    icon: UsersRound,
+    iconClassName: "text-purple-500",
+    borderClassName: "border-l-purple-500/60",
+    destination: "bots",
+  },
+
+  change_request_created: {
+    icon: GitPullRequest,
+    iconClassName: "text-purple-500",
+    borderClassName: "border-l-purple-500/60",
+    destination: "bots",
+  },
+
+  change_request_approved: {
+    icon: GitPullRequest,
+    iconClassName: "text-purple-500",
+    borderClassName: "border-l-purple-500/60",
+    destination: "bots",
+  },
+
+  change_request_rejected: {
+    icon: GitPullRequest,
+    iconClassName: "text-purple-500",
+    borderClassName: "border-l-purple-500/60",
+    destination: "bots",
+  },
+
+  flagged_submission: {
+    icon: ShieldAlert,
+    iconClassName: "text-amber-500",
+    borderClassName: "border-l-amber-500/60",
+    destination: "moderation",
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function getTimeAgo(dateStr: string): string {
-  const now = Date.now();
   const then = new Date(dateStr).getTime();
-  const diff = Math.floor((now - then) / 1000);
+
+  if (!Number.isFinite(then)) {
+    return "";
+  }
+
+  const diff = Math.max(0, Math.floor((Date.now() - then) / 1000));
 
   if (diff < 60) return "Just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+
   return new Date(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
 }
 
+function notificationFromRealtimePayload(
+  payload: Record<string, unknown>,
+): NotificationRecord | null {
+  if (
+    typeof payload.id !== "string" ||
+    !isNotificationType(payload.type) ||
+    typeof payload.title !== "string" ||
+    typeof payload.created_at !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    id: payload.id,
+    type: payload.type,
+    title: payload.title,
+    message: typeof payload.message === "string" ? payload.message : null,
+    link: typeof payload.link === "string" ? payload.link : null,
+    is_read: payload.is_read === true,
+    metadata:
+      payload.metadata &&
+      typeof payload.metadata === "object" &&
+      !Array.isArray(payload.metadata)
+        ? (payload.metadata as Record<string, unknown>)
+        : null,
+    created_at: payload.created_at,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function NotificationBell() {
   const { setCurrentView } = useStore();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<{
+    createdAt: string;
+    id: string;
+  } | null>(null);
+
   const refreshCount = useCallback(async () => {
     const result = await getUnreadCount();
+
     if (result.success) {
       setUnreadCount(result.count);
     }
@@ -72,144 +215,239 @@ export function NotificationBell() {
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
-    const result = await getNotifications(15);
-    if (result.success) {
-      setNotifications(result.notifications);
+
+    try {
+      const result = await getNotifications(20);
+
+      if (result.success) {
+        setNotifications(result.notifications);
+        setHasMore(result.hasMore);
+        setNextCursor(result.nextCursor);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  // Load count on mount and poll every 60s
-  // Also listen for real-time notification inserts
+  const loadMoreNotifications = useCallback(async () => {
+    if (!nextCursor || loadingMore) {
+      return;
+    }
+
+    setLoadingMore(true);
+
+    try {
+      const result = await getNotifications(20, nextCursor);
+
+      if (!result.success) {
+        toast.error(result.error || "Could not load more notifications");
+        return;
+      }
+
+      setNotifications((current) => {
+        const existingIds = new Set(current.map((item) => item.id));
+
+        const nextItems = result.notifications.filter(
+          (item) => !existingIds.has(item.id),
+        );
+
+        return [...current, ...nextItems];
+      });
+
+      setHasMore(result.hasMore);
+      setNextCursor(result.nextCursor);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, nextCursor]);
+
+  // -------------------------------------------------------------------------
+  // Realtime + fallback count refresh
+  // -------------------------------------------------------------------------
+
   useEffect(() => {
     let mounted = true;
-    refreshCount();
-    const interval = setInterval(refreshCount, 60000);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let channel: any = null;
+    const supabase = createClient();
+
+    void refreshCount();
+
+    const interval = window.setInterval(() => {
+      void refreshCount();
+    }, 60_000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshCount();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const setupRealtime = async () => {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user || !mounted) return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !mounted) {
+        return;
+      }
 
       channel = supabase
-        .channel(`notifications-bell-${userData.user.id}`)
+        .channel(`notifications-bell-${user.id}`)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "notifications",
-            filter: `user_id=eq.${userData.user.id}`,
+            filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            const n = payload.new as Record<string, unknown>;
-            setNotifications((prev) => {
-              if (prev.some((p) => p.id === n.id)) return prev;
-              return [
-                {
-                  id: n.id as string,
-                  type: n.type as string,
-                  title: n.title as string,
-                  message: (n.message as string) || null,
-                  link: (n.link as string) || null,
-                  is_read: n.is_read as boolean,
-                  metadata: (n.metadata as Record<string, unknown>) || null,
-                  created_at: n.created_at as string,
-                },
-                ...prev,
-              ];
+            const notification = notificationFromRealtimePayload(
+              payload.new as Record<string, unknown>,
+            );
+
+            if (!notification) {
+              return;
+            }
+
+            setNotifications((current) => {
+              if (current.some((item) => item.id === notification.id)) {
+                return current;
+              }
+
+              return [notification, ...current];
             });
-            setUnreadCount((prev) => prev + 1);
+
+            if (!notification.is_read) {
+              setUnreadCount((current) => current + 1);
+            }
           },
         )
         .subscribe();
     };
 
-    setupRealtime();
+    void setupRealtime();
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+
       if (channel) {
-        (async () => {
-          const { createClient } = await import("@/lib/supabase/client");
-          const supabase = createClient();
-          supabase.removeChannel(channel);
-        })();
+        void supabase.removeChannel(channel);
       }
     };
   }, [refreshCount]);
 
-  // Load full list when dropdown opens
+  // -------------------------------------------------------------------------
+  // Load notification list when opened
+  // -------------------------------------------------------------------------
+
   useEffect(() => {
     if (open) {
-      loadNotifications();
+      void loadNotifications();
     }
   }, [open, loadNotifications]);
 
-  const handleMarkAsRead = async (id: string) => {
-    const result = await markAsRead(id);
-    if (result.success) {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    }
-  };
+  // -------------------------------------------------------------------------
+  // Actions
+  // -------------------------------------------------------------------------
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAsRead = useCallback(async (notificationId: string) => {
+    const result = await markAsRead(notificationId);
+
+    if (!result.success) {
+      return false;
+    }
+
+    setNotifications((current) =>
+      current.map((notification) =>
+        notification.id === notificationId
+          ? { ...notification, is_read: true }
+          : notification,
+      ),
+    );
+
+    setUnreadCount((current) => Math.max(0, current - 1));
+
+    return true;
+  }, []);
+
+  const handleMarkAllAsRead = useCallback(async () => {
     const result = await markAllAsRead();
-    if (result.success) {
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-      toast.success("All notifications marked as read");
-    }
-  };
 
-  const handleDelete = async (id: string) => {
-    const wasUnread = notifications.find((n) => n.id === id)?.is_read === false;
-    const result = await deleteNotification(id);
-    if (result.success) {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      if (wasUnread) setUnreadCount((prev) => Math.max(0, prev - 1));
+    if (!result.success) {
+      toast.error(result.error || "Could not mark notifications as read");
+      return;
     }
-  };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "new_request":
-      case "new_submission":
-        return <Inbox className="h-3 w-3 text-blue-400" />;
-      case "new_follower":
-        return <UsersRound className="h-3 w-3 text-green-400" />;
-      case "collaboration_invite":
-        return <UsersRound className="h-3 w-3 text-purple-400" />;
-      case "flagged_submission":
-        return <AlertTriangle className="h-3 w-3 text-amber-400" />;
-      default:
-        return <FileText className="h-3 w-3 text-muted-foreground" />;
-    }
-  };
+    setNotifications((current) =>
+      current.map((notification) => ({
+        ...notification,
+        is_read: true,
+      })),
+    );
 
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case "new_request":
-      case "new_submission":
-        return "border-l-blue-500/50";
-      case "new_follower":
-        return "border-l-green-500/50";
-      case "collaboration_invite":
-        return "border-l-purple-500/50";
-      case "flagged_submission":
-        return "border-l-amber-500/50";
-      default:
-        return "";
-    }
-  };
+    setUnreadCount(0);
+
+    toast.success("All notifications marked as read");
+  }, []);
+
+  const handleDelete = useCallback(
+    async (notificationId: string) => {
+      const notification = notifications.find(
+        (item) => item.id === notificationId,
+      );
+
+      const result = await deleteNotification(notificationId);
+
+      if (!result.success) {
+        toast.error(result.error || "Could not dismiss notification");
+        return;
+      }
+
+      setNotifications((current) =>
+        current.filter((item) => item.id !== notificationId),
+      );
+
+      if (notification && !notification.is_read) {
+        setUnreadCount((current) => Math.max(0, current - 1));
+      }
+    },
+    [notifications],
+  );
+
+  const navigateToNotification = useCallback(
+    async (notification: NotificationRecord) => {
+      if (!notification.is_read) {
+        await handleMarkAsRead(notification.id);
+      }
+
+      if (
+        notification.link &&
+        notification.link.startsWith("/") &&
+        !notification.link.startsWith("/dashboard")
+      ) {
+        window.location.assign(notification.link);
+        return;
+      }
+
+      const config = notificationConfig[notification.type];
+
+      setCurrentView(config.destination);
+      setOpen(false);
+    },
+    [handleMarkAsRead, setCurrentView],
+  );
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -217,194 +455,199 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-7 w-7 cursor-pointer"
+          className="relative h-8 w-8 cursor-pointer"
+          aria-label={
+            unreadCount > 0
+              ? `Notifications, ${unreadCount} unread`
+              : "Notifications"
+          }
         >
           <Bell className="h-4 w-4" />
+
           {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-              {unreadCount > 9 ? "9+" : unreadCount}
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground">
+              {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
+
       <DropdownMenuContent
         align="end"
-        className="w-80 max-h-[420px] overflow-y-auto p-0"
         sideOffset={8}
+        className="w-[calc(100vw-1rem)] max-w-96 overflow-hidden p-0"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-          <h3 className="text-sm font-semibold">Notifications</h3>
+        <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border/50 px-4 py-2.5">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold">Notifications</h3>
+
+            {unreadCount > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                {unreadCount} unread
+              </p>
+            )}
+          </div>
+
           {unreadCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-xs cursor-pointer text-muted-foreground hover:text-foreground"
-              onClick={handleMarkAllAsRead}
+              onClick={() => void handleMarkAllAsRead()}
+              className="h-8 shrink-0 cursor-pointer text-xs text-muted-foreground"
             >
-              <CheckCheck className="h-3 w-3 mr-1" />
+              <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
               Mark all read
             </Button>
           )}
         </div>
 
-        {/* Notification list */}
-        {loading ? (
-          <div className="flex items-center justify-center py-8 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            <span className="text-sm">Loading...</span>
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <Inbox className="h-8 w-8 mb-2 opacity-40" />
-            <p className="text-sm">No notifications yet</p>
-            <p className="text-xs text-muted-foreground/60">
-              You'll see new submissions and activity here
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border/30">
-            {notifications.map((notification) => {
-              const meta = notification.metadata as Record<
-                string,
-                unknown
-              > | null;
+        {/* Scrollable content */}
+        <div className="max-h-[min(26rem,70vh)] overflow-y-auto">
+          {loading ? (
+            <div className="flex min-h-32 items-center justify-center text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <span className="text-sm">Loading notifications...</span>
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="flex min-h-44 flex-col items-center justify-center px-6 text-center">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                <Inbox className="h-5 w-5 text-muted-foreground" />
+              </div>
 
-              // Determine if the link is a real external page (profile, form)
-              // or a SPA-internal dashboard view that needs client-side navigation
-              const isDashboardLink =
-                notification.link && notification.link.startsWith("/dashboard");
-              const hasExternalLink =
-                notification.link &&
-                notification.link.startsWith("/") &&
-                !isDashboardLink;
-              const hasSpaAction =
-                (!notification.link || isDashboardLink) &&
-                (meta || isDashboardLink);
+              <p className="text-sm font-medium">You&apos;re all caught up</p>
 
-              const handleClick = async (
-                event?: MouseEvent<HTMLButtonElement | HTMLAnchorElement>,
-              ) => {
-                if (hasExternalLink && event) {
-                  event.preventDefault();
-                }
+              <p className="mt-1 max-w-56 text-xs leading-relaxed text-muted-foreground">
+                Important social, collaboration, and moderation activity will
+                appear here.
+              </p>
+            </div>
+          ) : (
+            <div>
+              {notifications.map((notification) => {
+                const config = notificationConfig[notification.type];
+                const Icon = config.icon;
 
-                if (!notification.is_read) {
-                  await handleMarkAsRead(notification.id);
-                }
-
-                if (hasSpaAction) {
-                  if (meta?.request_id || meta?.form_id) {
-                    setCurrentView("requests");
-                  } else if (meta?.bot_id) {
-                    setCurrentView("bots");
-                  } else if (meta?.follower_id) {
-                    setCurrentView("profile");
-                  } else if (isDashboardLink) {
-                    // Parse ?view= param from dashboard links
-                    const url = new URL(
-                      notification.link!,
-                      window.location.origin,
-                    );
-                    const view = url.searchParams.get("view");
-                    if (
-                      view &&
-                      ["bots", "forms", "requests", "profile"].includes(view)
-                    ) {
-                      setCurrentView(
-                        view as "bots" | "forms" | "requests" | "profile",
-                      );
-                    } else {
-                      setCurrentView("bots");
-                    }
-                  }
-                } else if (hasExternalLink && notification.link) {
-                  window.location.href = notification.link;
-                }
-              };
-
-              const Wrapper = hasExternalLink ? "a" : "button";
-              const wrapperProps = hasExternalLink
-                ? {
-                    href: notification.link,
-                    target: "_self" as const,
-                    onClick: handleClick,
-                  }
-                : { type: "button" as const, onClick: handleClick };
-
-              return (
-                <Wrapper
-                  key={notification.id}
-                  {...(wrapperProps as any)}
-                  className={cn(
-                    "group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
-                    !notification.is_read && "bg-primary/[0.03]",
-                    `border-l-2 ${getNotificationColor(notification.type)}`,
-                    notification.link && "cursor-pointer no-underline",
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted shrink-0">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <p
-                        className={cn(
-                          "text-sm font-medium truncate",
-                          !notification.is_read
-                            ? "text-foreground"
-                            : "text-muted-foreground",
-                        )}
-                      >
-                        {notification.title}
-                      </p>
-                      {notification.link && (
-                        <ArrowUpRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-                      )}
-                    </div>
-                    {notification.message && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                        {notification.message}
-                      </p>
+                return (
+                  <div
+                    key={notification.id}
+                    className={cn(
+                      "group relative flex border-b border-border/30 border-l-2 transition-colors last:border-b-0",
+                      config.borderClassName,
+                      !notification.is_read && "bg-primary/[0.035]",
                     )}
-                    <p className="text-[10px] text-muted-foreground/60 mt-1">
-                      {getTimeAgo(notification.created_at)}
-                    </p>
-                  </div>
+                  >
+                    {/* Main notification action */}
+                    <button
+                      type="button"
+                      onClick={() => void navigateToNotification(notification)}
+                      className="min-w-0 flex-1 cursor-pointer px-3 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    >
+                      <div className="flex min-w-0 items-start gap-3">
+                        <div
+                          className={cn(
+                            "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted/70",
+                            config.iconClassName,
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
 
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    {!notification.is_read && (
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p
+                              className={cn(
+                                "min-w-0 truncate text-sm",
+                                notification.is_read
+                                  ? "font-medium text-muted-foreground"
+                                  : "font-semibold text-foreground",
+                              )}
+                            >
+                              {notification.title}
+                            </p>
+
+                            {!notification.is_read && (
+                              <span
+                                className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                                aria-label="Unread"
+                              />
+                            )}
+                          </div>
+
+                          {notification.message && (
+                            <div
+                              className={cn(
+                                "mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground",
+                                "[&>p]:m-0 [&>p]:inline",
+                                "[&_*]:text-xs [&_*]:leading-relaxed",
+                              )}
+                            >
+                              <MarkdownRenderer
+                                content={notification.message}
+                              />
+                            </div>
+                          )}
+
+                          <p className="mt-1 text-[10px] text-muted-foreground/70">
+                            {getTimeAgo(notification.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Secondary actions */}
+                    <div className="flex shrink-0 items-start gap-0.5 py-2 pr-2 opacity-70 transition-opacity hover:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100">
+                      {!notification.is_read && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void handleMarkAsRead(notification.id)}
+                          className="h-7 w-7 cursor-pointer text-muted-foreground"
+                          aria-label="Mark as read"
+                          title="Mark as read"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 cursor-pointer"
-                        title="Mark as read"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleMarkAsRead(notification.id);
-                        }}
+                        onClick={() => void handleDelete(notification.id)}
+                        className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-white"
+                        aria-label="Dismiss notification"
+                        title="Dismiss"
                       >
-                        <Check className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 cursor-pointer text-destructive hover:text-white"
-                      title="Delete"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleDelete(notification.id);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    </div>
                   </div>
-                </Wrapper>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+
+              {hasMore && (
+                <div className="border-t border-border/40 p-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void loadMoreNotifications()}
+                    disabled={loadingMore}
+                    className="w-full cursor-pointer text-xs text-muted-foreground"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                        Loading more...
+                      </>
+                    ) : (
+                      "Load more"
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -26,7 +26,6 @@ import {
   Sparkles,
   UserRound,
   Users,
-  WandSparkles,
   XCircle,
 } from "lucide-react";
 

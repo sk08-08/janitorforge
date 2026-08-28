@@ -1526,7 +1526,8 @@ export function ProfileEditor({
                     />
 
                     <p className="text-[10px] text-muted-foreground">
-                      A temporary message about what you're doing or working on.
+                      A temporary message about what you&apos;re doing or
+                      working on.
                     </p>
                   </div>
                 </div>
@@ -1657,8 +1658,8 @@ export function ProfileEditor({
                     <p className="text-sm font-medium">Social Links</p>
 
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Leave platforms empty if you don't want them displayed on
-                      your profile.
+                      Leave platforms empty if you don&apos;t want them
+                      displayed on your profile.
                     </p>
                   </div>
                 </div>
@@ -2433,8 +2434,8 @@ export function ProfileEditor({
               <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
 
               <AlertDialogDescription>
-                Your profile has changes that haven't been saved. Closing the
-                editor will discard them.
+                Your profile has changes that haven&apos;t been saved. Closing
+                the editor will discard them.
               </AlertDialogDescription>
             </AlertDialogHeader>
 

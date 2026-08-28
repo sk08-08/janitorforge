@@ -11,7 +11,6 @@ import type { BotPreview } from "@/features/creator-pages/types/creator-page-typ
 
 export function BotCardList({
   bot,
-  themeColor,
   onClick,
 }: {
   bot: BotPreview;

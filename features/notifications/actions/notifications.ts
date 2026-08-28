@@ -2,40 +2,108 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUserAccess } from "@/lib/access";
+import {
+  isNotificationType,
+  type NotificationRecord,
+} from "@/features/notifications/lib/notification-types";
 
-export interface Notification {
+interface NotificationCursor {
+  createdAt: string;
   id: string;
-  type: string;
-  title: string;
-  message: string | null;
-  link: string | null;
-  is_read: boolean;
-  metadata: Record<string, unknown> | null;
-  created_at: string;
 }
 
 // ---------------------------------------------------------------------------
 // Get notifications for current user
 // ---------------------------------------------------------------------------
 
-export async function getNotifications(limit = 20) {
+export async function getNotifications(
+  limit = 20,
+  cursor?: NotificationCursor | null,
+) {
   const supabase = await createClient();
   const access = await getCurrentUserAccess(supabase);
+
   if (!access.user) {
-    return { success: false, error: "Not authenticated", notifications: [] };
+    return {
+      success: false as const,
+      error: "Not authenticated",
+      notifications: [] as NotificationRecord[],
+    };
   }
 
-  const { data, error } = await supabase
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+
+  let query = supabase
     .from("active_notifications")
     .select("id, type, title, message, link, is_read, metadata, created_at")
     .eq("user_id", access.user.id)
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("id", { ascending: false })
+    .limit(safeLimit + 1);
+
+  if (cursor) {
+    query = query.or(
+      `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
+    );
+  }
+
+  const { data, error } = await query;
 
   if (error) {
-    return { success: false, error: error.message, notifications: [] };
+    return {
+      success: false as const,
+      error: error.message,
+      notifications: [] as NotificationRecord[],
+      hasMore: false,
+      nextCursor: null,
+    };
   }
-  return { success: true, notifications: (data || []) as Notification[] };
+
+  const rows = data ?? [];
+  const hasMore = rows.length > safeLimit;
+  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows;
+
+  const notifications: NotificationRecord[] = [];
+
+  for (const row of pageRows) {
+    if (!row.id || !row.type || !row.title || !row.created_at) {
+      continue;
+    }
+
+    if (!isNotificationType(row.type)) {
+      console.warn("Ignoring unknown notification type:", row.type);
+      continue;
+    }
+
+    notifications.push({
+      id: row.id,
+      type: row.type,
+      title: row.title,
+      message: row.message ?? null,
+      link: row.link ?? null,
+      is_read: row.is_read ?? false,
+      metadata:
+        row.metadata && typeof row.metadata === "object"
+          ? (row.metadata as Record<string, unknown>)
+          : null,
+      created_at: row.created_at,
+    });
+  }
+
+  const lastRow = pageRows[pageRows.length - 1];
+
+  return {
+    success: true as const,
+    notifications,
+    hasMore,
+    nextCursor:
+      lastRow?.id && lastRow.created_at
+        ? {
+            createdAt: lastRow.created_at,
+            id: lastRow.id,
+          }
+        : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -45,8 +113,12 @@ export async function getNotifications(limit = 20) {
 export async function getUnreadCount() {
   const supabase = await createClient();
   const access = await getCurrentUserAccess(supabase);
+
   if (!access.user) {
-    return { success: false, count: 0 };
+    return {
+      success: false as const,
+      count: 0,
+    };
   }
 
   const { count, error } = await supabase
@@ -56,9 +128,16 @@ export async function getUnreadCount() {
     .eq("is_read", false);
 
   if (error) {
-    return { success: false, count: 0 };
+    return {
+      success: false as const,
+      count: 0,
+    };
   }
-  return { success: true, count: count || 0 };
+
+  return {
+    success: true as const,
+    count: count ?? 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -66,22 +145,40 @@ export async function getUnreadCount() {
 // ---------------------------------------------------------------------------
 
 export async function markAsRead(notificationId: string) {
-  const supabase = await createClient();
-  const access = await getCurrentUserAccess(supabase);
-  if (!access.user) {
-    return { success: false, error: "Not authenticated" };
+  if (!notificationId) {
+    return {
+      success: false as const,
+      error: "Invalid notification",
+    };
   }
 
-  const { error } = await supabase
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("id", notificationId)
-    .eq("user_id", access.user.id);
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false as const,
+      error: "Not authenticated",
+    };
+  }
+
+  const { error } = await supabase.rpc("mark_notification_read", {
+    p_notification_id: notificationId,
+  });
 
   if (error) {
-    return { success: false, error: error.message };
+    return {
+      success: false as const,
+      error: error.message,
+    };
   }
-  return { success: true };
+
+  return {
+    success: true as const,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -90,42 +187,69 @@ export async function markAsRead(notificationId: string) {
 
 export async function markAllAsRead() {
   const supabase = await createClient();
-  const access = await getCurrentUserAccess(supabase);
-  if (!access.user) {
-    return { success: false, error: "Not authenticated" };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false as const,
+      error: "Not authenticated",
+    };
   }
 
-  const { error } = await supabase
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", access.user.id)
-    .eq("is_read", false);
+  const { error } = await supabase.rpc("mark_all_notifications_read");
 
   if (error) {
-    return { success: false, error: error.message };
+    return {
+      success: false as const,
+      error: error.message,
+    };
   }
-  return { success: true };
+
+  return {
+    success: true as const,
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Delete a notification
+// Dismiss notification
 // ---------------------------------------------------------------------------
 
 export async function deleteNotification(notificationId: string) {
-  const supabase = await createClient();
-  const access = await getCurrentUserAccess(supabase);
-  if (!access.user) {
-    return { success: false, error: "Not authenticated" };
+  if (!notificationId) {
+    return {
+      success: false as const,
+      error: "Invalid notification",
+    };
   }
 
-  const { error } = await supabase
-    .from("notifications")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", notificationId)
-    .eq("user_id", access.user.id);
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false as const,
+      error: "Not authenticated",
+    };
+  }
+
+  const { error } = await supabase.rpc("dismiss_notification", {
+    p_notification_id: notificationId,
+  });
 
   if (error) {
-    return { success: false, error: error.message };
+    return {
+      success: false as const,
+      error: error.message,
+    };
   }
-  return { success: true };
+
+  return {
+    success: true as const,
+  };
 }

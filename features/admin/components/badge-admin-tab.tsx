@@ -1981,7 +1981,7 @@ export function BadgeAdminTab() {
               <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
 
               <AlertDialogDescription>
-                You have changes that haven't been saved. Continuing will
+                You have changes that haven&apos;t been saved. Continuing will
                 discard them.
               </AlertDialogDescription>
             </AlertDialogHeader>

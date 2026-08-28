@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -35,11 +36,18 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { changePin, getSession } from "@/features/auth/actions/auth";
 import {
+  getNotificationPreferences,
+  updateNotificationPreference,
+} from "@/features/notifications/actions/preferences";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  type NotificationPreferences,
+} from "@/features/notifications/lib/preferences";
+import {
   Bell,
   Database,
   Download,
-  FileJson,
-  FileSpreadsheet,
+  ExternalLink,
   Keyboard,
   Loader2,
   Moon,
@@ -59,18 +67,11 @@ type SettingsSection =
   | "notifications"
   | "data"
   | "shortcuts"
-  | "security";
+  | "account";
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-interface NotificationPrefs {
-  collaborations: boolean;
-  submissions: boolean;
-  moderation: boolean;
-  updates: boolean;
 }
 
 interface SessionInfo {
@@ -78,15 +79,6 @@ interface SessionInfo {
   username: string;
   loggedInAt: string;
 }
-
-const defaultNotificationPrefs: NotificationPrefs = {
-  collaborations: true,
-  submissions: true,
-  moderation: true,
-  updates: true,
-};
-
-const NOTIFICATION_PREFS_KEY = "jf-notification-prefs";
 
 // ----------------------------------------------------------------------------
 // Keyboard shortcuts reference
@@ -158,6 +150,29 @@ const themeOptions: ReadonlyArray<{
   { value: "system", label: "System", icon: Monitor },
 ];
 
+const dataExports = [
+  {
+    label: "Bots",
+    description: "Bots and related workspace data.",
+    href: "/api/settings/export/bots",
+  },
+  {
+    label: "Forms",
+    description: "Forms, submissions, moderation data, and templates.",
+    href: "/api/settings/export/forms",
+  },
+  {
+    label: "Creator Pages",
+    description: "Creator pages and their sections.",
+    href: "/api/settings/export/creator-pages",
+  },
+  {
+    label: "Atlas",
+    description: "Worlds, lorebooks, entries, and related world data.",
+    href: "/api/settings/export/atlas",
+  },
+] as const;
+
 // ----------------------------------------------------------------------------
 // Component
 // ----------------------------------------------------------------------------
@@ -166,14 +181,17 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { theme, setTheme } = useTheme();
   const [activeSection, setActiveSection] =
     useState<SettingsSection>("appearance");
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>(
-    defaultNotificationPrefs,
-  );
+  const [notificationPrefs, setNotificationPrefs] =
+    useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+
+  const [notificationPrefsLoading, setNotificationPrefsLoading] =
+    useState(false);
+  const [notificationPrefSaving, setNotificationPrefSaving] = useState<
+    keyof NotificationPreferences | null
+  >(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string>("");
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [currentPin, setCurrentPin] = useState("");
@@ -181,33 +199,51 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [confirmPin, setConfirmPin] = useState("");
   const [changingPin, setChangingPin] = useState(false);
 
-  // Load notification prefs from localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const saved = localStorage.getItem(NOTIFICATION_PREFS_KEY);
-      if (saved) {
-        setNotificationPrefs({
-          ...defaultNotificationPrefs,
-          ...JSON.parse(saved),
-        });
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  // Load current user
+  // Load current account settings
   useEffect(() => {
     if (!open) return;
-    (async () => {
-      const supabase = createClient();
-      const access = await getCurrentUserAccess(supabase);
-      setUserId(access.user?.id ?? null);
-      setUsername(access.profile?.username ?? "");
-      const session = (await getSession()) as SessionInfo | null;
-      setSessionInfo(session);
-    })();
+
+    let cancelled = false;
+
+    const loadSettings = async () => {
+      setNotificationPrefsLoading(true);
+
+      try {
+        const supabase = createClient();
+
+        const [access, session, preferencesResult] = await Promise.all([
+          getCurrentUserAccess(supabase),
+          getSession(),
+          getNotificationPreferences(),
+        ]);
+
+        if (cancelled) return;
+
+        setUsername(access.profile?.username ?? "");
+        setSessionInfo(session as SessionInfo | null);
+
+        if (preferencesResult.success) {
+          setNotificationPrefs(preferencesResult.preferences);
+        } else {
+          setNotificationPrefs(DEFAULT_NOTIFICATION_PREFERENCES);
+
+          console.error(
+            "Failed to load notification preferences:",
+            preferencesResult.error,
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setNotificationPrefsLoading(false);
+        }
+      }
+    };
+
+    void loadSettings();
+
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   const validatePinValue = (value: string) => /^\d{4}$/.test(value);
@@ -253,108 +289,47 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   // Save notification prefs
   const updateNotificationPref = useCallback(
-    (key: keyof NotificationPrefs, value: boolean) => {
-      setNotificationPrefs((prev) => {
-        const next = { ...prev, [key]: value };
-        if (typeof window !== "undefined") {
-          localStorage.setItem(NOTIFICATION_PREFS_KEY, JSON.stringify(next));
-        }
-        toast.success(value ? "Notification enabled" : "Notification disabled");
-        return next;
-      });
-    },
-    [],
-  );
+    async (key: keyof NotificationPreferences, value: boolean) => {
+      const previousValue = notificationPrefs[key];
 
-  // Export all user data
-  const handleExportAll = useCallback(async () => {
-    if (!userId) {
-      toast.error("Sign in to export data");
-      return;
-    }
+      // Optimistic update
+      setNotificationPrefs((prev) => ({
+        ...prev,
+        [key]: value,
+      }));
 
-    setExporting(true);
-    try {
-      const supabase = createClient();
+      setNotificationPrefSaving(key);
 
-      const [
-        { data: bots },
-        { data: forms },
-        { data: requests },
-        { data: worlds },
-        { data: lorebooks },
-        { data: entries },
-      ] = await Promise.all([
-        supabase.from("active_bots").select("*").eq("user_id", userId),
-        supabase.from("active_request_forms").select("*").eq("user_id", userId),
-        supabase.from("active_requests").select("*").eq("user_id", userId),
-        supabase.from("active_atlas_worlds").select("*").eq("user_id", userId),
-        supabase
-          .from("active_atlas_lorebooks")
-          .select("*")
-          .eq("user_id", userId),
-        supabase.from("active_atlas_entries").select("*").eq("user_id", userId),
-      ]);
-
-      const exportData = {
-        exportedAt: new Date().toISOString(),
-        bots: bots ?? [],
-        forms: forms ?? [],
-        requests: requests ?? [],
-        atlasWorlds: worlds ?? [],
-        atlasLorebooks: lorebooks ?? [],
-        atlasEntries: entries ?? [],
-      };
-
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `janitorforge-export-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Data exported successfully");
-    } catch (error) {
-      console.error("Export failed:", error);
-      toast.error("Failed to export data");
-    } finally {
-      setExporting(false);
-    }
-  }, [userId]);
-
-  // Export specific data type
-  const handleExportSingle = useCallback(
-    async (table: string, label: string, ownerColumn = "user_id") => {
-      if (!userId) return;
-      setExporting(true);
       try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from(table)
-          .select("*")
-          .eq(ownerColumn, userId);
-        if (error) throw error;
+        const result = await updateNotificationPreference(key, value);
 
-        const blob = new Blob([JSON.stringify(data ?? [], null, 2)], {
-          type: "application/json",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `janitorforge-${label}-${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast.success(`${label} exported`);
+        if (!result.success) {
+          setNotificationPrefs((prev) => ({
+            ...prev,
+            [key]: previousValue,
+          }));
+
+          toast.error(
+            result.error || "Could not update notification preference",
+          );
+          return;
+        }
+
+        setNotificationPrefs(result.preferences);
       } catch (error) {
-        console.error("Export failed:", error);
-        toast.error(`Failed to export ${label}`);
+        console.error("Notification preference update failed:", error);
+
+        setNotificationPrefs((prev) => ({
+          ...prev,
+          [key]: previousValue,
+        }));
+
+        toast.error("Could not update notification preference");
       } finally {
-        setExporting(false);
+        setNotificationPrefSaving(null);
       }
     },
-    [userId],
+    [notificationPrefs],
   );
 
   // Delete account
@@ -390,13 +365,21 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         label: "Notifications",
         icon: Bell,
       },
-      { id: "data" as SettingsSection, label: "Data", icon: Database },
+      {
+        id: "data" as SettingsSection,
+        label: "Data & Privacy",
+        icon: Database,
+      },
       {
         id: "shortcuts" as SettingsSection,
         label: "Shortcuts",
         icon: Keyboard,
       },
-      { id: "security" as SettingsSection, label: "Security", icon: Shield },
+      {
+        id: "account" as SettingsSection,
+        label: "Account",
+        icon: Shield,
+      },
     ],
     [],
   );
@@ -498,38 +481,34 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   <div>
                     <h3 className="text-base font-semibold">Notifications</h3>
                     <p className="text-sm text-muted-foreground">
-                      Choose which notifications you want to receive.
+                      Choose which in-app notification categories you want to
+                      receive.
                     </p>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {[
+                      {
+                        key: "social" as const,
+                        label: "Social",
+                        description: "New followers and profile activity",
+                      },
                       {
                         key: "collaborations" as const,
                         label: "Collaborations",
                         description:
-                          "Invitations, role changes, and collaborator activity",
-                      },
-                      {
-                        key: "submissions" as const,
-                        label: "Submissions",
-                        description: "New form submissions and status updates",
+                          "Invites, role changes, and important collaboration activity",
                       },
                       {
                         key: "moderation" as const,
                         label: "Moderation",
-                        description: "Flagged content and review requests",
-                      },
-                      {
-                        key: "updates" as const,
-                        label: "Platform updates",
                         description:
-                          "New features, announcements, and release notes",
+                          "Flagged submissions and moderation alerts",
                       },
                     ].map((item) => (
                       <div
                         key={item.key}
-                        className="flex items-center justify-between gap-4 rounded-xl border border-border/60 p-4"
+                        className="flex items-center justify-between gap-4 rounded-xl border border-border/60 bg-card/30 p-4 transition-colors hover:bg-muted/20"
                       >
                         <div className="min-w-0 space-y-0.5">
                           <p className="text-sm font-medium">{item.label}</p>
@@ -539,8 +518,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                         <Switch
                           checked={notificationPrefs[item.key]}
-                          onCheckedChange={(val) =>
-                            updateNotificationPref(item.key, val)
+                          onCheckedChange={(value) =>
+                            void updateNotificationPref(item.key, value)
+                          }
+                          disabled={
+                            notificationPrefsLoading ||
+                            notificationPrefSaving === item.key
                           }
                           className="cursor-pointer"
                         />
@@ -554,9 +537,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               {activeSection === "data" && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-base font-semibold">Your data</h3>
+                    <h3 className="text-base font-semibold">Data & Privacy</h3>
                     <p className="text-sm text-muted-foreground">
-                      Download your data in JSON format.
+                      Export your account data and review Janitor Forge&apos;s
+                      privacy information.
                     </p>
                   </div>
 
@@ -564,97 +548,95 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0 space-y-1">
-                        <p className="text-sm font-medium">Export everything</p>
+                        <p className="text-sm font-medium">
+                          Export account data
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Download all your bots, forms, submissions, and atlas
-                          data in a single file.
+                          Download a copy of your Janitor Forge account data in
+                          a single JSON file.
                         </p>
                       </div>
-                      <Button
-                        onClick={handleExportAll}
-                        disabled={exporting}
-                        className="cursor-pointer shrink-0"
-                      >
-                        {exporting ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
+                      <Button asChild className="w-full shrink-0 sm:w-auto">
+                        <a href="/api/settings/export/account">
                           <Download className="mr-2 h-4 w-4" />
-                        )}
-                        Export all
+                          Export account data
+                        </a>
                       </Button>
                     </div>
                   </div>
 
                   {/* Individual exports */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      Export individual data
-                    </Label>
-                    {(
-                      [
-                        {
-                          table: "active_bots",
-                          label: "Bots",
-                          icon: FileJson,
-                          ownerColumn: "user_id",
-                        },
-                        {
-                          table: "active_request_forms",
-                          label: "Forms",
-                          icon: FileSpreadsheet,
-                          ownerColumn: "user_id",
-                        },
-                        {
-                          table: "active_atlas_worlds",
-                          label: "Atlas Worlds",
-                          icon: FileJson,
-                          ownerColumn: "user_id",
-                        },
-                        {
-                          table: "active_atlas_lorebooks",
-                          label: "Lorebooks",
-                          icon: FileJson,
-                          ownerColumn: "user_id",
-                        },
-                        {
-                          table: "active_atlas_entries",
-                          label: "Entries",
-                          icon: FileJson,
-                          ownerColumn: "user_id",
-                        },
-                      ] as const
-                    ).map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <div
-                          key={item.table}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-4 py-3"
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm font-medium">
+                        Individual exports
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Download data from a specific Janitor Forge workspace.
+                      </p>
+                    </div>
+
+                    {dataExports.map((item) => (
+                      <div
+                        key={item.href}
+                        className="flex flex-col gap-3 rounded-xl border border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="text-sm font-medium">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.description}
+                          </p>
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          asChild
+                          className="w-full shrink-0 sm:w-auto"
                         >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            <span className="text-sm truncate">
-                              {item.label}
-                            </span>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              handleExportSingle(
-                                item.table,
-                                item.label,
-                                item.ownerColumn,
-                              )
-                            }
-                            disabled={exporting}
-                            className="cursor-pointer"
-                          >
+                          <a href={item.href}>
                             <Download className="mr-1.5 h-3.5 w-3.5" />
                             Export
+                          </a>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">
+                      Privacy & legal
+                    </Label>
+
+                    <div className="rounded-xl border border-border/60 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-sm font-medium">
+                            Privacy and terms
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Learn how JanitorForge handles your data and review
+                            the platform rules.
+                          </p>
+                        </div>
+
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href="/privacy" target="_blank">
+                              Privacy
+                              <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                            </Link>
+                          </Button>
+
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href="/terms" target="_blank">
+                              Terms
+                              <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                            </Link>
                           </Button>
                         </div>
-                      );
-                    })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -715,12 +697,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               )}
 
               {/* Security */}
-              {activeSection === "security" && (
+              {activeSection === "account" && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-base font-semibold">Security</h3>
+                    <h3 className="text-base font-semibold">Account</h3>
                     <p className="text-sm text-muted-foreground">
-                      Manage your PIN, current session, and account deletion.
+                      Manage your account, PIN, session, and account deletion.
                     </p>
                   </div>
 
@@ -747,22 +729,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   <div className="space-y-3">
                     <Label className="text-sm font-medium">Change PIN</Label>
                     <div className="rounded-xl border border-border/60 p-4 space-y-4">
-                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="security-username"
-                            className="text-xs"
-                          >
-                            Username
-                          </Label>
-                          <Input
-                            id="security-username"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="your-username"
-                            autoComplete="username"
-                          />
-                        </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div className="space-y-2">
                           <Label htmlFor="current-pin" className="text-xs">
                             Current PIN
@@ -778,6 +745,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             autoComplete="current-password"
                           />
                         </div>
+
                         <div className="space-y-2">
                           <Label htmlFor="new-pin" className="text-xs">
                             New PIN
@@ -793,9 +761,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                             autoComplete="new-password"
                           />
                         </div>
+
                         <div className="space-y-2">
                           <Label htmlFor="confirm-pin" className="text-xs">
-                            Confirm new PIN
+                            Confirm PIN
                           </Label>
                           <Input
                             id="confirm-pin"
@@ -810,9 +779,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                         </div>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-xs text-muted-foreground min-w-0">
-                          Use your username and current PIN to authorize the
-                          change.
+                        <p className="min-w-0 text-xs text-muted-foreground">
+                          Enter your current PIN to authorize the change.
                         </p>
                         <Button
                           onClick={handleChangePin}
@@ -829,7 +797,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Sessions</Label>
+                    <Label className="text-sm font-medium">Session</Label>
                     <div className="rounded-xl border border-border/60 p-4">
                       <div className="flex items-center justify-between gap-4">
                         <div className="min-w-0 space-y-0.5">

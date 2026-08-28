@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1574,6 +1574,33 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          collaborations: boolean
+          created_at: string
+          moderation: boolean
+          social: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          collaborations?: boolean
+          created_at?: string
+          moderation?: boolean
+          social?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          collaborations?: boolean
+          created_at?: string
+          moderation?: boolean
+          social?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -3003,6 +3030,10 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: undefined
       }
+      dismiss_notification: {
+        Args: { p_notification_id: string }
+        Returns: undefined
+      }
       get_active_badge_definitions: {
         Args: never
         Returns: {
@@ -3228,13 +3259,14 @@ export type Database = {
         Args: { p_form_id: string; p_ip_address: string }
         Returns: boolean
       }
-      is_profile_follower: { Args: { p_profile_id: string }; Returns: boolean }
-      mark_all_notifications_read: {
-        Args: { p_user_id: string }
-        Returns: undefined
+      is_notification_type_enabled: {
+        Args: { p_type: string; p_user_id: string }
+        Returns: boolean
       }
+      is_profile_follower: { Args: { p_profile_id: string }; Returns: boolean }
+      mark_all_notifications_read: { Args: never; Returns: undefined }
       mark_notification_read: {
-        Args: { p_notification_id: string; p_user_id: string }
+        Args: { p_notification_id: string }
         Returns: undefined
       }
       purge_old_soft_deleted: {

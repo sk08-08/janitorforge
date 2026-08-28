@@ -1330,7 +1330,7 @@ export function BotManager() {
             <DialogDescription>
               You are about to delete{" "}
               <span className="font-semibold text-foreground">
-                "{deleteConfirmBot?.name}"
+                &quot;{deleteConfirmBot?.name}&quot;
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -1340,7 +1340,9 @@ export function BotManager() {
               <li>
                 The bot will be deleted from your dashboard and public pages
               </li>
-              <li>Collaborators will lose access to this bot's workspace</li>
+              <li>
+                Collaborators will lose access to this bot&apos;s workspace
+              </li>
               <li>
                 If this bot is linked on your creator page, it will no longer be
                 visible to visitors

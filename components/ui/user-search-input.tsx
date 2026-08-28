@@ -215,7 +215,7 @@ export function UserSearchInput({
           ) : (
             <div className="px-3 py-4 text-center">
               <p className="text-sm text-muted-foreground">
-                No users found matching "{value}"
+                No users found matching &quot;{value}&quot;
               </p>
             </div>
           )}

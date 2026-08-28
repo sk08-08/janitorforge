@@ -547,7 +547,7 @@ export default function LorebookPage() {
           </div>
           <h2 className="text-xl font-semibold">Lorebook not found</h2>
           <p className="text-sm text-muted-foreground">
-            This lorebook may have been deleted or you don't have access.
+            This lorebook may have been deleted or you don&apos;t have access.
           </p>
           <Button asChild variant="outline" className="cursor-pointer">
             <Link href="/">
@@ -1025,7 +1025,9 @@ export default function LorebookPage() {
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{lorebook.title}"?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete &quot;{lorebook.title}&quot;?
+            </AlertDialogTitle>
             <AlertDialogDescription>
               This removes the lorebook and all {entries.length} entries
               permanently. This cannot be undone.

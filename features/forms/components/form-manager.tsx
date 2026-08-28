@@ -206,7 +206,7 @@ function FormCard({
               }
             >
               <ExternalLink className="mr-1 h-3 w-3" />
-              Preview
+              Open
             </Button>
           ) : (
             <div className="flex items-center gap-1">
@@ -1001,7 +1001,7 @@ export function FormManager() {
             <DialogDescription>
               You are about to delete{" "}
               <span className="font-semibold text-foreground">
-                "{stripMarkdownToText(deleteConfirmForm?.title)}"
+                &quot;{stripMarkdownToText(deleteConfirmForm?.title)}&quot;
               </span>
               . This is a soft delete — the form and its submissions will be
               hidden but preserved in the database.
