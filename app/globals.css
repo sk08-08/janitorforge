@@ -152,25 +152,57 @@ input[type="number"] {
   }
 }
 
+html {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 35%, transparent)
+    transparent;
+}
+
+html::-webkit-scrollbar {
+  width: 8px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
+  border-radius: 999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--primary) 52%, transparent);
+}
+
 /* Custom scrollbar styling */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: color-mix(
+        in oklch,
+        var(--muted-foreground) 38%,
+        transparent
+      )
+      transparent;
   }
+
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
   }
+
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
+
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: var(--border);
-    border-radius: 3px;
+    background: color-mix(in oklch, var(--muted-foreground) 32%, transparent);
+    border-radius: 999px;
   }
+
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: var(--muted-foreground);
+    background: color-mix(in oklch, var(--primary) 55%, transparent);
   }
   /* Neon glow effect */
   .neon-glow {
@@ -394,6 +426,239 @@ input[type="number"] {
     100% {
       transform: scale(1.35);
       opacity: 0;
+    }
+  }
+
+  /* =========================================================
+   Resource Helpful animation
+   ========================================================= */
+
+  .helpful-button-liked {
+    animation: jf-helpful-liked 700ms cubic-bezier(0.2, 1.4, 0.3, 1);
+  }
+
+  .helpful-button-unliked {
+    animation: jf-helpful-unliked 430ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .helpful-icon-liked {
+    animation: jf-helpful-icon-liked 680ms cubic-bezier(0.18, 1.55, 0.4, 1);
+  }
+
+  .helpful-icon-unliked {
+    animation: jf-helpful-icon-unliked 420ms ease;
+  }
+
+  .helpful-label-change {
+    animation: jf-helpful-label 320ms ease;
+  }
+
+  .helpful-shimmer {
+    animation: jf-helpful-shimmer 700ms ease-out;
+  }
+
+  .helpful-ring {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    z-index: 0;
+    height: 2.8rem;
+    width: 2.8rem;
+    pointer-events: none;
+    border: 2px solid color-mix(in oklch, var(--primary) 55%, transparent);
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+    animation: jf-helpful-ring 700ms ease-out forwards;
+  }
+
+  .helpful-particle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 20;
+    height: 0.3rem;
+    width: 0.3rem;
+    pointer-events: none;
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 8px color-mix(in oklch, var(--primary) 55%, transparent);
+    transform: translate(-50%, -50%);
+  }
+
+  .helpful-particle-1 {
+    --particle-x: -2.7rem;
+    --particle-y: -1.8rem;
+    animation: jf-helpful-particle 650ms ease-out forwards;
+  }
+
+  .helpful-particle-2 {
+    --particle-x: 0rem;
+    --particle-y: -2.7rem;
+    animation: jf-helpful-particle 700ms ease-out forwards;
+  }
+
+  .helpful-particle-3 {
+    --particle-x: 2.8rem;
+    --particle-y: -1.5rem;
+    animation: jf-helpful-particle 620ms ease-out forwards;
+  }
+
+  .helpful-particle-4 {
+    --particle-x: 2.6rem;
+    --particle-y: 1.7rem;
+    animation: jf-helpful-particle 720ms ease-out forwards;
+  }
+
+  .helpful-particle-5 {
+    --particle-x: -0.4rem;
+    --particle-y: 2.7rem;
+    animation: jf-helpful-particle 660ms ease-out forwards;
+  }
+
+  .helpful-particle-6 {
+    --particle-x: -2.9rem;
+    --particle-y: 1.4rem;
+    animation: jf-helpful-particle 740ms ease-out forwards;
+  }
+
+  @keyframes jf-helpful-liked {
+    0% {
+      transform: scale(1);
+    }
+
+    32% {
+      transform: scale(0.92);
+    }
+
+    58% {
+      transform: scale(1.12);
+    }
+
+    78% {
+      transform: scale(0.98);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes jf-helpful-unliked {
+    0% {
+      transform: scale(1);
+    }
+
+    38% {
+      transform: scale(0.94);
+    }
+
+    72% {
+      transform: scale(1.035);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes jf-helpful-icon-liked {
+    0% {
+      transform: rotate(0deg) scale(1);
+    }
+
+    28% {
+      transform: rotate(-18deg) scale(0.82);
+    }
+
+    54% {
+      transform: rotate(12deg) scale(1.45);
+    }
+
+    74% {
+      transform: rotate(-5deg) scale(1.1);
+    }
+
+    100% {
+      transform: rotate(0deg) scale(1);
+    }
+  }
+
+  @keyframes jf-helpful-icon-unliked {
+    0% {
+      transform: rotate(0deg) scale(1);
+    }
+
+    42% {
+      transform: rotate(-9deg) scale(0.84);
+    }
+
+    72% {
+      transform: rotate(5deg) scale(1.08);
+    }
+
+    100% {
+      transform: rotate(0deg) scale(1);
+    }
+  }
+
+  @keyframes jf-helpful-label {
+    0% {
+      opacity: 0;
+      transform: translateY(5px);
+      filter: blur(2px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes jf-helpful-shimmer {
+    0% {
+      opacity: 0;
+      transform: translateX(-110%);
+    }
+
+    30% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateX(110%);
+    }
+  }
+
+  @keyframes jf-helpful-ring {
+    0% {
+      opacity: 0.8;
+      transform: translate(-50%, -50%) scale(0.7);
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(2.25);
+    }
+  }
+
+  @keyframes jf-helpful-particle {
+    0% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(0.5);
+    }
+
+    55% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate(
+          calc(-50% + var(--particle-x)),
+          calc(-50% + var(--particle-y))
+        )
+        scale(1.15);
     }
   }
 }
@@ -1065,5 +1330,20 @@ input[type="number"] {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
+  }
+  .helpful-button-liked,
+  .helpful-button-unliked,
+  .helpful-icon-liked,
+  .helpful-icon-unliked,
+  .helpful-label-change,
+  .helpful-shimmer,
+  .helpful-ring,
+  .helpful-particle {
+    animation: none !important;
+  }
+
+  .helpful-ring,
+  .helpful-particle {
+    display: none;
   }
 }

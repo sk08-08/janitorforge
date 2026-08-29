@@ -760,14 +760,14 @@ export function PublicProfile({
               badges={badges}
               themeColor={themeColor}
               showBadges={showBadges}
-              className="mt-4 mb-14"
+              className="mt-4"
               emptyClassName="rounded-lg border border-dashed bg-card/40 px-5 py-7"
             />
           )}
 
           {/* Bots */}
           {botsSection.enabled && (
-            <div id="profile-bots-section" className="space-y-6">
+            <div id="profile-bots-section" className="mt-10 space-y-6 sm:mt-12">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <Bot
@@ -897,7 +897,7 @@ export function PublicProfile({
 
           {/* Creator Pages */}
           {creatorPagesSection.enabled && (
-            <div className="space-y-4 mt-4">
+            <div className="mt-10 space-y-4 sm:mt-12">
               <div className="flex items-center gap-3">
                 <AppWindow
                   className="h-5 w-5"
@@ -950,7 +950,7 @@ export function PublicProfile({
 
           {/* Worlds */}
           {worldsSection.enabled && (
-            <div className="space-y-4 mt-12">
+            <div className="mt-10 space-y-4 sm:mt-12">
               <div className="flex items-center gap-3">
                 <Globe
                   className="h-5 w-5"
@@ -1022,7 +1022,7 @@ export function PublicProfile({
 
           {/* Forms */}
           {formsSection.enabled && (
-            <div className="space-y-4 mt-12">
+            <div className="mt-10 space-y-4 sm:mt-12">
               <div className="flex items-center gap-3">
                 <FileText
                   className="h-5 w-5"

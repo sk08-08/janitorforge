@@ -17,17 +17,28 @@ import { CreatorPages } from "@/features/creator-pages/components/creator-pages"
 import { ProfilePage } from "@/features/profile/components/profile-page";
 import { FeedbackInbox } from "@/features/feedback/components/feedback-inbox";
 import ModerationPageContent from "@/app/dashboard/moderation/content";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProfilesHub } from "@/features/hub/components/profiles-hub";
-import { ResourcesHub } from "@/features/hub/components/resources-hub";
 import { CommunityHub } from "@/features/hub/components/community-hub";
-
-function ResourcesHubView() {
-  return <ResourcesHub />;
-}
 
 function CommunityHubView() {
   return <CommunityHub />;
+}
+
+function ResourcesRouteRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/resources");
+  }, [router]);
+
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <p className="text-sm text-muted-foreground">Opening resources...</p>
+    </div>
+  );
 }
 
 // ----------------------------------------------------------------------------
@@ -57,10 +68,10 @@ function ViewRouter() {
       return <CreatorPages />;
     case "profiles":
       return <ProfilesHub />;
-    case "resources":
-      return <ResourcesHubView />;
     case "community":
       return <CommunityHubView />;
+    case "resources":
+      return <ResourcesRouteRedirect />;
     case "profile":
       return <ProfilePage />;
     case "admin":

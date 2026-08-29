@@ -338,7 +338,7 @@ export function ProfilesHub() {
                 </div>
               </div>
               <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                Explore creators across the platform, jump into their profile,
+                Explore forgers across the platform, jump into their profile,
                 and discover new people through search, filters, and curated
                 sorting.
               </p>
@@ -372,7 +372,7 @@ export function ProfilesHub() {
             <div className="space-y-3 rounded-3xl border border-border/70 bg-background/70 p-4 backdrop-blur">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Discover creators
+                Discover forgers
               </div>
               <p className="text-sm text-muted-foreground">
                 Browse by vibe, by quality, or by what feels fresh today.

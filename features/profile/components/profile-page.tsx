@@ -903,7 +903,7 @@ export function ProfilePage() {
         {/* ===== Unified Content Sections ===== */}
         {/* Bots */}
         {botsSection.enabled && (
-          <div id="profile-bots-section" className="space-y-4">
+          <div id="profile-bots-section" className="space-y-4 pt-4 sm:pt-6">
             <div className="flex items-center gap-3">
               <Bot
                 className="h-5 w-5"
@@ -1044,7 +1044,7 @@ export function ProfilePage() {
 
         {/* Creator Pages */}
         {creatorPagesSection.enabled && (
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4 sm:pt-6">
             <div className="flex items-center gap-3">
               <AppWindow
                 className="h-5 w-5"
@@ -1125,7 +1125,7 @@ export function ProfilePage() {
 
         {/* Worlds */}
         {worldsSection.enabled && (
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4 sm:pt-6">
             <div className="flex items-center gap-3">
               <Globe
                 className="h-5 w-5"
@@ -1191,7 +1191,7 @@ export function ProfilePage() {
 
         {/* Forms */}
         {formsSection.enabled && (
-          <div className="space-y-4">
+          <div className="space-y-4 pt-4 sm:pt-6">
             <div className="flex items-center gap-3">
               <FileText
                 className="h-5 w-5"

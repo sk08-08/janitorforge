@@ -478,7 +478,7 @@ function Hero() {
                 variant="outline"
                 className="border-primary/25 bg-primary/8 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary"
               >
-                Free · Beta · Made for Janitor AI creators
+                Free · Beta · Made for Janitor AI users
               </Badge>
             </div>
           </Reveal>
@@ -932,7 +932,7 @@ function Why() {
                 <p className="font-medium text-foreground">
                   It&apos;s still a personal project. I&apos;m building it
                   because I enjoy working on it, I use parts of it myself, and
-                  maybe other creators will find those tools useful too.
+                  maybe other users will find those tools useful too.
                 </p>
               </div>
             </div>

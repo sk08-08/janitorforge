@@ -268,6 +268,12 @@ export const MarkdownField = React.forwardRef<
   const [linkInput, setLinkInput] = useState("");
   const [linkError, setLinkError] = useState("");
 
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    setIsMac(/Mac|iPhone|iPad|iPod/.test(navigator.platform));
+  }, []);
+
   const [, setPendingImages] = useState<MarkdownPendingImage[]>([]);
 
   const pendingImagesRef = useRef<MarkdownPendingImage[]>([]);
@@ -1212,8 +1218,8 @@ export const MarkdownField = React.forwardRef<
             <ToolbarButton
               onClick={() => editor.chain().focus().undo().run()}
               disabled={disabled || !toolbarState.canUndo}
-              title="Undo (Ctrl/Cmd+Z)"
-              shortcut="Ctrl+Z"
+              title="Undo"
+              shortcut={isMac ? "⌘+Z" : "Ctrl+Z"}
             >
               <Undo className="h-4 w-4" />
             </ToolbarButton>
@@ -1221,8 +1227,8 @@ export const MarkdownField = React.forwardRef<
             <ToolbarButton
               onClick={() => editor.chain().focus().redo().run()}
               disabled={disabled || !toolbarState.canRedo}
-              title="Redo (Ctrl/Cmd+Y)"
-              shortcut="Ctrl+Y"
+              title="Redo"
+              shortcut={isMac ? "⌘+Shift+Z" : "Ctrl+Y"}
             >
               <Redo className="h-4 w-4" />
             </ToolbarButton>
@@ -1256,13 +1262,21 @@ export const MarkdownField = React.forwardRef<
                 </SelectTrigger>
 
                 <SelectContent>
-                  <SelectItem value="paragraph">Paragraph</SelectItem>
+                  <SelectItem value="paragraph">
+                    Paragraph — {isMac ? "⌘+Alt+0" : "Ctrl+Alt+0"}
+                  </SelectItem>
 
-                  <SelectItem value="h1">Heading 1</SelectItem>
+                  <SelectItem value="h1">
+                    Heading 1 — {isMac ? "⌘+Alt+1" : "Ctrl+Alt+1"}
+                  </SelectItem>
 
-                  <SelectItem value="h2">Heading 2</SelectItem>
+                  <SelectItem value="h2">
+                    Heading 2 — {isMac ? "⌘+Alt+2" : "Ctrl+Alt+2"}
+                  </SelectItem>
 
-                  <SelectItem value="h3">Heading 3</SelectItem>
+                  <SelectItem value="h3">
+                    Heading 3 — {isMac ? "⌘+Alt+3" : "Ctrl+Alt+3"}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1277,7 +1291,8 @@ export const MarkdownField = React.forwardRef<
                 onClick={() => editor.chain().focus().toggleBold().run()}
                 active={isFocused && toolbarState.bold}
                 disabled={disabled}
-                title="Bold (Ctrl/Cmd+B)"
+                title="Bold"
+                shortcut={isMac ? "⌘+B" : "Ctrl+B"}
               >
                 <Bold className="h-4 w-4" />
               </ToolbarButton>
@@ -1288,7 +1303,8 @@ export const MarkdownField = React.forwardRef<
                 onClick={() => editor.chain().focus().toggleItalic().run()}
                 active={isFocused && toolbarState.italic}
                 disabled={disabled}
-                title="Italic (Ctrl/Cmd+I)"
+                title="Italic"
+                shortcut={isMac ? "⌘+I" : "Ctrl+I"}
               >
                 <Italic className="h-4 w-4" />
               </ToolbarButton>
@@ -1301,6 +1317,7 @@ export const MarkdownField = React.forwardRef<
                   active={isFocused && toolbarState.strike}
                   disabled={disabled}
                   title="Strikethrough"
+                  shortcut={isMac ? "⌘+Shift+S" : "Ctrl+Shift+S"}
                 >
                   <Strikethrough className="h-4 w-4" />
                 </ToolbarButton>
@@ -1314,6 +1331,7 @@ export const MarkdownField = React.forwardRef<
                   active={isFocused && toolbarState.code}
                   disabled={disabled}
                   title="Inline Code"
+                  shortcut={isMac ? "⌘+E" : "Ctrl+E"}
                 >
                   <Code className="h-4 w-4" />
                 </ToolbarButton>
@@ -1336,7 +1354,8 @@ export const MarkdownField = React.forwardRef<
                 onClick={openLinkDialog}
                 active={isFocused && toolbarState.link}
                 disabled={disabled}
-                title="Link (Ctrl/Cmd+K)"
+                title="Link"
+                shortcut={isMac ? "⌘+K" : "Ctrl+K"}
               >
                 <LinkIcon className="h-4 w-4" />
               </ToolbarButton>
@@ -1518,6 +1537,7 @@ export const MarkdownField = React.forwardRef<
                 active={isFocused && toolbarState.bulletList}
                 disabled={disabled}
                 title="Bullet List"
+                shortcut={isMac ? "⌘+Shift+8" : "Ctrl+Shift+8"}
               >
                 <List className="h-4 w-4" />
               </ToolbarButton>
@@ -1529,6 +1549,7 @@ export const MarkdownField = React.forwardRef<
                 active={isFocused && toolbarState.orderedList}
                 disabled={disabled}
                 title="Numbered List"
+                shortcut={isMac ? "⌘+Shift+7" : "Ctrl+Shift+7"}
               >
                 <ListOrdered className="h-4 w-4" />
               </ToolbarButton>
@@ -1735,7 +1756,12 @@ export const MarkdownField = React.forwardRef<
                       }
                     >
                       <Quote className="mr-2 h-4 w-4" />
-                      Quote
+
+                      <span className="flex-1">Quote</span>
+
+                      <kbd className="ml-3 font-mono text-[10px] text-muted-foreground">
+                        {isMac ? "⌘+Shift+B" : "Ctrl+Shift+B"}
+                      </kbd>
                     </DropdownMenuItem>
                   )}
 
@@ -1750,7 +1776,12 @@ export const MarkdownField = React.forwardRef<
                       }
                     >
                       <FileCode2 className="mr-2 h-4 w-4" />
-                      Code block
+
+                      <span className="flex-1">Code block</span>
+
+                      <kbd className="ml-3 font-mono text-[10px] text-muted-foreground">
+                        {isMac ? "⌘+Alt+C" : "Ctrl+Alt+C"}
+                      </kbd>
                     </DropdownMenuItem>
                   )}
 
@@ -1762,7 +1793,7 @@ export const MarkdownField = React.forwardRef<
                       }
                     >
                       <Minus className="mr-2 h-4 w-4" />
-                      Divider
+                      <span>Divider</span>
                     </DropdownMenuItem>
                   )}
 

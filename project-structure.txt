@@ -1,253 +1,398 @@
-﻿.env.example
-.eslintrc.cjs
-.gitignore
-app/[slug]/page.tsx
-app/actions/admin.ts
-app/actions/auth.ts
-app/actions/bots.ts
-app/actions/collaboration.ts
-app/actions/feedback.ts
-app/actions/feedback-admin.ts
-app/actions/forms.ts
-app/actions/notifications.ts
-app/actions/profile.ts
-app/actions/profile-badges.ts
-app/actions/safety.ts
-app/actions/search.ts
-app/actions/slug-check.ts
-app/atlas/bot-series/page.tsx
-app/client-app.tsx
-app/dashboard/moderation/content.tsx
-app/dashboard/moderation/page.tsx
-app/favicon.ico
-app/form/[slug]/page.tsx
-app/globals.css
-app/layout.tsx
-app/login/page.tsx
-app/lorebooks/[lorebookId]/page.tsx
-app/not-found.tsx
-app/page.tsx
-app/page/[slug]/page.tsx
-app/privacy/page.tsx
-app/privacy/privacy-content.tsx
-app/profile/[username]/page.tsx
-app/terms/page.tsx
-app/terms/terms-content.tsx
-components.json
-components/admin/admin-panel.tsx
-components/admin/badge-admin-tab.tsx
-components/admin/moderation-admin-tab.tsx
-components/atlas/atlas-hub.tsx
-components/atlas/atlas-types.ts
-components/atlas/atlas-utils.ts
-components/bots/bot-detail-modal.tsx
-components/bots/bot-form.tsx
-components/bots/bot-manager.tsx
-components/bots/bot-tag-badge.tsx
-components/bots/bot-tag-selector.tsx
-components/bots/collaboration-workspace.tsx
-components/bots/collaborator-dialog.tsx
-components/bots/pending-invites.tsx
-components/bots/token-counter.tsx
-components/creator-pages/creator-pages.tsx
-components/creator-pages/creator-page-view.tsx
-components/creator-pages/shared/bot-card-grid.tsx
-components/creator-pages/shared/bot-card-list.tsx
-components/creator-pages/shared/creator-header.tsx
-components/creator-pages/shared/section-renderer.tsx
-components/dashboard/custom-blocklist.tsx
-components/dashboard/dashboard-home.tsx
-components/dashboard/feedback-inbox.tsx
-components/dashboard/global-blocklist.tsx
-components/dashboard/layout.tsx
-components/dashboard/moderation-panel.tsx
-components/dashboard/notification-bell.tsx
-components/dashboard/sensitivity-level.tsx
-components/dashboard/settings-dialog.tsx
-components/feedback/feedback-actions.tsx
-components/forms/form-builder.tsx
-components/forms/form-deactivation-page.tsx
-components/forms/form-manager.tsx
-components/forms/kanban-board.tsx
-components/forms/markdown-renderer.tsx
-components/forms/public-form.tsx
-components/forms/requests-view.tsx
-components/hub/community-hub.tsx
-components/hub/profiles-hub.tsx
-components/hub/resources-hub.tsx
-components/landing/landing-page.tsx
-components/profile/follow-list-modal.tsx
-components/profile/profile-badges.tsx
-components/profile/profile-bot-cards.tsx
-components/profile/profile-completeness.tsx
-components/profile/profile-editor.tsx
-components/profile/profile-page.tsx
-components/profile/profile-section-empty.tsx
-components/profile/profile-view.tsx
-components/profile/public-profile.tsx
-components/theme-provider.tsx
-components/ui/accordion.tsx
-components/ui/alert.tsx
-components/ui/alert-dialog.tsx
-components/ui/aspect-ratio.tsx
-components/ui/avatar.tsx
-components/ui/badge.tsx
-components/ui/breadcrumb.tsx
-components/ui/button.tsx
-components/ui/button-group.tsx
-components/ui/calendar.tsx
-components/ui/card.tsx
-components/ui/carousel.tsx
-components/ui/chart.tsx
-components/ui/checkbox.tsx
-components/ui/collapsible.tsx
-components/ui/command.tsx
-components/ui/context-menu.tsx
-components/ui/custom-color-picker.tsx
-components/ui/custom-scrollbar.tsx
-components/ui/dialog.tsx
-components/ui/drawer.tsx
-components/ui/dropdown-menu.tsx
-components/ui/empty.tsx
-components/ui/field.tsx
-components/ui/filtered-search-input.tsx
-components/ui/form.tsx
-components/ui/hover-card.tsx
-components/ui/image-crop-dialog.tsx
-components/ui/input.tsx
-components/ui/input-group.tsx
-components/ui/input-otp.tsx
-components/ui/item.tsx
-components/ui/kbd.tsx
-components/ui/label.tsx
-components/ui/markdown-field.tsx
-components/ui/menubar.tsx
-components/ui/navigation-menu.tsx
-components/ui/pagination.tsx
-components/ui/popover.tsx
-components/ui/progress.tsx
-components/ui/radio-group.tsx
-components/ui/resizable.tsx
-components/ui/scroll-area.tsx
-components/ui/search-input.tsx
-components/ui/select.tsx
-components/ui/separator.tsx
-components/ui/sheet.tsx
-components/ui/sidebar.tsx
-components/ui/skeleton.tsx
-components/ui/slider.tsx
-components/ui/social-icons.tsx
-components/ui/sonner.tsx
-components/ui/spinner.tsx
-components/ui/switch.tsx
-components/ui/table.tsx
-components/ui/tabs.tsx
-components/ui/textarea.tsx
-components/ui/toast.tsx
-components/ui/toaster.tsx
-components/ui/toggle.tsx
-components/ui/toggle-group.tsx
-components/ui/tooltip.tsx
-components/ui/use-mobile.tsx
-components/ui/user-search-input.tsx
-components/ui/use-toast.ts
-hooks/use-mobile.ts
-hooks/use-toast.ts
-lib/access.ts
-lib/bot-tags.ts
-lib/bot-utils.ts
-lib/browser-request-cache.ts
-lib/content-filter.ts
-lib/creator-page-data.ts
-lib/database.types.ts
-lib/error-utils.ts
-lib/form-appearance.ts
-lib/form-assets.ts
-lib/form-export.ts
-lib/image-crop.ts
-lib/image-presets.ts
-lib/markdown.ts
-lib/profile-badge-icons.ts
-lib/profile-badges.ts
-lib/profile-theme.ts
-lib/rate-limit.ts
-lib/redis-rate-limit.ts
-lib/safe-url.ts
-lib/storage-assets.ts
-lib/store.tsx
-lib/supabase/client.ts
-lib/supabase/server.ts
-lib/types.ts
-lib/utils.ts
-lorebook.json
-lorebook-example.json
-next.config.mjs
-next-env.d.ts
-package.json
-package-lock.json
-pnpm-lock.yaml
-postcss.config.mjs
-public/giphy-logo.png
-public/landing/feature-amber.jpg
-public/landing/feature-cyan.jpg
-public/landing/feature-emerald.jpg
-public/landing/feature-rose.jpg
-public/landing/feature-sky.jpg
-public/landing/feature-violet.jpg
-public/logo.png
-README.md
-scripts/content-filter-tests.ts
-scripts/jai-bot-page.html
-scripts/wf.js
-styles/globals.css
-supabase/admin_delete_user_migration.sql
-supabase/admin_see_deleted_migration.sql
-supabase/admin_user_block_migration.sql
-supabase/atlas.sql
-supabase/atlas_lorebooks_migration.sql
-supabase/atlas_soft_delete_migration.sql
-supabase/atlas_worldless_lorebooks_migration.sql
-supabase/bot_privacy_migration.sql
-supabase/collaboration_enhancements_migration.sql
-supabase/collaboration_overhaul_migration.sql
-supabase/creator_pages_form_migration.sql
-supabase/creator_pages_sections_v2.sql
-supabase/creator_pages_sections_v3.sql
-supabase/db_schema.sql
-supabase/delete_user_account_migration.sql
-supabase/feedback_admin_migration.sql
-supabase/fix_collab_bots_deleted_at.sql
-supabase/fix_collab_notification_link.sql
-supabase/fix_collaboration_rls.sql
-supabase/fix_feedback_delete.sql
-supabase/fix_notification_links.sql
-supabase/fix_owner_id_trigger.sql
-supabase/fix_profile_completeness_featured_bots_migration.sql
-supabase/fix_profiles_visibility_rls.sql
-supabase/fix_public_atlas_worlds_visibility.sql
-supabase/fix_public_bots_visibility.sql
-supabase/fix_public_form_rpc_migration.sql
-supabase/fixing_foreign_keys.sql
-supabase/form_assets_storage_migration.sql
-supabase/form_banner_migration.sql
-supabase/form_deactivated_message_migration.sql
-supabase/forms_improvements_migration.sql
-supabase/hub_content_enhancements_migration.sql
-supabase/hub_content_migration.sql
-supabase/hub_engagement_migration.sql
-supabase/ip_block_check_migration.sql
-supabase/media_storage_migration.sql
-supabase/new_views.sql
-supabase/profile_badges_modular_migration.sql
-supabase/profile_badges_normalized_migration.sql
-supabase/profile_customization_migration.sql
-supabase/profiles_migration.sql
-supabase/public_profile_forms_migration.sql
-supabase/README.md
-supabase/remove_status_change_notification.sql
-supabase/schema.sql
-supabase/seed_blocklists.sql
-supabase/soft_delete_creator_pages_migration.sql
-supabase/soft_delete_migration.sql
-supabase/uuid_standardization.sql
-tsconfig.json
+﻿├── .next
+├── app
+├── components
+├── docs
+├── features
+├── hooks
+├── lib
+├── node_modules
+├── public
+├── scripts
+├── supabase
+├── .env
+├── .env.example
+├── .eslintrc.cjs
+├── .gitignore
+├── components.json
+├── next-env.d.ts
+├── next.config.mjs
+├── package.json
+├── pnpm-lock.yaml
+├── postcss.config.mjs
+├── project-structure.txt
+├── README.md
+├── tsconfig.json
+├── tsconfig.tsbuildinfo
+  ├── api
+  ├── atlas
+  ├── dashboard
+  ├── form
+  ├── login
+  ├── lorebooks
+  ├── page
+  ├── privacy
+  ├── profile
+  ├── terms
+  ├── [slug]
+  ├── client-app.tsx
+  ├── favicon.ico
+  ├── globals.css
+  ├── layout.tsx
+  ├── not-found.tsx
+  ├── page.tsx
+    ├── settings
+      ├── export
+        ├── account
+        ├── atlas
+        ├── bots
+        ├── creator-pages
+        ├── forms
+          ├── route.ts
+          ├── route.ts
+          ├── route.ts
+          ├── route.ts
+          ├── route.ts
+    ├── bot-series
+      ├── page.tsx
+    ├── moderation
+      ├── content.tsx
+      ├── page.tsx
+    ├── [slug]
+      ├── page.tsx
+    ├── page.tsx
+    ├── [lorebookId]
+      ├── page.tsx
+    ├── [slug]
+      ├── not-found.tsx
+      ├── page.tsx
+    ├── page.tsx
+    ├── privacy-content.tsx
+    ├── [username]
+      ├── not-found.tsx
+      ├── page.tsx
+    ├── page.tsx
+    ├── terms-content.tsx
+    ├── page.tsx
+  ├── landing
+  ├── shared
+  ├── ui
+  ├── theme-provider.tsx
+    ├── landing-page.tsx
+    ├── status-page.tsx
+    ├── accordion.tsx
+    ├── alert-dialog.tsx
+    ├── alert.tsx
+    ├── aspect-ratio.tsx
+    ├── avatar.tsx
+    ├── badge.tsx
+    ├── breadcrumb.tsx
+    ├── button-group.tsx
+    ├── button.tsx
+    ├── calendar.tsx
+    ├── card.tsx
+    ├── carousel.tsx
+    ├── chart.tsx
+    ├── checkbox.tsx
+    ├── collapsible.tsx
+    ├── command.tsx
+    ├── context-menu.tsx
+    ├── custom-color-picker.tsx
+    ├── custom-scrollbar.tsx
+    ├── dialog.tsx
+    ├── drawer.tsx
+    ├── dropdown-menu.tsx
+    ├── empty.tsx
+    ├── field.tsx
+    ├── filtered-search-input.tsx
+    ├── form.tsx
+    ├── hover-card.tsx
+    ├── image-crop-dialog.tsx
+    ├── input-group.tsx
+    ├── input-otp.tsx
+    ├── input.tsx
+    ├── item.tsx
+    ├── kbd.tsx
+    ├── label.tsx
+    ├── menubar.tsx
+    ├── navigation-menu.tsx
+    ├── pagination.tsx
+    ├── popover.tsx
+    ├── progress.tsx
+    ├── radio-group.tsx
+    ├── resizable.tsx
+    ├── scroll-area.tsx
+    ├── search-input.tsx
+    ├── select.tsx
+    ├── separator.tsx
+    ├── sheet.tsx
+    ├── sidebar.tsx
+    ├── skeleton.tsx
+    ├── slider.tsx
+    ├── social-icons.tsx
+    ├── sonner.tsx
+    ├── spinner.tsx
+    ├── switch.tsx
+    ├── table.tsx
+    ├── tabs.tsx
+    ├── textarea.tsx
+    ├── toast.tsx
+    ├── toaster.tsx
+    ├── toggle-group.tsx
+    ├── toggle.tsx
+    ├── tooltip.tsx
+    ├── user-search-input.tsx
+  ├── architecture
+  ├── context
+  ├── examples
+    ├── project-structure.md
+    ├── jai-bot-page.html
+    ├── lorebook-example.json
+    ├── lorebook.json
+  ├── admin
+  ├── app-shell
+  ├── atlas
+  ├── auth
+  ├── bots
+  ├── creator-pages
+  ├── dashboard
+  ├── feedback
+  ├── forms
+  ├── hub
+  ├── markdown
+  ├── moderation
+  ├── notifications
+  ├── profile
+  ├── settings
+    ├── actions
+    ├── components
+      ├── admin.ts
+      ├── admin-panel.tsx
+      ├── badge-admin-tab.tsx
+    ├── store
+    ├── types
+      ├── app-store.tsx
+      ├── navigation.ts
+    ├── components
+    ├── lib
+    ├── types
+      ├── atlas-hub.tsx
+      ├── atlas-utils.ts
+      ├── atlas-types.ts
+    ├── actions
+      ├── auth.ts
+    ├── actions
+    ├── components
+    ├── lib
+    ├── types
+      ├── bots.ts
+      ├── collaboration.ts
+      ├── search.ts
+      ├── collaboration
+      ├── bot-detail-modal.tsx
+      ├── bot-form.tsx
+      ├── bot-manager.tsx
+      ├── bot-tag-badge.tsx
+      ├── bot-tag-selector.tsx
+      ├── token-counter.tsx
+        ├── collaboration-workspace.tsx
+        ├── collaborator-dialog.tsx
+        ├── pending-invites.tsx
+      ├── bot-tags.ts
+      ├── bot-utils.ts
+      ├── bot-types.ts
+    ├── actions
+    ├── components
+    ├── lib
+    ├── types
+      ├── slug-check.ts
+      ├── shared
+      ├── creator-page-view.tsx
+      ├── creator-pages.tsx
+        ├── bot-card-grid.tsx
+        ├── bot-card-list.tsx
+        ├── creator-header.tsx
+        ├── section-renderer.tsx
+      ├── creator-page-data.ts
+      ├── creator-page-types.ts
+    ├── components
+      ├── dashboard-home.tsx
+      ├── layout.tsx
+    ├── actions
+    ├── components
+      ├── feedback-admin.ts
+      ├── feedback.ts
+      ├── feedback-actions.tsx
+      ├── feedback-inbox.tsx
+    ├── actions
+    ├── components
+    ├── lib
+    ├── types
+      ├── forms.ts
+      ├── submissions
+      ├── form-builder.tsx
+      ├── form-deactivation-page.tsx
+      ├── form-manager.tsx
+      ├── public-form.tsx
+        ├── kanban-board.tsx
+        ├── requests-view.tsx
+      ├── form-appearance.ts
+      ├── form-assets.ts
+      ├── form-export.ts
+      ├── form-types.ts
+    ├── components
+      ├── community-hub.tsx
+      ├── profiles-hub.tsx
+      ├── resources-hub.tsx
+    ├── actions
+    ├── components
+    ├── config
+    ├── extensions
+    ├── lib
+      ├── markdown-assets.ts
+      ├── markdown-field.tsx
+      ├── markdown-image-node-view.tsx
+      ├── markdown-renderer.tsx
+      ├── markdown-assets-config.ts
+      ├── markdown-editor-config.ts
+      ├── markdown-color-extension.ts
+      ├── markdown-image-extension.ts
+      ├── markdown-slash-command.tsx
+      ├── markdown-image-assets.ts
+      ├── markdown-link-utils.ts
+      ├── markdown.ts
+    ├── actions
+    ├── components
+    ├── lib
+      ├── safety.ts
+      ├── admin
+      ├── custom-blocklist.tsx
+      ├── global-blocklist.tsx
+      ├── moderation-panel.tsx
+      ├── sensitivity-level.tsx
+        ├── moderation-admin-tab.tsx
+      ├── content-filter.ts
+    ├── actions
+    ├── components
+    ├── lib
+      ├── notifications.ts
+      ├── preferences.ts
+      ├── notification-bell.tsx
+      ├── notification-types.ts
+      ├── preferences.ts
+    ├── actions
+    ├── components
+    ├── lib
+      ├── profile-badges.ts
+      ├── profile.ts
+      ├── follow-list-modal.tsx
+      ├── profile-badges.tsx
+      ├── profile-bot-cards.tsx
+      ├── profile-completeness.tsx
+      ├── profile-editor.tsx
+      ├── profile-page.tsx
+      ├── profile-section-empty.tsx
+      ├── public-profile.tsx
+      ├── profile-badge-icons.ts
+      ├── profile-badges.ts
+      ├── profile-sections.ts
+      ├── profile-socials.ts
+      ├── profile-theme.ts
+    ├── components
+    ├── lib
+      ├── settings-dialog.tsx
+      ├── build-account-export.ts
+      ├── build-atlas-export.ts
+      ├── build-bots-export.ts
+      ├── build-creator-pages-export.ts
+      ├── build-forms-export.ts
+      ├── export-response.ts
+      ├── export-types.ts
+      ├── export-utils.ts
+  ├── use-mobile.ts
+  ├── use-toast.ts
+  ├── supabase
+  ├── access.ts
+  ├── browser-request-cache.ts
+  ├── database.types.ts
+  ├── error-utils.ts
+  ├── image-crop.ts
+  ├── image-presets.ts
+  ├── rate-limit.ts
+  ├── safe-url.ts
+  ├── storage-assets.ts
+  ├── utils.ts
+    ├── client.ts
+    ├── server.ts
+  ├── landing
+  ├── giphy-logo.png
+  ├── logo.png
+    ├── bot-manager-dark.webp
+    ├── bot-manager-light.webp
+    ├── dashboard-dark.webp
+    ├── dashboard-light.webp
+    ├── form-builder-dark.webp
+    ├── form-builder-light.webp
+    ├── profile-dark.webp
+    ├── profile-light.webp
+    ├── submissions-dark.webp
+    ├── submissions-light.webp
+  ├── content-filter-tests.ts
+  ├── wf.js
+  ├── .temp
+  ├── 20260827_notification_preferences.sql
+  ├── 20260828_notifications_v2.sql
+  ├── 20260828_notifications_v2_hardening.sql
+  ├── 20260828_notification_preferences_v2_cleanup.sql
+  ├── admin_delete_user_migration.sql
+  ├── admin_see_deleted_migration.sql
+  ├── admin_user_block_migration.sql
+  ├── atlas.sql
+  ├── atlas_lorebooks_migration.sql
+  ├── atlas_soft_delete_migration.sql
+  ├── atlas_worldless_lorebooks_migration.sql
+  ├── bot_privacy_migration.sql
+  ├── collaboration_enhancements_migration.sql
+  ├── collaboration_overhaul_migration.sql
+  ├── creator_pages_form_migration.sql
+  ├── creator_pages_sections_v2.sql
+  ├── creator_pages_sections_v3.sql
+  ├── db_schema.sql
+  ├── delete_user_account_migration.sql
+  ├── feedback_admin_migration.sql
+  ├── fixing_foreign_keys.sql
+  ├── fix_collaboration_rls.sql
+  ├── fix_collab_bots_deleted_at.sql
+  ├── fix_collab_notification_link.sql
+  ├── fix_creator_page_soft_delete_rls.sql
+  ├── fix_feedback_delete.sql
+  ├── fix_notification_links.sql
+  ├── fix_owner_id_trigger.sql
+  ├── fix_profiles_visibility_rls.sql
+  ├── fix_profile_completeness_featured_bots_migration.sql
+  ├── fix_public_atlas_worlds_visibility.sql
+  ├── fix_public_bots_visibility.sql
+  ├── fix_public_form_rpc_migration.sql
+  ├── forms_improvements_migration.sql
+  ├── form_assets_storage_migration.sql
+  ├── form_banner_migration.sql
+  ├── form_deactivated_message_migration.sql
+  ├── hub_content_enhancements_migration.sql
+  ├── hub_content_migration.sql
+  ├── hub_engagement_migration.sql
+  ├── ip_block_check_migration.sql
+  ├── media_storage_migration.sql
+  ├── new_views.sql
+  ├── profiles_migration.sql
+  ├── profile_badges_modular_migration.sql
+  ├── profile_badges_normalized_migration.sql
+  ├── profile_customization_migration.sql
+  ├── profile_sections_initializer.sql
+  ├── profile_section_public_selection_resolver.sql
+  ├── public_profile_forms_migration.sql
+  ├── README.md
+  ├── remove_status_change_notification.sql
+  ├── schema.sql
+  ├── seed_blocklists.sql
+  ├── soft_delete_creator_pages_migration.sql
+  ├── soft_delete_migration.sql
+  ├── uuid_standardization.sql

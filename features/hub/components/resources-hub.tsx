@@ -16,8 +16,17 @@ import {
   commitMarkdownImages,
   extractManagedMarkdownAssetPaths,
 } from "@/features/markdown/lib/markdown-image-assets";
-
+import { MarkdownRenderer } from "@/features/markdown/components/markdown-renderer";
+import Link from "next/link";
+import {
+  createResourceExcerpt,
+  createResourceSlug,
+  RESOURCE_TYPE_LABELS,
+  type ResourceType,
+} from "@/features/hub/resources/lib/resource-utils";
+import { ResourceReviewDialog } from "@/features/hub/resources/components/resource-review-dialog";
 import { removeMarkdownAssetsAction } from "@/features/markdown/actions/markdown-assets";
+import { ResourceSuggestionDialog } from "@/features/hub/resources/components/resource-suggestion-dialog";
 import {
   Dialog,
   DialogContent,
@@ -36,16 +45,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import {
-  Eye,
-  ExternalLink,
-  Link2,
   Plus,
   Pencil,
   ArrowUp,
   ArrowDown,
+  ArrowLeft,
   Trash2,
   BookOpen,
   ArrowRight,
@@ -69,11 +75,7 @@ import {
   Lock,
   Server,
   Code,
-  PenLineIcon,
-  Upload,
-  MessageCircle,
   Send,
-  ThumbsDown,
   ThumbsUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -83,7 +85,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { MarkdownRenderer } from "@/features/markdown/components/markdown-renderer";
 import {
   Select,
   SelectContent,
@@ -107,15 +108,32 @@ type ResourceSectionRow = {
 type ResourceEntryRow = {
   id: string;
   section_id: string;
+  slug: string;
   title: string;
+  excerpt: string | null;
   summary: string | null;
+  resource_type:
+    | "guide"
+    | "article"
+    | "tool"
+    | "template"
+    | "reference"
+    | "other";
+
   url: string | null;
   label: string | null;
+  contributor_user_id: string | null;
+  source_submission_id: string | null;
   is_platform_pinned: boolean;
   sort_order: number;
   is_published: boolean;
   created_at: string;
   updated_at: string;
+  contributor?: {
+    username: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
 };
 
 type ResourceSectionFormState = {
@@ -129,29 +147,22 @@ type ResourceSectionFormState = {
 type ResourceEntryFormState = {
   sectionId: string;
   title: string;
+  excerpt: string;
   summary: string;
   url: string;
-  label: string;
+  resourceType:
+    | "guide"
+    | "article"
+    | "tool"
+    | "template"
+    | "reference"
+    | "other";
+
   isPlatformPinned: boolean;
   isPublished: boolean;
 };
 
-type ResourceCommentRow = {
-  id: string;
-  entry_id: string;
-  user_id: string;
-  body: string;
-  created_at: string;
-  profiles: {
-    username: string | null;
-    display_name: string | null;
-    avatar_url: string | null;
-  } | null;
-};
-
 const RESOURCE_SECTION_STORAGE_KEY = "janitorforge-resources-section";
-const RESOURCE_ENTRY_STORAGE_KEY = "janitorforge-resources-entry";
-const RESOURCE_VIEWER_STORAGE_KEY = "janitorforge-resources-viewer";
 const emptySectionForm: ResourceSectionFormState = {
   title: "",
   description: "",
@@ -163,9 +174,10 @@ const emptySectionForm: ResourceSectionFormState = {
 const emptyEntryForm: ResourceEntryFormState = {
   sectionId: "",
   title: "",
+  excerpt: "",
   summary: "",
   url: "",
-  label: "",
+  resourceType: "other",
   isPlatformPinned: false,
   isPublished: true,
 };
@@ -203,33 +215,27 @@ const sectionIconMap = Object.fromEntries(
   sectionIconOptions.map((option) => [option.value, option.icon]),
 ) as Record<string, typeof BookOpen>;
 
-function getOrCreateResourceViewerFingerprint() {
-  if (typeof window === "undefined") return "";
-
-  const current = localStorage.getItem(RESOURCE_VIEWER_STORAGE_KEY);
-  if (current && current.trim()) return current;
-
-  const generated =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  localStorage.setItem(RESOURCE_VIEWER_STORAGE_KEY, generated);
-  return generated;
-}
-
 export function ResourcesHub() {
   const [sections, setSections] = useState<ResourceSectionRow[]>([]);
   const [entries, setEntries] = useState<ResourceEntryRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<ResourceType | "all">("all");
+  type ResourceStaffRole = "owner" | "moderator";
+
+  const [staffRole, setStaffRole] = useState<ResourceStaffRole | null>(null);
+
+  const canManageResources = staffRole === "owner" || staffRole === "moderator";
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
     null,
   );
-  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
-  const [entryDetailOpen, setEntryDetailOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
+  const [suggestionDialogOpen, setSuggestionDialogOpen] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [suggestionTargetEntry, setSuggestionTargetEntry] =
+    useState<ResourceEntryRow | null>(null);
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [sectionForm, setSectionForm] =
@@ -239,21 +245,7 @@ export function ResourcesHub() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
-  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
-  const [dislikeCounts, setDislikeCounts] = useState<Record<string, number>>(
-    {},
-  );
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>(
-    {},
-  );
-  const [myReactions, setMyReactions] = useState<Record<string, -1 | 0 | 1>>(
-    {},
-  );
-  const [commentsByEntry, setCommentsByEntry] = useState<
-    Record<string, ResourceCommentRow[]>
-  >({});
-  const [commentDraft, setCommentDraft] = useState("");
 
   const entrySummaryMarkdownRef = useRef<MarkdownFieldHandle | null>(null);
 
@@ -280,8 +272,35 @@ export function ResourcesHub() {
     try {
       const supabase = createClient();
       const access = await getCurrentUserAccess(supabase);
-      setIsAdmin(access.isAdmin);
+
       setAuthUserId(access.user?.id || null);
+
+      let resolvedStaffRole: ResourceStaffRole | null = null;
+
+      if (access.user) {
+        const { data: staffProfile, error: staffProfileError } = await supabase
+          .from("profiles")
+          .select("staff_role, is_blocked")
+          .eq("id", access.user.id)
+          .maybeSingle();
+
+        if (staffProfileError) {
+          console.error(
+            "Failed to load resource staff access:",
+            staffProfileError,
+          );
+        }
+
+        if (
+          !staffProfile?.is_blocked &&
+          (staffProfile?.staff_role === "owner" ||
+            staffProfile?.staff_role === "moderator")
+        ) {
+          resolvedStaffRole = staffProfile.staff_role;
+        }
+      }
+
+      setStaffRole(resolvedStaffRole);
 
       let sectionQuery = supabase
         .from("hub_resource_sections")
@@ -295,7 +314,7 @@ export function ResourcesHub() {
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
 
-      if (!access.isAdmin) {
+      if (!resolvedStaffRole) {
         sectionQuery = sectionQuery.eq("is_published", true);
         entryQuery = entryQuery.eq("is_published", true);
       }
@@ -308,8 +327,58 @@ export function ResourcesHub() {
       if (sectionError) throw sectionError;
       if (entryError) throw entryError;
 
+      const rawEntries = (entryData || []) as ResourceEntryRow[];
+
+      const contributorIds = Array.from(
+        new Set(
+          rawEntries
+            .map((entry) => entry.contributor_user_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
+
+      const contributorMap = new Map<
+        string,
+        {
+          username: string | null;
+          display_name: string | null;
+          avatar_url: string | null;
+        }
+      >();
+
+      if (contributorIds.length > 0) {
+        const { data: contributors, error: contributorError } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_url")
+          .in("id", contributorIds);
+
+        if (contributorError) {
+          console.error(
+            "Failed to load resource contributors:",
+            contributorError,
+          );
+        }
+
+        for (const contributor of contributors || []) {
+          contributorMap.set(contributor.id, {
+            username: contributor.username,
+            display_name: contributor.display_name,
+            avatar_url: contributor.avatar_url,
+          });
+        }
+      }
+
+      const normalizedEntries = rawEntries.map((entry) => ({
+        ...entry,
+
+        contributor: entry.contributor_user_id
+          ? contributorMap.get(entry.contributor_user_id) || null
+          : null,
+      }));
+
       setSections((sectionData || []) as ResourceSectionRow[]);
-      setEntries((entryData || []) as ResourceEntryRow[]);
+
+      setEntries(normalizedEntries);
     } catch (error: any) {
       console.error("Failed to load resources hub:", error);
       setSections([]);
@@ -324,20 +393,66 @@ export function ResourcesHub() {
     loadData();
   }, [loadData]);
 
-  const visibleEntries = useMemo(() => {
-    if (!selectedSectionId) return [];
-    return entries.filter((entry) => entry.section_id === selectedSectionId);
-  }, [entries, selectedSectionId]);
-
   const selectedSection = useMemo(
     () => sections.find((section) => section.id === selectedSectionId) ?? null,
     [sections, selectedSectionId],
   );
 
-  const selectedEntry = useMemo(
-    () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
-    [entries, selectedEntryId],
-  );
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const searchedEntries = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return entries;
+    }
+
+    return entries.filter((entry) => {
+      const section = sections.find(
+        (candidate) => candidate.id === entry.section_id,
+      );
+
+      const searchableText = [
+        entry.title,
+        entry.excerpt,
+        entry.summary,
+        RESOURCE_TYPE_LABELS[entry.resource_type as ResourceType],
+        section?.title,
+        section?.description,
+        entry.contributor?.username,
+        entry.contributor?.display_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearchQuery);
+    });
+  }, [entries, sections, normalizedSearchQuery]);
+
+  const visibleEntries = useMemo(() => {
+    let result: ResourceEntryRow[];
+
+    if (normalizedSearchQuery) {
+      result = searchedEntries;
+    } else if (!selectedSectionId) {
+      result = entries;
+    } else {
+      result = entries.filter(
+        (entry) => entry.section_id === selectedSectionId,
+      );
+    }
+
+    if (typeFilter !== "all") {
+      result = result.filter((entry) => entry.resource_type === typeFilter);
+    }
+
+    return result;
+  }, [
+    entries,
+    searchedEntries,
+    normalizedSearchQuery,
+    selectedSectionId,
+    typeFilter,
+  ]);
 
   const entryCountBySection = useMemo(() => {
     const counts = new Map<string, number>();
@@ -358,290 +473,69 @@ export function ResourcesHub() {
   }, [selectedSectionId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (selectedEntryId) {
-      localStorage.setItem(RESOURCE_ENTRY_STORAGE_KEY, selectedEntryId);
-    } else {
-      localStorage.removeItem(RESOURCE_ENTRY_STORAGE_KEY);
-    }
-  }, [selectedEntryId]);
-
-  useEffect(() => {
     if (loading || hydrated) return;
+
     if (sections.length === 0) {
       setSelectedSectionId(null);
-      setSelectedEntryId(null);
       setHydrated(true);
       return;
     }
 
     const savedSectionId = localStorage.getItem(RESOURCE_SECTION_STORAGE_KEY);
-    const savedEntryId = localStorage.getItem(RESOURCE_ENTRY_STORAGE_KEY);
+
     const resolvedSection =
       sections.find((section) => section.id === savedSectionId) ?? sections[0];
 
     setSelectedSectionId(resolvedSection.id);
-
-    const sectionEntries = entries.filter(
-      (entry) => entry.section_id === resolvedSection.id,
-    );
-    const resolvedEntry =
-      sectionEntries.find((entry) => entry.id === savedEntryId) ??
-      sectionEntries[0] ??
-      null;
-
-    setSelectedEntryId(resolvedEntry?.id ?? null);
     setHydrated(true);
-  }, [loading, hydrated, sections, entries]);
+  }, [loading, hydrated, sections]);
 
   useEffect(() => {
-    if (!selectedSectionId || sections.length === 0) return;
+    if (!selectedSectionId || sections.length === 0) {
+      return;
+    }
+
     const sectionExists = sections.some(
       (section) => section.id === selectedSectionId,
     );
+
     if (!sectionExists) {
       setSelectedSectionId(sections[0]?.id ?? null);
+    }
+  }, [selectedSectionId, sections]);
+
+  const loadEntryMetrics = useCallback(async (entryIds: string[]) => {
+    if (entryIds.length === 0) {
+      setLikeCounts({});
       return;
     }
 
-    const sectionEntries = entries.filter(
-      (entry) => entry.section_id === selectedSectionId,
-    );
-    if (sectionEntries.length === 0) {
-      setSelectedEntryId(null);
-      return;
-    }
-
-    const entryExists = sectionEntries.some(
-      (entry) => entry.id === selectedEntryId,
-    );
-    if (!entryExists) {
-      setSelectedEntryId(sectionEntries[0].id);
-    }
-  }, [selectedSectionId, selectedEntryId, sections, entries]);
-
-  const loadEntryMetrics = useCallback(
-    async (entryIds: string[], userId?: string | null) => {
-      if (entryIds.length === 0) {
-        setViewCounts({});
-        setLikeCounts({});
-        setDislikeCounts({});
-        setCommentCounts({});
-        setMyReactions({});
-        return;
-      }
-
-      const supabase = createClient();
-      const [viewsRes, reactionsRes, commentsRes, mineRes] = await Promise.all([
-        supabase
-          .from("hub_resource_entry_views")
-          .select("entry_id")
-          .in("entry_id", entryIds),
-        supabase
-          .from("hub_resource_entry_reactions")
-          .select("entry_id, reaction")
-          .in("entry_id", entryIds),
-        supabase
-          .from("active_hub_resource_entry_comments")
-          .select("entry_id")
-          .in("entry_id", entryIds),
-        userId
-          ? supabase
-              .from("hub_resource_entry_reactions")
-              .select("entry_id, reaction")
-              .eq("user_id", userId)
-              .in("entry_id", entryIds)
-          : Promise.resolve({ data: [], error: null } as any),
-      ]);
-
-      if (viewsRes.error || reactionsRes.error || commentsRes.error) return;
-
-      const nextViews: Record<string, number> = {};
-      const nextLikes: Record<string, number> = {};
-      const nextDislikes: Record<string, number> = {};
-      const nextComments: Record<string, number> = {};
-
-      for (const entryId of entryIds) {
-        nextViews[entryId] = 0;
-        nextLikes[entryId] = 0;
-        nextDislikes[entryId] = 0;
-        nextComments[entryId] = 0;
-      }
-
-      (viewsRes.data || []).forEach((row: any) => {
-        nextViews[row.entry_id] = (nextViews[row.entry_id] || 0) + 1;
-      });
-
-      (reactionsRes.data || []).forEach((row: any) => {
-        if (row.reaction === 1) {
-          nextLikes[row.entry_id] = (nextLikes[row.entry_id] || 0) + 1;
-        }
-        if (row.reaction === -1) {
-          nextDislikes[row.entry_id] = (nextDislikes[row.entry_id] || 0) + 1;
-        }
-      });
-
-      (commentsRes.data || []).forEach((row: any) => {
-        nextComments[row.entry_id] = (nextComments[row.entry_id] || 0) + 1;
-      });
-
-      const nextMine: Record<string, -1 | 0 | 1> = {};
-      (mineRes?.data || []).forEach((row: any) => {
-        nextMine[row.entry_id] = row.reaction as -1 | 1;
-      });
-
-      setViewCounts(nextViews);
-      setLikeCounts(nextLikes);
-      setDislikeCounts(nextDislikes);
-      setCommentCounts(nextComments);
-      setMyReactions(nextMine);
-    },
-    [],
-  );
-
-  const loadEntryComments = useCallback(async (entryId: string) => {
     const supabase = createClient();
+
     const { data, error } = await supabase
-      .from("active_hub_resource_entry_comments")
-      .select(
-        "id, entry_id, user_id, body, created_at, profiles:user_id(username, display_name, avatar_url)",
-      )
-      .eq("entry_id", entryId)
-      .order("created_at", { ascending: true });
-
-    if (error) return;
-    const normalized = (data || []).map((row: any) => ({
-      ...row,
-      profiles: Array.isArray(row.profiles)
-        ? (row.profiles[0] ?? null)
-        : row.profiles,
-    })) as ResourceCommentRow[];
-
-    setCommentsByEntry((prev) => ({
-      ...prev,
-      [entryId]: normalized,
-    }));
-  }, []);
-
-  const trackEntryView = useCallback(
-    async (entryId: string) => {
-      const viewerFingerprint = getOrCreateResourceViewerFingerprint();
-      if (!viewerFingerprint) return;
-
-      const supabase = createClient();
-      await supabase.rpc("record_hub_resource_entry_view", {
-        p_entry_id: entryId,
-        p_viewer_fingerprint: viewerFingerprint,
-        p_user_id: authUserId,
-      });
-
-      await loadEntryMetrics(
-        entries.map((entry) => entry.id),
-        authUserId,
-      );
-    },
-    [authUserId, entries, loadEntryMetrics],
-  );
-
-  const setReaction = useCallback(
-    async (entryId: string, reaction: -1 | 1) => {
-      if (!authUserId) {
-        toast.error("Sign in to react to resources");
-        return;
-      }
-
-      const current = myReactions[entryId] || 0;
-      const nextReaction: -1 | 0 | 1 = current === reaction ? 0 : reaction;
-      const supabase = createClient();
-
-      if (nextReaction === 0) {
-        const { error } = await supabase
-          .from("hub_resource_entry_reactions")
-          .delete()
-          .eq("entry_id", entryId)
-          .eq("user_id", authUserId);
-        if (error) {
-          toast.error(error.message || "Failed to update reaction");
-          return;
-        }
-      } else {
-        const { error } = await supabase
-          .from("hub_resource_entry_reactions")
-          .upsert(
-            {
-              entry_id: entryId,
-              user_id: authUserId,
-              reaction: nextReaction,
-            },
-            { onConflict: "entry_id,user_id" },
-          );
-        if (error) {
-          toast.error(error.message || "Failed to update reaction");
-          return;
-        }
-      }
-
-      await loadEntryMetrics(
-        entries.map((entry) => entry.id),
-        authUserId,
-      );
-    },
-    [authUserId, entries, loadEntryMetrics, myReactions],
-  );
-
-  const submitComment = useCallback(async () => {
-    if (!selectedEntry || !authUserId) {
-      toast.error("Sign in to comment");
-      return;
-    }
-
-    const body = commentDraft.trim();
-    if (!body) return;
-
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("hub_resource_entry_comments")
-      .insert({
-        entry_id: selectedEntry.id,
-        user_id: authUserId,
-        body,
-      });
+      .from("hub_resource_entry_reactions")
+      .select("entry_id")
+      .eq("reaction", 1)
+      .in("entry_id", entryIds);
 
     if (error) {
-      toast.error(error.message || "Failed to add comment");
+      console.error("Failed to load resource metrics:", error);
+
       return;
     }
 
-    setCommentDraft("");
-    await loadEntryComments(selectedEntry.id);
-    await loadEntryMetrics(
-      entries.map((entry) => entry.id),
-      authUserId,
-    );
-  }, [
-    authUserId,
-    commentDraft,
-    entries,
-    loadEntryComments,
-    loadEntryMetrics,
-    selectedEntry,
-  ]);
+    const nextLikes: Record<string, number> = {};
 
-  useEffect(() => {
-    loadEntryMetrics(
-      entries.map((entry) => entry.id),
-      authUserId,
-    );
-  }, [authUserId, entries, loadEntryMetrics]);
+    for (const entryId of entryIds) {
+      nextLikes[entryId] = 0;
+    }
 
-  const openEntryDetail = (entry: ResourceEntryRow) => {
-    setSelectedSectionId(entry.section_id);
-    setSelectedEntryId(entry.id);
-    setEntryDetailOpen(true);
-    trackEntryView(entry.id);
-    loadEntryComments(entry.id);
-  };
+    for (const row of data || []) {
+      nextLikes[row.entry_id] = (nextLikes[row.entry_id] || 0) + 1;
+    }
+
+    setLikeCounts(nextLikes);
+  }, []);
 
   const openSectionDialog = (section?: ResourceSectionRow) => {
     if (section) {
@@ -684,9 +578,10 @@ export function ResourcesHub() {
       setEntryForm({
         sectionId,
         title: entry.title,
+        excerpt: entry.excerpt || "",
         summary: originalSummary,
         url: entry.url || "",
-        label: entry.label || "",
+        resourceType: (entry.resource_type as ResourceType) || "other",
         isPlatformPinned: entry.is_platform_pinned,
         isPublished: entry.is_published,
       });
@@ -802,16 +697,23 @@ export function ResourcesHub() {
           try {
             const supabase = createClient();
 
+            const finalExcerpt =
+              entryForm.excerpt.trim() || createResourceExcerpt(finalSummary);
+
             const payload = {
               section_id: entryForm.sectionId,
 
               title: entryForm.title.trim(),
 
+              excerpt: finalExcerpt || null,
+
               summary: finalSummary.trim() || null,
 
               url: entryForm.url.trim() || null,
 
-              label: entryForm.label.trim() || null,
+              resource_type: entryForm.resourceType,
+
+              label: RESOURCE_TYPE_LABELS[entryForm.resourceType],
 
               is_platform_pinned: entryForm.isPlatformPinned,
 
@@ -839,6 +741,9 @@ export function ResourcesHub() {
                 .from("hub_resource_entries")
                 .insert({
                   ...payload,
+
+                  slug: createResourceSlug(entryForm.title),
+
                   sort_order: nextSortOrder,
                 });
 
@@ -953,8 +858,6 @@ export function ResourcesHub() {
 
       if (selectedSectionId === sectionId) {
         setSelectedSectionId(null);
-
-        setSelectedEntryId(null);
       }
 
       await loadData();
@@ -997,10 +900,6 @@ export function ResourcesHub() {
             cleanup.error,
           );
         }
-      }
-
-      if (selectedEntryId === entryId) {
-        setSelectedEntryId(null);
       }
 
       await loadData();
@@ -1104,63 +1003,219 @@ export function ResourcesHub() {
 
   const pinnedEntries = entries.filter((entry) => entry.is_platform_pinned);
 
-  const focusSection = (sectionId: string, entryId?: string) => {
+  const focusSection = (sectionId: string) => {
+    setSearchQuery("");
+
     setSelectedSectionId(sectionId);
-    if (entryId) {
-      setSelectedEntryId(entryId);
-    }
 
     window.requestAnimationFrame(() => {
       const target = document.getElementById(`resources-entries-${sectionId}`);
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      target?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   };
 
   return (
     <div className="min-h-full p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-7xl space-y-8">
-        <Card className="border-border/70 bg-card/95 shadow-lg">
-          <CardContent className="flex flex-col gap-5 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
-              <div className="space-y-2">
+        <Link
+          href="/"
+          onClick={() => {
+            localStorage.setItem("currentView", "dashboard");
+          }}
+          className="group inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+          Back to dashboard
+        </Link>
+
+        <section className="dashboard-hero relative isolate overflow-hidden rounded-[2rem] border border-border/70 shadow-xl shadow-black/5 dark:shadow-primary/15">
+          <div className="dashboard-orb dashboard-orb-a pointer-events-none" />
+          <div className="dashboard-orb dashboard-orb-b pointer-events-none" />
+
+          <div className="relative z-10 grid min-h-[28rem] items-center gap-10 px-6 py-10 sm:px-9 sm:py-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)] lg:px-12 lg:py-14">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary backdrop-blur">
+                <BookOpen className="h-3.5 w-3.5" />
+                Janitor Forge Library
+              </div>
+
+              <h1 className="mt-5 max-w-xl text-balance text-4xl font-bold tracking-tight sm:text-5xl">
+                Everything useful,
+                <span className="text-primary"> in one place.</span>
+              </h1>
+
+              <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">
+                Discover community guides, tools, templates, references and
+                knowledge curated for Janitor AI creators.
+              </p>
+
+              <div className="relative mt-7 max-w-xl">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search guides, tools, templates..."
+                  className="h-12 rounded-full border-border/70 bg-background/75 pl-11 pr-5 shadow-md backdrop-blur-xl transition-shadow focus-visible:shadow-lg"
+                />
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                <span>{entries.length} resources</span>
+                <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                <span>{sections.length} categories</span>
+
+                {pinnedEntries.length > 0 && (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                    <span>{pinnedEntries.length} Forge Picks</span>
+                  </>
+                )}
+              </div>
+
+              {authUserId && (
+                <Button
+                  className="mt-7 cursor-pointer rounded-full px-5 shadow-md shadow-primary/20"
+                  onClick={() => {
+                    setSuggestionTargetEntry(null);
+                    setSuggestionDialogOpen(true);
+                  }}
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Suggest a resource
+                </Button>
+              )}
+            </div>
+
+            <div className="relative hidden min-h-[21rem] lg:block">
+              <div className="absolute left-[8%] top-[6%] w-[15rem] rotate-[-5deg] rounded-2xl border border-white/10 bg-card/75 p-4 shadow-2xl shadow-primary/10 backdrop-blur-xl">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="h-8 w-8 text-primary" />
-                  <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                    Resources
-                  </h1>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/15 text-purple-500">
+                    <Brain className="h-4 w-4" />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold">Prompting guide</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Learn better techniques
+                    </p>
+                  </div>
                 </div>
-                <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-                  A directory for Janitor-related references, guides, articles,
-                  and useful information organized by category.
+
+                <div className="mt-4 space-y-2">
+                  <div className="h-2 w-[85%] rounded-full bg-muted" />
+                  <div className="h-2 w-[70%] rounded-full bg-muted" />
+                  <div className="h-2 w-[55%] rounded-full bg-primary/15" />
+                </div>
+              </div>
+
+              <div className="absolute right-[4%] top-[31%] w-[14rem] rotate-[5deg] rounded-2xl border border-white/10 bg-card/75 p-4 shadow-2xl shadow-pink-500/10 backdrop-blur-xl">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/15 text-pink-500">
+                    <Code className="h-4 w-4" />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold">Creator tools</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Useful utilities
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-[9px] text-primary">
+                    Tool
+                  </span>
+                  <span className="rounded-full bg-muted px-2 py-1 text-[9px]">
+                    Community
+                  </span>
+                </div>
+              </div>
+
+              <div className="absolute bottom-[4%] left-[21%] w-[15rem] rotate-[-1deg] rounded-2xl border border-white/10 bg-card/80 p-4 shadow-2xl shadow-blue-500/10 backdrop-blur-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+
+                    <span className="text-xs font-semibold">Forge Pick</span>
+                  </div>
+
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+
+                <p className="mt-3 text-sm font-semibold">
+                  Curated by Janitor Forge
+                </p>
+
+                <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                  Standout resources worth keeping close.
                 </p>
               </div>
             </div>
-            {isAdmin && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => openSectionDialog()}
-                  className="cursor-pointer"
-                >
-                  <Plus className="mr-2 h-4 w-4" /> New section
-                </Button>
-                <Button
-                  onClick={() => openEntryDialog()}
-                  className="cursor-pointer"
-                >
-                  <Link2 className="mr-2 h-4 w-4" /> New entry
-                </Button>
+          </div>
+        </section>
+
+        {canManageResources && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/70 px-4 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <ShieldCheck className="h-4 w-4" />
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              <div>
+                <p className="text-sm font-medium">Staff tools</p>
+                <p className="text-xs text-muted-foreground">
+                  Review and manage the resource library.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="cursor-pointer rounded-full"
+                onClick={() => setReviewDialogOpen(true)}
+              >
+                Review
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="cursor-pointer rounded-full"
+                onClick={() => openSectionDialog()}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Category
+              </Button>
+
+              <Button
+                size="sm"
+                className="cursor-pointer rounded-full"
+                onClick={() => openEntryDialog()}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Resource
+              </Button>
+            </div>
+          </div>
+        )}
 
         {loading ? (
-          <Card className="border-border/70 bg-card/95">
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              Loading resources...
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map((item) => (
+              <div
+                key={item}
+                className="h-56 animate-pulse rounded-3xl border border-border/60 bg-card/60"
+              />
+            ))}
+          </div>
         ) : sections.length === 0 ? (
           <Card className="border-border/70 bg-card/95">
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -1169,342 +1224,209 @@ export function ResourcesHub() {
           </Card>
         ) : (
           <div className="space-y-8">
-            <section className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold tracking-tight">
-                    Sections
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Choose a section to browse its entries.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {sections.map((section, index) => {
-                  const active = section.id === selectedSectionId;
-                  const SectionIcon =
-                    sectionIconMap[section.icon_name || "book-open"] ||
-                    BookOpen;
-                  const accentColor = section.accent_color || "#7c3aed";
-
-                  return (
-                    <div
-                      key={section.id}
-                      onClick={() => focusSection(section.id)}
-                      role="button"
-                      tabIndex={0}
-                      className={cn(
-                        "group relative overflow-hidden rounded-3xl border p-5 text-left transition-all",
-                        active
-                          ? "shadow-lg shadow-primary/10"
-                          : "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
-                      )}
-                      style={{ borderColor: active ? accentColor : undefined }}
-                    >
-                      <div
-                        className="absolute inset-x-0 top-0 h-1 rounded-t-3xl"
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex items-start gap-3">
-                          <div
-                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
-                            style={{ backgroundColor: accentColor }}
-                          >
-                            <SectionIcon className="h-5 w-5" />
-                          </div>
-                          <div className="min-w-0 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="truncate text-base font-semibold">
-                                {section.title}
-                              </h3>
-                              <Badge
-                                variant={
-                                  section.is_published ? "default" : "secondary"
-                                }
-                              >
-                                {section.is_published ? "Published" : "Draft"}
-                              </Badge>
-                            </div>
-                            <p className="line-clamp-2 text-sm text-muted-foreground">
-                              {section.description || "No description yet."}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="shrink-0">
-                          {entryCountBySection.get(section.id) || 0}
-                        </Badge>
-                      </div>
-
-                      <div className="mt-5 flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Open section</span>
-                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                      </div>
-
-                      {isAdmin && (
-                        <Collapsible className="mt-4" defaultOpen={false}>
-                          <CollapsibleTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-3 cursor-pointer text-xs text-muted-foreground"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              Manage section
-                            </Button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div
-                              className="mt-2 flex flex-wrap items-center gap-2"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 cursor-pointer"
-                                disabled={index === 0}
-                                onClick={() =>
-                                  reorderSections(section.id, "up")
-                                }
-                              >
-                                <ArrowUp className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 cursor-pointer"
-                                disabled={index === sections.length - 1}
-                                onClick={() =>
-                                  reorderSections(section.id, "down")
-                                }
-                              >
-                                <ArrowDown className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="cursor-pointer"
-                                onClick={() => openSectionDialog(section)}
-                              >
-                                <Pencil className="mr-2 h-4 w-4" /> Edit
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="cursor-pointer"
-                                onClick={() => toggleSectionPublish(section)}
-                              >
-                                {section.is_published ? "Unpublish" : "Publish"}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  setDeleteTarget({
-                                    kind: "section",
-                                    id: section.id,
-                                    title: section.title,
-                                  })
-                                }
-                                className="cursor-pointer text-destructive hover:text-white"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                              </Button>
-                            </div>
-                          </CollapsibleContent>
-                        </Collapsible>
-                      )}
+            {!normalizedSearchQuery && pinnedEntries.length > 0 && (
+              <section className="space-y-5">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/10 text-amber-500">
+                      <Star className="h-4 w-4 fill-current" />
                     </div>
-                  );
-                })}
-              </div>
-            </section>
 
-            <section
-              className="space-y-4"
-              id={`resources-entries-${selectedSectionId || "none"}`}
-              style={{ scrollMarginTop: "6rem" }}
-            >
-              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold tracking-tight">
-                    {selectedSection?.title || "Section entries"}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedSection?.description ||
-                      "No description available for this section."}
-                  </p>
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-tight">
+                        Janitor Forge Picks
+                      </h2>
+
+                      <p className="text-sm text-muted-foreground">
+                        Hand-picked resources we think are especially worth your
+                        time.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                {isAdmin && selectedSection && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEntryDialog()}
-                    className="cursor-pointer"
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Add entry
-                  </Button>
-                )}
-              </div>
 
-              {visibleEntries.length === 0 ? (
-                <Card className="border-border/70 bg-card/95">
-                  <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                    No entries in this section.
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 xl:grid-cols-3">
-                  {visibleEntries.map((entry, index) => {
-                    const active = entry.id === selectedEntryId;
-                    const sourceSection = sections.find(
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {pinnedEntries.map((entry) => {
+                    const section = sections.find(
                       (candidate) => candidate.id === entry.section_id,
                     );
-                    const sectionAccent =
-                      sourceSection?.accent_color || "#7c3aed";
-                    const cardBorder = entry.is_platform_pinned
-                      ? "border-amber-400/60"
-                      : active
-                        ? "border-primary"
-                        : undefined;
-                    const cardBackground = entry.is_platform_pinned
-                      ? "bg-amber-50/20 dark:bg-amber-500/5"
-                      : active
-                        ? "bg-primary/5"
-                        : "bg-background/60";
+
+                    return (
+                      <Link
+                        key={entry.id}
+                        href={`/resources/${entry.slug}`}
+                        className={cn(
+                          "group relative flex min-h-[16rem] min-w-0 flex-col overflow-hidden rounded-3xl",
+                          "border border-amber-400/20 bg-linear-to-br from-amber-400/[0.07] via-card/90 to-primary/[0.05] p-6",
+                          "shadow-md shadow-black/5 backdrop-blur",
+                          "transition-all duration-300",
+                          "hover:-translate-y-1 hover:border-amber-400/40 hover:shadow-xl hover:shadow-amber-500/10",
+                        )}
+                      >
+                        <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-amber-400/10 blur-3xl" />
+
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className="border-amber-400/50 text-amber-600 dark:text-amber-400"
+                            >
+                              <Star className="mr-1 h-3 w-3 fill-current" />
+                              Forge Pick
+                            </Badge>
+
+                            <Badge variant="secondary">
+                              {
+                                RESOURCE_TYPE_LABELS[
+                                  entry.resource_type as ResourceType
+                                ]
+                              }
+                            </Badge>
+
+                            {canManageResources && !entry.is_published && (
+                              <Badge variant="outline">Draft</Badge>
+                            )}
+                          </div>
+
+                          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                        </div>
+
+                        <div className="mt-5 flex-1">
+                          <h3 className="text-lg font-semibold leading-snug tracking-tight transition-colors group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                            {entry.title}
+                          </h3>
+
+                          <div className="relative mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                            <MarkdownRenderer
+                              content={
+                                entry.excerpt ||
+                                entry.summary ||
+                                "No description available."
+                              }
+                              className={[
+                                "text-sm leading-6 text-muted-foreground",
+                                "[&>*]:my-0",
+                                "[&_p]:my-0",
+                                "[&_ul]:my-0",
+                                "[&_ol]:my-0",
+                                "[&_h1]:text-sm",
+                                "[&_h2]:text-sm",
+                                "[&_h3]:text-sm",
+                                "[&_h4]:text-sm",
+                                "[&_h5]:text-sm",
+                                "[&_h6]:text-sm",
+                              ].join(" ")}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-5 flex items-end justify-between gap-3 border-t border-border/50 pt-4">
+                          <div className="min-w-0 space-y-1">
+                            {section && (
+                              <p className="truncate text-xs font-medium">
+                                {section.title}
+                              </p>
+                            )}
+
+                            <p className="truncate text-xs text-muted-foreground">
+                              {entry.contributor?.username
+                                ? `by @${entry.contributor.username}`
+                                : "Janitor Forge"}
+                            </p>
+                          </div>
+
+                          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                            <ThumbsUp className="h-3.5 w-3.5" />
+                            {likeCounts[entry.id] || 0}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {!normalizedSearchQuery && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold tracking-tight">
+                      Browse categories
+                    </h2>
+
+                    <p className="text-sm text-muted-foreground">
+                      Find resources by topic.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {sections.map((section, index) => {
+                    const active = section.id === selectedSectionId;
+                    const SectionIcon =
+                      sectionIconMap[section.icon_name || "book-open"] ||
+                      BookOpen;
+                    const accentColor = section.accent_color || "#7c3aed";
 
                     return (
                       <div
-                        key={entry.id}
-                        onClick={() => openEntryDetail(entry)}
+                        key={section.id}
+                        onClick={() => focusSection(section.id)}
                         role="button"
                         tabIndex={0}
                         className={cn(
-                          "group w-full min-w-0 overflow-hidden rounded-2xl border p-4 text-left transition-all",
-                          cardBorder,
-                          cardBackground,
-                          !entry.is_platform_pinned &&
-                            !active &&
-                            "hover:border-primary/40",
-                          entry.is_platform_pinned && "shadow-sm",
+                          "group relative overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-4 text-left",
+                          "shadow-sm backdrop-blur transition-all duration-300",
+                          active
+                            ? "border-primary/30 bg-primary/[0.035] shadow-md shadow-primary/5"
+                            : "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md",
                         )}
-                        style={{
-                          borderColor: entry.is_platform_pinned
-                            ? undefined
-                            : active
-                              ? sectionAccent
-                              : `${sectionAccent}40`,
-                        }}
                       >
-                        <div className="flex min-w-0 items-start justify-between gap-3">
-                          <div className="min-w-0 space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="truncate font-semibold">
-                                {entry.title}
-                              </h3>
-                              <Badge
-                                variant={
-                                  entry.is_published ? "default" : "secondary"
-                                }
-                              >
-                                {entry.is_published ? "Published" : "Draft"}
-                              </Badge>
-                              {entry.is_platform_pinned && (
-                                <Badge className="bg-amber-500 text-white hover:bg-amber-500">
-                                  Janitor Forge
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="max-h-24 overflow-hidden text-sm text-muted-foreground [&_p]:mb-0 [&_ul]:mb-0 [&_ol]:mb-0 [&_ol]:pl-5 [&_ul]:pl-5">
-                              <MarkdownRenderer
-                                content={entry.summary || "No summary yet."}
-                                className="prose-sm max-w-none"
-                              />
-                            </div>
-                          </div>
-                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          {sourceSection && (
-                            <Badge
-                              variant="outline"
-                              className="border-current/20"
+                        <div
+                          className="absolute inset-y-0 left-0 w-0.5"
+                          style={{ backgroundColor: accentColor }}
+                        />
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex items-start gap-3">
+                            <div
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm"
                               style={{
-                                color: sectionAccent,
-                                borderColor: sectionAccent,
+                                color: accentColor,
+                                backgroundColor: `${accentColor}18`,
                               }}
                             >
-                              {sourceSection.title}
-                            </Badge>
-                          )}
-                          {entry.label && (
-                            <Badge variant="outline">{entry.label}</Badge>
-                          )}
+                              <SectionIcon className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <h3 className="truncate text-base font-semibold">
+                                  {section.title}
+                                </h3>
+                                {canManageResources &&
+                                  !section.is_published && (
+                                    <Badge variant="secondary">Draft</Badge>
+                                  )}
+                              </div>
+                              <p className="line-clamp-2 text-sm text-muted-foreground">
+                                {section.description || "No description yet."}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {entryCountBySection.get(section.id) || 0}{" "}
+                            {(entryCountBySection.get(section.id) || 0) === 1
+                              ? "resource"
+                              : "resources"}
+                          </span>
                         </div>
 
-                        <div className="mt-3 space-y-2 rounded-xl border border-border/60 bg-muted/15 p-3">
-                          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            Engagement
-                          </p>
-                          <div className="flex flex-wrap gap-1.5 text-xs">
-                            <Badge variant="outline" className="gap-1">
-                              <Eye className="h-3.5 w-3.5" />
-                              {viewCounts[entry.id] || 0} views
-                            </Badge>
-                            <Badge variant="outline" className="gap-1">
-                              <ThumbsUp className="h-3.5 w-3.5" />
-                              {likeCounts[entry.id] || 0} likes
-                            </Badge>
-                            <Badge variant="outline" className="gap-1">
-                              <ThumbsDown className="h-3.5 w-3.5" />
-                              {dislikeCounts[entry.id] || 0} dislikes
-                            </Badge>
-                            <Badge variant="outline" className="gap-1">
-                              <MessageCircle className="h-3.5 w-3.5" />
-                              {commentCounts[entry.id] || 0} comments
-                            </Badge>
-                          </div>
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            <Button
-                              type="button"
-                              variant={
-                                myReactions[entry.id] === 1
-                                  ? "default"
-                                  : "outline"
-                              }
-                              size="sm"
-                              className="h-8 px-3 cursor-pointer"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setReaction(entry.id, 1);
-                              }}
-                            >
-                              <ThumbsUp className="mr-1.5 h-3.5 w-3.5" /> Like
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={
-                                myReactions[entry.id] === -1
-                                  ? "destructive"
-                                  : "outline"
-                              }
-                              size="sm"
-                              className="h-8 px-3 cursor-pointer"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setReaction(entry.id, -1);
-                              }}
-                            >
-                              <ThumbsDown className="mr-1.5 h-3.5 w-3.5" />
-                              Dislike
-                            </Button>
-                          </div>
+                        <div className="mt-5 flex items-center justify-between text-xs text-muted-foreground">
+                          <span>Open section</span>
+                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </div>
 
-                        {isAdmin && (
+                        {canManageResources && (
                           <Collapsible className="mt-4" defaultOpen={false}>
                             <CollapsibleTrigger asChild>
                               <Button
@@ -1513,7 +1435,7 @@ export function ResourcesHub() {
                                 className="h-8 px-3 cursor-pointer text-xs text-muted-foreground"
                                 onClick={(event) => event.stopPropagation()}
                               >
-                                Manage entry
+                                Manage section
                               </Button>
                             </CollapsibleTrigger>
                             <CollapsibleContent>
@@ -1526,7 +1448,9 @@ export function ResourcesHub() {
                                   size="icon"
                                   className="h-8 w-8 cursor-pointer"
                                   disabled={index === 0}
-                                  onClick={() => reorderEntries(entry.id, "up")}
+                                  onClick={() =>
+                                    reorderSections(section.id, "up")
+                                  }
                                 >
                                   <ArrowUp className="h-4 w-4" />
                                 </Button>
@@ -1534,9 +1458,9 @@ export function ResourcesHub() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 cursor-pointer"
-                                  disabled={index === visibleEntries.length - 1}
+                                  disabled={index === sections.length - 1}
                                   onClick={() =>
-                                    reorderEntries(entry.id, "down")
+                                    reorderSections(section.id, "down")
                                   }
                                 >
                                   <ArrowDown className="h-4 w-4" />
@@ -1545,7 +1469,7 @@ export function ResourcesHub() {
                                   variant="ghost"
                                   size="sm"
                                   className="cursor-pointer"
-                                  onClick={() => openEntryDialog(entry)}
+                                  onClick={() => openSectionDialog(section)}
                                 >
                                   <Pencil className="mr-2 h-4 w-4" /> Edit
                                 </Button>
@@ -1553,22 +1477,23 @@ export function ResourcesHub() {
                                   variant="ghost"
                                   size="sm"
                                   className="cursor-pointer"
-                                  onClick={() => toggleEntryPublish(entry)}
+                                  onClick={() => toggleSectionPublish(section)}
                                 >
-                                  {entry.is_published ? "Unpublish" : "Publish"}
+                                  {section.is_published
+                                    ? "Unpublish"
+                                    : "Publish"}
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="cursor-pointer text-destructive hover:text-white"
                                   onClick={() =>
                                     setDeleteTarget({
-                                      kind: "entry",
-                                      id: entry.id,
-                                      title: entry.title,
+                                      kind: "section",
+                                      id: section.id,
+                                      title: section.title,
                                     })
                                   }
-                                  disabled={index === -1}
+                                  className="cursor-pointer text-destructive hover:text-white"
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" /> Delete
                                 </Button>
@@ -1580,326 +1505,291 @@ export function ResourcesHub() {
                     );
                   })}
                 </div>
-              )}
-            </section>
-
-            {pinnedEntries.length > 0 && (
-              <section className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-semibold tracking-tight">
-                    Janitor Forge Picks
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Entries pinned by the platform for quick access.
-                  </p>
-                </div>
-
-                <Card className="border-amber-400/60 bg-amber-50/30 shadow-sm dark:border-amber-400/40 dark:bg-amber-500/5">
-                  <CardContent className="p-5">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {pinnedEntries.map((entry) => {
-                        const section = sections.find(
-                          (candidate) => candidate.id === entry.section_id,
-                        );
-
-                        return (
-                          <button
-                            key={entry.id}
-                            type="button"
-                            onClick={() => openEntryDetail(entry)}
-                            className={cn(
-                              "group rounded-2xl border border-amber-400/60 bg-background/90 p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md",
-                              selectedEntryId === entry.id &&
-                                "ring-2 ring-amber-400/40",
-                            )}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 space-y-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge className="bg-amber-500 text-white hover:bg-amber-500">
-                                    Janitor Forge
-                                  </Badge>
-                                  <Badge
-                                    variant={
-                                      entry.is_published
-                                        ? "default"
-                                        : "secondary"
-                                    }
-                                  >
-                                    {entry.is_published ? "Published" : "Draft"}
-                                  </Badge>
-                                </div>
-                                <h3 className="text-base font-semibold">
-                                  {entry.title}
-                                </h3>
-                                <div className="max-h-12 overflow-hidden text-sm text-muted-foreground [&_p]:mb-0 [&_ul]:mb-0 [&_ol]:mb-0">
-                                  <MarkdownRenderer
-                                    content={entry.summary || "No summary yet."}
-                                    className="prose-sm max-w-none"
-                                  />
-                                </div>
-                              </div>
-                              <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            </div>
-                            <div className="mt-4 flex flex-wrap items-center gap-2">
-                              {section && (
-                                <Badge variant="outline">{section.title}</Badge>
-                              )}
-                              {entry.label && (
-                                <Badge variant="outline">{entry.label}</Badge>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
               </section>
             )}
+
+            <section
+              className="space-y-4"
+              id={`resources-entries-${selectedSectionId || "none"}`}
+              style={{ scrollMarginTop: "6rem" }}
+            >
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
+                    Explore
+                  </p>
+
+                  <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+                    {normalizedSearchQuery
+                      ? "Search results"
+                      : selectedSection?.title || "Resources"}
+                  </h2>
+
+                  <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    {normalizedSearchQuery
+                      ? `${visibleEntries.length} ${
+                          visibleEntries.length === 1 ? "resource" : "resources"
+                        } matching “${searchQuery.trim()}”.`
+                      : selectedSection?.description ||
+                        "Browse useful resources from this category."}
+                  </p>
+                </div>
+                {canManageResources && selectedSection && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEntryDialog()}
+                    className="cursor-pointer"
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> Add entry
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ["all", "All"],
+                  ["guide", "Guides"],
+                  ["article", "Articles"],
+                  ["tool", "Tools"],
+                  ["template", "Templates"],
+                  ["reference", "References"],
+                ].map(([value, label]) => {
+                  const active = typeFilter === value;
+
+                  return (
+                    <Button
+                      key={value}
+                      type="button"
+                      size="sm"
+                      variant={active ? "secondary" : "ghost"}
+                      className={cn(
+                        "h-8 cursor-pointer rounded-full px-3 text-xs",
+                        active &&
+                          "bg-primary/10 text-primary hover:bg-primary/15",
+                      )}
+                      onClick={() =>
+                        setTypeFilter(value as ResourceType | "all")
+                      }
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+
+              {visibleEntries.length === 0 ? (
+                <Card className="border-dashed border-border/70 bg-card/70">
+                  <CardContent className="flex flex-col items-center py-12 text-center">
+                    <Search className="h-8 w-8 text-muted-foreground/60" />
+
+                    <p className="mt-4 text-sm font-medium">
+                      {normalizedSearchQuery
+                        ? "No resources found"
+                        : "No resources here yet"}
+                    </p>
+
+                    <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+                      {normalizedSearchQuery
+                        ? `Nothing matched “${searchQuery.trim()}”. Try another search or browse a category.`
+                        : "This category does not have any published resources yet."}
+                    </p>
+
+                    {normalizedSearchQuery && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-4 cursor-pointer"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        Clear search
+                      </Button>
+                    )}
+
+                    {!normalizedSearchQuery &&
+                      authUserId &&
+                      !canManageResources && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-4"
+                          onClick={() => {
+                            setSuggestionTargetEntry(null);
+                            setSuggestionDialogOpen(true);
+                          }}
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          Suggest a resource
+                        </Button>
+                      )}
+
+                    {!normalizedSearchQuery && canManageResources && (
+                      <Button
+                        size="sm"
+                        className="mt-4"
+                        onClick={() => openEntryDialog()}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add resource
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 xl:grid-cols-3">
+                  {visibleEntries.map((entry) => {
+                    return (
+                      <div key={entry.id} className="min-w-0">
+                        <Link
+                          href={`/resources/${entry.slug}`}
+                          className={cn(
+                            "group relative flex min-h-[15rem] min-w-0 flex-col overflow-hidden rounded-3xl",
+                            "border border-border/70 bg-card/90 p-5",
+                            "shadow-md shadow-black/[0.04] backdrop-blur supports-backdrop-filter:bg-card/75",
+                            "transition-all duration-300",
+                            "hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/[0.08]",
+                            entry.is_platform_pinned && "border-amber-400/30",
+                          )}
+                        >
+                          <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-primary/[0.045] blur-3xl transition-opacity duration-300 group-hover:bg-primary/[0.09]" />
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="secondary">
+                                {
+                                  RESOURCE_TYPE_LABELS[
+                                    entry.resource_type as ResourceType
+                                  ]
+                                }
+                              </Badge>
+
+                              {entry.is_platform_pinned && (
+                                <Badge
+                                  variant="outline"
+                                  className="border-amber-400/50 text-amber-600 dark:text-amber-400"
+                                >
+                                  <Star className="mr-1 h-3 w-3 fill-current" />
+                                  Forge Pick
+                                </Badge>
+                              )}
+
+                              {canManageResources && !entry.is_published && (
+                                <Badge variant="outline">Draft</Badge>
+                              )}
+                            </div>
+
+                            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                          </div>
+
+                          <div className="mt-4 flex-1">
+                            <h3 className="relative text-[1.05rem] font-semibold leading-snug tracking-tight transition-colors group-hover:text-primary">
+                              {entry.title}
+                            </h3>
+
+                            <div className="mt-2 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                              <MarkdownRenderer
+                                content={
+                                  entry.excerpt ||
+                                  entry.summary ||
+                                  "No description available."
+                                }
+                                className={[
+                                  "text-sm leading-6 text-muted-foreground",
+                                  "[&>*]:my-0",
+                                  "[&_p]:my-0",
+                                  "[&_ul]:my-0",
+                                  "[&_ol]:my-0",
+                                  "[&_h1]:text-sm",
+                                  "[&_h2]:text-sm",
+                                  "[&_h3]:text-sm",
+                                  "[&_h4]:text-sm",
+                                  "[&_h5]:text-sm",
+                                  "[&_h6]:text-sm",
+                                ].join(" ")}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-5 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+                            <div className="min-w-0">
+                              {entry.contributor?.username ? (
+                                <span className="truncate text-xs text-muted-foreground">
+                                  by @{entry.contributor.username}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">
+                                  Janitor Forge
+                                </span>
+                              )}
+                            </div>
+
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <ThumbsUp className="h-3.5 w-3.5" />
+                              {likeCounts[entry.id] || 0}
+                            </span>
+                          </div>
+                        </Link>
+
+                        {canManageResources && (
+                          <Collapsible className="mt-1">
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-full cursor-pointer rounded-full text-[11px] text-muted-foreground hover:text-foreground"
+                              >
+                                Manage resource
+                              </Button>
+                            </CollapsibleTrigger>
+
+                            <CollapsibleContent>
+                              <div className="mt-1 flex flex-wrap gap-1 rounded-xl border border-border/60 bg-muted/20 p-1.5">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="cursor-pointer"
+                                  onClick={() => openEntryDialog(entry)}
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="cursor-pointer"
+                                  onClick={() => toggleEntryPublish(entry)}
+                                >
+                                  {entry.is_published ? "Unpublish" : "Publish"}
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      kind: "entry",
+                                      id: entry.id,
+                                      title: entry.title,
+                                    })
+                                  }
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </Button>
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </div>
         )}
       </div>
-
-      <Dialog
-        open={entryDetailOpen && !!selectedEntry}
-        onOpenChange={setEntryDetailOpen}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl sm:text-3xl">
-              {selectedEntry?.title}
-            </DialogTitle>
-            <DialogDescription>Full resource entry view.</DialogDescription>
-          </DialogHeader>
-
-          {selectedEntry && selectedSection && (
-            <>
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                <ScrollArea className="h-[60vh] rounded-2xl border border-border/70 bg-muted/20 p-4">
-                  <div className="space-y-4 pr-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge
-                        variant={
-                          selectedEntry.is_published ? "default" : "secondary"
-                        }
-                      >
-                        {selectedEntry.is_published ? "Published" : "Draft"}
-                      </Badge>
-                      {selectedEntry.is_platform_pinned && (
-                        <Badge className="bg-amber-500 text-white hover:bg-amber-500">
-                          Janitor Forge
-                        </Badge>
-                      )}
-                      {selectedEntry.label && (
-                        <Badge variant="outline">{selectedEntry.label}</Badge>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Summary
-                      </p>
-                      <div className="prose prose-sm mt-2 max-w-none leading-6 dark:prose-invert">
-                        <MarkdownRenderer
-                          content={selectedEntry.summary || "No summary yet."}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </ScrollArea>
-
-                <div
-                  className="space-y-4 rounded-2xl border p-4"
-                  style={{
-                    borderColor: selectedEntry.is_platform_pinned
-                      ? "#f59e0b"
-                      : selectedSection.accent_color || "#7c3aed",
-                  }}
-                >
-                  <div>
-                    <p className="text-sm font-medium">Section</p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedSection.title}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Source</p>
-                    {selectedEntry.url ? (
-                      <a
-                        href={selectedEntry.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          color: selectedEntry.is_platform_pinned
-                            ? "#f59e0b"
-                            : selectedSection.accent_color || "#7c3aed",
-                        }}
-                        className="inline-flex items-center gap-2 text-sm font-medium hover:underline"
-                      >
-                        Open source <ExternalLink className="h-4 w-4" />
-                      </a>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No source link yet.
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Metadata</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Badge variant="outline">
-                        Created{" "}
-                        {new Date(
-                          selectedEntry.created_at,
-                        ).toLocaleDateString()}
-                        <PenLineIcon className="ml-2 h-4 w-4" />
-                      </Badge>
-                      {selectedEntry.updated_at && (
-                        <Badge variant="outline">
-                          Updated{" "}
-                          {new Date(
-                            selectedEntry.updated_at,
-                          ).toLocaleDateString()}
-                          <Upload className="ml-2 h-4 w-4" />
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium">Engagement</p>
-                    <div className="mt-2 space-y-3 rounded-xl border border-border/60 bg-muted/15 p-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        <Badge variant="outline" className="gap-1">
-                          <Eye className="h-3.5 w-3.5" />
-                          {viewCounts[selectedEntry.id] || 0} views
-                        </Badge>
-                        <Badge variant="outline" className="gap-1">
-                          <ThumbsUp className="h-3.5 w-3.5" />
-                          {likeCounts[selectedEntry.id] || 0} likes
-                        </Badge>
-                        <Badge variant="outline" className="gap-1">
-                          <ThumbsDown className="h-3.5 w-3.5" />
-                          {dislikeCounts[selectedEntry.id] || 0} dislikes
-                        </Badge>
-                        <Badge variant="outline" className="gap-1">
-                          <MessageCircle className="h-3.5 w-3.5" />
-                          {commentCounts[selectedEntry.id] || 0} comments
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={
-                            myReactions[selectedEntry.id] === 1
-                              ? "default"
-                              : "outline"
-                          }
-                          className="cursor-pointer"
-                          onClick={() => setReaction(selectedEntry.id, 1)}
-                        >
-                          <ThumbsUp className="mr-2 h-4 w-4" /> Like
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={
-                            myReactions[selectedEntry.id] === -1
-                              ? "destructive"
-                              : "outline"
-                          }
-                          className="cursor-pointer"
-                          onClick={() => setReaction(selectedEntry.id, -1)}
-                        >
-                          <ThumbsDown className="mr-2 h-4 w-4" /> Dislike
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {isAdmin && (
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        className="cursor-pointer"
-                        onClick={() => {
-                          setEntryDetailOpen(false);
-                          openEntryDialog(selectedEntry);
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" /> Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="cursor-pointer"
-                        onClick={() => toggleEntryPublish(selectedEntry)}
-                      >
-                        {selectedEntry.is_published ? "Unpublish" : "Publish"}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3 rounded-2xl border border-border/70 bg-background p-4">
-                <p className="text-sm font-medium">Comments</p>
-                <div className="flex gap-2">
-                  <Textarea
-                    value={commentDraft}
-                    onChange={(event) => setCommentDraft(event.target.value)}
-                    rows={3}
-                    placeholder={
-                      authUserId
-                        ? "Write your comment..."
-                        : "Sign in to write a comment"
-                    }
-                    disabled={!authUserId}
-                  />
-                  <Button
-                    type="button"
-                    className="cursor-pointer self-end"
-                    onClick={submitComment}
-                    disabled={!authUserId || !commentDraft.trim()}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {(commentsByEntry[selectedEntry.id] || []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No comments yet.
-                    </p>
-                  ) : (
-                    (commentsByEntry[selectedEntry.id] || []).map((comment) => (
-                      <div
-                        key={comment.id}
-                        className="rounded-xl border border-border/70 p-3"
-                      >
-                        <div className="mb-1 flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium">
-                            {comment.profiles?.display_name ||
-                              comment.profiles?.username ||
-                              "User"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(comment.created_at).toLocaleString()}
-                          </p>
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap">
-                          {comment.body}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog
         open={!!deleteTarget}
@@ -1942,7 +1832,7 @@ export function ResourcesHub() {
       </AlertDialog>
 
       <Dialog open={sectionDialogOpen} onOpenChange={setSectionDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="scrollbar-thin max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingSectionId ? "Edit section" : "New section"}
@@ -2092,7 +1982,7 @@ export function ResourcesHub() {
           <div
             className={cn(
               "relative z-0 min-h-0 flex-1 space-y-4",
-              "overflow-y-auto px-1 py-1 pr-2",
+              "scrollbar-thin overflow-y-auto px-1 py-1 pr-2",
               "overscroll-contain",
             )}
           >
@@ -2132,6 +2022,27 @@ export function ResourcesHub() {
               />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium">Short description</label>
+
+              <Textarea
+                value={entryForm.excerpt}
+                onChange={(event) =>
+                  setEntryForm((prev) => ({
+                    ...prev,
+                    excerpt: event.target.value,
+                  }))
+                }
+                rows={3}
+                maxLength={320}
+                placeholder="Short description shown in the resource directory..."
+              />
+
+              <p className="text-xs text-muted-foreground">
+                Leave this empty to generate it automatically from the resource
+                content.
+              </p>
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">Summary</label>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Rich Markdown is supported. You can also upload images directly
@@ -2155,7 +2066,7 @@ export function ResourcesHub() {
                   }))
                 }
                 minEditorHeightRem={8}
-                className="min-h-[12rem] md:min-h-[14rem]"
+                className="min-h-48 md:min-h-56"
                 maxEditorHeightRem={28}
               />
             </div>
@@ -2170,17 +2081,30 @@ export function ResourcesHub() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Label</label>
-              <Input
-                value={entryForm.label}
-                onChange={(event) =>
+              <label className="text-sm font-medium">Resource type</label>
+
+              <Select
+                value={entryForm.resourceType}
+                onValueChange={(value) =>
                   setEntryForm((prev) => ({
                     ...prev,
-                    label: event.target.value,
+                    resourceType: value as ResourceType,
                   }))
                 }
-                placeholder="Reference, guide, template..."
-              />
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+
+                <SelectContent>
+                  <SelectItem value="guide">Guide</SelectItem>
+                  <SelectItem value="article">Article</SelectItem>
+                  <SelectItem value="tool">Tool</SelectItem>
+                  <SelectItem value="template">Template</SelectItem>
+                  <SelectItem value="reference">Reference</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-border/70 px-4 py-3">
               <div>
@@ -2237,6 +2161,55 @@ export function ResourcesHub() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ResourceReviewDialog
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        sections={sections.map((section) => ({
+          id: section.id,
+          title: section.title,
+        }))}
+        onChanged={() => {
+          void loadData();
+        }}
+      />
+
+      <ResourceSuggestionDialog
+        open={suggestionDialogOpen}
+        onOpenChange={(open) => {
+          setSuggestionDialogOpen(open);
+
+          if (!open) {
+            setSuggestionTargetEntry(null);
+          }
+        }}
+        sections={sections
+          .filter((section) => section.is_published)
+          .map((section) => ({
+            id: section.id,
+            title: section.title,
+          }))}
+        defaultSectionId={
+          selectedSection?.is_published ? selectedSection.id : null
+        }
+        resource={
+          suggestionTargetEntry
+            ? {
+                id: suggestionTargetEntry.id,
+
+                sectionId: suggestionTargetEntry.section_id,
+
+                title: suggestionTargetEntry.title,
+
+                summary: suggestionTargetEntry.summary || "",
+
+                url: suggestionTargetEntry.url || "",
+
+                label: suggestionTargetEntry.label || "",
+              }
+            : null
+        }
+      />
     </div>
   );
 }

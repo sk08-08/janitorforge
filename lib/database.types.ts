@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -1313,39 +1313,54 @@ export type Database = {
       }
       hub_resource_entries: {
         Row: {
+          contributor_user_id: string | null
           created_at: string
+          excerpt: string | null
           id: string
           is_platform_pinned: boolean
           is_published: boolean
           label: string | null
+          resource_type: string
           section_id: string
+          slug: string
           sort_order: number
+          source_submission_id: string | null
           summary: string | null
           title: string
           updated_at: string
           url: string | null
         }
         Insert: {
+          contributor_user_id?: string | null
           created_at?: string
+          excerpt?: string | null
           id?: string
           is_platform_pinned?: boolean
           is_published?: boolean
           label?: string | null
+          resource_type?: string
           section_id: string
+          slug: string
           sort_order?: number
+          source_submission_id?: string | null
           summary?: string | null
           title: string
           updated_at?: string
           url?: string | null
         }
         Update: {
+          contributor_user_id?: string | null
           created_at?: string
+          excerpt?: string | null
           id?: string
           is_platform_pinned?: boolean
           is_published?: boolean
           label?: string | null
+          resource_type?: string
           section_id?: string
+          slug?: string
           sort_order?: number
+          source_submission_id?: string | null
           summary?: string | null
           title?: string
           updated_at?: string
@@ -1353,10 +1368,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "hub_resource_entries_contributor_user_id_fkey"
+            columns: ["contributor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "hub_resource_entries_section_id_fkey"
             columns: ["section_id"]
             isOneToOne: false
             referencedRelation: "hub_resource_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_resource_entries_source_submission_id_fkey"
+            columns: ["source_submission_id"]
+            isOneToOne: false
+            referencedRelation: "hub_resource_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -1519,6 +1548,89 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      hub_resource_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submission_type: string
+          suggested_section_id: string | null
+          summary: string | null
+          target_entry_id: string | null
+          title: string
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submission_type?: string
+          suggested_section_id?: string | null
+          summary?: string | null
+          target_entry_id?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submission_type?: string
+          suggested_section_id?: string | null
+          summary?: string | null
+          target_entry_id?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_resource_submissions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_resource_submissions_suggested_section_id_fkey"
+            columns: ["suggested_section_id"]
+            isOneToOne: false
+            referencedRelation: "hub_resource_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_resource_submissions_target_entry_id_fkey"
+            columns: ["target_entry_id"]
+            isOneToOne: false
+            referencedRelation: "hub_resource_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_resource_submissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ip_blocklist: {
         Row: {
@@ -3264,6 +3376,7 @@ export type Database = {
         Returns: boolean
       }
       is_profile_follower: { Args: { p_profile_id: string }; Returns: boolean }
+      is_staff_user: { Args: { p_user_id: string }; Returns: boolean }
       mark_all_notifications_read: { Args: never; Returns: undefined }
       mark_notification_read: {
         Args: { p_notification_id: string }

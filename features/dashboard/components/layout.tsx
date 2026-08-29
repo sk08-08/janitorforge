@@ -317,6 +317,7 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
 
   const handleNavClick = (view: NavigationView) => {
     setCurrentView(view);
+
     if (isMobile) {
       setMobileMenuOpen(false);
     }
