@@ -8,6 +8,7 @@ import {
 } from "@/features/forms/lib/form-assets";
 import {
   BOT_ASSETS_BUCKET,
+  PROFILE_ASSETS_BUCKET,
   extractStorageObjectPathFromPublicUrl,
 } from "@/lib/storage-assets";
 
@@ -160,8 +161,9 @@ export async function getAdminStats() {
     supabase.from("requests").select("id", { count: "exact", head: true }),
     supabase
       .from("flagged_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("reviewed", false),
+      .select("id, requests!inner(id)", { count: "exact", head: true })
+      .eq("reviewed", false)
+      .is("requests.deleted_at", null),
     supabase
       .from("active_requests")
       .select("id", { count: "exact", head: true })
@@ -252,8 +254,11 @@ export async function getRecentActivity() {
         .limit(8),
       supabase
         .from("flagged_requests")
-        .select("id, risk_level, reviewed, created_at, request_id")
+        .select(
+          "id, risk_level, reviewed, created_at, request_id, requests!inner(id, deleted_at)",
+        )
         .eq("reviewed", false)
+        .is("requests.deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(5),
     ]);
@@ -623,11 +628,12 @@ updated_at
 
       supabase
         .from("flagged_requests")
-        .select("id", {
+        .select("id, requests!inner(id)", {
           count: "exact",
           head: true,
         })
-        .in("form_id", formIds),
+        .in("form_id", formIds)
+        .is("requests.deleted_at", null),
     ]);
 
     submissionsCount = submissionsResult.count ?? 0;
@@ -935,6 +941,79 @@ export async function clearUserAvatar(userId: string) {
   return { success: true };
 }
 
+async function removeProfileAssetsForDeletedUser(
+  adminClient: NonNullable<Awaited<ReturnType<typeof createAdminClient>>>,
+  userId: string,
+  avatarUrl?: string | null,
+  bannerUrl?: string | null,
+) {
+  const paths = new Set<string>();
+
+  const avatarPath = extractStorageObjectPathFromPublicUrl(
+    avatarUrl,
+    PROFILE_ASSETS_BUCKET,
+  );
+  const bannerPath = extractStorageObjectPathFromPublicUrl(
+    bannerUrl,
+    PROFILE_ASSETS_BUCKET,
+  );
+
+  if (avatarPath) paths.add(avatarPath);
+  if (bannerPath) paths.add(bannerPath);
+
+  /*
+   * Current profile uploads live under:
+   *   <user-id>/avatar-...
+   *   <user-id>/banner-...
+   *
+   * Listing the folder also catches abandoned/replaced profile images that
+   * are no longer referenced by avatar_url or banner_url.
+   */
+  const { data: folderObjects, error: listError } = await adminClient.storage
+    .from(PROFILE_ASSETS_BUCKET)
+    .list(userId, {
+      limit: 1000,
+      offset: 0,
+      sortBy: { column: "name", order: "asc" },
+    });
+
+  if (listError) {
+    return {
+      success: false,
+      error: `Could not inspect profile assets: ${listError.message}`,
+    };
+  }
+
+  for (const object of folderObjects || []) {
+    if (!object?.name) continue;
+
+    /*
+     * Profile uploads are flat inside the user's folder. Ignore any folder
+     * placeholder returned by Storage; remove() only needs real object paths.
+     */
+    if (object.id === null) continue;
+
+    paths.add(`${userId}/${object.name}`);
+  }
+
+  if (paths.size === 0) {
+    return { success: true };
+  }
+
+  const { error: removeError } = await adminClient.storage
+    .from(PROFILE_ASSETS_BUCKET)
+    .remove([...paths]);
+
+  if (removeError) {
+    return {
+      success: false,
+      error: `Could not remove profile assets: ${removeError.message}`,
+    };
+  }
+
+  return { success: true };
+}
+
 export async function deleteUserAsAdmin(userId: string) {
   const { supabase, userId: actorId, error } = await requireOwner();
   if (error) return { success: false, error };
@@ -948,7 +1027,7 @@ export async function deleteUserAsAdmin(userId: string) {
 
   const { data: target, error: targetError } = await supabase
     .from("profiles")
-    .select("id, staff_role")
+    .select("id, staff_role, avatar_url, banner_url")
     .eq("id", userId)
     .maybeSingle();
 
@@ -958,11 +1037,40 @@ export async function deleteUserAsAdmin(userId: string) {
     return { success: false, error: "Owner accounts cannot be deleted here" };
   }
 
+  /*
+   * Supabase Storage explicitly forbids deleting rows from storage.objects
+   * directly. Remove physical objects through the Storage API BEFORE the RPC
+   * deletes auth.users -> profiles.
+   */
+  const adminClient = await createAdminClient();
+
+  if (!adminClient) {
+    return {
+      success: false,
+      error: "Server storage access is not configured",
+    };
+  }
+
+  const profileAssetCleanup = await removeProfileAssetsForDeletedUser(
+    adminClient,
+    userId,
+    target.avatar_url,
+    target.banner_url,
+  );
+
+  if (!profileAssetCleanup.success) {
+    return {
+      success: false,
+      error: profileAssetCleanup.error,
+    };
+  }
+
   const { error: rpcError } = await supabase.rpc("delete_user_as_admin", {
     target_user_id: userId,
   });
 
   if (rpcError) return { success: false, error: rpcError.message };
+
   return { success: true };
 }
 
@@ -990,13 +1098,15 @@ export async function getAdminModerationStats() {
   ] = await Promise.all([
     supabase
       .from("flagged_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("reviewed", false),
+      .select("id, requests!inner(id)", { count: "exact", head: true })
+      .eq("reviewed", false)
+      .is("requests.deleted_at", null),
     supabase
       .from("flagged_requests")
-      .select("id", { count: "exact", head: true })
+      .select("id, requests!inner(id)", { count: "exact", head: true })
       .eq("reviewed", false)
-      .eq("risk_level", "dangerous"),
+      .eq("risk_level", "dangerous")
+      .is("requests.deleted_at", null),
     supabase.from("blocked_ips").select("id", { count: "exact", head: true }),
     supabase
       .from("global_blocklists")
@@ -1168,11 +1278,39 @@ export async function getAdminModerationFlags(options?: {
   const reviewed = options?.reviewed || "open";
   const limit = Math.max(1, Math.min(200, Math.trunc(options?.limit || 80)));
 
+  /*
+   * A request is soft-deleted by setting requests.deleted_at.
+   * flagged_requests intentionally stays in the database so moderation history
+   * survives a delete/restore cycle, but deleted submissions must not appear
+   * in the live moderation queue.
+   *
+   * Filter through the request relation BEFORE applying limit so deleted flags
+   * cannot consume queue slots.
+   */
   let query = supabase
     .from("flagged_requests")
     .select(
-      "id, form_id, request_id, risk_level, flagged_fields, reason, reviewed, review_action, review_notes, reviewed_at, created_at",
+      `
+      id,
+      form_id,
+      request_id,
+      risk_level,
+      flagged_fields,
+      reason,
+      reviewed,
+      review_action,
+      review_notes,
+      reviewed_at,
+      created_at,
+      request:requests!inner(
+        id,
+        submitter_name,
+        ip_address,
+        deleted_at
+      )
+      `,
     )
+    .is("request.deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -1187,37 +1325,28 @@ export async function getAdminModerationFlags(options?: {
   }
 
   const { data: flags, error: flagsError } = await query;
+
   if (flagsError) {
-    return { success: false, error: flagsError.message, items: [] as any[] };
+    return {
+      success: false,
+      error: flagsError.message,
+      items: [] as any[],
+    };
   }
 
   const formIds = [
     ...new Set((flags || []).map((flag: any) => flag.form_id).filter(Boolean)),
   ];
-  const requestIds = [
-    ...new Set(
-      (flags || []).map((flag: any) => flag.request_id).filter(Boolean),
-    ),
-  ];
 
   let formsMap = new Map<string, any>();
+
   if (formIds.length > 0) {
     const { data: forms } = await supabase
       .from("request_forms")
       .select("id, title, user_id")
       .in("id", formIds);
-    formsMap = new Map((forms || []).map((form: any) => [form.id, form]));
-  }
 
-  let requestsMap = new Map<string, any>();
-  if (requestIds.length > 0) {
-    const { data: requests } = await supabase
-      .from("requests")
-      .select("id, submitter_name, ip_address")
-      .in("id", requestIds);
-    requestsMap = new Map(
-      (requests || []).map((request: any) => [request.id, request]),
-    );
+    formsMap = new Map((forms || []).map((form: any) => [form.id, form]));
   }
 
   const ownerIds = [
@@ -1229,23 +1358,24 @@ export async function getAdminModerationFlags(options?: {
   ];
 
   let ownersMap = new Map<string, any>();
+
   if (ownerIds.length > 0) {
     const { data: owners } = await supabase
       .from("profiles")
       .select("id, username, display_name")
       .in("id", ownerIds);
+
     ownersMap = new Map((owners || []).map((owner: any) => [owner.id, owner]));
   }
 
   const items = (flags || []).map((flag: any) => {
     const form = formsMap.get(flag.form_id) || null;
-    const request = requestsMap.get(flag.request_id) || null;
     const owner = form?.user_id ? ownersMap.get(form.user_id) || null : null;
 
     return {
       ...flag,
       form,
-      request,
+      request: flag.request || null,
       owner,
     };
   });
@@ -1770,13 +1900,14 @@ export async function getAllFlaggedRequests(
     .select(
       `id, risk_score, risk_level, reviewed, created_at, request_id,
        requests!inner(
-         id, submitter_name, status, form_id,
+         id, submitter_name, status, form_id, deleted_at,
          request_forms!inner(title, user_id,
            profiles!request_forms_user_id_fkey(username, display_name)
          )
        )`,
       { count: "exact" },
     )
+    .is("requests.deleted_at", null)
     .order("created_at", { ascending: false })
     .range(from, to);
 

@@ -287,8 +287,9 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
         const supabase = createClient();
         const { count, error } = await supabase
           .from("flagged_requests")
-          .select("id", { count: "exact", head: true })
-          .eq("reviewed", false);
+          .select("id, requests!inner(id)", { count: "exact", head: true })
+          .eq("reviewed", false)
+          .is("requests.deleted_at", null);
 
         if (!mounted) return;
 
@@ -316,6 +317,16 @@ export function DashboardLayout({ children, username }: DashboardLayoutProps) {
   };
 
   const handleNavClick = (view: NavigationView) => {
+    if (view === "resources") {
+      router.push("/resources");
+
+      if (isMobile) {
+        setMobileMenuOpen(false);
+      }
+
+      return;
+    }
+
     setCurrentView(view);
 
     if (isMobile) {

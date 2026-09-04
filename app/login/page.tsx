@@ -536,7 +536,7 @@ export default function LoginPage() {
                         <Input
                           id="login-username"
                           type="text"
-                          placeholder="your_username"
+                          placeholder="username"
                           value={loginUsername}
                           onChange={(event) =>
                             setLoginUsername(
@@ -644,7 +644,7 @@ export default function LoginPage() {
                         <Input
                           id="reg-username"
                           type="text"
-                          placeholder="your_username"
+                          placeholder="username"
                           value={regUsername}
                           onChange={(event) =>
                             setRegUsername(

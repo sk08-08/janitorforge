@@ -21,10 +21,19 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProfilesHub } from "@/features/hub/components/profiles-hub";
-import { CommunityHub } from "@/features/hub/components/community-hub";
 
-function CommunityHubView() {
-  return <CommunityHub />;
+function CommunityRouteRedirect() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/community");
+  }, [router]);
+
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <p className="text-sm text-muted-foreground">Opening community...</p>
+    </div>
+  );
 }
 
 function ResourcesRouteRedirect() {
@@ -69,7 +78,7 @@ function ViewRouter() {
     case "profiles":
       return <ProfilesHub />;
     case "community":
-      return <CommunityHubView />;
+      return <CommunityRouteRedirect />;
     case "resources":
       return <ResourcesRouteRedirect />;
     case "profile":

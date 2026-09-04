@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
+import { CustomColorPicker } from "@/components/ui/custom-color-picker";
 import {
   Plus,
   Pencil,
@@ -615,7 +616,7 @@ export function ResourcesHub() {
 
   const saveSection = async () => {
     if (!sectionForm.title.trim()) {
-      toast.error("Enter a section title");
+      toast.error("Enter a category title");
       return;
     }
 
@@ -652,7 +653,7 @@ export function ResourcesHub() {
       setSectionForm(emptySectionForm);
       await loadData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to save section");
+      toast.error(error.message || "Failed to save category");
     } finally {
       setSaving(false);
     }
@@ -660,7 +661,7 @@ export function ResourcesHub() {
 
   const saveEntry = async () => {
     if (!entryForm.sectionId) {
-      toast.error("Choose a section");
+      toast.error("Choose a category");
       return;
     }
 
@@ -772,7 +773,7 @@ export function ResourcesHub() {
       });
 
       if (!result.success) {
-        toast.error(result.error || "Failed to save entry");
+        toast.error(result.error || "Failed to save resource");
 
         return;
       }
@@ -797,7 +798,7 @@ export function ResourcesHub() {
         console.warn("Markdown asset cleanup warning:", result.cleanupWarning);
       }
 
-      toast.success(editingEntryId ? "Entry updated" : "Entry created");
+      toast.success(editingEntryId ? "Resource updated" : "Resource created");
 
       resetEntryEditor();
 
@@ -806,7 +807,7 @@ export function ResourcesHub() {
       console.error("Failed to save resource entry:", error);
 
       toast.error(
-        error instanceof Error ? error.message : "Failed to save entry",
+        error instanceof Error ? error.message : "Failed to save resource",
       );
     } finally {
       setSaving(false);
@@ -862,9 +863,9 @@ export function ResourcesHub() {
 
       await loadData();
 
-      toast.success("Section deleted");
+      toast.success("Category deleted");
     } catch (error: any) {
-      toast.error(error.message || "Failed to delete section");
+      toast.error(error.message || "Failed to delete category");
     }
   };
 
@@ -904,9 +905,9 @@ export function ResourcesHub() {
 
       await loadData();
 
-      toast.success("Entry deleted");
+      toast.success("Resource deleted");
     } catch (error: any) {
-      toast.error(error.message || "Failed to delete entry");
+      toast.error(error.message || "Failed to delete resource");
     }
   };
 
@@ -983,7 +984,7 @@ export function ResourcesHub() {
       if (error) throw error;
       await loadData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update section");
+      toast.error(error.message || "Failed to update category");
     }
   };
 
@@ -997,7 +998,7 @@ export function ResourcesHub() {
       if (error) throw error;
       await loadData();
     } catch (error: any) {
-      toast.error(error.message || "Failed to update entry");
+      toast.error(error.message || "Failed to update resource");
     }
   };
 
@@ -1032,9 +1033,13 @@ export function ResourcesHub() {
           Back to dashboard
         </Link>
 
-        <section className="dashboard-hero relative isolate overflow-hidden rounded-[2rem] border border-border/70 shadow-xl shadow-black/5 dark:shadow-primary/15">
-          <div className="dashboard-orb dashboard-orb-a pointer-events-none" />
-          <div className="dashboard-orb dashboard-orb-b pointer-events-none" />
+        <section className="resources-hero group/resources-hero relative isolate overflow-hidden rounded-[2rem] border border-border/70 shadow-[0_28px_90px_-42px_rgba(0,0,0,0.4)] dark:shadow-primary/10">
+          <div className="resources-orb resources-orb-a" />
+          <div className="resources-orb resources-orb-b" />
+          <div className="resources-orb resources-orb-c" />
+
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_12%,rgba(255,255,255,0.10),transparent_24%),radial-gradient(circle_at_88%_18%,rgba(245,158,11,0.08),transparent_28%),linear-gradient(to_bottom_right,transparent_35%,rgba(59,130,246,0.035))]" />
+          <div className="resources-hero-grid pointer-events-none absolute inset-0" />
 
           <div className="relative z-10 grid min-h-[28rem] items-center gap-10 px-6 py-10 sm:px-9 sm:py-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)] lg:px-12 lg:py-14">
             <div className="max-w-2xl">
@@ -1092,7 +1097,12 @@ export function ResourcesHub() {
             </div>
 
             <div className="relative hidden min-h-[21rem] lg:block">
-              <div className="absolute left-[8%] top-[6%] w-[15rem] rotate-[-5deg] rounded-2xl border border-white/10 bg-card/75 p-4 shadow-2xl shadow-primary/10 backdrop-blur-xl">
+              <div
+                className="resources-hero-card absolute left-[8%] top-[6%] w-[15rem] -rotate-[5deg] rounded-2xl border border-white/10 bg-card/75 p-4 shadow-2xl shadow-primary/10 backdrop-blur-xl"
+                style={{
+                  animation: "jf-resources-card-a 8.5s ease-in-out infinite",
+                }}
+              >
                 <div className="flex items-center gap-2">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/15 text-purple-500">
                     <Brain className="h-4 w-4" />
@@ -1113,7 +1123,12 @@ export function ResourcesHub() {
                 </div>
               </div>
 
-              <div className="absolute right-[4%] top-[31%] w-[14rem] rotate-[5deg] rounded-2xl border border-white/10 bg-card/75 p-4 shadow-2xl shadow-pink-500/10 backdrop-blur-xl">
+              <div
+                className="resources-hero-card absolute right-[4%] top-[31%] w-[14rem] rotate-[5deg] rounded-2xl border border-white/10 bg-card/75 p-4 shadow-2xl shadow-pink-500/10 backdrop-blur-xl"
+                style={{
+                  animation: "jf-resources-card-b 9.5s ease-in-out infinite",
+                }}
+              >
                 <div className="flex items-center gap-2">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/15 text-pink-500">
                     <Code className="h-4 w-4" />
@@ -1137,7 +1152,12 @@ export function ResourcesHub() {
                 </div>
               </div>
 
-              <div className="absolute bottom-[4%] left-[21%] w-[15rem] rotate-[-1deg] rounded-2xl border border-white/10 bg-card/80 p-4 shadow-2xl shadow-blue-500/10 backdrop-blur-xl">
+              <div
+                className="resources-hero-card absolute bottom-[4%] left-[21%] w-[15rem] -rotate-[1deg] rounded-2xl border border-white/10 bg-card/80 p-4 shadow-2xl shadow-blue-500/10 backdrop-blur-xl"
+                style={{
+                  animation: "jf-resources-card-c 10.5s ease-in-out infinite",
+                }}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
@@ -1157,6 +1177,32 @@ export function ResourcesHub() {
                 </p>
               </div>
             </div>
+          </div>
+          <div className="relative z-10 flex flex-col gap-3 border-t border-border/50 bg-background/25 px-6 py-4 backdrop-blur-md sm:px-9 lg:flex-row lg:items-center lg:justify-between lg:px-12">
+            <div className="flex max-w-3xl items-start gap-2 text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+              <p>
+                Resources bring guides, tools, templates and references into one
+                curated library. Community suggestions are reviewed before they
+                become part of the collection.
+              </p>
+            </div>
+
+            {canManageResources ? (
+              <Badge
+                variant="outline"
+                className="w-fit shrink-0 rounded-full border-primary/20 bg-primary/5"
+              >
+                <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-primary" />
+                Staff view
+              </Badge>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="h-1.5 w-5 rounded-full bg-amber-500/70" />
+                <span className="h-1.5 w-5 rounded-full bg-primary/45" />
+                <span className="h-1.5 w-5 rounded-full bg-blue-500/20" />
+              </div>
+            )}
           </div>
         </section>
 
@@ -1219,7 +1265,7 @@ export function ResourcesHub() {
         ) : sections.length === 0 ? (
           <Card className="border-border/70 bg-card/95">
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              No sections yet.
+              No categories yet.
             </CardContent>
           </Card>
         ) : (
@@ -1376,7 +1422,8 @@ export function ResourcesHub() {
                         role="button"
                         tabIndex={0}
                         className={cn(
-                          "group relative overflow-hidden rounded-2xl border border-border/70 bg-card/85 p-4 text-left",
+                          "group relative flex h-full min-h-[13.5rem] flex-col overflow-hidden rounded-2xl",
+                          "border border-border/70 bg-card/85 p-4 text-left",
                           "shadow-sm backdrop-blur transition-all duration-300",
                           active
                             ? "border-primary/30 bg-primary/[0.035] shadow-md shadow-primary/5"
@@ -1408,7 +1455,7 @@ export function ResourcesHub() {
                                     <Badge variant="secondary">Draft</Badge>
                                   )}
                               </div>
-                              <p className="line-clamp-2 text-sm text-muted-foreground">
+                              <p className="min-h-[2.5rem] line-clamp-2 text-sm leading-5 text-muted-foreground">
                                 {section.description || "No description yet."}
                               </p>
                             </div>
@@ -1421,71 +1468,89 @@ export function ResourcesHub() {
                           </span>
                         </div>
 
-                        <div className="mt-5 flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Open section</span>
+                        <div className="mt-auto flex items-center justify-between pt-5 text-xs text-muted-foreground">
+                          <span>Open category</span>
+
                           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </div>
 
                         {canManageResources && (
-                          <Collapsible className="mt-4" defaultOpen={false}>
+                          <Collapsible className="mt-1">
                             <CollapsibleTrigger asChild>
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
-                                className="h-8 px-3 cursor-pointer text-xs text-muted-foreground"
+                                className="h-7 w-full cursor-pointer rounded-full text-[11px] text-muted-foreground hover:text-foreground"
                                 onClick={(event) => event.stopPropagation()}
                               >
-                                Manage section
+                                Manage category
                               </Button>
                             </CollapsibleTrigger>
+
                             <CollapsibleContent>
                               <div
-                                className="mt-2 flex flex-wrap items-center gap-2"
+                                className="mt-1 grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-muted/20 p-1.5"
                                 onClick={(event) => event.stopPropagation()}
                               >
                                 <Button
                                   variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 cursor-pointer"
+                                  size="sm"
+                                  className="h-8 cursor-pointer justify-start rounded-lg px-2 text-xs"
                                   disabled={index === 0}
                                   onClick={() =>
                                     reorderSections(section.id, "up")
                                   }
                                 >
-                                  <ArrowUp className="h-4 w-4" />
+                                  <ArrowUp className="mr-1.5 h-3.5 w-3.5" />
+                                  Move up
                                 </Button>
+
                                 <Button
                                   variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 cursor-pointer"
+                                  size="sm"
+                                  className="h-8 cursor-pointer justify-start rounded-lg px-2 text-xs"
                                   disabled={index === sections.length - 1}
                                   onClick={() =>
                                     reorderSections(section.id, "down")
                                   }
                                 >
-                                  <ArrowDown className="h-4 w-4" />
+                                  <ArrowDown className="mr-1.5 h-3.5 w-3.5" />
+                                  Move down
                                 </Button>
+
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="cursor-pointer"
+                                  className="h-8 cursor-pointer justify-start rounded-lg px-2 text-xs"
                                   onClick={() => openSectionDialog(section)}
                                 >
-                                  <Pencil className="mr-2 h-4 w-4" /> Edit
+                                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                                  Edit
                                 </Button>
+
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="cursor-pointer"
+                                  className="h-8 cursor-pointer justify-start rounded-lg px-2 text-xs"
                                   onClick={() => toggleSectionPublish(section)}
                                 >
-                                  {section.is_published
-                                    ? "Unpublish"
-                                    : "Publish"}
+                                  {section.is_published ? (
+                                    <>
+                                      <Lock className="mr-1.5 h-3.5 w-3.5" />
+                                      Unpublish
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Globe className="mr-1.5 h-3.5 w-3.5" />
+                                      Publish
+                                    </>
+                                  )}
                                 </Button>
+
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="col-span-2 h-8 cursor-pointer justify-start rounded-lg px-2 text-xs text-destructive hover:bg-destructive/10"
                                   onClick={() =>
                                     setDeleteTarget({
                                       kind: "section",
@@ -1493,9 +1558,9 @@ export function ResourcesHub() {
                                       title: section.title,
                                     })
                                   }
-                                  className="cursor-pointer text-destructive hover:text-white"
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                  Delete category
                                 </Button>
                               </div>
                             </CollapsibleContent>
@@ -1539,9 +1604,10 @@ export function ResourcesHub() {
                     variant="outline"
                     size="sm"
                     onClick={() => openEntryDialog()}
-                    className="cursor-pointer"
+                    className="cursor-pointer rounded-full"
                   >
-                    <Plus className="mr-2 h-4 w-4" /> Add entry
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add resource
                   </Button>
                 )}
               </div>
@@ -1742,30 +1808,40 @@ export function ResourcesHub() {
                             </CollapsibleTrigger>
 
                             <CollapsibleContent>
-                              <div className="mt-1 flex flex-wrap gap-1 rounded-xl border border-border/60 bg-muted/20 p-1.5">
+                              <div className="mt-1 grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-muted/20 p-1.5">
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="cursor-pointer"
+                                  className="h-8 cursor-pointer justify-start rounded-lg px-2 text-xs"
                                   onClick={() => openEntryDialog(entry)}
                                 >
-                                  <Pencil className="mr-2 h-4 w-4" />
+                                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
                                   Edit
                                 </Button>
 
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="cursor-pointer"
+                                  className="h-8 cursor-pointer justify-start rounded-lg px-2 text-xs"
                                   onClick={() => toggleEntryPublish(entry)}
                                 >
-                                  {entry.is_published ? "Unpublish" : "Publish"}
+                                  {entry.is_published ? (
+                                    <>
+                                      <Lock className="mr-1.5 h-3.5 w-3.5" />
+                                      Unpublish
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Globe className="mr-1.5 h-3.5 w-3.5" />
+                                      Publish
+                                    </>
+                                  )}
                                 </Button>
 
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  className="col-span-2 h-8 cursor-pointer justify-start rounded-lg px-2 text-xs text-destructive hover:bg-destructive/10"
                                   onClick={() =>
                                     setDeleteTarget({
                                       kind: "entry",
@@ -1774,8 +1850,8 @@ export function ResourcesHub() {
                                     })
                                   }
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
+                                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                  Delete resource
                                 </Button>
                               </div>
                             </CollapsibleContent>
@@ -1800,12 +1876,13 @@ export function ResourcesHub() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {deleteTarget?.kind === "section" ? "section" : "entry"}?
+              Delete{" "}
+              {deleteTarget?.kind === "section" ? "category" : "resource"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.kind === "section"
-                ? `This will also remove its entries. ${deleteTarget.title} will be gone permanently.`
-                : `${deleteTarget?.title || "This entry"} will be removed permanently.`}
+                ? `This will also permanently remove every resource inside ${deleteTarget.title}.`
+                : `${deleteTarget?.title || "This resource"} will be removed permanently.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1835,116 +1912,140 @@ export function ResourcesHub() {
         <DialogContent className="scrollbar-thin max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingSectionId ? "Edit section" : "New section"}
+              {editingSectionId ? "Edit category" : "New category"}
             </DialogTitle>
+
             <DialogDescription>
-              Define a section that groups related resources.
+              Create a category to organize related resources in the library.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Title</label>
-              <Input
-                value={sectionForm.title}
-                onChange={(event) =>
-                  setSectionForm((prev) => ({
-                    ...prev,
-                    title: event.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description</label>
-              <Textarea
-                value={sectionForm.description}
-                onChange={(event) =>
-                  setSectionForm((prev) => ({
-                    ...prev,
-                    description: event.target.value,
-                  }))
-                }
-                rows={3}
-              />
-            </div>
+
+          <div className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-sm font-medium">Title</label>
+
+                <Input
+                  value={sectionForm.title}
+                  onChange={(event) =>
+                    setSectionForm((prev) => ({
+                      ...prev,
+                      title: event.target.value,
+                    }))
+                  }
+                  placeholder="e.g. Prompting & Writing"
+                />
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-sm font-medium">Description</label>
+
+                <Textarea
+                  value={sectionForm.description}
+                  onChange={(event) =>
+                    setSectionForm((prev) => ({
+                      ...prev,
+                      description: event.target.value,
+                    }))
+                  }
+                  rows={3}
+                  placeholder="Briefly describe what creators can find in this category..."
+                />
+
+                <p className="text-xs text-muted-foreground">
+                  Optional. This appears on the category card and in the
+                  resource browser.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Icon</label>
+
                 <Select
                   value={sectionForm.iconName}
                   onValueChange={(value) =>
-                    setSectionForm((prev) => ({ ...prev, iconName: value }))
+                    setSectionForm((prev) => ({
+                      ...prev,
+                      iconName: value,
+                    }))
                   }
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Choose an icon" />
                   </SelectTrigger>
+
                   <SelectContent>
-                    {sectionIconOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
+                    {sectionIconOptions.map((option) => {
+                      const Icon = option.icon;
+
+                      return (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                            {option.label}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Accent color</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={sectionForm.accentColor}
-                    onChange={(event) =>
+
+              <CustomColorPicker
+                label="Accent color"
+                value={sectionForm.accentColor}
+                onChange={(value) =>
+                  setSectionForm((prev) => ({
+                    ...prev,
+                    accentColor: value,
+                  }))
+                }
+              />
+
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/15 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">Published</p>
+
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Published categories are visible to everyone.
+                    </p>
+                  </div>
+
+                  <Switch
+                    checked={sectionForm.isPublished}
+                    onCheckedChange={(checked) =>
                       setSectionForm((prev) => ({
                         ...prev,
-                        accentColor: event.target.value,
+                        isPublished: checked,
                       }))
                     }
-                    className="h-10 w-10 rounded border border-border/70 bg-background p-1"
-                  />
-                  <Input
-                    value={sectionForm.accentColor}
-                    onChange={(event) =>
-                      setSectionForm((prev) => ({
-                        ...prev,
-                        accentColor: event.target.value,
-                      }))
-                    }
-                    placeholder="#7c3aed"
-                    className="flex-1"
                   />
                 </div>
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border/70 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium">Published</p>
-                <p className="text-xs text-muted-foreground">
-                  Visible to everyone when enabled.
-                </p>
-              </div>
-              <Switch
-                checked={sectionForm.isPublished}
-                onCheckedChange={(checked) =>
-                  setSectionForm((prev) => ({ ...prev, isPublished: checked }))
-                }
-              />
-            </div>
           </div>
+
           <DialogFooter>
             <Button
               variant="outline"
-              className="cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
               onClick={() => setSectionDialogOpen(false)}
+              disabled={saving}
             >
               Cancel
             </Button>
+
             <Button
               onClick={saveSection}
-              className="cursor-pointer"
+              className="w-full cursor-pointer sm:w-auto"
               disabled={saving}
             >
-              {saving ? "Saving..." : "Save section"}
+              {saving
+                ? "Saving..."
+                : editingSectionId
+                  ? "Save changes"
+                  : "Create category"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1973,10 +2074,10 @@ export function ResourcesHub() {
         >
           <DialogHeader>
             <DialogTitle>
-              {editingEntryId ? "Edit entry" : "New entry"}
+              {editingEntryId ? "Edit resource" : "New resource"}
             </DialogTitle>
             <DialogDescription>
-              Add a link or reference inside a section.
+              Create or update a resource inside the library.
             </DialogDescription>
           </DialogHeader>
           <div
@@ -1987,7 +2088,7 @@ export function ResourcesHub() {
             )}
           >
             <div className="space-y-2">
-              <label className="text-sm font-medium">Section</label>
+              <label className="text-sm font-medium">Category</label>
               <Select
                 value={entryForm.sectionId}
                 onValueChange={(value) =>
@@ -1998,7 +2099,7 @@ export function ResourcesHub() {
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a section" />
+                  <SelectValue placeholder="Choose a category" />
                 </SelectTrigger>
                 <SelectContent>
                   {sections.map((section) => (
@@ -2043,11 +2144,11 @@ export function ResourcesHub() {
               </p>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Summary</label>
+              <label className="text-sm font-medium">Content</label>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Rich Markdown is supported. You can also upload images directly
-                from your device. New images are only kept after the entry saves
-                successfully.
+                from your device. New images are only kept after the resource
+                saves successfully.
               </p>
               <MarkdownField
                 ref={entrySummaryMarkdownRef}
@@ -2110,7 +2211,7 @@ export function ResourcesHub() {
               <div>
                 <p className="text-sm font-medium">Pinned by platform</p>
                 <p className="text-xs text-muted-foreground">
-                  Show this entry in the highlighted Forge picks section.
+                  Feature this resource in Janitor Forge Picks.
                 </p>
               </div>
               <Switch
@@ -2156,7 +2257,7 @@ export function ResourcesHub() {
                 ? "Saving..."
                 : editingEntryId
                   ? "Save changes"
-                  : "Create entry"}
+                  : "Create resource"}
             </Button>
           </DialogFooter>
         </DialogContent>

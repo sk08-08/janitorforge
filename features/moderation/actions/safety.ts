@@ -684,15 +684,33 @@ export async function getFlaggedRequestsForForm(
   if (!ownedForm.success) {
     return { success: false, error: ownedForm.error };
   }
+
   const { supabase: supabaseClient } = ownedForm;
 
+  /*
+   * Requests are soft-deleted, so the flagged_requests row is intentionally
+   * preserved for moderation history and possible restore.
+   *
+   * The live creator moderation queue must only include flags whose parent
+   * request is still active.
+   */
   const { data, error } = await supabaseClient
     .from("flagged_requests")
     .select(
-      "*, request:requests(response_labels, responses, submitter_name, ip_address)",
+      `
+      *,
+      request:requests!inner(
+        response_labels,
+        responses,
+        submitter_name,
+        ip_address,
+        deleted_at
+      )
+      `,
     )
     .eq("form_id", formId)
     .eq("reviewed", false)
+    .is("request.deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -701,7 +719,10 @@ export async function getFlaggedRequestsForForm(
     return { success: false, error: error.message };
   }
 
-  return { success: true, flaggedRequests: data };
+  return {
+    success: true,
+    flaggedRequests: data || [],
+  };
 }
 
 /**

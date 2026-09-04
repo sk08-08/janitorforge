@@ -1143,6 +1143,522 @@ export type Database = {
         }
         Relationships: []
       }
+      hub_community_record_comments: {
+        Row: {
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          record_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          record_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          record_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_community_record_comments_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_record_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_community_record_helpful: {
+        Row: {
+          created_at: string
+          record_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          record_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          record_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_community_record_helpful_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_record_helpful_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_community_record_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          record_id: string
+          related_record_id: string
+          relation_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          record_id: string
+          related_record_id: string
+          relation_type?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          record_id?: string
+          related_record_id?: string
+          relation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_community_record_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_record_links_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_record_links_related_record_id_fkey"
+            columns: ["related_record_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_community_record_sources: {
+        Row: {
+          archive_url: string | null
+          contributor_user_id: string | null
+          created_at: string
+          id: string
+          is_published: boolean
+          note: string | null
+          published_at: string | null
+          record_id: string
+          sort_order: number
+          source_name: string
+          source_submission_id: string | null
+          source_type: string
+          source_url: string
+          updated_at: string
+        }
+        Insert: {
+          archive_url?: string | null
+          contributor_user_id?: string | null
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          note?: string | null
+          published_at?: string | null
+          record_id: string
+          sort_order?: number
+          source_name: string
+          source_submission_id?: string | null
+          source_type?: string
+          source_url: string
+          updated_at?: string
+        }
+        Update: {
+          archive_url?: string | null
+          contributor_user_id?: string | null
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          note?: string | null
+          published_at?: string | null
+          record_id?: string
+          sort_order?: number
+          source_name?: string
+          source_submission_id?: string | null
+          source_type?: string
+          source_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_community_record_sources_contributor_user_id_fkey"
+            columns: ["contributor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_record_sources_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_record_sources_source_submission_id_fkey"
+            columns: ["source_submission_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_community_record_updates: {
+        Row: {
+          body: string | null
+          contributor_user_id: string | null
+          created_at: string
+          id: string
+          is_published: boolean
+          markdown_asset_paths: string[]
+          occurred_at: string
+          record_id: string
+          sort_order: number
+          source_id: string | null
+          source_submission_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          contributor_user_id?: string | null
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          markdown_asset_paths?: string[]
+          occurred_at: string
+          record_id: string
+          sort_order?: number
+          source_id?: string | null
+          source_submission_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          contributor_user_id?: string | null
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          markdown_asset_paths?: string[]
+          occurred_at?: string
+          record_id?: string
+          sort_order?: number
+          source_id?: string | null
+          source_submission_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_community_record_updates_contributor_user_id_fkey"
+            columns: ["contributor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_record_updates_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_record_updates_source_submission_id_fkey"
+            columns: ["source_submission_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_updates_source_fkey"
+            columns: ["source_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_record_sources"
+            referencedColumns: ["id", "record_id"]
+          },
+        ]
+      }
+      hub_community_records: {
+        Row: {
+          category: string
+          content: string | null
+          content_warning: string | null
+          contributor_user_id: string | null
+          created_at: string
+          evidence_note: string | null
+          evidence_status: string
+          featured_order: number
+          id: string
+          impact: string | null
+          is_featured: boolean
+          is_published: boolean
+          last_reviewed_at: string | null
+          last_reviewed_by: string | null
+          markdown_asset_paths: string[]
+          occurred_at: string | null
+          occurred_at_precision: string
+          published_at: string | null
+          revision: number
+          slug: string
+          source_submission_id: string | null
+          status: string
+          status_note: string | null
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          content?: string | null
+          content_warning?: string | null
+          contributor_user_id?: string | null
+          created_at?: string
+          evidence_note?: string | null
+          evidence_status?: string
+          featured_order?: number
+          id?: string
+          impact?: string | null
+          is_featured?: boolean
+          is_published?: boolean
+          last_reviewed_at?: string | null
+          last_reviewed_by?: string | null
+          markdown_asset_paths?: string[]
+          occurred_at?: string | null
+          occurred_at_precision?: string
+          published_at?: string | null
+          revision?: number
+          slug: string
+          source_submission_id?: string | null
+          status?: string
+          status_note?: string | null
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string | null
+          content_warning?: string | null
+          contributor_user_id?: string | null
+          created_at?: string
+          evidence_note?: string | null
+          evidence_status?: string
+          featured_order?: number
+          id?: string
+          impact?: string | null
+          is_featured?: boolean
+          is_published?: boolean
+          last_reviewed_at?: string | null
+          last_reviewed_by?: string | null
+          markdown_asset_paths?: string[]
+          occurred_at?: string | null
+          occurred_at_precision?: string
+          published_at?: string | null
+          revision?: number
+          slug?: string
+          source_submission_id?: string | null
+          status?: string
+          status_note?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_community_records_contributor_user_id_fkey"
+            columns: ["contributor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_records_last_reviewed_by_fkey"
+            columns: ["last_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_records_source_submission_id_fkey"
+            columns: ["source_submission_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hub_community_submissions: {
+        Row: {
+          base_revision: number | null
+          content: string | null
+          created_at: string
+          details: string | null
+          id: string
+          markdown_asset_key: string | null
+          markdown_asset_paths: string[]
+          review_note: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_archive_url: string | null
+          source_name: string | null
+          source_note: string | null
+          source_published_at: string | null
+          source_type: string | null
+          source_url: string | null
+          submission_type: string
+          suggested_category: string | null
+          suggested_content_warning: string | null
+          suggested_evidence_status: string | null
+          suggested_impact: string | null
+          suggested_occurred_at: string | null
+          suggested_occurred_at_precision: string | null
+          suggested_status: string | null
+          summary: string | null
+          target_record_id: string | null
+          title: string | null
+          update_body: string | null
+          update_occurred_at: string | null
+          update_title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_revision?: number | null
+          content?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          markdown_asset_key?: string | null
+          markdown_asset_paths?: string[]
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_archive_url?: string | null
+          source_name?: string | null
+          source_note?: string | null
+          source_published_at?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          submission_type: string
+          suggested_category?: string | null
+          suggested_content_warning?: string | null
+          suggested_evidence_status?: string | null
+          suggested_impact?: string | null
+          suggested_occurred_at?: string | null
+          suggested_occurred_at_precision?: string | null
+          suggested_status?: string | null
+          summary?: string | null
+          target_record_id?: string | null
+          title?: string | null
+          update_body?: string | null
+          update_occurred_at?: string | null
+          update_title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_revision?: number | null
+          content?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          markdown_asset_key?: string | null
+          markdown_asset_paths?: string[]
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_archive_url?: string | null
+          source_name?: string | null
+          source_note?: string | null
+          source_published_at?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          submission_type?: string
+          suggested_category?: string | null
+          suggested_content_warning?: string | null
+          suggested_evidence_status?: string | null
+          suggested_impact?: string | null
+          suggested_occurred_at?: string | null
+          suggested_occurred_at_precision?: string | null
+          suggested_status?: string | null
+          summary?: string | null
+          target_record_id?: string | null
+          title?: string | null
+          update_body?: string | null
+          update_occurred_at?: string | null
+          update_title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hub_community_submissions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_submissions_target_record_id_fkey"
+            columns: ["target_record_id"]
+            isOneToOne: false
+            referencedRelation: "hub_community_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hub_community_submissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hub_log_post_comments: {
         Row: {
           body: string
@@ -3446,12 +3962,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3475,11 +3991,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3500,11 +4016,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3525,11 +4041,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3542,11 +4058,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
