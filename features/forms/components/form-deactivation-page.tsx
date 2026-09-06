@@ -66,9 +66,6 @@ export function FormDeactivationPage({
               "rendered-markdown break-words font-extrabold tracking-tight",
               preview ? "text-xl sm:text-2xl" : "text-3xl sm:text-4xl",
             )}
-            style={{
-              color: safeAccent,
-            }}
           >
             <MarkdownInlineRenderer content={title || "Form"} />
           </div>

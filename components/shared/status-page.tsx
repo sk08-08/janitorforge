@@ -398,3 +398,20 @@ export function UnavailableResourceStatusPage({
     />
   );
 }
+
+export function UnavailableCreatorPageEditorStatusPage() {
+  return (
+    <StatusPage
+      code="404"
+      eyebrow="Editor unavailable"
+      title="This Creator Page is out of reach."
+      description="It may no longer exist, may have been removed, or your account may not have permission to edit it."
+      icon={LockKeyhole}
+      primaryAction={{
+        label: "Return to the Forge",
+        href: "/",
+        icon: Home,
+      }}
+    />
+  );
+}

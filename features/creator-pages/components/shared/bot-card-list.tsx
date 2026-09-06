@@ -28,6 +28,8 @@ export function BotCardList({
             <img
               src={bot.image_url}
               alt={bot.name}
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover"
             />
           ) : (

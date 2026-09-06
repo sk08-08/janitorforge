@@ -272,43 +272,54 @@ export function ResourceInteractionPanel({
 
   return (
     <>
-      <section className="relative overflow-hidden rounded-3xl border border-primary/15 bg-primary/[0.045] p-5 sm:p-6">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
+      <section className="relative rounded-3xl border border-primary/15 bg-primary/[0.045] p-5 sm:p-6">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
+          <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-primary/10 blur-3xl" />
 
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_20%,hsl(var(--primary)/0.05),transparent_32%)]" />
+        </div>
+
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <ThumbsUp className="h-4 w-4 text-primary" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <ThumbsUp className="h-4 w-4 text-primary" />
+              </div>
 
               <p className="font-semibold">Was this resource useful?</p>
             </div>
 
-            <p className="mt-1.5 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:pl-10">
               {helpfulCount === 1
                 ? "1 forger found this helpful."
                 : `${helpfulCount} forgers found this helpful.`}
             </p>
           </div>
 
-          <div className="relative isolate">
+          <div className="relative isolate w-full shrink-0 sm:w-auto">
             {helpfulAnimation === "liked" && (
-              <>
+              <div
+                aria-hidden="true"
+                className="helpful-celebration pointer-events-none absolute inset-0 z-0"
+              >
+                <span className="helpful-burst-ring" />
+                <span className="helpful-burst-halo" />
+
                 <span className="helpful-particle helpful-particle-1" />
                 <span className="helpful-particle helpful-particle-2" />
                 <span className="helpful-particle helpful-particle-3" />
                 <span className="helpful-particle helpful-particle-4" />
                 <span className="helpful-particle helpful-particle-5" />
                 <span className="helpful-particle helpful-particle-6" />
-
-                <span className="helpful-ring" />
-              </>
+              </div>
             )}
 
             <Button
               variant={helpful ? "default" : "outline"}
               className={cn(
-                "group relative z-10 min-w-[10.75rem] cursor-pointer overflow-hidden rounded-full px-5",
-                "transition-[background-color,border-color,color,box-shadow] duration-300",
+                "group/helpful relative z-10 w-full cursor-pointer overflow-hidden rounded-full px-5 sm:w-auto sm:min-w-[10.75rem]",
+                "transition-[background-color,border-color,color,box-shadow,transform] duration-300",
+                "active:scale-[0.97]",
                 helpful && "shadow-lg shadow-primary/20",
                 helpfulAnimation === "liked" && "helpful-button-liked",
                 helpfulAnimation === "unliked" && "helpful-button-unliked",
@@ -316,26 +327,28 @@ export function ResourceInteractionPanel({
               onClick={toggleHelpful}
             >
               <span
+                aria-hidden="true"
                 className={cn(
-                  "absolute inset-0 -z-10 opacity-0",
-                  "bg-gradient-to-r from-primary/0 via-white/20 to-primary/0",
-                  helpfulAnimation === "liked" && "helpful-shimmer",
+                  "helpful-shimmer absolute inset-0 -z-10 opacity-0",
+                  helpfulAnimation === "liked" && "helpful-shimmer-active",
                 )}
               />
 
-              <ThumbsUp
-                className={cn(
-                  "mr-2 h-4 w-4 transition-transform duration-300",
-                  helpful && "fill-current",
-                  helpfulAnimation === "liked" && "helpful-icon-liked",
-                  helpfulAnimation === "unliked" && "helpful-icon-unliked",
-                )}
-              />
+              <span className="relative mr-2 flex h-5 w-5 items-center justify-center">
+                <ThumbsUp
+                  className={cn(
+                    "absolute h-4 w-4 transition-[transform,fill] duration-300",
+                    helpful && "fill-current",
+                    helpfulAnimation === "liked" && "helpful-icon-liked",
+                    helpfulAnimation === "unliked" && "helpful-icon-unliked",
+                  )}
+                />
+              </span>
 
               <span
                 key={helpful ? "helpful" : "mark-helpful"}
                 className={cn(
-                  "inline-block",
+                  "inline-block whitespace-nowrap",
                   helpfulAnimation && "helpful-label-change",
                 )}
               >

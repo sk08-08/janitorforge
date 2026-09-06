@@ -1082,9 +1082,9 @@ export function ResourcesHub() {
                 )}
               </div>
 
-              {authUserId && (
+              {authUserId && !canManageResources && (
                 <Button
-                  className="mt-7 cursor-pointer rounded-full px-5 shadow-md shadow-primary/20"
+                  className="mt-7 w-full cursor-pointer sm:w-auto rounded-full px-5 shadow-md shadow-primary/20"
                   onClick={() => {
                     setSuggestionTargetEntry(null);
                     setSuggestionDialogOpen(true);
@@ -1092,6 +1092,19 @@ export function ResourcesHub() {
                 >
                   <Send className="mr-2 h-4 w-4" />
                   Suggest a resource
+                </Button>
+              )}
+
+              {canManageResources && (
+                <Button
+                  className="mt-7 w-full cursor-pointer sm:w-auto rounded-full px-5 shadow-md shadow-primary/20"
+                  onClick={() => {
+                    setSuggestionTargetEntry(null);
+                    setSuggestionDialogOpen(true);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add resource
                 </Button>
               )}
             </div>
@@ -1576,15 +1589,21 @@ export function ResourcesHub() {
             <section
               className="space-y-4"
               id={`resources-entries-${selectedSectionId || "none"}`}
-              style={{ scrollMarginTop: "6rem" }}
+              style={
+                {
+                  scrollMarginTop: "6rem",
+                  "--resource-section-accent":
+                    selectedSection?.accent_color || "var(--primary)",
+                } as React.CSSProperties
+              }
             >
               <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
+                  <p className="resource-section-accent text-xs font-medium uppercase tracking-[0.16em]">
                     Explore
                   </p>
 
-                  <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+                  <h2 className="resource-section-accent mt-1 text-2xl font-semibold tracking-tight">
                     {normalizedSearchQuery
                       ? "Search results"
                       : selectedSection?.title || "Resources"}
@@ -1628,11 +1647,10 @@ export function ResourcesHub() {
                       key={value}
                       type="button"
                       size="sm"
-                      variant={active ? "secondary" : "ghost"}
+                      variant="ghost"
                       className={cn(
-                        "h-8 cursor-pointer rounded-full px-3 text-xs",
-                        active &&
-                          "bg-primary/10 text-primary hover:bg-primary/15",
+                        "h-8 cursor-pointer rounded-full border border-transparent px-3 text-xs transition-colors",
+                        active && "resource-type-filter-active",
                       )}
                       onClick={() =>
                         setTypeFilter(value as ResourceType | "all")
@@ -1709,15 +1727,15 @@ export function ResourcesHub() {
                         <Link
                           href={`/resources/${entry.slug}`}
                           className={cn(
-                            "group relative flex min-h-[15rem] min-w-0 flex-col overflow-hidden rounded-3xl",
+                            "resource-entry-card group relative flex min-h-[15rem] min-w-0 flex-col overflow-hidden rounded-3xl",
                             "border border-border/70 bg-card/90 p-5",
                             "shadow-md shadow-black/[0.04] backdrop-blur supports-backdrop-filter:bg-card/75",
                             "transition-all duration-300",
-                            "hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/[0.08]",
+                            "hover:-translate-y-1 hover:shadow-xl",
                             entry.is_platform_pinned && "border-amber-400/30",
                           )}
                         >
-                          <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-primary/[0.045] blur-3xl transition-opacity duration-300 group-hover:bg-primary/[0.09]" />
+                          <div className="resource-entry-glow pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full blur-3xl transition-all duration-300" />
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="secondary">
@@ -1743,11 +1761,11 @@ export function ResourcesHub() {
                               )}
                             </div>
 
-                            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                            <ArrowRight className="resource-entry-arrow h-4 w-4 shrink-0 text-muted-foreground transition-all group-hover:translate-x-1" />
                           </div>
 
                           <div className="mt-4 flex-1">
-                            <h3 className="relative text-[1.05rem] font-semibold leading-snug tracking-tight transition-colors group-hover:text-primary">
+                            <h3 className="resource-entry-title relative text-[1.05rem] font-semibold leading-snug tracking-tight transition-colors">
                               {entry.title}
                             </h3>
 
@@ -1789,7 +1807,7 @@ export function ResourcesHub() {
                             </div>
 
                             <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <ThumbsUp className="h-3.5 w-3.5" />
+                              <ThumbsUp className="resource-entry-like h-3.5 w-3.5 transition-colors" />
                               {likeCounts[entry.id] || 0}
                             </span>
                           </div>

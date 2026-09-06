@@ -342,6 +342,10 @@ export function CommunityHub() {
     () => new Set(),
   );
 
+  const [helpfulAnimations, setHelpfulAnimations] = useState<
+    Record<string, "liked" | "unliked" | null>
+  >({});
+
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const [submissionMode, setSubmissionMode] =
     useState<CommunitySubmissionType>("record_create");
@@ -550,7 +554,9 @@ export function CommunityHub() {
 
       try {
         const supabase = createClient();
+
         const currentlyHelpful = myHelpful[recordId] || false;
+        const nextHelpful = !currentlyHelpful;
 
         if (currentlyHelpful) {
           const { error } = await supabase
@@ -565,12 +571,27 @@ export function CommunityHub() {
         } else {
           const { error } = await supabase
             .from("hub_community_record_helpful")
-            .insert({ record_id: recordId, user_id: authUserId });
+            .insert({
+              record_id: recordId,
+              user_id: authUserId,
+            });
 
           if (error) {
             throw error;
           }
         }
+
+        setHelpfulAnimations((current) => ({
+          ...current,
+          [recordId]: nextHelpful ? "liked" : "unliked",
+        }));
+
+        window.setTimeout(() => {
+          setHelpfulAnimations((current) => ({
+            ...current,
+            [recordId]: null,
+          }));
+        }, 700);
 
         await loadMetrics(
           records.map((record) => record.id),
@@ -833,28 +854,71 @@ export function CommunityHub() {
           </div>
         </Link>
 
-        <div className="relative z-20 flex items-center gap-2 border-t border-border/45 bg-muted/[0.12] px-5 py-3 sm:px-6">
-          <Button
-            type="button"
-            size="sm"
-            variant={myHelpful[record.id] ? "secondary" : "ghost"}
-            disabled={updatingHelpfulIds.has(record.id)}
-            className={cn(
-              "h-8 cursor-pointer rounded-full px-3 text-xs",
-              myHelpful[record.id] &&
-                "bg-primary/10 text-primary hover:bg-primary/15",
+        <div className="relative z-20 flex flex-wrap items-center gap-2 border-t border-border/45 bg-muted/[0.12] px-5 py-3 sm:px-6">
+          <div className="relative isolate">
+            {helpfulAnimations[record.id] === "liked" && (
+              <div
+                aria-hidden="true"
+                className="helpful-card-celebration pointer-events-none absolute inset-0 z-0"
+              >
+                <span className="helpful-card-ring" />
+
+                <span className="helpful-card-particle helpful-card-particle-1" />
+                <span className="helpful-card-particle helpful-card-particle-2" />
+                <span className="helpful-card-particle helpful-card-particle-3" />
+                <span className="helpful-card-particle helpful-card-particle-4" />
+              </div>
             )}
-            onClick={() => toggleHelpful(record.id)}
-          >
-            <ThumbsUp className="mr-1.5 h-3.5 w-3.5" />
-            Helpful
-            <span className="ml-1.5 tabular-nums opacity-70">
-              {helpfulCounts[record.id] || 0}
-            </span>
-          </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              variant={myHelpful[record.id] ? "secondary" : "ghost"}
+              disabled={updatingHelpfulIds.has(record.id)}
+              className={cn(
+                "group/helpful-card relative z-10 h-8 cursor-pointer overflow-hidden rounded-full px-3 text-xs",
+                "transition-[background-color,color,box-shadow,transform] duration-300",
+                "active:scale-[0.96]",
+                myHelpful[record.id] &&
+                  "bg-primary/10 text-primary shadow-sm shadow-primary/10 hover:bg-primary/15",
+                helpfulAnimations[record.id] === "liked" &&
+                  "helpful-card-button-liked",
+                helpfulAnimations[record.id] === "unliked" &&
+                  "helpful-card-button-unliked",
+              )}
+              onClick={() => toggleHelpful(record.id)}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "helpful-shimmer absolute inset-0 -z-10 opacity-0",
+                  helpfulAnimations[record.id] === "liked" &&
+                    "helpful-shimmer-active",
+                )}
+              />
+
+              <span className="relative flex h-4 w-4 items-center justify-center">
+                <ThumbsUp
+                  className={cn(
+                    "absolute h-3.5 w-3.5 transition-[transform,fill] duration-300",
+                    myHelpful[record.id] && "fill-current",
+                    helpfulAnimations[record.id] === "liked" &&
+                      "helpful-icon-liked",
+                    helpfulAnimations[record.id] === "unliked" &&
+                      "helpful-icon-unliked",
+                  )}
+                />
+              </span>
+
+              <span className="ml-1.5 tabular-nums opacity-70">
+                {helpfulCounts[record.id] || 0}
+              </span>
+            </Button>
+          </div>
 
           <div className="inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground">
             <MessageCircle className="h-3.5 w-3.5" />
+
             <span className="tabular-nums">
               {commentCounts[record.id] || 0}
             </span>

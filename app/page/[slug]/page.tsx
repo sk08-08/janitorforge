@@ -11,10 +11,7 @@ import {
   fetchCreatorPageData,
   buildCreatorPageMeta,
 } from "@/features/creator-pages/lib/creator-page-data";
-import type {
-  CreatorPageConfig,
-  PageLayout,
-} from "@/features/creator-pages/types/creator-page-types";
+import type { CreatorPageConfig } from "@/features/creator-pages/types/creator-page-types";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -58,24 +55,9 @@ export default async function CreatorPagePage({ params }: PageProps) {
 
   return (
     <CreatorPageView
-      creator={{
-        id: data.creatorPage.user_id,
-        username: data.profile?.username || null,
-        display_name: data.profile?.display_name || null,
-        avatar_url: data.profile?.avatar_url || null,
-      }}
-      page={{
-        id: data.creatorPage.id,
-        slug: data.creatorPage.slug,
-        title: data.creatorPage.title,
-        description: data.creatorPage.description,
-        layout: (data.creatorPage.layout as PageLayout) || "grid",
-        is_published: data.creatorPage.is_published,
-      }}
       sections={data.sections}
       bots={data.bots}
       worlds={data.worlds}
-      allPages={data.allPages}
       pageConfig={(data.creatorPage.config as CreatorPageConfig) || {}}
     />
   );

@@ -2,6 +2,12 @@
 // Creator Page Types
 // ----------------------------------------------------------------------------
 
+import type { Dispatch, SetStateAction } from "react";
+
+// ----------------------------------------------------------------------------
+// Core section/page types
+// ----------------------------------------------------------------------------
+
 export type SectionKind =
   | "hero"
   | "bot_showcase"
@@ -18,16 +24,16 @@ export type SectionKind =
   | "gallery"
   | "embed";
 
-export type PageLayout = "grid" | "showcase" | "timeline" | "list";
-
-export interface CreatorPageData {
+export interface CreatorPage {
   id: string;
+  user_id: string;
   slug: string;
   title: string;
   description: string;
-  layout: PageLayout;
+  config: Record<string, unknown>;
   is_published: boolean;
-  config?: Record<string, string>;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CreatorPageSection {
@@ -39,23 +45,57 @@ export interface CreatorPageSection {
   position: number;
 }
 
-export interface CreatorPageConfig {
-  accentColor?: string;
-  bgStyle?: "default" | "dark" | "ambient" | "minimal";
-  fontStyle?: "default" | "serif" | "mono" | "display";
-  headerStyle?: "split" | "centered" | "minimal";
-  avatarSize?: "small" | "medium" | "large";
-  showBackButton?: string;
-  showBadges?: string;
-  [key: string]: string | undefined;
+/**
+ * Builder-side section row.
+ * The builder reads `created_at` from active_creator_page_sections.
+ */
+export interface PageSection extends CreatorPageSection {
+  created_at: string;
 }
 
-export interface CreatorInfo {
-  id: string;
-  username: string | null;
-  display_name: string | null;
-  avatar_url: string | null;
+// ----------------------------------------------------------------------------
+// Page canvas / appearance
+// ----------------------------------------------------------------------------
+
+export type CreatorPageCanvasWidth = "narrow" | "standard" | "wide" | "full";
+
+export type CreatorPageSectionGap = "compact" | "normal" | "relaxed";
+
+export type CreatorPagePadding = "compact" | "normal" | "spacious";
+
+export type CreatorPageMotionPreset = "none" | "subtle" | "expressive";
+
+export type CreatorPageBackgroundStyle =
+  | "default"
+  | "dark"
+  | "ambient"
+  | "minimal";
+
+export type CreatorPageFontStyle =
+  | "default"
+  | "serif"
+  | "mono"
+  | "display";
+
+export interface CreatorPageConfig {
+  schemaVersion?: number;
+
+  canvasWidth?: CreatorPageCanvasWidth;
+  sectionGap?: CreatorPageSectionGap;
+  pagePadding?: CreatorPagePadding;
+  motionPreset?: CreatorPageMotionPreset;
+
+  accentColor?: string;
+  bgStyle?: CreatorPageBackgroundStyle;
+  fontStyle?: CreatorPageFontStyle;
+
+  // Section/page JSON config remains intentionally extensible.
+  [key: string]: unknown;
 }
+
+// ----------------------------------------------------------------------------
+// Public/live preview resources
+// ----------------------------------------------------------------------------
 
 export interface BotPreview {
   id: string;
@@ -78,12 +118,87 @@ export interface WorldPreview {
   bot_ids: string[];
 }
 
+export interface CreatorPageLorebookPreview {
+  id: string;
+  world_id: string;
+  title: string;
+  summary: string;
+  world_title: string;
+}
+
+export interface CreatorPageFormState {
+  id: string;
+  shareable_link: string;
+  is_active: boolean;
+  deactivated_message: string;
+  deactivated_redirect_url: string;
+  deactivated_redirect_label: string;
+  deactivated_accent_color: string;
+}
+
 export interface CreatorPageViewProps {
-  creator: CreatorInfo;
-  page: CreatorPageData;
   sections: CreatorPageSection[];
   bots: BotPreview[];
   worlds: WorldPreview[];
-  allPages?: CreatorPageData[];
   pageConfig?: CreatorPageConfig;
+
+  lorebooks?: CreatorPageLorebookPreview[];
+  formStates?: Record<string, CreatorPageFormState>;
+
+  isBuilderPreview?: boolean;
+  selectedSectionId?: string | null;
+  onSectionSelect?: (sectionId: string) => void;
+}
+
+// ----------------------------------------------------------------------------
+// Builder shell
+// ----------------------------------------------------------------------------
+
+export type CreatorBuilderViewport = "desktop" | "tablet" | "mobile";
+
+export type CreatorBuilderPanel = "blocks" | "page";
+
+// ----------------------------------------------------------------------------
+// Inspector shared types
+// ----------------------------------------------------------------------------
+
+export type CreatorInspectorTab = "content" | "layout" | "style" | "motion";
+
+export interface CreatorInspectorBaseProps {
+  blockInspectorTab: CreatorInspectorTab;
+  setBlockInspectorTab: Dispatch<SetStateAction<CreatorInspectorTab>>;
+  sectionConfigEdit: Record<string, string>;
+  setSectionConfigEdit: Dispatch<SetStateAction<Record<string, string>>>;
+}
+
+export interface CreatorInspectorAnchorOption {
+  label: string;
+  value: string;
+}
+
+// ----------------------------------------------------------------------------
+// Inspector resource items
+// ----------------------------------------------------------------------------
+
+export type CreatorBotInspectorItem = BotPreview;
+
+export type CreatorWorldInspectorItem = WorldPreview;
+
+export interface CreatorLorebookInspectorItem
+  extends CreatorPageLorebookPreview {}
+
+export interface CreatorGalleryImageItem {
+  url: string;
+  alt: string;
+  caption?: string;
+}
+
+export interface CreatorFormInspectorItem extends CreatorPageFormState {
+  form_title: string;
+}
+
+export interface CreatorSocialLinkItem {
+  platform: string;
+  url: string;
+  label: string;
 }

@@ -212,6 +212,83 @@ html::-webkit-scrollbar-thumb:hover {
     box-shadow: 0 0 10px oklch(0.65 0.25 295 / 0.2);
   }
 
+  /* =========================================================
+   Resources — selected section accent
+   ========================================================= */
+
+  .resource-section-accent {
+    color: var(--resource-section-accent);
+  }
+
+  .resource-type-filter-active {
+    color: var(--resource-section-accent);
+    border-color: color-mix(
+      in oklch,
+      var(--resource-section-accent) 30%,
+      transparent
+    );
+    background: color-mix(
+      in oklch,
+      var(--resource-section-accent) 10%,
+      transparent
+    );
+  }
+
+  .resource-type-filter-active:hover {
+    color: var(--resource-section-accent);
+    border-color: color-mix(
+      in oklch,
+      var(--resource-section-accent) 42%,
+      transparent
+    );
+    background: color-mix(
+      in oklch,
+      var(--resource-section-accent) 15%,
+      transparent
+    );
+  }
+
+  .resource-entry-card:hover {
+    border-color: color-mix(
+      in oklch,
+      var(--resource-section-accent) 34%,
+      var(--border)
+    );
+
+    box-shadow:
+      0 20px 35px -18px rgb(0 0 0 / 0.18),
+      0 10px 30px -18px
+        color-mix(in oklch, var(--resource-section-accent) 18%, transparent);
+  }
+
+  .resource-entry-glow {
+    background: color-mix(
+      in oklch,
+      var(--resource-section-accent) 5%,
+      transparent
+    );
+  }
+
+  .resource-entry-card:hover .resource-entry-glow {
+    background: color-mix(
+      in oklch,
+      var(--resource-section-accent) 11%,
+      transparent
+    );
+  }
+
+  .resource-entry-card:hover .resource-entry-title {
+    color: var(--resource-section-accent);
+  }
+
+  .resource-entry-card:hover .resource-entry-arrow {
+    color: var(--resource-section-accent);
+  }
+
+  .resource-entry-card:hover .resource-entry-like {
+    color: var(--resource-section-accent);
+  }
+
   .dashboard-hero {
     position: relative;
     background:
@@ -877,129 +954,36 @@ html::-webkit-scrollbar-thumb:hover {
   }
 
   /* =========================================================
-   Resource Helpful animation
+   Resource Helpful
    ========================================================= */
 
+  .helpful-celebration {
+    overflow: visible;
+  }
+
+  /* ------------------------------------------------------------------
+   Button
+   ------------------------------------------------------------------ */
+
   .helpful-button-liked {
-    animation: jf-helpful-liked 700ms cubic-bezier(0.2, 1.4, 0.3, 1);
+    animation: jf-helpful-button-like 520ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .helpful-button-unliked {
-    animation: jf-helpful-unliked 430ms cubic-bezier(0.4, 0, 0.2, 1);
+    animation: jf-helpful-button-unlike 320ms ease-out;
   }
 
-  .helpful-icon-liked {
-    animation: jf-helpful-icon-liked 680ms cubic-bezier(0.18, 1.55, 0.4, 1);
-  }
-
-  .helpful-icon-unliked {
-    animation: jf-helpful-icon-unliked 420ms ease;
-  }
-
-  .helpful-label-change {
-    animation: jf-helpful-label 320ms ease;
-  }
-
-  .helpful-shimmer {
-    animation: jf-helpful-shimmer 700ms ease-out;
-  }
-
-  .helpful-ring {
-    position: absolute;
-    inset: 50% auto auto 50%;
-    z-index: 0;
-    height: 2.8rem;
-    width: 2.8rem;
-    pointer-events: none;
-    border: 2px solid color-mix(in oklch, var(--primary) 55%, transparent);
-    border-radius: 999px;
-    transform: translate(-50%, -50%);
-    animation: jf-helpful-ring 700ms ease-out forwards;
-  }
-
-  .helpful-particle {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    z-index: 20;
-    height: 0.3rem;
-    width: 0.3rem;
-    pointer-events: none;
-    border-radius: 999px;
-    background: var(--primary);
-    box-shadow: 0 0 8px color-mix(in oklch, var(--primary) 55%, transparent);
-    transform: translate(-50%, -50%);
-  }
-
-  .helpful-particle-1 {
-    --particle-x: -2.7rem;
-    --particle-y: -1.8rem;
-    animation: jf-helpful-particle 650ms ease-out forwards;
-  }
-
-  .helpful-particle-2 {
-    --particle-x: 0rem;
-    --particle-y: -2.7rem;
-    animation: jf-helpful-particle 700ms ease-out forwards;
-  }
-
-  .helpful-particle-3 {
-    --particle-x: 2.8rem;
-    --particle-y: -1.5rem;
-    animation: jf-helpful-particle 620ms ease-out forwards;
-  }
-
-  .helpful-particle-4 {
-    --particle-x: 2.6rem;
-    --particle-y: 1.7rem;
-    animation: jf-helpful-particle 720ms ease-out forwards;
-  }
-
-  .helpful-particle-5 {
-    --particle-x: -0.4rem;
-    --particle-y: 2.7rem;
-    animation: jf-helpful-particle 660ms ease-out forwards;
-  }
-
-  .helpful-particle-6 {
-    --particle-x: -2.9rem;
-    --particle-y: 1.4rem;
-    animation: jf-helpful-particle 740ms ease-out forwards;
-  }
-
-  @keyframes jf-helpful-liked {
-    0% {
-      transform: scale(1);
-    }
-
-    32% {
-      transform: scale(0.92);
-    }
-
-    58% {
-      transform: scale(1.12);
-    }
-
-    78% {
-      transform: scale(0.98);
-    }
-
-    100% {
-      transform: scale(1);
-    }
-  }
-
-  @keyframes jf-helpful-unliked {
+  @keyframes jf-helpful-button-like {
     0% {
       transform: scale(1);
     }
 
     38% {
-      transform: scale(0.94);
+      transform: scale(0.96);
     }
 
-    72% {
-      transform: scale(1.035);
+    68% {
+      transform: scale(1.045);
     }
 
     100% {
@@ -1007,105 +991,479 @@ html::-webkit-scrollbar-thumb:hover {
     }
   }
 
-  @keyframes jf-helpful-icon-liked {
+  @keyframes jf-helpful-button-unlike {
     0% {
-      transform: rotate(0deg) scale(1);
+      transform: scale(1);
     }
 
-    28% {
-      transform: rotate(-18deg) scale(0.82);
-    }
-
-    54% {
-      transform: rotate(12deg) scale(1.45);
-    }
-
-    74% {
-      transform: rotate(-5deg) scale(1.1);
+    50% {
+      transform: scale(0.975);
     }
 
     100% {
-      transform: rotate(0deg) scale(1);
+      transform: scale(1);
     }
   }
 
-  @keyframes jf-helpful-icon-unliked {
+  /* ------------------------------------------------------------------
+   Thumb
+   ------------------------------------------------------------------ */
+
+  .helpful-icon-liked {
+    transform-origin: 45% 80%;
+    animation: jf-helpful-thumb-like 620ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .helpful-icon-unliked {
+    animation: jf-helpful-thumb-unlike 280ms ease-out;
+  }
+
+  @keyframes jf-helpful-thumb-like {
     0% {
-      transform: rotate(0deg) scale(1);
+      transform: translateY(0) rotate(0deg) scale(1);
     }
 
-    42% {
-      transform: rotate(-9deg) scale(0.84);
+    28% {
+      transform: translateY(1px) rotate(-9deg) scale(0.84);
     }
 
-    72% {
-      transform: rotate(5deg) scale(1.08);
+    58% {
+      transform: translateY(-2px) rotate(10deg) scale(1.28);
+    }
+
+    78% {
+      transform: translateY(0) rotate(-3deg) scale(1.08);
     }
 
     100% {
-      transform: rotate(0deg) scale(1);
+      transform: translateY(0) rotate(0deg) scale(1);
     }
+  }
+
+  @keyframes jf-helpful-thumb-unlike {
+    0% {
+      transform: scale(1);
+    }
+
+    45% {
+      transform: scale(0.86) rotate(-5deg);
+    }
+
+    100% {
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  /* ------------------------------------------------------------------
+   Label
+   ------------------------------------------------------------------ */
+
+  .helpful-label-change {
+    animation: jf-helpful-label 320ms ease-out;
   }
 
   @keyframes jf-helpful-label {
     0% {
       opacity: 0;
-      transform: translateY(5px);
-      filter: blur(2px);
+      transform: translateY(4px);
     }
 
     100% {
       opacity: 1;
       transform: translateY(0);
-      filter: blur(0);
     }
+  }
+
+  /* ------------------------------------------------------------------
+   Shimmer
+   ------------------------------------------------------------------ */
+
+  .helpful-shimmer {
+    background: linear-gradient(
+      105deg,
+      transparent 20%,
+      rgb(255 255 255 / 0.24) 48%,
+      transparent 76%
+    );
+    transform: translateX(-135%);
+  }
+
+  .helpful-shimmer-active {
+    opacity: 1;
+    animation: jf-helpful-shimmer 720ms ease-out;
   }
 
   @keyframes jf-helpful-shimmer {
     0% {
-      opacity: 0;
-      transform: translateX(-110%);
-    }
-
-    30% {
-      opacity: 1;
+      transform: translateX(-135%);
     }
 
     100% {
-      opacity: 0;
-      transform: translateX(110%);
+      transform: translateX(135%);
     }
+  }
+
+  /* ------------------------------------------------------------------
+   Ring + halo
+   ------------------------------------------------------------------ */
+
+  .helpful-burst-ring,
+  .helpful-burst-halo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    border-radius: 999px;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+
+  .helpful-burst-ring {
+    width: calc(100% + 0.75rem);
+    height: calc(100% + 0.75rem);
+
+    border: 1.5px solid color-mix(in oklch, var(--primary) 55%, transparent);
+
+    animation: jf-helpful-ring 650ms ease-out forwards;
+  }
+
+  .helpful-burst-halo {
+    width: calc(100% + 1.25rem);
+    height: calc(100% + 1.25rem);
+
+    background: color-mix(in oklch, var(--primary) 12%, transparent);
+
+    animation: jf-helpful-halo 560ms ease-out forwards;
   }
 
   @keyframes jf-helpful-ring {
     0% {
       opacity: 0.8;
+      transform: translate(-50%, -50%) scale(0.78);
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1.16);
+    }
+  }
+
+  @keyframes jf-helpful-halo {
+    0% {
+      opacity: 0.65;
       transform: translate(-50%, -50%) scale(0.7);
     }
 
     100% {
       opacity: 0;
-      transform: translate(-50%, -50%) scale(2.25);
+      transform: translate(-50%, -50%) scale(1.08);
     }
   }
 
-  @keyframes jf-helpful-particle {
+  /* =========================================================
+   Community record card helpful
+   ========================================================= */
+
+  .helpful-card-celebration {
+    overflow: visible;
+  }
+
+  .helpful-card-button-liked {
+    animation: jf-helpful-card-like 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .helpful-card-button-unliked {
+    animation: jf-helpful-card-unlike 260ms ease-out;
+  }
+
+  @keyframes jf-helpful-card-like {
     0% {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(0.5);
+      transform: scale(1);
     }
 
-    55% {
-      opacity: 1;
+    40% {
+      transform: scale(0.95);
+    }
+
+    72% {
+      transform: scale(1.06);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes jf-helpful-card-unlike {
+    0% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(0.97);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .helpful-card-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+
+    width: calc(100% + 0.55rem);
+    height: calc(100% + 0.55rem);
+
+    border: 1px solid color-mix(in oklch, var(--primary) 48%, transparent);
+
+    border-radius: 999px;
+
+    transform: translate(-50%, -50%) scale(0.75);
+
+    animation: jf-helpful-card-ring 520ms ease-out forwards;
+  }
+
+  @keyframes jf-helpful-card-ring {
+    from {
+      opacity: 0.75;
+      transform: translate(-50%, -50%) scale(0.75);
+    }
+
+    to {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1.15);
+    }
+  }
+
+  .helpful-card-particle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+
+    width: 0.24rem;
+    height: 0.24rem;
+
+    border-radius: 999px;
+    background: var(--primary);
+
+    opacity: 0;
+
+    animation: jf-helpful-card-particle 520ms cubic-bezier(0.16, 1, 0.3, 1)
+      forwards;
+  }
+
+  .helpful-card-particle-1 {
+    --card-x: -2rem;
+    --card-y: -1.2rem;
+  }
+
+  .helpful-card-particle-2 {
+    --card-x: -0.7rem;
+    --card-y: -1.8rem;
+
+    width: 0.18rem;
+    height: 0.18rem;
+  }
+
+  .helpful-card-particle-3 {
+    --card-x: 0.9rem;
+    --card-y: -1.7rem;
+  }
+
+  .helpful-card-particle-4 {
+    --card-x: 2rem;
+    --card-y: -0.8rem;
+
+    width: 0.18rem;
+    height: 0.18rem;
+  }
+
+  @keyframes jf-helpful-card-particle {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4);
+    }
+
+    20% {
+      opacity: 0.9;
     }
 
     100% {
       opacity: 0;
       transform: translate(
-          calc(-50% + var(--particle-x)),
-          calc(-50% + var(--particle-y))
+          calc(-50% + var(--card-x)),
+          calc(-50% + var(--card-y))
         )
-        scale(1.15);
+        scale(0.15);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .helpful-card-button-liked,
+    .helpful-card-button-unliked,
+    .helpful-card-ring,
+    .helpful-card-particle {
+      animation: none !important;
+    }
+  }
+
+  /* ------------------------------------------------------------------
+   Particles
+   ------------------------------------------------------------------ */
+
+  .helpful-particle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+
+    width: 0.32rem;
+    height: 0.32rem;
+
+    border-radius: 999px;
+
+    background: var(--primary);
+
+    opacity: 0;
+
+    transform: translate(-50%, -50%);
+
+    animation: jf-helpful-particle 650ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /*
+ * Direction is stored in custom properties so every particle
+ * shares one lightweight transform/opacity animation.
+ */
+
+  .helpful-particle-1 {
+    --helpful-x: -4rem;
+    --helpful-y: -1.6rem;
+  }
+
+  .helpful-particle-2 {
+    --helpful-x: -2.2rem;
+    --helpful-y: -2.8rem;
+
+    width: 0.22rem;
+    height: 0.22rem;
+
+    animation-delay: 35ms;
+  }
+
+  .helpful-particle-3 {
+    --helpful-x: 0.25rem;
+    --helpful-y: -3.2rem;
+
+    width: 0.25rem;
+    height: 0.25rem;
+
+    animation-delay: 15ms;
+  }
+
+  .helpful-particle-4 {
+    --helpful-x: 2.8rem;
+    --helpful-y: -2.5rem;
+
+    animation-delay: 40ms;
+  }
+
+  .helpful-particle-5 {
+    --helpful-x: 4rem;
+    --helpful-y: -0.8rem;
+
+    width: 0.24rem;
+    height: 0.24rem;
+  }
+
+  .helpful-particle-6 {
+    --helpful-x: 3rem;
+    --helpful-y: 1.7rem;
+
+    width: 0.2rem;
+    height: 0.2rem;
+
+    animation-delay: 55ms;
+  }
+
+  @keyframes jf-helpful-particle {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4);
+    }
+
+    18% {
+      opacity: 0.9;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate(
+          calc(-50% + var(--helpful-x)),
+          calc(-50% + var(--helpful-y))
+        )
+        scale(0.15);
+    }
+  }
+
+  /* ------------------------------------------------------------------
+   Hover
+   ------------------------------------------------------------------ */
+
+  .group\/helpful:hover .helpful-icon-liked {
+    transform: translateY(-1px) rotate(-3deg);
+  }
+
+  /* ------------------------------------------------------------------
+   Mobile
+   ------------------------------------------------------------------ */
+
+  @media (max-width: 639px) {
+    .helpful-particle-1 {
+      --helpful-x: -2.7rem;
+      --helpful-y: -1.4rem;
+    }
+
+    .helpful-particle-2 {
+      --helpful-x: -1.7rem;
+      --helpful-y: -2.2rem;
+    }
+
+    .helpful-particle-3 {
+      --helpful-x: 0;
+      --helpful-y: -2.5rem;
+    }
+
+    .helpful-particle-4 {
+      --helpful-x: 1.7rem;
+      --helpful-y: -2.2rem;
+    }
+
+    .helpful-particle-5 {
+      --helpful-x: 2.7rem;
+      --helpful-y: -1.35rem;
+    }
+
+    .helpful-particle-6 {
+      --helpful-x: 2rem;
+      --helpful-y: 1.3rem;
+    }
+  }
+
+  /* ------------------------------------------------------------------
+   Reduced motion
+   ------------------------------------------------------------------ */
+
+  @media (prefers-reduced-motion: reduce) {
+    .helpful-button-liked,
+    .helpful-button-unliked,
+    .helpful-icon-liked,
+    .helpful-icon-unliked,
+    .helpful-label-change,
+    .helpful-shimmer-active,
+    .helpful-burst-ring,
+    .helpful-burst-halo,
+    .helpful-particle {
+      animation: none !important;
     }
   }
 

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { HexColorPicker } from "react-colorful";
+import { RotateCcw } from "lucide-react";
 
 const defaultPresets = [
   { label: "Violet", value: "#7c3aed" },
@@ -27,6 +28,17 @@ interface CustomColorPickerProps {
   value: string;
   onChange: (value: string) => void;
   presets?: Array<{ label: string; value: string }>;
+
+  /**
+   * When enabled, an empty string represents "inherit/default".
+   * Existing usages remain unchanged because this defaults to false.
+   */
+  allowEmpty?: boolean;
+  emptyLabel?: string;
+}
+
+function isHexColor(value: string) {
+  return /^#[0-9a-f]{6}$/i.test(value);
 }
 
 export function CustomColorPicker({
@@ -34,44 +46,62 @@ export function CustomColorPicker({
   value,
   onChange,
   presets = defaultPresets,
+  allowEmpty = false,
+  emptyLabel = "Default",
 }: CustomColorPickerProps) {
-  const normalized = String(value || "")
-    .trim()
-    .startsWith("#")
-    ? String(value || "").trim()
-    : "#7c3aed";
+  const rawValue = String(value || "").trim();
+  const isEmpty = allowEmpty && !rawValue;
+
+  const normalized = isHexColor(rawValue) ? rawValue : "#7c3aed";
 
   const isCustomColor =
+    !isEmpty &&
     normalized &&
-    !presets.some((p) => p.value.toLowerCase() === normalized.toLowerCase());
+    !presets.some(
+      (preset) => preset.value.toLowerCase() === normalized.toLowerCase(),
+    );
 
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <Label className="text-xs">{label}</Label>
+
       <Popover>
         <PopoverTrigger asChild>
           <Button
             type="button"
             variant="outline"
-            className="h-10 w-full justify-start gap-3 border-border/80 bg-card/85 px-3 shadow-sm transition-colors hover:bg-muted/55 cursor-pointer"
+            className="h-10 w-full min-w-0 cursor-pointer justify-start gap-3 border-border/80 bg-card/85 px-3 shadow-sm transition-colors hover:bg-muted/55"
           >
             <span
-              className="h-5 w-5 rounded-full border border-foreground/15 shadow-sm ring-1 ring-black/5"
-              style={{ backgroundColor: normalized }}
-            />
-            <span className="flex flex-1 flex-col items-start text-left">
-              <span className="text-sm font-medium">{label}</span>
-              <span className="font-mono text-[11px] text-muted-foreground uppercase">
-                {normalized}
+              className={cn(
+                "relative h-5 w-5 shrink-0 overflow-hidden rounded-full border border-foreground/15 shadow-sm ring-1 ring-black/5",
+                isEmpty && "bg-muted",
+              )}
+              style={!isEmpty ? { backgroundColor: normalized } : undefined}
+            >
+              {isEmpty && (
+                <span
+                  aria-hidden="true"
+                  className="absolute left-1/2 top-1/2 h-px w-7 -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-muted-foreground/70"
+                />
+              )}
+            </span>
+
+            <span className="flex min-w-0 flex-1 flex-col items-start text-left">
+              <span className="truncate text-sm font-medium">{label}</span>
+              <span className="truncate font-mono text-[11px] uppercase text-muted-foreground">
+                {isEmpty ? emptyLabel : normalized}
               </span>
             </span>
           </Button>
         </PopoverTrigger>
+
         <PopoverContent
-          className="w-80 border-border/80 bg-popover p-4 shadow-xl"
+          className="w-[min(20rem,calc(100vw-2rem))] border-border/80 bg-popover p-4 shadow-xl"
           align="start"
           sideOffset={8}
-          avoidCollisions={true}
+          collisionPadding={12}
+          avoidCollisions
         >
           <div className="space-y-4">
             <div className="w-full overflow-hidden rounded-lg border border-border/50 shadow-inner">
@@ -83,20 +113,24 @@ export function CustomColorPicker({
             </div>
 
             <div>
-              <p className="text-sm font-medium mb-2">Suggested colors</p>
+              <p className="mb-2 text-sm font-medium">Suggested colors</p>
+
               <div className="grid grid-cols-4 gap-2">
                 {presets.map((preset) => (
                   <button
                     key={preset.value}
                     type="button"
                     data-state={
+                      !isEmpty &&
                       normalized.toLowerCase() === preset.value.toLowerCase()
                         ? "on"
                         : "off"
                     }
                     className={cn(
-                      "group flex flex-col items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-2 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-muted/40 cursor-pointer",
-                      normalized.toLowerCase() === preset.value.toLowerCase() &&
+                      "group flex min-w-0 cursor-pointer flex-col items-center gap-1 rounded-xl border border-border/70 bg-card/70 p-2 transition-all hover:-translate-y-0.5 hover:border-primary/45 hover:bg-muted/40",
+                      !isEmpty &&
+                        normalized.toLowerCase() ===
+                          preset.value.toLowerCase() &&
                         "border-primary/70 bg-primary/10 shadow-sm",
                     )}
                     onClick={() => onChange(preset.value)}
@@ -105,7 +139,8 @@ export function CustomColorPicker({
                       className="h-7 w-7 rounded-full border shadow-sm transition-transform group-hover:scale-105"
                       style={{ backgroundColor: preset.value }}
                     />
-                    <span className="text-[10px] font-medium text-muted-foreground">
+
+                    <span className="max-w-full truncate text-[10px] font-medium text-muted-foreground">
                       {preset.label}
                     </span>
                   </button>
@@ -115,13 +150,16 @@ export function CustomColorPicker({
 
             <div className="space-y-1.5 pt-1">
               <Label className="text-xs">Custom hex</Label>
+
               <Input
-                value={normalized}
-                onChange={(e) => onChange(e.target.value)}
+                value={isEmpty ? "" : rawValue || normalized}
+                onChange={(event) => onChange(event.target.value)}
+                placeholder="#7C3AED"
                 className="h-9 font-mono text-xs uppercase"
                 maxLength={7}
                 spellCheck={false}
               />
+
               {isCustomColor && (
                 <div
                   className="mt-2 h-1.5 w-full rounded-full shadow-inner transition-colors duration-300"
@@ -129,6 +167,19 @@ export function CustomColorPicker({
                 />
               )}
             </div>
+
+            {allowEmpty && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full cursor-pointer justify-start rounded-lg text-xs text-muted-foreground"
+                onClick={() => onChange("")}
+              >
+                <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                Use {emptyLabel.toLowerCase()}
+              </Button>
+            )}
           </div>
         </PopoverContent>
       </Popover>

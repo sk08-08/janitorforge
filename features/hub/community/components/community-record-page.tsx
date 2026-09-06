@@ -418,6 +418,9 @@ export function CommunityRecordPage({
   const [helpfulCount, setHelpfulCount] = useState(0);
   const [isHelpful, setIsHelpful] = useState(false);
   const [updatingHelpful, setUpdatingHelpful] = useState(false);
+  const [helpfulAnimation, setHelpfulAnimation] = useState<
+    "liked" | "unliked" | null
+  >(null);
 
   const [submissionOpen, setSubmissionOpen] = useState(false);
   const [submissionMode, setSubmissionMode] =
@@ -653,6 +656,8 @@ export function CommunityRecordPage({
       return;
     }
 
+    const nextHelpful = !isHelpful;
+
     setUpdatingHelpful(true);
 
     try {
@@ -677,7 +682,13 @@ export function CommunityRecordPage({
         if (error) throw error;
       }
 
+      setHelpfulAnimation(nextHelpful ? "liked" : "unliked");
+
       await loadDetail();
+
+      window.setTimeout(() => {
+        setHelpfulAnimation(null);
+      }, 750);
     } catch (error: any) {
       toast.error(error.message || "Could not update Helpful.");
     } finally {
@@ -898,29 +909,80 @@ export function CommunityRecordPage({
               Back to Community
             </Link>
 
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={isHelpful ? "secondary" : "outline"}
-                className={cn(
-                  "cursor-pointer rounded-full",
-                  isHelpful &&
-                    "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15",
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative isolate">
+                {helpfulAnimation === "liked" && (
+                  <div
+                    aria-hidden="true"
+                    className="helpful-celebration pointer-events-none absolute inset-0 z-0"
+                  >
+                    <span className="helpful-burst-ring" />
+                    <span className="helpful-burst-halo" />
+
+                    <span className="helpful-particle helpful-particle-1" />
+                    <span className="helpful-particle helpful-particle-2" />
+                    <span className="helpful-particle helpful-particle-3" />
+                    <span className="helpful-particle helpful-particle-4" />
+                    <span className="helpful-particle helpful-particle-5" />
+                    <span className="helpful-particle helpful-particle-6" />
+                  </div>
                 )}
-                disabled={updatingHelpful}
-                onClick={toggleHelpful}
-              >
-                {updatingHelpful ? (
-                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ThumbsUp className="mr-2 h-3.5 w-3.5" />
-                )}
-                Helpful
-                <span className="ml-1.5 tabular-nums opacity-70">
-                  {helpfulCount}
-                </span>
-              </Button>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={isHelpful ? "secondary" : "outline"}
+                  className={cn(
+                    "group/helpful relative z-10 cursor-pointer overflow-hidden rounded-full",
+                    "transition-[background-color,border-color,color,box-shadow,transform] duration-300",
+                    "active:scale-[0.97]",
+                    isHelpful &&
+                      "border-primary/20 bg-primary/10 text-primary shadow-sm shadow-primary/10 hover:bg-primary/15",
+                    helpfulAnimation === "liked" && "helpful-button-liked",
+                    helpfulAnimation === "unliked" && "helpful-button-unliked",
+                  )}
+                  disabled={updatingHelpful}
+                  onClick={toggleHelpful}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "helpful-shimmer absolute inset-0 -z-10 opacity-0",
+                      helpfulAnimation === "liked" && "helpful-shimmer-active",
+                    )}
+                  />
+
+                  {updatingHelpful ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <span className="relative mr-2 flex h-4 w-4 items-center justify-center">
+                      <ThumbsUp
+                        className={cn(
+                          "absolute h-3.5 w-3.5 transition-[transform,fill] duration-300",
+                          isHelpful && "fill-current",
+                          helpfulAnimation === "liked" && "helpful-icon-liked",
+                          helpfulAnimation === "unliked" &&
+                            "helpful-icon-unliked",
+                        )}
+                      />
+                    </span>
+                  )}
+
+                  <span
+                    key={isHelpful ? "helpful-active" : "helpful-idle"}
+                    className={cn(
+                      "inline-block",
+                      helpfulAnimation && "helpful-label-change",
+                    )}
+                  >
+                    Helpful
+                  </span>
+
+                  <span className="ml-1.5 tabular-nums opacity-70">
+                    {helpfulCount}
+                  </span>
+                </Button>
+              </div>
 
               <Button
                 type="button"
