@@ -867,7 +867,7 @@ export function CreatorPageBuilder({ pageId }: { pageId: string }) {
           onSave={() => void handleSavePage()}
         />
 
-        <div className="mx-auto grid w-full max-w-[1800px] flex-1 grid-cols-1 xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
+        <div className="mx-auto grid w-full flex-1 grid-cols-1 xl:grid-cols-[18rem_minmax(0,1fr)_20rem]">
           <CreatorPageBlocksPanel
             panel={builderPanel}
             sections={editingPageSections}

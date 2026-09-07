@@ -15,6 +15,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { BotTagBadge, BotTagCountBadge } from "./bot-tag-badge";
 
+import { MarkdownRenderer } from "@/features/markdown/components/markdown-renderer";
+
 interface BotDetailData {
   id: string;
   name: string;
@@ -110,9 +112,10 @@ export function BotDetailModal({
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
               Description
             </p>
-            <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">
-              {description}
-            </p>
+            <MarkdownRenderer
+              content={description}
+              className="text-sm text-foreground/90 [&>*:last-child]:mb-0"
+            />
           </div>
 
           {/* Sensitive fields */}
@@ -121,9 +124,10 @@ export function BotDetailModal({
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
                 Personality
               </p>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
-                {bot.personality}
-              </p>
+              <MarkdownRenderer
+                content={bot.personality}
+                className="text-sm text-foreground/80 [&>*:last-child]:mb-0"
+              />
             </div>
           )}
 
@@ -132,9 +136,10 @@ export function BotDetailModal({
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
                 Scenario
               </p>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
-                {bot.scenario}
-              </p>
+              <MarkdownRenderer
+                content={bot.scenario}
+                className="text-sm text-foreground/80 [&>*:last-child]:mb-0"
+              />
             </div>
           )}
 
@@ -143,9 +148,10 @@ export function BotDetailModal({
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
                 First Message
               </p>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80 italic">
-                {bot.firstMessage}
-              </p>
+              <MarkdownRenderer
+                content={bot.firstMessage}
+                className="text-sm text-foreground/80 [&>*:last-child]:mb-0"
+              />
             </div>
           )}
 
@@ -165,9 +171,10 @@ export function BotDetailModal({
                       Greeting {index + 2}
                     </p>
 
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
-                      {message}
-                    </p>
+                    <MarkdownRenderer
+                      content={message}
+                      className="text-sm text-foreground/80 [&>*:last-child]:mb-0"
+                    />
                   </div>
                 ))}
               </div>
@@ -179,9 +186,10 @@ export function BotDetailModal({
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1.5">
                 Example Dialogues
               </p>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/80">
-                {bot.exampleDialogues}
-              </p>
+              <MarkdownRenderer
+                content={bot.exampleDialogues}
+                className="text-sm text-foreground/80 [&>*:last-child]:mb-0"
+              />
             </div>
           )}
 

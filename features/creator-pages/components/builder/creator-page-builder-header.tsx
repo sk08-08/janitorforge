@@ -16,7 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import type { CreatorBuilderViewport, CreatorPage } from "@/features/creator-pages/types/creator-page-types";
+import type {
+  CreatorBuilderViewport,
+  CreatorPage,
+} from "@/features/creator-pages/types/creator-page-types";
 
 interface CreatorPageBuilderHeaderProps {
   page: CreatorPage;
@@ -43,7 +46,7 @@ export function CreatorPageBuilderHeader({
 }: CreatorPageBuilderHeaderProps) {
   return (
     <div className="sticky top-0 z-[70] border-b border-border/70 bg-background px-3 py-3 sm:px-5">
-      <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="mx-auto flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             variant="ghost"

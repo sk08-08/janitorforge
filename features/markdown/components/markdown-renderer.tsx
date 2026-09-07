@@ -186,12 +186,13 @@ export function MarkdownRenderer({
           pre: ({ children, ...props }: any) => (
             <pre
               className={cn(
-                "mb-2 max-w-full overflow-x-auto rounded-lg bg-muted p-4",
-                "text-sm",
+                "mb-2 max-w-full overflow-hidden rounded-lg bg-muted p-4",
+                "whitespace-pre-wrap break-words text-sm",
                 "[&_code]:bg-transparent",
                 "[&_code]:p-0",
                 "[&_code]:text-inherit",
-                "[&_code]:break-normal",
+                "[&_code]:whitespace-pre-wrap",
+                "[&_code]:break-words",
               )}
               {...props}
             >
@@ -204,7 +205,7 @@ export function MarkdownRenderer({
               className={cn(
                 "font-mono",
                 "rounded bg-muted px-1.5 py-0.5 text-sm",
-                "break-all wrap-anywhere",
+                "wrap-anywhere",
                 codeClass,
               )}
               {...props}
